@@ -1,0 +1,268 @@
+﻿<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>IXIAN Wallet</title>
+        <link rel="stylesheet" type="text/css" href="https://resources.ixian.io/css/normalize.css">
+        <link rel="stylesheet" type="text/css" href="https://resources.ixian.io/css/bootstrap37.css">
+        <link rel="stylesheet" type="text/css" href="https://resources.ixian.io/css/style.css">
+        
+        <script src="https://resources.ixian.io/js/jquery.min.js"></script>
+        <script src="https://resources.ixian.io/js/bootstrap.min.js"></script>
+		<script src="https://resources.ixian.io/js/qrcode.min.js"></script>
+        <script src="https://resources.ixian.io/js/instascan.min.js"></script>
+
+    </head>
+	
+	<body>
+		<div id="wrap" class="container-fluid">
+		    <nav class="navbar navbar-default navbar-fixed-top">
+                <div class="row">
+                    <div class="col-xs-10"><img src="https://resources.ixian.io/img/logofull.png" /></div> 
+                    <div class="col-xs-2 navbar-version">v 0.1</div>
+                </div>
+		    </nav>
+            
+            
+            <div class="tab-content">
+
+                <div id="home" class="tab-pane fade in active">
+
+                    <div id="status_balance">
+                        <p class="text-center top">Available Balance</p>
+                        <p class="text-center"><span class="status_dbalance" id="activity_balance_number">0</span> <i>IXI</i></p>
+
+                    </div>
+
+                    <div class="recent_activity">
+                        RECENT ACTIVITY
+                    </div>
+
+                    <div id="sync_bar" class="sync_bar">
+                        <p class="text-center" style="padding-top:8px">The blockchain is not fully synchronized</p>
+                    </div>
+
+                    <div id="payments" style="display: none;">
+
+                        <div class="payment psent">
+                            <div class="row">
+                                <div class="col-xs-2 psign"><img src="https://resources.ixian.io/img/sendr.png" /></div>
+                                <div class="col-xs-6 pdesc">payment sent</div>
+                                <div class="col-xs-4 pamount">-145</div>
+                            </div>
+                        </div>
+
+                        <div class="payment preceived">
+                            <div class="row">
+                                <div class="col-xs-2 psign"><img src="https://resources.ixian.io/img/payr.png" /></div>
+                                <div class="col-xs-6 pdesc">payment received</div>
+                                <div class="col-xs-4 pamount">+145</div>
+                            </div>
+                        </div>
+                        
+                    </div>
+				
+                </div>
+                
+                
+                
+                
+                <div id="receive" class="tab-pane fade">
+                           
+                    <div class="screen_headerbar">
+                        <p class="text-center" style="padding-top:8px">Receive Funds</p>
+                    </div>
+                    
+                    <div id="qr_container">
+                        <p class="text-center top">scan the QR code to send funds</p>
+						<div id="qrcode" class="middle"></div>
+                        
+                        <p class="text-center bottom">CURRENT ADDRESS</p>
+
+                    </div>
+                    
+                    <div class="receive_address" id="receive_own_address">
+                        0
+                    </div>
+                    
+                    <div class="generate_address">
+                        Generate new address
+                    </div>
+                    
+                </div>
+                
+                
+                
+                <div id="send" class="tab-pane fade">
+                    <div class="screen_headerbar">
+                        <p class="text-center" style="padding-top:8px">Send Funds</p>
+                    </div>
+                    
+                    <div class="send_address">
+                        enter address or choose recipient
+                    </div>
+                    
+					<form id="sendForm">
+                        
+                    <div class="address_edit">
+						<input type="text" id="address" placeholder="" class="input-sm form-control address_input">
+                        <img class="camerabtn" onclick="javascript:readQR()" src="https://resources.ixian.io/img/camera.png" style="display: inline-block" />                       
+                    </div>
+                        
+                    <div class="send_amount">
+                        enter amount
+                    </div>
+					
+                    <div class="amount_edit">
+						<input type="text" id="amount" placeholder="" class="input-sm form-control">
+                    </div>
+                        
+                        
+                    <div id="send_balance">
+                        <p class="text-center top">Available Balance</p>
+                        <p class="text-center"><span class="status_dbalance" id="send_balance_number">0</span> <i>IXI</i></p>
+
+                    </div>
+                        
+                    <div class= "send_button_wrap">
+                        <input type="submit" class="btn sendbtn" value="Send">
+    
+                    </div>
+                        
+					</form>
+                    
+                </div>
+                
+            </div>
+            
+
+            
+		</div>
+		<div id="footer">
+		  <div class="col-xs-12 navbar-inverse navbar-fixed-bottom">
+		  <div class="row" id="bottomNav">
+		    <div id="tab1" class="col-xs-4 text-center"><a data-toggle="tab" href="#receive"><img src="https://resources.ixian.io/img/receive.png"/><br>RECEIVE</a></div>
+		    <div id="tab2" class="col-xs-4 text-center active"><a data-toggle="tab" href="#home"><img src="https://resources.ixian.io/img/activity.png"/><br>ACTIVITY</a></div>
+		    <div id="tab3" class="col-xs-4 text-center"><a data-toggle="tab" href="#send"><img src="https://resources.ixian.io/img/send.png"/><br>SEND</a></div>
+		  </div>
+		  </div>
+		</div>
+		
+		
+		
+		
+		<script type="text/javascript">
+		var qrcode = new QRCode(document.getElementById("qrcode"), {
+			width : 300,
+			height : 300
+		});
+            
+        var balance = 0;
+            
+        function getMyWallet() {
+            //console.log( "getMyWallet" );
+            
+            var dltAPI = "#IXIAN#NODE#URL#";
+			$.getJSON(dltAPI+"mywallet", { } )
+				.done(function(data) {
+				
+                var sync_status = data[2];
+				balance = data[1];
+				var address = data[0];
+								
+				// Assign relevant wallet information
+				document.getElementById("activity_balance_number").innerHTML = balance;
+				document.getElementById("send_balance_number").innerHTML = balance;
+				document.getElementById("receive_own_address").innerHTML = address;
+
+                if(sync_status == "sync")
+                {
+                    // Show the syncbar
+    				document.getElementById("sync_bar").style.display = "block";
+                }
+                else
+                {
+				    // Hide the syncbar
+				    document.getElementById("sync_bar").style.display = "none";
+                }
+
+				// Create the QR code
+				qrcode.clear();
+				qrcode.makeCode(address);
+				
+
+				});
+        }
+		
+            
+        function sendTransaction() {
+            var address = document.getElementById("address").value;
+            var amount = document.getElementById("amount").value;
+            
+			console.log("Amount " + amount);
+            if(amount < 1) //  || amount > balance)
+            {
+                alert("Incorrect amount. Make sure you have enough IXI available.");
+                return;
+            }
+            
+//            console.log("Sending " + amount + " to " + address);
+            
+            var dltAPI = "#IXIAN#NODE#URL#"+"addtransaction?to="+address+"&amount="+amount;						
+			$.getJSON(dltAPI, {format : "json"})
+				.done(function(data) {
+					getMyWallet();
+				});
+			
+        }
+        
+        
+        function readQR() {
+            console.log( "Starting QR code reader");
+            
+            let scanner = new Instascan.Scanner({ });
+              scanner.addListener('scan', function (content) {
+                    console.log("QRscanner: " + content);
+                    document.getElementById("address").innerHTML = content;
+              });
+              Instascan.Camera.getCameras().then(function (cameras) {
+                if (cameras.length > 0) {
+                    scanner.start(cameras[0]);
+                } else {
+                    console.error('No cameras found.');
+                    alert("No camera found. Please type the address to send funds to.");
+                }
+              }).catch(function (e) {
+                console.error(e);
+              });
+            
+        }
+        
+            
+        // Function to toggle tab's active color    
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                // Not very elegant, but it works
+                document.getElementById("tab1").className = "col-xs-4 text-center";
+                document.getElementById("tab2").className = "col-xs-4 text-center";
+                document.getElementById("tab3").className = "col-xs-4 text-center";
+                e.target.parentElement.className = "col-xs-4 text-center active";                    
+        })
+            
+        $(function() {
+            console.log( "Wallet loaded" );
+            
+            getMyWallet();
+            setInterval(getMyWallet, 5000);
+
+        });
+            
+        $('#sendForm').submit(function() {
+            sendTransaction();
+            return false;
+        });
+            
+		</script>
+	</body>
+</html>
