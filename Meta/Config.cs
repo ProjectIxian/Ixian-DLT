@@ -25,6 +25,7 @@ namespace DLT
 
             // Read-only values
             public static readonly int nodeVersion = 4;
+            public static readonly ulong minimumMasterNodeFunds = 2000; // Limit master nodes to this amount or above
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
             public static readonly int keepAliveInterval = 60; // Number of seconds to wait until next keepalive ping

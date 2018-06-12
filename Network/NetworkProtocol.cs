@@ -225,7 +225,24 @@ namespace DLT
                                         // Connect to this node only if it's a master node
                                         if(node_type == 'M')
                                         {
-                                            if(NetworkServer.addNeighbor(hostname))
+                                            // Check the wallet balance for the minimum amount of coins
+                                            ulong balance = WalletState.getDeltaBalanceForAddress(addr);
+                                            if(balance < Config.minimumMasterNodeFunds)
+                                            {
+                                                using (MemoryStream m2 = new MemoryStream())
+                                                {
+                                                    using (BinaryWriter writer = new BinaryWriter(m2))
+                                                    {
+                                                        writer.Write(string.Format("Insufficient funds. Minimum is {0}", Config.minimumMasterNodeFunds));
+                                                        Logging.info(string.Format("Rejected master node {0} due to insufficient funds: {1}", hostname, balance));
+                                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
+                                                        socket.Disconnect(true);
+                                                        return;
+                                                    }
+                                                }
+                                            }
+
+                                            if (NetworkServer.addNeighbor(hostname))
                                                 Logging.info(string.Format("Master node detected at {0}. Added as neighbor.", hostname));
                                         }
 
@@ -445,9 +462,17 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.newWallet:
+                        case ProtocolMessageCode.bye:
                             {
-                                // Deprecated
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        // Retrieve the message
+                                        string message = reader.ReadString();
+                                        Logging.warn(string.Format("Disconnected with message: {0}", message));
+                                    }
+                                }
                             }
                             break;
 
