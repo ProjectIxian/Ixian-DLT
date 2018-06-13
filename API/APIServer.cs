@@ -382,6 +382,14 @@ namespace DLTNode
                 return true;
             }
 
+            if (methodName.Equals("blockheight", StringComparison.OrdinalIgnoreCase))
+            {
+                ulong blockheight = Node.blockChain.currentBlockNum;
+                string responseString = JsonConvert.SerializeObject(blockheight);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
 
             return false;
         }
