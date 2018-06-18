@@ -118,6 +118,7 @@ namespace DLT.Meta
                 Console.WriteLine("\t{0}) {1}", counter, ip);
                 counter++;
             }
+            Console.WriteLine("\tM) Manual Entry");
             Console.WriteLine();
 
             Console.Write("Choose option [default 0]: ");
@@ -125,8 +126,15 @@ namespace DLT.Meta
             int option = 0;
             try
             {
-                var result = Console.ReadLine();
-                option = Convert.ToInt32(result);
+                string result = Console.ReadLine();
+                if (result.Equals("m", StringComparison.OrdinalIgnoreCase))
+                {
+                    option = -1;
+                }
+                else
+                {
+                    option = Convert.ToInt32(result);
+                }
             }
             catch(Exception)
             {
@@ -134,13 +142,25 @@ namespace DLT.Meta
                 option = 0;
             }
 
-            if (option > ips.Count || option < 0)
-                option = 0;
+            if (option == -1)
+            {
+                Console.Write("Type Manual IP: ");
+                string chosenIP = Console.ReadLine();
+                if (chosenIP != null && chosenIP.Length < 255)
+                {
+                    Config.publicServerIP = chosenIP;
+                    Console.WriteLine("Using option M) {0} as the default external IP for this node.", chosenIP);
+                }
+            }
+            else
+            {
+                if (option > ips.Count || option < 0)
+                    option = 0;
 
-            string chosenIP = ips[option];
-            Config.publicServerIP = chosenIP;
-
-            Console.WriteLine("Using option {0}) {1} as the default external IP for this node.", option, chosenIP);
+                string chosenIP = ips[option];
+                Config.publicServerIP = chosenIP;
+                Console.WriteLine("Using option {0}) {1} as the default external IP for this node.", option, chosenIP);
+            }
         }
 
     }
