@@ -108,7 +108,11 @@ namespace DLT
                 netControllerThread.Start(nod);
 
                 // Retrieve the public-accessible IP address
-                publicIPAddress = CoreNetworkUtils.GetLocalIPAddress();
+                publicIPAddress = Config.publicServerIP; // CoreNetworkUtils.GetLocalIPAddress();
+
+              //  WebClient client = new WebClient();
+            //    publicIPAddress = client.DownloadString("http://seed1.ixian.io/myip");
+
                 Logging.info(string.Format("Public network node address: {0} port {1}", publicIPAddress, Config.serverPort));
 
                 // Finally, start the ping thread

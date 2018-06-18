@@ -34,6 +34,9 @@ namespace DLT.Meta
             // Create the block processor
             blockProcessor = new BlockProcessor();
 
+            // Show the IP selector menu
+            showIPmenu();
+
             // Start the node server
             NetworkServer.beginNetworkOperations();
 
@@ -101,6 +104,44 @@ namespace DLT.Meta
 
         }
 
+        // Shows an IP selector menu
+        static public void showIPmenu()
+        {
+            Console.WriteLine("This node needs to be reachable from the internet. Please select a valid IP address.");
+            Console.WriteLine();
+
+            List<string> ips = CoreNetworkUtils.GetAllLocalIPAddresses();
+
+            uint counter = 0;
+            foreach (string ip in ips)
+            {
+                Console.WriteLine("\t{0}) {1}", counter, ip);
+                counter++;
+            }
+            Console.WriteLine();
+
+            Console.Write("Choose option [default 0]: ");
+
+            int option = 0;
+            try
+            {
+                var result = Console.ReadLine();
+                option = Convert.ToInt32(result);
+            }
+            catch(Exception)
+            {
+                // Handle exceptions
+                option = 0;
+            }
+
+            if (option > ips.Count || option < 0)
+                option = 0;
+
+            string chosenIP = ips[option];
+            Config.publicServerIP = chosenIP;
+
+            Console.WriteLine("Using option {0}) {1} as the default external IP for this node.", option, chosenIP);
+        }
 
     }
 }

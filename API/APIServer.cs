@@ -389,7 +389,14 @@ namespace DLTNode
                 sendResponse(context.Response, responseString);
                 return true;
             }
-
+            
+            if (methodName.Equals("myip", StringComparison.OrdinalIgnoreCase))
+            {
+                string clientIp = context.Request.RemoteEndPoint.Address.ToString();
+                string responseString = clientIp;
+                sendResponse(context.Response, responseString);
+                return true;
+            }
 
             return false;
         }
