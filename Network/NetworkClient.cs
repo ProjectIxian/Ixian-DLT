@@ -115,10 +115,23 @@ namespace DLT
         // Sends data over the network
         public void sendData(ProtocolMessageCode code, byte[] data)
         {
+            if (!isConnected())
+            {
+                Logging.info(string.Format("Attempted to senddata to disconnected client {0}", address));
+                reconnect();
+                return;
+            }
+
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
             try
             {
                 tcpClient.Client.Send(ba, SocketFlags.None);
+                if (tcpClient.Client.Connected == false)
+                {
+                    Console.WriteLine("Failed senddata to client: {0}. Reconnecting.", address);
+                    reconnect();
+
+                }
             }
             catch(Exception)
             {
@@ -223,8 +236,14 @@ namespace DLT
         public bool sendKeepAlive(byte[] data)
         {
             sendData(ProtocolMessageCode.keepAlivePresence, data);
-
             return true;
+        }
+
+        // Send a ping message to this server
+        public void sendPing()
+        {
+            byte[] tmp = new byte[1];
+            sendData(ProtocolMessageCode.ping, tmp);
         }
 
         public bool isConnected()

@@ -241,10 +241,7 @@ namespace DLT
                 {
                     foreach (NetworkClient client in networkClients)
                     {
-                        if (client.isConnected() == false)
-                        {
-                            client.reconnect();
-                        }
+                        client.sendPing();
                     }
                 }
 
