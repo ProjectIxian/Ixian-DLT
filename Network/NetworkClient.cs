@@ -78,6 +78,7 @@ namespace DLT
                         }
                         break;
                 }
+                tcpClient.Client.Close();
                 running = false;
                 return false;
             }
