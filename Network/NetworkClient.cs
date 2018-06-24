@@ -70,6 +70,7 @@ namespace DLT
                         break;
 
                     case SocketError.AddressAlreadyInUse:
+                        Logging.warn(string.Format("Socket exception for {0}:{1} has failed. Address already in use.", hostname, port));
                         break;
 
                     default:

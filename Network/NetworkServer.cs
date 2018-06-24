@@ -335,7 +335,6 @@ namespace DLT
                     {
                         //Console.WriteLine("!!! Failed to ping remote endpoint.");
                         endpoint.state = RemoteEndpointState.Closed;
-
                     }
                 }
                 catch (Exception e)

@@ -219,6 +219,7 @@ namespace DLT
             //Storage.appendToStorage(block.getBytes());
             Storage.insertBlock(block);
 
+            /* // For debugging block signatures
             Console.WriteLine("### BLOCK {0}", block.blockNum);
             // Write each signature
             foreach (string signature in block.signatures)
@@ -226,7 +227,7 @@ namespace DLT
                 Console.WriteLine(signature);
             }
             Console.WriteLine("######");
-
+            */
             return true;
         }
 

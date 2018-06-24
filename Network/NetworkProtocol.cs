@@ -117,7 +117,7 @@ namespace DLT
                                 if (endpoint.presence == null)
                                 {
                                     // Check for presence and only accept hello and syncPL messages if there is no presence.
-                                    if (code == ProtocolMessageCode.hello || code == ProtocolMessageCode.syncPresenceList)
+                                    if (code == ProtocolMessageCode.hello || code == ProtocolMessageCode.syncPresenceList || code == ProtocolMessageCode.getBalance)
                                     {
 
                                     }
@@ -193,6 +193,10 @@ namespace DLT
 
                                     string hostname = reader.ReadString();
                                     Console.WriteLine("Received IP: {0}", hostname);
+
+                                    // Verify that the reported hostname matches the actual socket's IP
+                                    //endpoint.remoteIP;
+
 
                                     // Another layer to catch any incompatible node exceptions for the hello message
                                     try
