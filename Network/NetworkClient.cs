@@ -79,7 +79,17 @@ namespace DLT
                         }
                         break;
                 }
-                tcpClient.Client.Close();
+
+                // Todo: make this more elegant
+                try
+                {
+                    tcpClient.Client.Close();
+                }
+                catch(Exception e)
+                {
+                    Logging.warn(string.Format("Socket exception when closing. Reason {0}", e.ToString()));
+                }
+
                 running = false;
                 return false;
             }
