@@ -19,6 +19,7 @@ namespace DLT.Meta
 
 
         public static bool serverStarted = false;
+        public static bool presenceListActive = false;
 
         static public void start()
         {
@@ -88,11 +89,14 @@ namespace DLT.Meta
             
             // Stop the network server
             NetworkServer.stopNetworkOperations();
+
+            presenceListActive = false;
         }
 
         static public void reconnect()
         {
             // Reconnect server and clients
+            presenceListActive = false;
             NetworkServer.restartNetworkOperations();
             NetworkClientManager.restartClients();
         }

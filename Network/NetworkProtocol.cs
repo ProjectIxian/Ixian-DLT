@@ -688,7 +688,12 @@ namespace DLT
                                 if(isAuthoritativeNode(endpoint, socket))
                                 {
                                     Console.WriteLine("NET: Receiving complete presence list");
-                                    PresenceList.syncFromBytes(data);
+                                    if (Node.presenceListActive == false)
+                                    {
+                                        Logging.info("Synchronizing complete presence list.");
+                                        PresenceList.syncFromBytes(data);
+                                        Node.presenceListActive = true;
+                                    }
                                 }
                             }
                             break;

@@ -171,7 +171,7 @@ namespace DLT
                 {
                     using (BinaryWriter writer = new BinaryWriter(m))
                     {
-                        string publicHostname = string.Format("{0}:{1}", NetworkServer.publicIPAddress, Config.serverPort);
+                        string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
                         // Send the public IP address and port
                         writer.Write(publicHostname);
 
