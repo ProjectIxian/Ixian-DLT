@@ -17,6 +17,9 @@ namespace DLT.Meta
 
         public static bool genesisNode = false;
 
+
+        public static bool serverStarted = false;
+
         static public void start()
         {
             // Load or Generate the wallet
@@ -37,16 +40,17 @@ namespace DLT.Meta
             // Show the IP selector menu
             showIPmenu();
 
-            // Start the node server
-            NetworkServer.beginNetworkOperations();
 
             // Check if this is a genesis node
             if (Config.genesisFunds > 0)
             {
                 genesisNode = true;
 
+                // Start the node server if genesis
+                NetworkServer.beginNetworkOperations();
+
                 // Generate the initial presence list
-                PresenceList.generatePresenceList();
+                PresenceList.generatePresenceList(Config.publicServerIP);
 
                 // Stop at here since it's a genesis node
                 return;
@@ -64,6 +68,17 @@ namespace DLT.Meta
             // Cleanup the presence list
             // TODO: optimize this by using a different thread perhaps
             PresenceList.performCleanup();
+
+            if(serverStarted == false)
+            {
+                if(Node.blockProcessor.synchronized == true)
+                {
+                    Console.WriteLine("Starting Network Server now.");
+                    // Start the node server
+                    NetworkServer.beginNetworkOperations();
+                    serverStarted = true;
+                }
+            }
         }
 
         static public void stop()

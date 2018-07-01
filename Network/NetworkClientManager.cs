@@ -49,6 +49,9 @@ namespace DLT
                 {
                     // Connect client immediately
                     connectTo(CoreNetworkUtils.seedNodes[i]);
+                    
+                    // Wait before connecting to another client
+                    Thread.Sleep(2000);
                 }
             }
 

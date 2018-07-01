@@ -102,7 +102,7 @@ namespace DLTNode
                 catch(Exception e)
                 {
                     continueRunning = false;
-                    Logging.error(string.Format("Critical error in API server {0}", e.ToString()));
+                    Logging.error(string.Format("Error in API server {0}", e.ToString()));
                 }
             }
 

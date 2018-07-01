@@ -26,7 +26,7 @@ namespace DLT
 
         bool canGenerateNewBlock = true;
 
-        private bool synchronized = false;
+        public bool synchronized = false;
 
         public BlockProcessor()
         {
