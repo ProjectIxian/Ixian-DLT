@@ -22,6 +22,12 @@ namespace DLT
 
         public NetworkClient()
         {
+            prepareClient();
+        }
+
+        // Prepare the client socket
+        public void prepareClient()
+        {
             tcpClient = new TcpClient();
 
             // Don't allow another socket to bind to this port.
@@ -34,13 +40,8 @@ namespace DLT
             // Disable the Nagle Algorithm for this tcp socket.
             tcpClient.Client.NoDelay = true;
 
-            tcpClient.Client.ReceiveBufferSize = 1024 * 64;// 8192;
-//            tcpClient.Client.ReceiveTimeout = 1000;
-
-            tcpClient.Client.SendBufferSize = 1024 * 64;// 8192;
- //           tcpClient.Client.SendTimeout = 1000;
-
-   //         tcpClient.Client.Ttl = 42;
+            tcpClient.Client.ReceiveBufferSize = 1024 * 64;
+            tcpClient.Client.SendBufferSize = 1024 * 64;
 
         }
 
@@ -50,11 +51,8 @@ namespace DLT
             tcpPort = port;
             address = string.Format("{0}:{1}", hostname, port);
 
-            if (tcpClient.Client.Connected)
-            {
-                tcpClient.Client.Shutdown(SocketShutdown.Both);
-                tcpClient.Client.Disconnect(true);
-            }
+            // Prepare the TCP client
+            prepareClient();
 
             try
             {
@@ -120,6 +118,22 @@ namespace DLT
                 return false;
             }
 
+            // Check if socket already disconnected
+            if (tcpClient == null)
+            {
+                // TODO: handle this scenario
+            }
+            else if (tcpClient.Client == null)
+            {
+                // TODO: handle this scenario
+            }
+            else if (tcpClient.Client.Connected)
+            {
+                tcpClient.Client.Shutdown(SocketShutdown.Both);
+                tcpClient.Close();
+            }
+
+            Logging.info(string.Format("--> Reconnecting to {0}", address));
             return connectToServer(tcpHostname, tcpPort);
         }
 
@@ -127,13 +141,6 @@ namespace DLT
         // Sends data over the network
         public void sendData(ProtocolMessageCode code, byte[] data)
         {
-            if (!isConnected())
-            {
-                Logging.info(string.Format("Attempted to senddata to disconnected client {0}", address));
-                reconnect();
-                return;
-            }
-
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
             try
             {
