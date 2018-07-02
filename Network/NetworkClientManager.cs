@@ -130,6 +130,17 @@ namespace DLT
             // Resolve the hostname first
             string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
 
+            // Verify against the publicly disclosed ip
+            // Don't connect to self
+            if (resolved_server_name.Equals(Config.publicServerIP, StringComparison.Ordinal))
+            {
+                if (server[1].Equals(string.Format("{0}", Config.serverPort), StringComparison.Ordinal))
+                {
+                    Logging.info(string.Format("Skipping connection to public self seed node {0}", host));
+                    return;
+                }
+            }
+
             // Get all self addresses and run through them
             List<string> self_addresses = CoreNetworkUtils.GetAllLocalIPAddresses();
             foreach (string self_address in self_addresses)
@@ -281,7 +292,7 @@ namespace DLT
                         using (BinaryWriter writer = new BinaryWriter(m))
                         {
 
-                            string publicHostname = string.Format("{0}:{1}", NetworkServer.publicIPAddress, Config.serverPort);
+                            string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
                             string wallet = Node.walletStorage.address;
                             writer.Write(wallet);
                             writer.Write(Config.device_id);
