@@ -68,12 +68,12 @@ namespace DLT
                         break;
 
                     case SocketError.AddressAlreadyInUse:
-                        Logging.warn(string.Format("Socket exception for {0}:{1} has failed. Address already in use.", hostname, port));
+                            Logging.warn(string.Format("Socket exception for {0}:{1} has failed. Address already in use.", hostname, port));
                         break;
 
                     default:
                         {
-                            Logging.warn(string.Format("Socket exception for {0}:{1} has failed. Reason {2}", hostname, port, se.ToString()));
+                            Logging.warn(string.Format("Socket connection for {0}:{1} has failed.", hostname, port));
                         }
                         break;
                 }
@@ -85,7 +85,7 @@ namespace DLT
                 }
                 catch(Exception e)
                 {
-                    Logging.warn(string.Format("Socket exception when closing. Reason {0}", e.ToString()));
+                    Logging.warn(string.Format("Socket exception for {0}:{1} when closing.", hostname, port));
                 }
 
                 running = false;
@@ -93,7 +93,7 @@ namespace DLT
             }
             catch (Exception e)
             {
-                Logging.warn(string.Format("Network client connection to {0}:{1} has failed. Reason {2}", hostname, port, e.ToString()));
+                Logging.warn(string.Format("Network client connection to {0}:{1} has failed.", hostname, port));
                 running = false;
                 return false;
             }

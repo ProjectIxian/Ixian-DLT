@@ -46,8 +46,13 @@ namespace DLT
             if (seconds == 0 || seconds == 30)
             {
                 if (localNewBlock != null)
-                    Console.WriteLine("\n\n++++ @Local Block #{0} ++++", localNewBlock.blockNum);
+                {
+                    // Deprecation support
+                    if (Node.checkCurrentBlockDeprecation(localNewBlock.blockNum) == false)
+                        return false;
 
+                    Console.WriteLine("\n\n++++ @Block Height #{0} ++++", localNewBlock.blockNum);
+                }
                 // Check if we're still in synchronization mode. If so, do not generate a new block.
                 if(inSyncMode)
                 {
@@ -62,18 +67,18 @@ namespace DLT
                 // Don't generate new blocks if we haven't synchronized yet and we're not on the genesis node.
                 if(synchronized == false && Node.genesisNode == false)
                 {
-                    Console.WriteLine("Blockchain not synchronized to network. Please connect to a valid node.");
+                    Logging.warn(String.Format("Blockchain not synchronized to network. Please connect to a valid node."));
                     return true;
                 }
 
 
                 // If the new block is ready, add it to the blockchain and update the walletstate
-                if ( newBlockReady == true)
+                if(newBlockReady == true)
                 {
-                    if (localNewBlock.signatures.Count() < Node.blockChain.minimumConsensusSignatures && localNewBlock.blockNum > 1)
+                    if(localNewBlock.signatures.Count() < Node.blockChain.minimumConsensusSignatures && localNewBlock.blockNum > 1)
                     {
-                        Console.WriteLine("Not enough signatures {0}/{1} to insert new block #{2} into blockchain. Waiting for more...", 
-                            localNewBlock.signatures.Count(), Node.blockChain.minimumConsensusSignatures, localNewBlock.blockNum);
+                        Logging.warn(String.Format("Not enough signatures {0}/{1} to insert new block #{2} into blockchain. Waiting for more...", 
+                            localNewBlock.signatures.Count(), Node.blockChain.minimumConsensusSignatures, localNewBlock.blockNum));
 
                         // Request the block from the network
                         using (MemoryStream mw = new MemoryStream())
@@ -90,8 +95,6 @@ namespace DLT
 
                         return false;
                     }
-
-                    Console.WriteLine("\tAdding new block #{0} and updating walletstate...", localNewBlock.blockNum);
 
                     // Insert the block into the blockchain
                     Node.blockChain.insertBlock(localNewBlock);
@@ -112,9 +115,7 @@ namespace DLT
                 if (canGenerateNewBlock == false)
                     return false;
 
-
-                Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
-                Console.WriteLine(String.Format("{0}: TxPool contains {1} transactions", unixTimestamp.ToString(), TransactionPool.activeTransactions));
+                //Logging.info(String.Format("TxPool contains {0} transactions", TransactionPool.activeTransactions));
 
                 // Generate a new block
                 generateNewBlock();
@@ -177,7 +178,7 @@ namespace DLT
         // Checks an incoming new block
         public bool checkIncomingBlock(Block incomingBlock, Socket socket)
         {
-            Logging.info(string.Format("Incoming block #{0}...", incomingBlock.blockNum));
+            //Logging.info(string.Format("Incoming block #{0}...", incomingBlock.blockNum));
 
             // We have no local block generated yet. Possibly fresh start of node
             if (localNewBlock == null)
@@ -207,7 +208,7 @@ namespace DLT
                 if (incomingBlock.blockNum < localNewBlock.blockNum)
                 {
                     // Todo: validate a previous block in the blockchain (if possible at this point)
-                    Console.WriteLine("Merging older block {0} into blockchain. Processing block is {1}", incomingBlock.blockNum, localNewBlock.blockNum);
+                    //Console.WriteLine("Merging older block {0} into blockchain. Processing block is {1}", incomingBlock.blockNum, localNewBlock.blockNum);
                     Node.blockChain.insertOldBlock(incomingBlock);
                     return false;
                 }
@@ -222,7 +223,7 @@ namespace DLT
                     {
                         if (incomingBlock.signatures.Count() > localNewBlock.signatures.Count())
                         {
-                            Console.WriteLine("Block {0} already signed and has more signatures. Re-broadcasting...", incomingBlock.blockNum);
+                            //Console.WriteLine("Block {0} already signed and has more signatures. Re-broadcasting...", incomingBlock.blockNum);
 
                             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newBlock, incomingBlock.getBytes(), socket);
                             localNewBlock = incomingBlock;
@@ -231,7 +232,7 @@ namespace DLT
 
                         // Console.WriteLine("Block {0} already signed and has less signatures. Discarding.", incomingBlock.blockNum);
                         // Discard the block
-                        Console.WriteLine("Already signed. Discarding.");
+                        //Console.WriteLine("Already signed. Discarding.");
                         return true;
                     }
                     else
@@ -239,7 +240,7 @@ namespace DLT
                         // Apply our signature. 
                         // No additional checks needed as the block checksum matches the locally calculated one
                         incomingBlock.applySignature();
-                        Console.WriteLine("Incoming block #{0} = local block. Signing and broadcasting to network...", incomingBlock.blockNum);
+                        //Console.WriteLine("Incoming block #{0} = local block. Signing and broadcasting to network...", incomingBlock.blockNum);
 
                         // Broadcast it
                         ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newBlock, incomingBlock.getBytes());
@@ -253,7 +254,7 @@ namespace DLT
                 // Incoming block is newer
                 if (incomingBlock.blockNum > localNewBlock.blockNum)
                 {
-                    Console.WriteLine("Incoming block is newer, checking consensus...");
+                    //Console.WriteLine("Incoming block is newer, checking consensus...");
                     // If the incoming block has more than the network-defined lower limit of signatures,
                     // the block is immediately accepted as valid.
                     // In this case we've probably been delayed by external factors.
@@ -264,25 +265,25 @@ namespace DLT
                         // Broadcast the block
                         ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newBlock, incomingBlock.getBytes());
                         localNewBlock = incomingBlock;
-                        Console.WriteLine("Accepted newer block");
+                        //Console.WriteLine("Accepted newer block");
                         return true;
                     }
-                    Console.WriteLine("Discarding newer block.");
+                    //Console.WriteLine("Discarding newer block.");
                     // Otherwise discard this newer block.
                     return false;
                 }
 
-                Console.WriteLine("block #{0} checksum is not equal to local block #{1}", incomingBlock.blockNum, localNewBlock.blockNum);
+                Logging.warn(String.Format("block #{0} checksum is not equal to local block #{1}", incomingBlock.blockNum, localNewBlock.blockNum));
 
                 // If the incoming block has more than the network-defined lower limit of signatures,
                 // the block is immediately accepted as valid.
                 if (incomingBlock.signatures.Count() >= Node.blockChain.minimumConsensusSignatures)
                 {
-                    Console.WriteLine("block {0} is consensus approved. Accepting as valid...", incomingBlock.blockNum);
+                    //Console.WriteLine("block {0} is consensus approved. Accepting as valid...", incomingBlock.blockNum);
                     bool already_signed = incomingBlock.hasNodeSignature();
                     if (already_signed == false)
                     {
-                        Console.WriteLine("block {0} signed and rebroadcast.");
+                        //Console.WriteLine("block {0} signed and rebroadcast.");
                         // Apply our signature
                         incomingBlock.applySignature();
                         // Broadcast the block
@@ -296,7 +297,7 @@ namespace DLT
                 // If the incoming block has fewer transactions than the local block, no action is taken.
                 if (incomingBlock.transactions.Count() < localNewBlock.transactions.Count())
                 {
-                    Console.WriteLine("block {0} has fewer transactions than the local block. No action is taken.");
+                    //Console.WriteLine("block {0} has fewer transactions than the local block. No action is taken.");
                     return false;
                 }
 
@@ -326,12 +327,12 @@ namespace DLT
                     // We do not have this transaction in the pool. Request it.
                     if (tx_found == false)
                     {
-                        Console.WriteLine(">>>>> Missing TX: {0}", txid);
+                        //Console.WriteLine(">>>>> Missing TX: {0}", txid);
                         //ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.getTransaction,);
                     }
                 }
 
-                Console.WriteLine("Accepting incoming block {1} as local block {0}", localNewBlock.blockNum, incomingBlock.blockNum);
+                //Console.WriteLine("Accepting incoming block {1} as local block {0}", localNewBlock.blockNum, incomingBlock.blockNum);
                 // Apply our signature
                 incomingBlock.applySignature();
                 // Broadcast the block
@@ -409,7 +410,7 @@ namespace DLT
             else
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Wallet state checksum mismatch, requesting walletstate sync!");
+                Console.WriteLine("Wallet state checksum mismatch! Requesting walletstate synchronization.");
                 Console.ResetColor();
 
                 ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.syncWalletState, new byte[1]);

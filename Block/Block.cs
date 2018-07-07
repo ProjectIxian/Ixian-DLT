@@ -199,6 +199,38 @@ namespace DLT
             return false;
         }
 
+        // Returns the number of unique signatures
+        public int getUniqueSignatureCount()
+        {
+            int signature_count = 0;
+
+            // TODO: optimize this section to handle a large amount of signatures efficiently
+            int sindex1 = 0;
+            foreach (string signature in signatures)
+            {
+                bool duplicate = false;
+                int sindex2 = 0;
+                foreach (string signature_check in signatures)
+                {
+                    if (sindex1 == sindex2)
+                        continue;
+
+                    if(signature.Equals(signature_check, StringComparison.Ordinal))
+                    {
+                        duplicate = true;
+                    }
+                    sindex2++;
+                }
+
+                if(duplicate == false)
+                {
+                    signature_count++;
+                }
+                sindex1++;
+            }
+
+            return signature_count;
+        }
 
         public void setWalletStateChecksum(string checksum)
         {

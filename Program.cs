@@ -75,7 +75,10 @@ namespace DLTNode
 
         static void onUpdate(object source, ElapsedEventArgs e)
         {
-            Node.update();
+            if(Node.update() == false)
+            {
+                apiServer.forceShutdown = true;
+            }
         }
 
         static void onStop()

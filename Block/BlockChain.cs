@@ -67,14 +67,14 @@ namespace DLT
                     currentBlockNum = new_block.blockNum;
                     
                     // Set the next minimum consensus to 75% of previous block's signatures
-                    minimumConsensusSignatures = (int)((float)new_block.signatures.Count() * 0.75);
+                    minimumConsensusSignatures = (int)((float)new_block.getUniqueSignatureCount() * 0.75);
 
                     // Require at least two signatures to proceed
                     if (minimumConsensusSignatures < 2)
                         minimumConsensusSignatures = 2;
 
-                    Console.WriteLine("Added block {0} to blockchain. Minimum consensus is {1} / {2}\n", 
-                        currentBlockNum, minimumConsensusSignatures, new_block.signatures.Count());
+                    Logging.info(String.Format("Added block {0} to blockchain. Minimum consensus is {1} / {2}\n", 
+                        currentBlockNum, minimumConsensusSignatures, new_block.getUniqueSignatureCount()));
                     return true;
                 }
 
@@ -165,8 +165,8 @@ namespace DLT
             if (block.blockNum == 1)
                 return true;
 
-            // TODO: add verification based on signatures. Do not just accept the block if it has at least x signatures
-            if (block.signatures.Count() >= minimumConsensusSignatures)
+            // TODO: add additional verification based on signatures
+            if (block.getUniqueSignatureCount() >= minimumConsensusSignatures)
             {
                 return true;
             }

@@ -385,10 +385,21 @@ namespace DLT
                     var existing_clients = connectedClients.Where(re => re.remoteIP.Address == clientEndpoint.Address);
                     if (existing_clients.Count() > 0)
                     {
-                        Logging.warn(String.Format("Client {0}:{1} already connected as {2}:{3}.",
+                        Logging.warn(String.Format("Client {0}:{1} already connected as {2}.",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port, existing_clients.First().ToString()));
                         // TODO: handle this situation (client already connected)
                     }
+
+                    // Setup socket keepalive mechanism
+                    int size = sizeof(UInt32);
+                    UInt32 on = 1;
+                    UInt32 keepAliveInterval = 10000; // send a packet once every x seconds.
+                    UInt32 retryInterval = 1000; // if no response, resend every second.
+                    byte[] inArray = new byte[size * 3];
+                    Array.Copy(BitConverter.GetBytes(on), 0, inArray, 0, size);
+                    Array.Copy(BitConverter.GetBytes(keepAliveInterval), 0, inArray, size, size);
+                    Array.Copy(BitConverter.GetBytes(retryInterval), 0, inArray, size * 2, size);
+                    clientSocket.IOControl(IOControlCode.KeepAliveValues, inArray, null);
 
                     // Setup the remote endpoint
                     RemoteEndpoint remoteEndpoint = new RemoteEndpoint();
@@ -429,7 +440,7 @@ namespace DLT
                         }
                         catch (Exception e)
                         {
-                            Console.WriteLine("Disconnected client: {0}", e.ToString());
+                            //Console.WriteLine("Disconnected client: {0}", e.ToString());
                             client.state = RemoteEndpointState.Closed;
                         }
                     }

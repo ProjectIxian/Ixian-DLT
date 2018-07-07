@@ -117,7 +117,7 @@ namespace DLT
                                 if (endpoint.presence == null)
                                 {
                                     // Check for presence and only accept hello and syncPL messages if there is no presence.
-                                    if (code == ProtocolMessageCode.hello || code == ProtocolMessageCode.syncPresenceList || code == ProtocolMessageCode.getBalance)
+                                    if (code == ProtocolMessageCode.hello || code == ProtocolMessageCode.syncPresenceList || code == ProtocolMessageCode.getBalance || code == ProtocolMessageCode.newTransaction)
                                     {
 
                                     }
@@ -192,7 +192,7 @@ namespace DLT
                                     }
 
                                     string hostname = reader.ReadString();
-                                    Console.WriteLine("Received IP: {0}", hostname);
+                                    //Console.WriteLine("Received IP: {0}", hostname);
 
                                     // Verify that the reported hostname matches the actual socket's IP
                                     //endpoint.remoteIP;
@@ -216,7 +216,7 @@ namespace DLT
                                         {
 
                                         }
-                                        Console.WriteLine("Received Address: {0} of type {1}", addr, node_type);
+                                        //Console.WriteLine("Received Address: {0} of type {1}", addr, node_type);
 
                                         // Store the presence address for this remote endpoint
                                         endpoint.presenceAddress = new PresenceAddress(device_id, hostname, node_type);
@@ -295,7 +295,7 @@ namespace DLT
 
                                     byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
                                     socket.Send(ba, SocketFlags.None);
-                                    Console.WriteLine("Sent hello data for block height #{0}", lastBlock);
+                                    //Console.WriteLine("Sent hello data for block height #{0}", lastBlock);
 
                                 }
                             }
@@ -321,13 +321,19 @@ namespace DLT
                                     string block_checksum = reader.ReadString();
                                     string walletstate_checksum = reader.ReadString();
 
-                                    Console.WriteLine(string.Format("Hello: Node version {0}", node_version));
+                                    Console.WriteLine(string.Format("Received Hello: Node version {0}", node_version));
                                     Console.WriteLine(string.Format("\t|- Block Height:\t\t#{0}", last_block_num));
                                     Console.WriteLine(string.Format("\t|- Block Checksum:\t\t{0}", block_checksum));
                                     Console.WriteLine(string.Format("\t|- WalletState checksum:\t{0}", walletstate_checksum));
 
+                                    if(Node.checkCurrentBlockDeprecation(last_block_num) == false)
+                                    {
+                                        socket.Disconnect(true);
+                                        return;
+                                    }
+
                                     // Check if this node has a newer block ready
-                                    if (last_block_num > Node.blockChain.currentBlockNum)
+                                    if (last_block_num > Node.blockChain.currentBlockNum + 1)
                                     {
                                         // Check if we're already in synchronization mode
                                         if (Node.blockProcessor.inSyncMode)
@@ -461,7 +467,7 @@ namespace DLT
 
                         case ProtocolMessageCode.updateTransaction:
                             {
-                                Transaction transaction = new Transaction(data);
+                                Transaction transaction = new Transaction(data);         
                                 TransactionPool.updateTransaction(transaction);
                             }
                             break;
@@ -593,7 +599,7 @@ namespace DLT
 
                                                     writerw.Write(startOffset);
                                                     writerw.Write(walletCount);
-                                                    Console.WriteLine("\t\t\tRequesting WalletState Chunk: {0} - {1}", startOffset, walletCount);
+                                                    //Console.WriteLine("\t\t\tRequesting WalletState Chunk: {0} - {1}", startOffset, walletCount);
 
                                                     // Either broadcast the request
                                                     //  broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray());
@@ -656,7 +662,7 @@ namespace DLT
 
                         case ProtocolMessageCode.getNeighbors:
                             {
-                                Console.WriteLine("Get neighbor data");
+                                //Console.WriteLine("Get neighbor data");
                                 byte[] ndata = NetworkUtils.getNeighborsData();
                                 if (ndata == null)
                                     return;
@@ -669,7 +675,7 @@ namespace DLT
                             {
                                 if (isAuthoritativeNode(endpoint, socket))
                                 {
-                                    Console.WriteLine("Received neighbor data");
+                                    //Console.WriteLine("Received neighbor data");
                                     NetworkUtils.processNeighborsData(data);
                                 }
                             }
