@@ -345,7 +345,7 @@ namespace DLT
         }
 
         // Used to initialize the partial blockchain and set the local block if not processed yet
-        private void setInitialLocalBlock(Block incomingBlock)
+        public void setInitialLocalBlock(Block incomingBlock)
         {
             // Check if we've reached our target block
             if (incomingBlock.blockNum == targetBlockHeight)

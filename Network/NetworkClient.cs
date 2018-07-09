@@ -100,8 +100,6 @@ namespace DLT
 
             Logging.info(string.Format("Network client connected to {0}:{1}", hostname, port));
 
-
-
             running = true;
             Thread thread = new Thread(new ThreadStart(onUpdate));
             thread.Start();

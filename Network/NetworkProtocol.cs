@@ -90,6 +90,7 @@ namespace DLT
                 {
                     Console.WriteLine("NET: endpoint disconnected " + e);
                     throw e;
+                    return;
                 }
 
                 byte[] recv_buffer = big_buffer.ToArray();

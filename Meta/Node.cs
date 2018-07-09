@@ -45,7 +45,11 @@ namespace DLT.Meta
             // Show the IP selector menu
             showIPmenu();
 
-
+            if (Config.recoverFromFile)
+            {
+                Storage.readFromStorage();
+            }
+            else
             // Check if this is a genesis node
             if (Config.genesisFunds > 0)
             {

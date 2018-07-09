@@ -15,6 +15,7 @@ namespace DLT
             public static string publicServerIP = "127.0.0.1";
 
             public static bool noHistory = false; // Flag confirming this is a full history node
+            public static bool recoverFromFile = false; // Flag allowing recovery from file
 
             public static ulong genesisFunds = 0; // If 0, it'll use a hardcoded wallet address
 
@@ -25,7 +26,8 @@ namespace DLT
 
 
             // Read-only values
-            public static readonly int nodeVersion = 4;
+            public static readonly string dltVersion = "0.9.0";
+            public static readonly int nodeVersion = 4; // Node protocol version
             public static readonly ulong minimumMasterNodeFunds = 2000; // Limit master nodes to this amount or above
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
@@ -62,6 +64,10 @@ namespace DLT
 
                 // Toggle between full history node and no history
                 cmd_parser.Setup<bool>('n', "no-history").Callback(value => noHistory = value).Required();
+
+                // Check for recovery parameter
+                cmd_parser.Setup<bool>('r', "recover").Callback(value => recoverFromFile = value).Required();
+
 
                 cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
