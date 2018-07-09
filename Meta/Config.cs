@@ -26,7 +26,7 @@ namespace DLT
 
 
             // Read-only values
-            public static readonly string dltVersion = "0.9.0";
+            public static readonly string dltVersion = "0.1.0";
             public static readonly int nodeVersion = 4; // Node protocol version
             public static readonly ulong minimumMasterNodeFunds = 2000; // Limit master nodes to this amount or above
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
