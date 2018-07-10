@@ -42,17 +42,12 @@ namespace DLT
         {
             networkClients = new List<NetworkClient>();
 
-            lock (networkClients)
+            // Connect to a random seed node first
+            Random rnd = new Random();
+            bool firstSeedConnected = false;
+            while (firstSeedConnected == false)
             {
-                // Create clients and connect to various nodes
-                for (int i = 0; i < CoreNetworkUtils.seedNodes.Length; i++)
-                {
-                    // Connect client immediately
-                    connectTo(CoreNetworkUtils.seedNodes[i]);
-                    
-                    // Wait before connecting to another client
-                    Thread.Sleep(2000);
-                }
+                firstSeedConnected = connectTo(CoreNetworkUtils.seedNodes[rnd.Next(CoreNetworkUtils.seedNodes.Length)]);
             }
 
             // Start the reconnect thread
@@ -65,6 +60,25 @@ namespace DLT
             keepAliveThread = new Thread(keepAlive);
             keepAliveThread.Start();
 
+        }
+
+        // Resume the initial connection handling
+        public static void resumeConnections()
+        {
+            Thread th = new Thread(() =>
+            {
+                // Create clients and connect to various nodes
+                for (int i = 0; i < CoreNetworkUtils.seedNodes.Length; i++)
+                {
+                    // Connect client immediately
+                    connectTo(CoreNetworkUtils.seedNodes[i]);
+
+                    // Wait before connecting to another client
+                    Thread.Sleep(2000);
+                }
+                Thread.Yield();
+            });
+            th.Start();
         }
 
         public static void stopClients()
@@ -108,7 +122,7 @@ namespace DLT
         }
 
         // Connects to a specified node, with the syntax host:port
-        private static void threadConnectTo(object data)
+        private static bool threadConnectTo(object data)
         {
             if (data is string)
             {
@@ -117,6 +131,7 @@ namespace DLT
             else
             {
                 throw new Exception(String.Format("Exception in client connection thread {0}", data.GetType().ToString()));
+                return false;
             }
             string host = (string)data;
 
@@ -124,7 +139,7 @@ namespace DLT
             if (server.Count() < 2)
             {
                 Logging.warn(string.Format("Cannot connect to invalid hostname: {0}", host));
-                return;
+                return false;
             }
 
             // Resolve the hostname first
@@ -137,7 +152,7 @@ namespace DLT
                 if (server[1].Equals(string.Format("{0}", Config.serverPort), StringComparison.Ordinal))
                 {
                     Logging.info(string.Format("Skipping connection to public self seed node {0}", host));
-                    return;
+                    return false;
                 }
             }
 
@@ -151,7 +166,7 @@ namespace DLT
                     if (server[1].Equals(string.Format("{0}", Config.serverPort), StringComparison.Ordinal))
                     {
                         Logging.info(string.Format("Skipping connection to self seed node {0}", host));
-                        return;
+                        return false;
                     }
                 }
             }
@@ -164,7 +179,7 @@ namespace DLT
                     if(client.address.Equals(host, StringComparison.Ordinal))
                     {
                         // Address is already in the client list
-                        return;
+                        return false;
                     }
                 }
             }
@@ -182,15 +197,16 @@ namespace DLT
                 }
             }
 
-            Thread.Yield();
+            return true;
         }
 
         // Connects to a specified node, with the syntax host:port
         // It does so by spawning a temporary thread
-        public static void connectTo(string host)
+        public static bool connectTo(string host)
         {
-            Thread conn_thread = new Thread(threadConnectTo);
-            conn_thread.Start(host);
+            //Thread conn_thread = new Thread(threadConnectTo);
+            //conn_thread.Start(host);
+            return threadConnectTo(host);
         }
 
         // Send data to all connected nodes

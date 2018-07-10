@@ -94,7 +94,14 @@ namespace DLTNode
                         continue;
                     }
 
-                    if (parseRequest(context, methodName) == false)
+                    try
+                    {
+                        if (parseRequest(context, methodName) == false)
+                        {
+                            sendError(context, "{\"message\":\"error\"}");
+                        }
+                    }
+                    catch(Exception)
                     {
                         sendError(context, "{\"message\":\"error\"}");
                     }
@@ -102,7 +109,7 @@ namespace DLTNode
                 catch(Exception e)
                 {
                     continueRunning = false;
-                    Logging.error(string.Format("Error in API server {0}", e.ToString()));
+                    //Logging.error(string.Format("Error in API server {0}", e.ToString()));
                 }
             }
 

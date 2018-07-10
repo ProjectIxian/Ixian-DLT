@@ -40,8 +40,10 @@ namespace DLT
             // Disable the Nagle Algorithm for this tcp socket.
             tcpClient.Client.NoDelay = true;
 
+            tcpClient.Client.ReceiveTimeout = 5000;
             //tcpClient.Client.ReceiveBufferSize = 1024 * 64;
             //tcpClient.Client.SendBufferSize = 1024 * 64;
+            tcpClient.Client.SendTimeout = 5000;
 
         }
 

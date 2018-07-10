@@ -135,7 +135,7 @@ namespace DLT
 
                 Logging.info("Closing network server connected clients");
                 // Clear all clients
-                lock(connectedClients)
+                //lock(connectedClients)
                 {
                     // Immediately close all connected client sockets
                     foreach(RemoteEndpoint client in connectedClients)
@@ -145,7 +145,7 @@ namespace DLT
                 }
 
                 // Clear all neighbors
-                lock (neighborClients)
+                //lock (neighborClients)
                 {
                     neighborClients.Clear();
                 }
@@ -186,9 +186,9 @@ namespace DLT
                 // housekeeping tasks
                 while (continueRunning)
                 {
-                    /*
+                    
                     // check for new incoming connections
-                    if (listener.Pending())
+                    /*if (listener.Pending())
                     {
                         
                         try
@@ -276,7 +276,12 @@ namespace DLT
                                     foreach (RemoteEndpoint endpoint in connectedClients)
                                     {
                                         //   Console.WriteLine("Ping {0}", endpoint.presence.addresses[0].address);
-                                        sendPing(endpoint, m.ToArray());
+                                        Thread th = new Thread(() =>
+                                        {
+                                            sendPing(endpoint, m.ToArray());
+                                            Thread.Yield();
+                                        });
+                                        th.Start();
                                     }
                                     // Console.WriteLine("~==~~");
                                 }
