@@ -13,118 +13,75 @@ namespace DLT
 {
     class BlockProcessor
     {
-        DateTime lastProcessedTime;
-        bool newBlockReady;
-        Block localNewBlock; // Locally generated new block
+        Block localNewBlock; // Block being worked on currently
+        DateTime lastBlockGenerationTime;
 
+        bool inSyncMode = false;
+        bool isSynchronized = false;
 
-        public bool inSyncMode = false;
+        public bool synchronizing { get => inSyncMode; }
+        public bool synchronized { get => isSynchronized; }
 
         ulong targetBlockHeight = 0;
         string targetBlockChecksum = "";
         string targetWalletStateChecksum = "";
 
-        bool canGenerateNewBlock = true;
-
-        public bool synchronized = false;
-
         public BlockProcessor()
         {
-            lastProcessedTime = DateTime.Now;
-            newBlockReady = false;
+            lastBlockGenerationTime = DateTime.Now;
             localNewBlock = null;
-            canGenerateNewBlock = true;
         }
 
         // Returns true if a block was generated
         public bool onUpdate()
         {
-            DateTime now_time = DateTime.Now;
-            int seconds = DateTime.Now.Second;
-
-            // Only perform a block update at :00s and :30s of each minute 
-            if (seconds == 0 || seconds == 30)
+            if (Node.checkCurrentBlockDeprecation(localNewBlock.blockNum) == false)
             {
-                if (localNewBlock != null)
-                {
-                    // Deprecation support
-                    if (Node.checkCurrentBlockDeprecation(localNewBlock.blockNum) == false)
-                        return false;
-
-                    Console.WriteLine("\n\n++++ @Block Height #{0} ++++", localNewBlock.blockNum);
-                }
-                // Check if we're still in synchronization mode. If so, do not generate a new block.
-                if(inSyncMode)
-                {
-                    Console.WriteLine("Synchronization: Block Height #{0} / #{1}", Node.blockChain.currentBlockNum, targetBlockHeight);
-
-                    if (Node.blockChain.currentBlockNum == targetBlockHeight)
-                        checkWalletState();
-
-                    return true;
-                }
-
-                // Don't generate new blocks if we haven't synchronized yet and we're not on the genesis node.
-                if(synchronized == false && Node.genesisNode == false)
-                {
-                    Logging.warn(String.Format("Blockchain not synchronized to network. Please connect to a valid node."));
-                    return true;
-                }
-
-
-                // If the new block is ready, add it to the blockchain and update the walletstate
-                if(newBlockReady == true)
-                {
-                    if(localNewBlock.signatures.Count() < Node.blockChain.minimumConsensusSignatures && localNewBlock.blockNum > 1)
-                    {
-                        Logging.warn(String.Format("Not enough signatures {0}/{1} to insert new block #{2} into blockchain. Waiting for more...", 
-                            localNewBlock.signatures.Count(), Node.blockChain.minimumConsensusSignatures, localNewBlock.blockNum));
-
-                        // Request the block from the network
-                        using (MemoryStream mw = new MemoryStream())
-                        {
-                            using (BinaryWriter writerw = new BinaryWriter(mw))
-                            {
-                                writerw.Write(localNewBlock.blockNum);
-                                writerw.Write(false);
-
-                                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray());
-                                //NetworkClientManager.restartClients();
-                            }
-                        }
-
-                        return false;
-                    }
-
-                    // Insert the block into the blockchain
-                    Node.blockChain.insertBlock(localNewBlock);
-
-                    // Update the walletstate
-                    TransactionPool.applyTransactionsFromBlock(localNewBlock);
-
-                    canGenerateNewBlock = true;
-                    newBlockReady = false;
-                }
-                else
-                {
-
-                }
-
-                // Check if we're ready to generate a new block.
-                // Depending on network conditions, block generation might be delayed
-                if (canGenerateNewBlock == false)
-                    return false;
-
-                //Logging.info(String.Format("TxPool contains {0} transactions", TransactionPool.activeTransactions));
-
-                // Generate a new block
-                generateNewBlock();
-
-                return true;
-
+                return false;
             }
 
-            return false;
+            if (DateTime.Now.Second % 10 == 0)
+            {
+                if (inSyncMode)
+                {
+                    Console.WriteLine("Synchronization: Block Height #{0} / #{1}", Node.blockChain.currentBlockNum, targetBlockHeight);
+                    if (Node.blockChain.currentBlockNum == targetBlockHeight)
+                    {
+                        checkWalletState();
+                    }
+                    return true;
+                } else
+                {
+                    Console.WriteLine("\n\n++++ @Block Height #{0} ++++", localNewBlock.blockNum);
+                }
+            }
+
+            // check if "currently-in-progress" block is ready
+            if(localNewBlock != null)
+            {
+                if(localNewBlock.signatures.Count() >= Node.blockChain.minimumConsensusSignatures)
+                {
+                    Node.blockChain.insertBlock(localNewBlock);
+                    TransactionPool.applyTransactionsFromBlock(localNewBlock);
+                    lastBlockGenerationTime = DateTime.Now;
+                } else
+                {
+                    if (DateTime.Now.Second % 10 == 0)
+                    {
+                        Logging.warn(String.Format("Not enough signatures {0}/{1} to insert new block #{2} into blockchain. Waiting for more...",
+                            localNewBlock.signatures.Count(), Node.blockChain.minimumConsensusSignatures, localNewBlock.blockNum));
+                    }
+                }
+            } else
+            {
+                // check if it is time to generate a new block yet
+                TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockGenerationTime;
+                if(timeSinceLastBlock.TotalSeconds > 30) // TODO: this value should be controlled by the network. Hardcoded for now.
+                {
+                    generateNewBlock();
+                }
+            }
+            return true;
         }
 
 
@@ -132,9 +89,6 @@ namespace DLT
         public void generateNewBlock()
         {
             Console.WriteLine("GENERATING NEW BLOCK");
-
-            newBlockReady = false;
-            canGenerateNewBlock = false;
           
             // Create a new block and add all the transactions in the pool
             localNewBlock = new Block();
@@ -168,8 +122,6 @@ namespace DLT
                 Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", localNewBlock.lastBlockChecksum);
                 Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", localNewBlock.walletStateChecksum);
 
-                newBlockReady = true;
-
                 // Broadcast the new block
                 ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newBlock, localNewBlock.getBytes());
             }
@@ -178,15 +130,21 @@ namespace DLT
         // Checks an incoming new block
         public bool checkIncomingBlock(Block incomingBlock, Socket socket)
         {
-            //Logging.info(string.Format("Incoming block #{0}...", incomingBlock.blockNum));
-
-            // We have no local block generated yet. Possibly fresh start of node
-            if (localNewBlock == null)
+            if(inSyncMode)
             {
-                Console.WriteLine("Block Processor: No localblock yet. Starting blockchain.");
-                setInitialLocalBlock(incomingBlock);
-                return false;
+                if (incomingBlock.blockNum > targetBlockHeight)
+                {
+                    Node.blockChain.insertTemporaryBlock(incomingBlock);
+                } else
+                {
+                    if(incomingBlock.blockNum < Node.blockChain.currentBlockNum)
+                    {
+                        Node.blockChain.insertOldBlock(incomingBlock);
+                    }
+                }
             }
+
+            /**************************************************************************/
 
             lock (localNewBlock)
             {
@@ -198,6 +156,10 @@ namespace DLT
                     {
                         // Add this block to a temporary location
                         Node.blockChain.insertTemporaryBlock(incomingBlock);
+                    } else
+                    {
+                        // this is part of the set we need while synchronizing
+
                     }
 
                     return false;
@@ -344,49 +306,9 @@ namespace DLT
             return false;
         }
 
-        // Used to initialize the partial blockchain and set the local block if not processed yet
-        public void setInitialLocalBlock(Block incomingBlock)
-        {
-            // Check if we've reached our target block
-            if (incomingBlock.blockNum == targetBlockHeight)
-            {
-                // Check if the block checksum matches
-                if (incomingBlock.blockChecksum.Equals(targetBlockChecksum, StringComparison.Ordinal))
-                {
-                    Console.WriteLine("Target block reached, checksums match!");
-
-                    // Check if we have an accurate walletstate (unlikely at this point, but still possible)
-                    checkWalletState();
-
-                }
-            }
-
-            localNewBlock = new Block(incomingBlock);
-            localNewBlock.applySignature();
-
-            newBlockReady = false;
-            canGenerateNewBlock = true;
-
-            Node.blockChain.insertBlock(localNewBlock);
-
-            // Broadcast the signed block
-            ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newBlock, localNewBlock.getBytes());
-        }
-
-
-
         public bool hasNewBlock()
         {
-            return newBlockReady;
-        }
-
-        public Block getNewBlock()
-        {
-            if (newBlockReady == false)
-                return null;
-
-            newBlockReady = false;
-            return localNewBlock;
+            return localNewBlock != null;
         }
 
         public Block getLocalBlock()
@@ -417,24 +339,20 @@ namespace DLT
             }
         }
 
-        // Signals that we're entering synchronization mode
         public void enterSyncMode(ulong tBlockNum, string tBlockChecksum, string tWalletStateChecksum)
         {
             Console.WriteLine("=====\nEntering blockchain synchronization mode...");
 
-            synchronized = false;
+            isSynchronized = false;
 
             inSyncMode = true;
             targetBlockHeight = tBlockNum;
             targetBlockChecksum = tBlockChecksum;
             targetWalletStateChecksum = tWalletStateChecksum;
             localNewBlock = null;
-            newBlockReady = false;
-            canGenerateNewBlock = false;
 
         }
 
-        // Signals that we're exiting synchronization mode
         public void exitSyncMode()
         {
             Console.WriteLine("Exiting blockchain synchronization mode...\n=====");
@@ -442,15 +360,12 @@ namespace DLT
             // Merge all temporary blocks
             Node.blockChain.mergeTemporaryBlocks();
 
-
-            inSyncMode = false;
-            canGenerateNewBlock = true;
-
             targetBlockHeight = 0;
             targetBlockChecksum = "";
             targetWalletStateChecksum = "";
 
-            synchronized = true;
+            inSyncMode = false;
+            isSynchronized = true;
         }
 
     }

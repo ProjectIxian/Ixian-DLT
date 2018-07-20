@@ -40,7 +40,7 @@ namespace DLT
                 transactions.Add(transaction);
 
                 // Storage the transaction in the database
-                Meta.Storage.insertTransaction(transaction);
+                //Meta.Storage.insertTransaction(transaction);
             }
             return true;
         }

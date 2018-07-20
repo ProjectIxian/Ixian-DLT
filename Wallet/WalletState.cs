@@ -150,7 +150,7 @@ namespace DLT
         // Process an incoming walletstate chunk
         public static void processChunk(byte[] bytes)
         {
-            if(Node.blockProcessor.inSyncMode == false)
+            if(Node.blockProcessor.synchronizing == false)
             {
                 // Node is not in synchronization mode, discard.
                 Logging.warn("Received walletstate chunk while not in synchronization mode.");

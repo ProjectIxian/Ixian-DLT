@@ -131,7 +131,6 @@ namespace DLT
             else
             {
                 throw new Exception(String.Format("Exception in client connection thread {0}", data.GetType().ToString()));
-                return false;
             }
             string host = (string)data;
 

@@ -296,7 +296,7 @@ namespace DLTNode
                 string[] statArray = new String[2];
                 statArray[0] = "DLT";
                 statArray[1] = "Active";
-                if (Node.blockProcessor.inSyncMode)
+                if (Node.blockProcessor.synchronizing)
                     statArray[1] = "Synchronizing";
 
                 string responseString = JsonConvert.SerializeObject(statArray);
@@ -311,7 +311,7 @@ namespace DLTNode
                 string address = Node.walletStorage.getWalletAddress();
                 ulong balance = WalletState.getDeltaBalanceForAddress(address);
                 string sync_status = "ready";
-                if (Node.blockProcessor.inSyncMode)
+                if (Node.blockProcessor.synchronizing)
                     sync_status = "sync";
 
                 string[] statArray = new String[3];

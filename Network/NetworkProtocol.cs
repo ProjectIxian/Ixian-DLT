@@ -40,6 +40,20 @@ namespace DLT
                 return result;
             }
 
+            public static void broadcastGetBlock(ulong block_num)
+            {
+                using (MemoryStream mw = new MemoryStream())
+                {
+                    using (BinaryWriter writerw = new BinaryWriter(mw))
+                    {
+                        writerw.Write(block_num);
+                        writerw.Write(false);
+
+                        broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray());
+                    }
+                }
+            }
+
             // Broadcast a protocol message across clients and nodes
             public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {
@@ -90,7 +104,6 @@ namespace DLT
                 {
                     Console.WriteLine("NET: endpoint disconnected " + e);
                     throw e;
-                    return;
                 }
 
                 byte[] recv_buffer = big_buffer.ToArray();
@@ -273,31 +286,14 @@ namespace DLT
                                     writer.Write(Config.nodeVersion);
 
                                     ulong lastBlock = 0;
-                                    Block block = Node.blockProcessor.getLocalBlock();
-
-                                    if (block == null)
-                                    {
-                                        Logging.info("No blocks in blockchain yet.");
-                                        socket.Disconnect(true);
-                                        return;
-                                    }
-
+                                    Block block = Node.blockChain.getLastBlock();
                                     lastBlock = block.blockNum;
-
-                                    // Send the last block number (block height)
                                     writer.Write(lastBlock);
-
-                                    // Send the last block checksum
                                     writer.Write(block.blockChecksum);
-
-                                    // Send the wallet state checksum
                                     writer.Write(block.walletStateChecksum);
-
 
                                     byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
                                     socket.Send(ba, SocketFlags.None);
-                                    //Console.WriteLine("Sent hello data for block height #{0}", lastBlock);
-
                                 }
                             }
                             break;
@@ -337,7 +333,7 @@ namespace DLT
                                     if (last_block_num > Node.blockChain.currentBlockNum + 1)
                                     {
                                         // Check if we're already in synchronization mode
-                                        if (Node.blockProcessor.inSyncMode)
+                                        if (Node.blockProcessor.synchronizing)
                                             return;
 
                                         // Enter synchronization mode
@@ -349,21 +345,7 @@ namespace DLT
 
 
                                         // Request the latest block
-                                        using (MemoryStream mw = new MemoryStream())
-                                        {
-                                            using (BinaryWriter writerw = new BinaryWriter(mw))
-                                            {
-                                                writerw.Write(last_block_num);
-                                                writerw.Write(false); // Request the walletstate in one go
-
-                                                // Either broadcast the request
-                                                //  broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray());
-                                                // or send it to this specific node only
-                                                byte[] ba = prepareProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray());
-                                                socket.Send(ba, SocketFlags.None);
-                                            }
-                                        }
-
+                                        broadcastGetBlock(last_block_num);
 
                                         // Get neighbors
                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.getNeighbors, new byte[1]), SocketFlags.None);
@@ -394,12 +376,9 @@ namespace DLT
                                             block = Node.blockProcessor.getLocalBlock();
 
                                             // No localblock
-                                            if (block == null)
+                                            if (block == null || block.blockNum != block_number)
                                                 return;
 
-                                            // Localblock does not match the requested block number
-                                            if (block.blockNum != block_number)
-                                                return;
                                         }
 
                                         // Send the block
@@ -546,7 +525,7 @@ namespace DLT
                         case ProtocolMessageCode.walletState:
                             {
                                 // Check if we're in synchronization mode
-                                if (Node.blockProcessor.inSyncMode == false)
+                                if (Node.blockProcessor.synchronizing == false)
                                 {
                                     Logging.warn(string.Format("Received walletstate while not in sync mode from {0}", socket.RemoteEndPoint.ToString()));
                                     return;
@@ -649,14 +628,7 @@ namespace DLT
                             break;
 
                         case ProtocolMessageCode.walletStateChunk:
-                            {
-                                // Check if we're in synchronization mode
-                                if (Node.blockProcessor.inSyncMode == false)
-                                {
-                                    Logging.warn(string.Format("Received walletstate chunk while not in sync mode from {0}", socket.RemoteEndPoint.ToString()));
-                                    return;
-                                }
-                                
+                            {                                
                                 WalletState.processChunk(data);
                             }
                             break;

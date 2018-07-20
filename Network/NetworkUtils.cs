@@ -10,13 +10,10 @@ using System.Threading.Tasks;
 
 namespace DLT
 {
-    namespace Network
-    {
-        public class NetworkUtils
-        {
+    namespace Network {
+        public class NetworkUtils {
 
-            public static string resolveHostname(string hostname)
-            {
+            public static string resolveHostname(string hostname) {
                 try
                 {
                     IPHostEntry hostEntry;
@@ -32,7 +29,7 @@ namespace DLT
                         }
                     }
                 }
-                catch(Exception)
+                catch (Exception)
                 {
                     return hostname;
                 }
@@ -41,8 +38,7 @@ namespace DLT
             }
 
             // Retrieves all connectable neighbors of this node
-            public static string[] getNeighbors()
-            {
+            public static string[] getNeighbors() {
                 List<String> result = new List<String>();
 
                 // Retrieve the network manager clients
@@ -67,8 +63,7 @@ namespace DLT
 
 
             // Prepare neighbor data for sending
-            public static byte[] getNeighborsData()
-            {
+            public static byte[] getNeighborsData() {
                 string[] neighbors = getNeighbors();
 
                 using (MemoryStream m = new MemoryStream())
@@ -90,8 +85,7 @@ namespace DLT
             }
 
             // Process received neighbor data
-            public static void processNeighborsData(byte[] bytes)
-            {
+            public static void processNeighborsData(byte[] bytes) {
                 using (MemoryStream m = new MemoryStream(bytes))
                 {
                     using (BinaryReader reader = new BinaryReader(m))
@@ -120,6 +114,6 @@ namespace DLT
             }
         }
 
-        }
+    }
 
 }

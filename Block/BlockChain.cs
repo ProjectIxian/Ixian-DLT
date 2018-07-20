@@ -10,74 +10,115 @@ namespace DLT
 {
     class BlockChain
     {
-        public List<Block> blocks = new List<Block> { };
-        public bool synchronized = false;
-        public ulong currentBlockNum = 0;
-        public int minimumConsensusSignatures = 2;
+        int redactedWindowSize = 3000; // approx 25 hours
 
+        List<Block> blocks = new List<Block>();
+        ulong currentBlockNum = 0;
+        int minimumConsensusSignatures = 2;
+        bool synchronizing = false;
 
+        public bool isSynchronizing { get => synchronizing; }
 
-        // Maintain a list of temporary blocks to be processed during synchronization
-        public List<Block> temporaryBlocks = new List<Block> { };
-
+        List<Block> pendingBlocks = new List<Block>();
 
         public BlockChain()
         {
-            synchronized = false;
         }
 
-        public bool insertBlock(Block new_block)
-        {
-            lock(blocks)
+        public void onUpdate() {
+            lock (blocks)
             {
-                // Verify the block's checksums and signatures
-                if (new_block.blockNum > 2 && blocks.Count() > 2)
+                int begin_size = blocks.Count();
+                while (blocks.Count() > redactedWindowSize)
                 {
-                    // Retrieve the latest block in the local chain
-                    Block lastBlock = blocks.Last();
+                    blocks.RemoveAt(0);
+                }
+                if (begin_size > blocks.Count())
+                {
+                    Console.WriteLine(String.Format("REDACTED {0} blocks to keep the chain length appropriate.", begin_size - blocks.Count()));
+                }
+            }
+            if(synchronizing)
+            {
+                // attempt to move blocks from temporary storage to the blockchain proper
+                chainPendingBlocks();
+            }
+        }
 
-                    // Verify if the checksums match
-                    if (lastBlock.blockChecksum.Equals(new_block.lastBlockChecksum))
+        private void chainPendingBlocks()
+        {
+            int pending_blocks_chained = 0;
+            lock (blocks)
+            {
+                lock (pendingBlocks)
+                {
+                    while (pendingBlocks.Exists(b => b.blockNum == currentBlockNum + 1))
                     {
-                        // Checksum matches, continue
-                    }
-                    else
-                    {
-                        // The checksums didn't match. 
-                        if (new_block.blockNum > lastBlock.blockNum + 1)
+                        int idx = pendingBlocks.FindIndex(b => b.blockNum == currentBlockNum + 1);
+                        Block chained_block = pendingBlocks[idx];
+                        pendingBlocks.RemoveAt(idx);
+                        // verify if the block logically follows - discard ones that don't
+                        if (verifyBlock(ref chained_block) && chained_block.lastBlockChecksum == blocks.Last().blockChecksum)
                         {
-                            // A block has been skipped at this point
-                            // TODO: fetch the correct missing block(s)
-                        }
-                        else
-                        {
-                            // Discard this block
-                            Logging.log(LogSeverity.info, String.Format("Invalid block {0} checksum! Block has not been added to blockchain.",
-                            new_block.blockNum));
-                            return false;
+                            blocks.Add(chained_block);
+                            currentBlockNum = chained_block.blockNum;
+                            pending_blocks_chained += 1;
                         }
                     }
                 }
+            }
+            Logging.info(String.Format("Blockchain gap filled. {0} blocks added to chain. New head: {1}", pending_blocks_chained, currentBlockNum));
+        }
 
-                // Check signatures before adding the block
-                if (checkBlockSignatures(new_block))
+        public bool appendBlockchain(Block block) {
+            // verify that the block is internally consistent
+            if(verifyBlock(ref block) == false)
+            {
+                Logging.warn(String.Format("New block #{0} has invalid checksums or signatures!", block.blockNum));
+                return false;
+            }
+            if(blocks.Count() == 0)
+            {
+                // we ignore previous block checksum and signature counts for genesis block
+                blocks.Add(block);
+            } else
+            {
+                if(block.blockNum == currentBlockNum+1)
                 {
-                    // Add to the blockchain
-                    addToBlockchain(new_block);
-                    currentBlockNum = new_block.blockNum;
-                    
-                    // Set the next minimum consensus to 75% of previous block's signatures
-                    minimumConsensusSignatures = (int)((float)new_block.getUniqueSignatureCount() * 0.75);
-
-                    // Require at least two signatures to proceed
-                    if (minimumConsensusSignatures < 2)
-                        minimumConsensusSignatures = 2;
-
-                    Logging.info(String.Format("Added block {0} to blockchain. Minimum consensus is {1} / {2}\n", 
-                        currentBlockNum, minimumConsensusSignatures, new_block.getUniqueSignatureCount()));
-                    return true;
+                    lock(blocks)
+                    {
+                        blocks.Add(block);                        
+                    }
+                    // try to append more of the pending blocks
+                    // primarily useful in synchronizing, but it will also help out if the node temporarily lags.
+                    chainPendingBlocks();
+                } else
+                {
+                    // new block is disjointed (does not follow the chain). We will ignore old blocks
+                    if(block.blockNum > currentBlockNum)
+                    {
+                        // it is a future block
+                        // we put it in the pending pile and request the block we actually need, so we ensure we get it.
+                        if (!pendingBlocks.Exists(b => b.blockNum == block.blockNum))
+                        {
+                            lock (pendingBlocks)
+                            {
+                                pendingBlocks.Add(block);
+                            }
+                        }
+                        ProtocolMessage.broadcastGetBlock(currentBlockNum + 1);
+                    }
                 }
+            }
+            // TODO: Ask Storage to persist the current chain
+            return true;
+        }
 
+        bool verifyBlock(ref Block block) {
+            if(block.calculateChecksum() == block.blockChecksum)
+            {
+                // TODO: Verify all signatures are valid
+                return true;
             }
             return false;
         }
@@ -209,26 +250,6 @@ namespace DLT
                 return null;
 
             return blocks.Last();
-        }
-
-        // Adds the block to the memory-stored blockchain and writes to storage if history is enabled
-        private bool addToBlockchain(Block block)
-        {
-            blocks.Add(block);
-
-            //Storage.appendToStorage(block.getBytes());
-            Storage.insertBlock(block);
-
-            /* // For debugging block signatures
-            Console.WriteLine("### BLOCK {0}", block.blockNum);
-            // Write each signature
-            foreach (string signature in block.signatures)
-            {
-                Console.WriteLine(signature);
-            }
-            Console.WriteLine("######");
-            */
-            return true;
         }
 
         public Block getBlock(ulong block_num)
