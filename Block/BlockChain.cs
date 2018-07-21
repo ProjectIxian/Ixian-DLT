@@ -38,37 +38,9 @@ namespace DLT
                     Console.WriteLine(String.Format("REDACTED {0} blocks to keep the chain length appropriate.", begin_size - blocks.Count()));
                 }
             }
-            if(synchronizing)
-            {
-                // attempt to move blocks from temporary storage to the blockchain proper
-                chainPendingBlocks();
-            }
         }
 
-        private void chainPendingBlocks()
-        {
-            int pending_blocks_chained = 0;
-            lock (blocks)
-            {
-                lock (pendingBlocks)
-                {
-                    while (pendingBlocks.Exists(b => b.blockNum == currentBlockNum + 1))
-                    {
-                        int idx = pendingBlocks.FindIndex(b => b.blockNum == currentBlockNum + 1);
-                        Block chained_block = pendingBlocks[idx];
-                        pendingBlocks.RemoveAt(idx);
-                        // verify if the block logically follows - discard ones that don't
-                        if (verifyBlock(ref chained_block) && chained_block.lastBlockChecksum == blocks.Last().blockChecksum)
-                        {
-                            blocks.Add(chained_block);
-                            currentBlockNum = chained_block.blockNum;
-                            pending_blocks_chained += 1;
-                        }
-                    }
-                }
-            }
-            Logging.info(String.Format("Blockchain gap filled. {0} blocks added to chain. New head: {1}", pending_blocks_chained, currentBlockNum));
-        }
+        
 
         public bool appendBlockchain(Block block) {
             // verify that the block is internally consistent
@@ -83,30 +55,28 @@ namespace DLT
                 blocks.Add(block);
             } else
             {
-                if(block.blockNum == currentBlockNum+1)
+                if(synchronizing)
                 {
-                    lock(blocks)
+                    // we do not verify signatures in this case, just accept all blocks to the pending list and sort them out later.
+                    if(!pendingBlocks.Exists(b=>b.blockNum == block.blockNum))
                     {
-                        blocks.Add(block);                        
-                    }
-                    // try to append more of the pending blocks
-                    // primarily useful in synchronizing, but it will also help out if the node temporarily lags.
-                    chainPendingBlocks();
-                } else
-                {
-                    // new block is disjointed (does not follow the chain). We will ignore old blocks
-                    if(block.blockNum > currentBlockNum)
-                    {
-                        // it is a future block
-                        // we put it in the pending pile and request the block we actually need, so we ensure we get it.
-                        if (!pendingBlocks.Exists(b => b.blockNum == block.blockNum))
+                        lock(pendingBlocks)
                         {
-                            lock (pendingBlocks)
-                            {
-                                pendingBlocks.Add(block);
-                            }
+                            pendingBlocks.Add(block);
                         }
-                        ProtocolMessage.broadcastGetBlock(currentBlockNum + 1);
+                    }
+                }else
+                {
+                    // the block must have the minimum required signatures
+                    if (block.signatures.Count() < minimumConsensusSignatures)
+                    {
+                        // does it have more signature than the current one we are considering?
+                       
+                    }
+                    // the block must follow logically from our current head and be consistent
+                    if(block.blockNum == currentBlockNum+1 && verifyBlock(ref block))
+                    {
+
                     }
                 }
             }
