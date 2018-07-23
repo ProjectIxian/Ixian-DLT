@@ -54,6 +54,11 @@ namespace DLT
                 }
             }
 
+            public static void broadcastNewBlock(Block b)
+            {
+                broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes());
+            }
+
             // Broadcast a protocol message across clients and nodes
             public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {

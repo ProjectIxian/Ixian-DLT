@@ -9,6 +9,7 @@ namespace DLT
 {
     public class Block
     {
+        // TODO: Refactor all of these as readonly get-params
         [PrimaryKey, AutoIncrement]
         public ulong blockNum { get; set; }
 
@@ -153,6 +154,7 @@ namespace DLT
         // Create and apply a new signature for this block
         public bool applySignature()
         {
+            // TODO: Check if we have already signed this block
             string private_key = Node.walletStorage.privateKey;
             string signature =  CryptoManager.lib.getSignature(blockChecksum, private_key);
 
@@ -161,6 +163,25 @@ namespace DLT
 
             signatures.Add(merged_signature);
 
+            return true;
+        }
+
+        public bool verifySignatures()
+        {
+            foreach(string sig in signatures)
+            {
+                string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                if(parts.Length != 2)
+                {
+                    return false;
+                }
+                string signature = parts[0];
+                string signerPubkey = parts[1];
+                if(CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature))
+                {
+                    return false;
+                }
+            }
             return true;
         }
 
