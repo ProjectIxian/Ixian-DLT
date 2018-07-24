@@ -406,6 +406,12 @@ namespace DLT
                     Array.Copy(BitConverter.GetBytes(retryInterval), 0, inArray, size * 2, size);
                     clientSocket.IOControl(IOControlCode.KeepAliveValues, inArray, null);
 
+                    // Add timeouts and set socket options
+                    clientSocket.ReceiveTimeout = 5000;
+                    clientSocket.SendTimeout = 5000;
+                    clientSocket.LingerState = new LingerOption(true, 3);
+                    clientSocket.NoDelay = true;
+
                     // Setup the remote endpoint
                     RemoteEndpoint remoteEndpoint = new RemoteEndpoint();
                     remoteEndpoint.remoteIP = clientEndpoint;

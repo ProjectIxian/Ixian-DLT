@@ -408,6 +408,19 @@ namespace DLTNode
                 return true;
             }
 
+            if (methodName.Equals("chkaddress", StringComparison.OrdinalIgnoreCase))
+            {
+                string address = request.QueryString["address"];
+
+                string chkaddress = Address.generateChecksumAddress(address);
+
+                // Respond with the transaction details
+                string responseString = JsonConvert.SerializeObject(chkaddress);
+                sendResponse(context.Response, responseString);
+
+                return true;
+            }
+
             return false;
         }
 

@@ -162,20 +162,24 @@
         var balance = 0;
             
         function getMyWallet() {
-            //console.log( "getMyWallet" );
             
             var dltAPI = "#IXIAN#NODE#URL#";
 			$.getJSON(dltAPI+"mywallet", { } )
-				.done(function(data) {
-				
-                var sync_status = data[2];
-				balance = data[1];
-				var address = data[0];
-								
-				// Assign relevant wallet information
-				document.getElementById("activity_balance_number").innerHTML = balance;
-				document.getElementById("send_balance_number").innerHTML = balance;
-				document.getElementById("receive_own_address").innerHTML = address;
+                .done(function (data) {
+
+                    var sync_status = data[2];
+                    balance = data[1];
+                    var address = data[0];
+
+                    var shown_balance = 0;
+                    if (balance > 0) {
+                        shown_balance = balance / 100;
+                    }
+
+                    // Assign relevant wallet information
+                    document.getElementById("activity_balance_number").innerHTML = shown_balance.toFixed(2);
+                    document.getElementById("send_balance_number").innerHTML = shown_balance.toFixed(2);
+                    document.getElementById("receive_own_address").innerHTML = shown_balance.toFixed(2);
 
                 if(sync_status == "sync")
                 {
