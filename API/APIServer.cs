@@ -337,7 +337,6 @@ namespace DLTNode
                         walletStates[count][0] = w.id;
                         walletStates[count][1] = w.balance.ToString();
                         count++;
-                        if (count >= 10) break;
                     }
 
                     string responseString = JsonConvert.SerializeObject(walletStates);
@@ -348,13 +347,17 @@ namespace DLTNode
 
             if (methodName.Equals("pl", StringComparison.OrdinalIgnoreCase))
             {
+                string responseString = "None";
+
                 // Show a list of presences
                 lock (PresenceList.presences)
                 {
                     var json = PresenceList.presences;
-                    string responseString = JsonConvert.SerializeObject(json, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore, Formatting = Formatting.Indented });
-                    sendResponse(context.Response, responseString);
+                    responseString = JsonConvert.SerializeObject(json, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore, Formatting = Formatting.Indented });
                 }
+
+                sendResponse(context.Response, responseString);
+
                 return true;
             }
 
