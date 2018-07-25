@@ -155,9 +155,68 @@ namespace DLT
         {
             // Check all transactions in the block against our TXpool, make sure all is legal
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Intederminate
+            bool hasAllTransactions = true;
+            Dictionary<string, ulong> minusBalances = new Dictionary<string, ulong>();
+            foreach (string txid in b.transactions)
+            {
+                Transaction t = TransactionPool.getTransaction(txid);
+                if (t == null)
+                {
+                    hasAllTransactions = false;
+                    continue;
+                }
+                if (!minusBalances.ContainsKey(t.from))
+                {
+                    minusBalances.Add(t.from, 0);
+                }
+                try
+                {
+                    checked
+                    {
+                        ulong new_minus_balance = minusBalances[t.from] + t.amount;
+                        minusBalances[t.from] = new_minus_balance;
+                    }
+                }
+                catch (OverflowException e)
+                {
+                    // someone is doing something bad with this transaction, so we invalidate the block
+                    // TODO: Blacklisting for the transaction originator node
+                    Logging.warn(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}, to: {3}",
+                        t.id, t.amount, t.from, t.to));
+                    return BlockVerifyStatus.Invalid;
+                }
+            }
+            // overspending:
+            foreach(string addr in minusBalances.Keys)
+            {
+                ulong initial_balance = WalletState.getBalanceForAddress(addr);
+                if(initial_balance < minusBalances[addr])
+                {
+                    Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {3}.",
+                        addr, initial_balance, minusBalances[addr]));
+                    return BlockVerifyStatus.Invalid;
+                }
+            }
+            //
+            if (!hasAllTransactions)
+            {
+                Logging.info(String.Format("Block #{0} is missing some transactions, which have been requested from the network.", b.blockNum));
+                return BlockVerifyStatus.Indeterminate;
+            }
             // Verify checksums
+            string checksum = b.calculateChecksum();
+            if(b.blockChecksum != checksum)
+            {
+                Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
+                    b.blockNum, b.blockChecksum, checksum));
+                return BlockVerifyStatus.Invalid;
+            }
             // Verify signatures
-            // Any problems should be sent to the log, so we have some diagnostic for when things go wrong
+            if(!b.verifySignatures())
+            {
+                Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
+                return BlockVerifyStatus.Invalid;
+            }
             // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic
             //  Note: This will need a change in the Network code to tag incoming blocks with sender info.
             return BlockVerifyStatus.Valid;
@@ -170,6 +229,8 @@ namespace DLT
             {
                 if (verifyBlock(localNewBlock) == BlockVerifyStatus.Valid)
                 {
+                    // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
+                    // can no longer be reached according to this number - I don't have a clean answer yet - MZ
                     if (localNewBlock.signatures.Count() >= consensusSignaturesRequired)
                     {
                         // accept this block, apply its transactions, recalc consensus, etc
@@ -183,7 +244,10 @@ namespace DLT
 
         private void applyAcceptedBlock()
         {
-            
+            TransactionPool.applyTransactionsFromBlock(localNewBlock);
+            // TODO: MZ - think over a way to amortize consensus.
+            // Note: We might be accepting block the instant we have consensus signatures, but those aren't
+            // all the sigs what will eventually appear on the block
         }
         
 
@@ -206,15 +270,14 @@ namespace DLT
 
                 ulong total_transactions = 0;
                 ulong total_amount = 0;
-                lock (TransactionPool.transactions)
+
+                Transaction[] poolTransactions = TransactionPool.getAllTransactions();
+                foreach (var transaction in poolTransactions)
                 {
-                    foreach (var transaction in TransactionPool.transactions)
-                    {
-                        //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);
-                        localNewBlock.addTransaction(new Transaction(transaction));
-                        total_amount += transaction.amount;
-                        total_transactions++;
-                    }
+                    //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);
+                    localNewBlock.addTransaction(transaction);
+                    total_amount += transaction.amount;
+                    total_transactions++;
                 }
                 Console.WriteLine("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount);
 

@@ -89,5 +89,14 @@ namespace DLT
             }
         }
 
+        public int getLastBlockSignatures()
+        {
+            if (blocks.Count == 0) return 0;
+            lock(blocks)
+            {
+                return blocks[blocks.Count - 1].signatures.Count;
+            }
+        }
+
     }
 }

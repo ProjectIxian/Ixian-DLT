@@ -12,24 +12,17 @@ namespace DLT
 {
     class TransactionPool
     {
-        public static List<Transaction> transactions = new List<Transaction> { };
+        static List<Transaction> transactions = new List<Transaction> { };
         public static int activeTransactions = 0;
 
-        private static TransactionPool singletonInstance = new TransactionPool();
+        public static int numTransactions { get => transactions.Count; }
+
         static TransactionPool()
         {
         }
 
         private TransactionPool()
         {
-        }
-
-        public static TransactionPool singleton
-        {
-            get
-            {
-                return singletonInstance;
-            }
         }
 
         // Adds a non-verified transaction to the memory pool
@@ -96,6 +89,22 @@ namespace DLT
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
 
             return true;
+        }
+
+        public static Transaction getTransaction(string txid)
+        {
+            lock(transactions)
+            {
+                return transactions.Find(x => x.id == txid);
+            }
+        }
+
+        public static Transaction[] getAllTransactions()
+        {
+            lock(transactions)
+            {
+                return transactions.ToArray();
+            }
         }
 
         // This updates a pre-existing transaction
@@ -308,6 +317,14 @@ namespace DLT
                 }
             }
             return initialBalance;
+        }
+
+        public static bool hasTransaction(string txid)
+        {
+            lock(transactions)
+            {
+                return transactions.Exists(x => x.id == txid);
+            }
         }
 
 

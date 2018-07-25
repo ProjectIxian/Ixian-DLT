@@ -59,6 +59,19 @@ namespace DLT
                 broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes());
             }
 
+            public static void broadcastGetTransaction(string txid)
+            {
+                using (MemoryStream mw = new MemoryStream())
+                {
+                    using (BinaryWriter writerw = new BinaryWriter(mw))
+                    {
+                        writerw.Write(txid);
+
+                        broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray());
+                    }
+                }
+            }
+
             // Broadcast a protocol message across clients and nodes
             public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {

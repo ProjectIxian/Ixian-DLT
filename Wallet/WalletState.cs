@@ -13,17 +13,7 @@ namespace DLT
     {
         public static List<Wallet> wallets = new List<Wallet> { }; // The entire wallet list
 
-        private static WalletState singletonInstance = new WalletState();
-
         static WalletState() { }
-
-        public static WalletState singleton
-        {
-            get
-            {
-                return singletonInstance;
-            }
-        }
 
         // The initial wallet state contains the distribution of all tokens in the specified wallet(s)
         public static void generateWalletState()
