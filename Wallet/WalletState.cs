@@ -284,19 +284,17 @@ namespace DLT
                     if (address.Equals(wallet.id))
                     {
                         ulong valid_balance = wallet.balance;
-                        lock (TransactionPool.transactions)
+                        Transaction[] transactions = TransactionPool.getAllTransactions();
+                        foreach (Transaction transaction in transactions)
                         {
-                            foreach (Transaction transaction in TransactionPool.transactions)
+                            if (transaction.to.Equals(address))
                             {
-                                if (transaction.to.Equals(address))
-                                {
-                                    valid_balance += transaction.amount;
-                                }
-                                else
-                                if (transaction.from.Equals(address))
-                                {
-                                    valid_balance -= transaction.amount;
-                                }
+                                valid_balance += transaction.amount;
+                            }
+                            else
+                            if (transaction.from.Equals(address))
+                            {
+                                valid_balance -= transaction.amount;
                             }
                         }
 

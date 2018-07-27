@@ -63,7 +63,7 @@ namespace DLTNode
                 listener.Prefixes.Add(listenURL);
                 listener.Start();
             }
-            catch(Exception e)
+            catch(Exception)
             {
                 Logging.error("Cannot initialize API server!");
                 return;
@@ -106,7 +106,7 @@ namespace DLTNode
                         sendError(context, "{\"message\":\"error\"}");
                     }
                 }
-                catch(Exception e)
+                catch(Exception)
                 {
                     continueRunning = false;
                     //Logging.error(string.Format("Error in API server {0}", e.ToString()));
@@ -369,29 +369,28 @@ namespace DLTNode
             if (methodName.Equals("tx", StringComparison.OrdinalIgnoreCase))
             {
                 // Show a list of transactions
-                lock (TransactionPool.transactions)
+                Transaction[] transactions = TransactionPool.getAllTransactions();
+                string[][] formattedTransactions = new string[transactions.Length][];
+                int count = 0;
+                foreach (Transaction t in transactions)
                 {
-                    string[][] transactions = new string[TransactionPool.transactions.Count][];
-                    int count = 0;
-                    foreach (Transaction t in TransactionPool.transactions)
-                    {
-                        transactions[count] = new string[3];
-                        transactions[count][0] = t.id;
-                        transactions[count][1] = string.Format("{0}",t.amount);
-                        transactions[count][2] = t.timeStamp;
+                    formattedTransactions[count] = new string[3];
+                    formattedTransactions[count][0] = t.id;
+                    formattedTransactions[count][1] = string.Format("{0}", t.amount);
+                    formattedTransactions[count][2] = t.timeStamp;
 
-                        count++;
-                    }
-
-                    string responseString = JsonConvert.SerializeObject(transactions);
-                    sendResponse(context.Response, responseString);
+                    count++;
                 }
+
+                string responseString = JsonConvert.SerializeObject(formattedTransactions);
+                sendResponse(context.Response, responseString);
+
                 return true;
             }
 
             if (methodName.Equals("blockheight", StringComparison.OrdinalIgnoreCase))
             {
-                ulong blockheight = Node.blockChain.currentBlockNum;
+                ulong blockheight = Node.blockChain.getLastBlockNum();
                 string responseString = JsonConvert.SerializeObject(blockheight);
                 sendResponse(context.Response, responseString);
                 return true;

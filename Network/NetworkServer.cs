@@ -316,7 +316,7 @@ namespace DLT
                         {
                             endpoint.clientSocket.Send(ba, SocketFlags.None);
                         }
-                        catch (Exception e)
+                        catch (Exception)
                         {
                             // Report any issues related to sockets
                             // Logging.warn(string.Format("SRV: Socket exception for {0}. Info: {1}", endpoint.remoteIP, e.ToString()));
@@ -342,7 +342,7 @@ namespace DLT
                         endpoint.state = RemoteEndpointState.Closed;
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     //Console.WriteLine("Failed ping to client: {0}", e.ToString());
                     endpoint.state = RemoteEndpointState.Closed;
@@ -443,7 +443,7 @@ namespace DLT
                         {
                             ProtocolMessage.readProtocolMessage(client.clientSocket, client);
                         }
-                        catch (Exception e)
+                        catch (Exception)
                         {
                             //Console.WriteLine("Disconnected client: {0}", e.ToString());
                             client.state = RemoteEndpointState.Closed;

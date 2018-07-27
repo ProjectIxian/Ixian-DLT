@@ -70,15 +70,16 @@ namespace DLT
                             break;
                         }
                     }
-                }
-                if(Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
-                {
-                    inSyncMode = false;
-                    lock (pendingBlocks)
+                    // we keep this locked so that onBlockReceive can't change syncTarget while we're processing
+                    if (syncTargetBlockNum > 0 && Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
                     {
-                        pendingBlocks.Clear();
+                        inSyncMode = false;
+                        lock (pendingBlocks)
+                        {
+                            pendingBlocks.Clear();
+                        }
+                        return true;
                     }
-                    return true;
                 }
             } else // !inSyncMode
             {
@@ -118,6 +119,11 @@ namespace DLT
                         }
                         else // idx <= -1
                         {
+                            if(b.blockNum > syncTargetBlockNum)
+                            {
+                                // we move the goalpost to make sure we end up in the valid state
+                                syncTargetBlockNum = b.blockNum;
+                            }
                             pendingBlocks.Add(b);
                         }
                     }
@@ -148,6 +154,10 @@ namespace DLT
                     }
                     ProtocolMessage.broadcastNewBlock(b);
                 }
+                if(b.blockNum < Node.blockChain.getLastBlockNum())
+                {
+                    Node.blockChain.refreshSignatures(b);
+                }
             }
         }
 
@@ -177,7 +187,7 @@ namespace DLT
                         minusBalances[t.from] = new_minus_balance;
                     }
                 }
-                catch (OverflowException e)
+                catch (OverflowException)
                 {
                     // someone is doing something bad with this transaction, so we invalidate the block
                     // TODO: Blacklisting for the transaction originator node
@@ -192,7 +202,7 @@ namespace DLT
                 ulong initial_balance = WalletState.getBalanceForAddress(addr);
                 if(initial_balance < minusBalances[addr])
                 {
-                    Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {3}.",
+                    Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
                         addr, initial_balance, minusBalances[addr]));
                     return BlockVerifyStatus.Invalid;
                 }
@@ -245,9 +255,17 @@ namespace DLT
         private void applyAcceptedBlock()
         {
             TransactionPool.applyTransactionsFromBlock(localNewBlock);
-            // TODO: MZ - think over a way to amortize consensus.
-            // Note: We might be accepting block the instant we have consensus signatures, but those aren't
-            // all the sigs what will eventually appear on the block
+            int n1Sigs = Node.blockChain.getBlockSignaturesReverse(1);
+            int n2Sigs = Node.blockChain.getBlockSignaturesReverse(2);
+            if(n1Sigs != 0 && n2Sigs != 0)
+            {
+                int targetSigs = (n1Sigs + n2Sigs) / 2;
+                // amortization for consensus sigs
+                int delta = (targetSigs - consensusSignaturesRequired) / 2;
+                consensusSignaturesRequired += delta;
+
+            }
+
         }
         
 

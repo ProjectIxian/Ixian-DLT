@@ -89,12 +89,24 @@ namespace DLT
             }
         }
 
-        public int getLastBlockSignatures()
+        public int getBlockSignaturesReverse(int index)
         {
-            if (blocks.Count == 0) return 0;
+            if (blocks.Count - index - 1 < 0) return 0;
             lock(blocks)
             {
-                return blocks[blocks.Count - 1].signatures.Count;
+                return blocks[blocks.Count - index - 1].signatures.Count();
+            }
+        }
+
+        public void refreshSignatures(Block b)
+        {
+            lock (blocks)
+            {
+                int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum == b.blockChecksum);
+                if (idx > 0)
+                {
+                    blocks[idx].signatures = blocks[idx].signatures.Union(b.signatures).ToList();
+                }
             }
         }
 

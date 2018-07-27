@@ -303,8 +303,8 @@ namespace DLT
                                     // Send the node version
                                     writer.Write(Config.nodeVersion);
 
-                                    ulong lastBlock = 0;
-                                    Block block = Node.blockChain.getLastBlock();
+                                    ulong lastBlock = Node.blockChain.getLastBlockNum();
+                                    Block block = Node.blockChain.getBlock(lastBlock);
                                     lastBlock = block.blockNum;
                                     writer.Write(lastBlock);
                                     writer.Write(block.blockChecksum);
@@ -347,8 +347,9 @@ namespace DLT
                                         return;
                                     }
 
+
                                     // Check if this node has a newer block ready
-                                    if (last_block_num > Node.blockChain.currentBlockNum + 1)
+                                    /*if (last_block_num > Node.blockChain.currentBlockNum + 1)
                                     {
                                         // Check if we're already in synchronization mode
                                         if (Node.blockProcessor.synchronizing)
@@ -370,9 +371,7 @@ namespace DLT
 
                                         // Get presences
                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.syncPresenceList, new byte[1]), SocketFlags.None);
-
-
-                                    }
+                                    }/*/
 
                                 }
                             }
@@ -487,14 +486,14 @@ namespace DLT
                         case ProtocolMessageCode.newBlock:
                             {
                                 Block block = new Block(data);
-                                Node.blockProcessor.checkIncomingBlock(block, socket);
+                                Node.blockProcessor.onBlockReceived(block);
                             }
                             break;
 
                         case ProtocolMessageCode.blockData:
                             {
                                 Block block = new Block(data);
-                                Node.blockProcessor.checkIncomingBlock(block, socket);
+                                Node.blockProcessor.onBlockReceived(block);
                             }
                             break;
 
@@ -633,7 +632,7 @@ namespace DLT
                                             return;
                                         }
 
-                                        ulong blockNum = Node.blockChain.currentBlockNum;
+                                        ulong blockNum = Node.blockChain.getLastBlockNum();
                                         byte[] pdata = WalletState.getChunkBytes(startOffset, walletCount, blockNum);
                                         if (pdata == null)
                                             return;
