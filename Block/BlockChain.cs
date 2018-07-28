@@ -89,6 +89,15 @@ namespace DLT
             }
         }
 
+        public string getCurrentWalletState()
+        {
+            if (blocks.Count == 0) return "";
+            lock(blocks)
+            {
+                return blocks[blocks.Count - 1].walletStateChecksum;
+            }
+        }
+
         public int getBlockSignaturesReverse(int index)
         {
             if (blocks.Count - index - 1 < 0) return 0;

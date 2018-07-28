@@ -68,7 +68,13 @@ namespace DLTNode
             // Setup a timer to handle routine updates
             mainLoopTimer = new System.Timers.Timer(1000);
             mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
-            mainLoopTimer.Start();
+            //mainLoopTimer.Start();
+            // DEBUG: manual update
+            while(Node.update())
+            {
+                Console.WriteLine(" -> PRESS ENTER TO UPDATE <- ");
+                Console.ReadLine();
+            }
 
             Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
         }

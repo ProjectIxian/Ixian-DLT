@@ -37,13 +37,6 @@ namespace DLT
 
         }
 
-        // Downloads a complete copy of the wallet state
-        public static bool downloadCompleteWalletState()
-        {
-
-            return true;
-        }
-
         // Calculate the checksum of the entire wallet state
         public static string calculateChecksum()
         {
@@ -207,7 +200,13 @@ namespace DLT
             }
 
             // Check if the new walletstate is ready
-            Node.blockProcessor.checkWalletState();
+            checkWalletStateChecksum(Node.blockChain.getCurrentWalletState());
+        }
+
+        public static bool checkWalletStateChecksum(String targetChecksum)
+        {
+            if (targetChecksum == "") return false;
+            return calculateChecksum() == targetChecksum;
         }
 
 

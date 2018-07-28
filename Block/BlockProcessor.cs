@@ -37,16 +37,21 @@ namespace DLT
         {
             lastBlockStartTime = DateTime.Now;
             localNewBlock = null;
-            // we start up in sync mode
-            inSyncMode = true;
+            // we start up in sync mode (except for genesis block)
+            inSyncMode = Config.genesisFunds == 0;
             syncTargetBlockNum = 0;
         }
 
         // Returns true if a block was generated
         public bool onUpdate()
         {
-            if (inSyncMode && syncTargetBlockNum > 0)
+            if (inSyncMode)
             {
+                if(syncTargetBlockNum == 0)
+                {
+                    // we haven't connected to any clients yet
+                    return true;
+                }
                 // attempt to merge pending blocks to the chain
                 lock (pendingBlocks)
                 {
