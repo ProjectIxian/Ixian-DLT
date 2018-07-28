@@ -72,8 +72,12 @@ namespace DLTNode
             // DEBUG: manual update
             while(Node.update())
             {
-                Console.WriteLine(" -> PRESS ENTER TO UPDATE <- ");
-                Console.ReadLine();
+                Console.WriteLine(" -> PRESS ENTER TO UPDATE (B) for next block<- ");
+                ConsoleKeyInfo key = Console.ReadKey();
+                if(key.Key == ConsoleKey.B)
+                {
+                    Node.forceNextBlock = true;
+                }
             }
 
             Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");

@@ -177,7 +177,7 @@ namespace DLT
                 }
                 string signature = parts[0];
                 string signerPubkey = parts[1];
-                if(CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature))
+                if(CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature) == false)
                 {
                     return false;
                 }

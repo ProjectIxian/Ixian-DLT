@@ -16,6 +16,7 @@ namespace DLT.Meta
 
 
         public static bool genesisNode = false;
+        public static bool forceNextBlock = false;
 
 
         public static bool serverStarted = false;

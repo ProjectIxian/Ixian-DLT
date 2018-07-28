@@ -31,7 +31,7 @@ namespace DLT
         List<Block> pendingBlocks = new List<Block>();
         ulong syncTargetBlockNum;
         int consensusSignaturesRequired = 1;
-        int blockGenerationInterval = 30; // in seconds
+        int blockGenerationInterval = 300; // in seconds
 
         public BlockProcessor()
         {
@@ -89,8 +89,18 @@ namespace DLT
             } else // !inSyncMode
             {
                 // check if it is time to generate a new block
-                if((DateTime.Now - lastBlockStartTime).TotalSeconds > blockGenerationInterval)
+                TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+                Logging.info(String.Format("Last block was at: {0}. That is {1} seconds in the past. {2} seconds to go.",
+                    lastBlockStartTime.ToLongTimeString(),
+                    timeSinceLastBlock.TotalSeconds,
+                    blockGenerationInterval - timeSinceLastBlock.TotalSeconds));
+                if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
                 {
+                    if(Node.forceNextBlock)
+                    {
+                        Logging.info("Forcing new block generation");
+                        Node.forceNextBlock = false;
+                    }
                     generateNewBlock();
                 } else
                 {
@@ -251,6 +261,7 @@ namespace DLT
                         // accept this block, apply its transactions, recalc consensus, etc
                         applyAcceptedBlock();
                         Node.blockChain.appendBlock(localNewBlock);
+                        Logging.info(String.Format("Accepted block #{0}: {1}.", localNewBlock.blockNum, localNewBlock.blockChecksum));
                         localNewBlock = null;
                     }
                 }
@@ -278,7 +289,7 @@ namespace DLT
         {
             lock(localBlockLock) {
                 Console.WriteLine("GENERATING NEW BLOCK");
-                if(localBlockLock != null)
+                if(localNewBlock != null)
                 {
                     // it must have arrived just before we started creating it!
                     return;
@@ -306,8 +317,8 @@ namespace DLT
 
                 // Calculate the block checksums and sign it
                 localNewBlock.setWalletStateChecksum(WalletState.calculateChecksum());
-                localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();
+                localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.applySignature();
 
                 Console.WriteLine("\t\t|- Block Checksum:\t\t {0}", localNewBlock.blockChecksum);
