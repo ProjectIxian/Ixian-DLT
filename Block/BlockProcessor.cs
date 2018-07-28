@@ -21,6 +21,7 @@ namespace DLT
     {
         public bool synchronizing { get => inSyncMode; }
         public bool synchronized { get => !inSyncMode; }
+        public ulong syncTarget { get => syncTargetBlockNum; }
 
         Block localNewBlock; // Block being worked on currently
         Object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
@@ -58,6 +59,10 @@ namespace DLT
                     while (pendingBlocks.Count > 0)
                     {
                         ulong nextRequired = Node.blockChain.getLastBlockNum();
+                        if(nextRequired == 0)
+                        {
+                            nextRequired = 1;
+                        }
                         int idx = pendingBlocks.FindIndex(x => x.blockNum == nextRequired);
                         if (idx > -1)
                         {
@@ -283,7 +288,6 @@ namespace DLT
             }
 
         }
-        
 
         public void generateNewBlock()
         {

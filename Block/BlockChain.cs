@@ -10,7 +10,9 @@ namespace DLT
 {
     class BlockChain
     {
-        int redactedWindowSize = 3000; // approx 25 hours - this should be a network-calculable parameter at some point
+        public ulong redactedWindow { get => redactedWindowSize; }
+
+        ulong redactedWindowSize = 3000; // approx 25 hours - this should be a network-calculable parameter at some point
         List<Block> blocks = new List<Block>();
 
         public int Count { get => blocks.Count; }
@@ -24,7 +26,7 @@ namespace DLT
             {
                 // redaction
                 int begin_size = blocks.Count();
-                while (blocks.Count() > redactedWindowSize)
+                while ((ulong)blocks.Count() > redactedWindowSize)
                 {
                     blocks.RemoveAt(0);
                 }

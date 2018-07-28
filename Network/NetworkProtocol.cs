@@ -347,32 +347,16 @@ namespace DLT
                                         return;
                                     }
 
-
-                                    // Check if this node has a newer block ready
-                                    /*if (last_block_num > Node.blockChain.currentBlockNum + 1)
+                                    if(Node.blockProcessor.synchronizing && Node.blockProcessor.syncTarget == 0)
                                     {
-                                        // Check if we're already in synchronization mode
-                                        if (Node.blockProcessor.synchronizing)
-                                            return;
-
-                                        // Enter synchronization mode
-                                        Node.blockProcessor.enterSyncMode(last_block_num, block_checksum, walletstate_checksum);
-
-                                        // Synchronize the transaction pool and the wallet state
-                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.syncPoolState, new byte[1]), SocketFlags.None);
-                                        //socket.Send(prepareProtocolMessage(ProtocolMessageCode.syncWalletState, new byte[1]), SocketFlags.None);
-
-
-                                        // Request the latest block
-                                        broadcastGetBlock(last_block_num);
-
+                                        // Start sync
+                                        ulong redactedChainStart = (Node.blockChain.redactedWindow > last_block_num) ? 1 : last_block_num - Node.blockChain.redactedWindow + 1;
+                                        broadcastGetBlock(redactedChainStart);
                                         // Get neighbors
                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.getNeighbors, new byte[1]), SocketFlags.None);
-
                                         // Get presences
                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.syncPresenceList, new byte[1]), SocketFlags.None);
-                                    }/*/
-
+                                    }
                                 }
                             }
                             break;
