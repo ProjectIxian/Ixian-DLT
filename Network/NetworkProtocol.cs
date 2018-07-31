@@ -351,7 +351,7 @@ namespace DLT
                                     {
                                         // Start sync
                                         ulong redactedChainStart = (Node.blockChain.redactedWindow > last_block_num) ? 1 : last_block_num - Node.blockChain.redactedWindow + 1;
-                                        broadcastGetBlock(redactedChainStart);
+                                        broadcastGetBlock(last_block_num);
                                         // Get neighbors
                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.getNeighbors, new byte[1]), SocketFlags.None);
                                         // Get presences

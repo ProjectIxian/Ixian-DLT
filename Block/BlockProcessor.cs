@@ -33,6 +33,7 @@ namespace DLT
         ulong syncTargetBlockNum;
         int consensusSignaturesRequired = 1;
         int blockGenerationInterval = 300; // in seconds
+        int maxBlockRequests = 100;
 
         public BlockProcessor()
         {
@@ -48,7 +49,7 @@ namespace DLT
         {
             if (inSyncMode)
             {
-                if(syncTargetBlockNum == 0)
+                if (syncTargetBlockNum == 0)
                 {
                     // we haven't connected to any clients yet
                     return true;
@@ -58,11 +59,7 @@ namespace DLT
                 {
                     while (pendingBlocks.Count > 0)
                     {
-                        ulong nextRequired = Node.blockChain.getLastBlockNum();
-                        if(nextRequired == 0)
-                        {
-                            nextRequired = 1;
-                        }
+                        ulong nextRequired = Node.blockChain.getLastBlockNum() + 1;
                         int idx = pendingBlocks.FindIndex(x => x.blockNum == nextRequired);
                         if (idx > -1)
                         {
@@ -75,15 +72,19 @@ namespace DLT
                                 return true;
                             }
                         }
-                        else
+                        else // idx == -1
                         {
+                            requestMissingBlocks();
                             break;
                         }
                     }
                     // we keep this locked so that onBlockReceive can't change syncTarget while we're processing
                     if (syncTargetBlockNum > 0 && Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
                     {
+                        Logging.info(String.Format("Synchronization state achieved at block #{0}.", syncTargetBlockNum));
                         inSyncMode = false;
+                        syncTargetBlockNum = 0;
+                        lastBlockStartTime = DateTime.Now; // the network will probably generate a new block before we, but then we will take time from them.
                         lock (pendingBlocks)
                         {
                             pendingBlocks.Clear();
@@ -91,7 +92,8 @@ namespace DLT
                         return true;
                     }
                 }
-            } else // !inSyncMode
+            }
+            else // !inSyncMode
             {
                 // check if it is time to generate a new block
                 TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
@@ -99,26 +101,33 @@ namespace DLT
                     lastBlockStartTime.ToLongTimeString(),
                     timeSinceLastBlock.TotalSeconds,
                     blockGenerationInterval - timeSinceLastBlock.TotalSeconds));
-                if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
+                if (timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
                 {
-                    if(Node.forceNextBlock)
+                    if (Node.forceNextBlock)
                     {
                         Logging.info("Forcing new block generation");
                         Node.forceNextBlock = false;
                     }
                     generateNewBlock();
-                } else
+                }
+                else
                 {
                     verifyBlockAcceptance();
                 }
             }
-            
+
             return true;
         }
 
         public void onBlockReceived(Block b)
         {
-            if(inSyncMode)
+            if (verifyBlock(b) == BlockVerifyStatus.Invalid)
+            {
+                Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
+                // TODO: Blacklisting point
+                return;
+            }
+            if (inSyncMode)
             {
                 if (b.signatures.Count() < consensusSignaturesRequired)
                 {
@@ -139,7 +148,7 @@ namespace DLT
                         }
                         else // idx <= -1
                         {
-                            if(b.blockNum > syncTargetBlockNum)
+                            if (b.blockNum > syncTargetBlockNum)
                             {
                                 // we move the goalpost to make sure we end up in the valid state
                                 syncTargetBlockNum = b.blockNum;
@@ -148,33 +157,14 @@ namespace DLT
                         }
                     }
                 }
-            } else // !inSyncMode
+            }
+            else // !inSyncMode
             {
-                lock (localBlockLock)
+                if (b.blockNum > Node.blockChain.getLastBlockNum())
                 {
-                    if (localNewBlock == null || b.signatures.Count() > localNewBlock.signatures.Count())
-                    {
-                        if (localNewBlock == null)
-                        {
-                            //we use the instant we received this block as the indicator for when to generate the next block
-                            lastBlockStartTime = DateTime.Now;
-                        }
-                        if (verifyBlock(b) != BlockVerifyStatus.Invalid)
-                        {
-                            localNewBlock = b;
-                            b.applySignature();
-                        }
-                        else // block is invalid
-                        {
-                            Logging.warn(String.Format("Received invalid block from network: #{0}", localNewBlock.blockNum));
-                            localNewBlock = null;
-                            // generate a block ASAP (unless we receive another block in the meantime)
-                            lastBlockStartTime = DateTime.MinValue;
-                        }
-                    }
-                    ProtocolMessage.broadcastNewBlock(b);
+                    onBlockReceived_currentBlock(b);
                 }
-                if(b.blockNum < Node.blockChain.getLastBlockNum())
+                else
                 {
                     Node.blockChain.refreshSignatures(b);
                 }
@@ -192,6 +182,7 @@ namespace DLT
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
+                    ProtocolMessage.broadcastGetTransaction(txid);
                     hasAllTransactions = false;
                     continue;
                 }
@@ -217,10 +208,10 @@ namespace DLT
                 }
             }
             // overspending:
-            foreach(string addr in minusBalances.Keys)
+            foreach (string addr in minusBalances.Keys)
             {
                 ulong initial_balance = WalletState.getBalanceForAddress(addr);
-                if(initial_balance < minusBalances[addr])
+                if (initial_balance < minusBalances[addr])
                 {
                     Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
                         addr, initial_balance, minusBalances[addr]));
@@ -235,14 +226,14 @@ namespace DLT
             }
             // Verify checksums
             string checksum = b.calculateChecksum();
-            if(b.blockChecksum != checksum)
+            if (b.blockChecksum != checksum)
             {
                 Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
                     b.blockNum, b.blockChecksum, checksum));
                 return BlockVerifyStatus.Invalid;
             }
             // Verify signatures
-            if(!b.verifySignatures())
+            if (!b.verifySignatures())
             {
                 Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
                 return BlockVerifyStatus.Invalid;
@@ -252,10 +243,76 @@ namespace DLT
             return BlockVerifyStatus.Valid;
         }
 
+        private void onBlockReceived_currentBlock(Block b)
+        {
+            if (b.blockNum > Node.blockChain.getLastBlockNum() + 1)
+            {
+                Logging.warn(String.Format("Received block #{0}, but next block should be #{1}.", b.blockNum, Node.blockChain.getLastBlockNum() + 1));
+                // TODO: keep a counter - if this happens too often, this node is falling behind the network
+                return;
+            }
+            lock (localBlockLock)
+            {
+                if (localNewBlock != null)
+                {
+                    if(localNewBlock.blockChecksum == b.blockChecksum)
+                    {
+                        localNewBlock.addSignaturesFrom(b);
+                    }
+                    else
+                    {
+                        if(b.signatures.Count() > localNewBlock.signatures.Count())
+                        {
+                            localNewBlock = b;
+                        }
+                    }
+                }
+                else // localNewBlock == null
+                {
+                    // this becomes the reference time for generating a new block
+                    lastBlockStartTime = DateTime.Now;
+                    localNewBlock = b;
+                }
+                if (localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                {
+                    ProtocolMessage.broadcastNewBlock(localNewBlock);
+                }
+            }
+        }
+
+        private void requestMissingBlocks()
+        {
+            if (syncTargetBlockNum == 0)
+            {
+                return;
+            }
+            lock (pendingBlocks)
+            {
+                ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow;
+                ulong lastBlock = syncTargetBlockNum;
+                List<ulong> missingBlocks = new List<ulong>(
+                    Enumerable.Range(0, (int)(lastBlock - firstBlock)).Select(x => (ulong)x + firstBlock)
+                    );
+                foreach (Block b in pendingBlocks)
+                {
+                    missingBlocks.RemoveAll(x => x == b.blockNum);
+                }
+                // whatever is left in pendingBlocks is what we need to request
+                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
+                int count = 0;
+                foreach (ulong blockNum in missingBlocks)
+                {
+                    ProtocolMessage.broadcastGetBlock(blockNum);
+                    count++;
+                    if (count >= maxBlockRequests) break;
+                }
+            }
+        }
+
         private void verifyBlockAcceptance()
         {
             if (localNewBlock == null) return;
-            lock(localBlockLock)
+            lock (localBlockLock)
             {
                 if (verifyBlock(localNewBlock) == BlockVerifyStatus.Valid)
                 {
@@ -267,6 +324,7 @@ namespace DLT
                         applyAcceptedBlock();
                         Node.blockChain.appendBlock(localNewBlock);
                         Logging.info(String.Format("Accepted block #{0}: {1}.", localNewBlock.blockNum, localNewBlock.blockChecksum));
+                        localNewBlock.logBlockDetails();
                         localNewBlock = null;
                     }
                 }
@@ -278,7 +336,7 @@ namespace DLT
             TransactionPool.applyTransactionsFromBlock(localNewBlock);
             int n1Sigs = Node.blockChain.getBlockSignaturesReverse(1);
             int n2Sigs = Node.blockChain.getBlockSignaturesReverse(2);
-            if(n1Sigs != 0 && n2Sigs != 0)
+            if (n1Sigs != 0 && n2Sigs != 0)
             {
                 int targetSigs = (n1Sigs + n2Sigs) / 2;
                 // amortization for consensus sigs
@@ -291,14 +349,15 @@ namespace DLT
 
         public void generateNewBlock()
         {
-            lock(localBlockLock) {
+            lock (localBlockLock)
+            {
                 Console.WriteLine("GENERATING NEW BLOCK");
-                if(localNewBlock != null)
+                if (localNewBlock != null)
                 {
                     // it must have arrived just before we started creating it!
                     return;
                 }
-          
+
                 // Create a new block and add all the transactions in the pool
                 localNewBlock = new Block();
                 lastBlockStartTime = DateTime.Now;
@@ -325,9 +384,7 @@ namespace DLT
                 localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.applySignature();
 
-                Console.WriteLine("\t\t|- Block Checksum:\t\t {0}", localNewBlock.blockChecksum);
-                Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", localNewBlock.lastBlockChecksum);
-                Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", localNewBlock.walletStateChecksum);
+                localNewBlock.logBlockDetails();
 
                 // Broadcast the new block
                 ProtocolMessage.broadcastNewBlock(localNewBlock);
