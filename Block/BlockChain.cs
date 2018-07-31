@@ -111,6 +111,12 @@ namespace DLT
 
         public void refreshSignatures(Block b)
         {
+            // we refuse to change sig numbers older than 5 blocks
+            ulong sigLockHeight = getLastBlockNum() > 5 ? getLastBlockNum() - 5 : 1;
+            if(b.blockNum <= sigLockHeight)
+            {
+                return;
+            }
             lock (blocks)
             {
                 int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum == b.blockChecksum);

@@ -81,15 +81,19 @@ namespace DLT
                     // we keep this locked so that onBlockReceive can't change syncTarget while we're processing
                     if (syncTargetBlockNum > 0 && Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
                     {
-                        Logging.info(String.Format("Synchronization state achieved at block #{0}.", syncTargetBlockNum));
-                        inSyncMode = false;
-                        syncTargetBlockNum = 0;
-                        lastBlockStartTime = DateTime.Now; // the network will probably generate a new block before we, but then we will take time from them.
-                        lock (pendingBlocks)
+                        // we cannot exit sync until wallet state is OK
+                        if (WalletState.checkWalletStateChecksum(Node.blockChain.getCurrentWalletState()))
                         {
-                            pendingBlocks.Clear();
-                        }
-                        return true;
+                            Logging.info(String.Format("Synchronization state achieved at block #{0}.", syncTargetBlockNum));
+                            inSyncMode = false;
+                            syncTargetBlockNum = 0;
+                            lastBlockStartTime = DateTime.Now; // the network will probably generate a new block before we, but then we will take time from them.
+                            lock (pendingBlocks)
+                            {
+                                pendingBlocks.Clear();
+                            }
+                            return true;
+                        } // TODO: Possibly check if this has been going on too long and abort/restart
                     }
                 }
             }
@@ -334,17 +338,30 @@ namespace DLT
         private void applyAcceptedBlock()
         {
             TransactionPool.applyTransactionsFromBlock(localNewBlock);
-            int n1Sigs = Node.blockChain.getBlockSignaturesReverse(1);
-            int n2Sigs = Node.blockChain.getBlockSignaturesReverse(2);
-            if (n1Sigs != 0 && n2Sigs != 0)
+            // recalculating consensus minimums: we use #n-5 and #n-6 to get amortize potential sudden spikes
+            int sigs5 = Node.blockChain.getBlockSignaturesReverse(5);
+            int sigs6 = Node.blockChain.getBlockSignaturesReverse(6);
+            if(sigs5 == 0 || sigs6 == 0)
             {
-                int targetSigs = (n1Sigs + n2Sigs) / 2;
-                // amortization for consensus sigs
-                int delta = (targetSigs - consensusSignaturesRequired) / 2;
-                consensusSignaturesRequired += delta;
-
+                return;
             }
-
+            int avgSigs = (sigs5 + sigs6) / 2;
+            int requiredSigs = (int)Math.Floor(avgSigs * 0.75);
+            int deltaSigs = (requiredSigs - consensusSignaturesRequired) / 2; // divide 2, so we amortize the change a little
+            int prevConsensus = consensusSignaturesRequired;
+            consensusSignaturesRequired = consensusSignaturesRequired + deltaSigs;
+            if (consensusSignaturesRequired == 0)
+            {
+                consensusSignaturesRequired = 1;
+            }
+            if (consensusSignaturesRequired != prevConsensus)
+            {
+                Logging.info(String.Format("Consensus changed from {0} to {1} ({2}{3})",
+                    prevConsensus,
+                    consensusSignaturesRequired,
+                    deltaSigs < 0 ? "-" : "+",
+                    deltaSigs));
+            }
         }
 
         public void generateNewBlock()

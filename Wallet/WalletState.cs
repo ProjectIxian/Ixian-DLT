@@ -198,9 +198,6 @@ namespace DLT
                     }
                 }
             }
-
-            // Check if the new walletstate is ready
-            checkWalletStateChecksum(Node.blockChain.getCurrentWalletState());
         }
 
         public static bool checkWalletStateChecksum(String targetChecksum)
