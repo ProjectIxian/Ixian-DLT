@@ -63,9 +63,9 @@ namespace DLTNode
                 listener.Prefixes.Add(listenURL);
                 listener.Start();
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                Logging.error("Cannot initialize API server!");
+                Logging.error("Cannot initialize API server! The error was: " + ex.Message);
                 return;
             }
 

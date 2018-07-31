@@ -66,11 +66,11 @@ namespace DLTNode
             apiServer = new APIServer();
 
             // Setup a timer to handle routine updates
-            mainLoopTimer = new System.Timers.Timer(1000);
+            mainLoopTimer = new System.Timers.Timer(500);
             mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
-            //mainLoopTimer.Start();
+            mainLoopTimer.Start();
             // DEBUG: manual update
-            while(Node.update())
+            /*while(Node.update())
             {
                 Console.WriteLine(" -> PRESS ENTER TO UPDATE (B) for next block<- ");
                 ConsoleKeyInfo key = Console.ReadKey();
@@ -78,13 +78,21 @@ namespace DLTNode
                 {
                     Node.forceNextBlock = true;
                 }
-            }
+            }*/
 
             Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
         }
 
         static void onUpdate(object source, ElapsedEventArgs e)
         {
+            if (Console.KeyAvailable)
+            {
+                ConsoleKeyInfo key = Console.ReadKey();
+                if(key.Key == ConsoleKey.B)
+                {
+                    Node.forceNextBlock = true;
+                }
+            }
             if(Node.update() == false)
             {
                 apiServer.forceShutdown = true;

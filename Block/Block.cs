@@ -172,24 +172,33 @@ namespace DLT
                 string merged_signature = signature + splitter[0] + public_key;
 
                 signatures.Add(merged_signature);
+                Logging.info(String.Format("Signed block #{0}.", blockNum));
             }
 
             return true;
         }
 
-        public void addSignaturesFrom(Block other)
+        public bool addSignaturesFrom(Block other)
         {
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
             lock (signatures)
             {
+                int count = 0;
                 foreach (String sig in other.signatures)
                 {
                     if(signatures.Contains(sig) == false)
                     {
+                        count++;
                         signatures.Add(sig);
                     }
                 }
+                if (count > 0)
+                {
+                    //Logging.info(String.Format("Merged {0} new signatures from incoming block.", count));
+                    return true;
+                }
             }
+            return false;
         }
 
         public bool verifySignatures()
@@ -292,7 +301,7 @@ namespace DLT
                 last_block_chksum = "G E N E S I S  B L O C K";
             }
             Console.WriteLine("\t\t|- Block Number:\t\t {0}", blockNum);
-            Console.WriteLine("\t\t|- Signatures:\t\t\t {0}", signatures.Count);
+            Console.WriteLine("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockProcessor.currentConsensus);
             Console.WriteLine("\t\t|- Block Checksum:\t\t {0}", blockChecksum);
             Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", last_block_chksum);
             Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum);

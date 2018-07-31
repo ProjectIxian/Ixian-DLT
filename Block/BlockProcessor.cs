@@ -22,6 +22,7 @@ namespace DLT
         public bool synchronizing { get => inSyncMode; }
         public bool synchronized { get => !inSyncMode; }
         public ulong syncTarget { get => syncTargetBlockNum; }
+        public int currentConsensus { get => consensusSignaturesRequired; }
 
         Block localNewBlock; // Block being worked on currently
         Object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
@@ -101,10 +102,15 @@ namespace DLT
             {
                 // check if it is time to generate a new block
                 TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
-                Logging.info(String.Format("Last block was at: {0}. That is {1} seconds in the past. {2} seconds to go.",
-                    lastBlockStartTime.ToLongTimeString(),
-                    timeSinceLastBlock.TotalSeconds,
-                    blockGenerationInterval - timeSinceLastBlock.TotalSeconds));
+                /*if ((int)timeSinceLastBlock.TotalSeconds % 5 == 0
+                    && (timeSinceLastBlock.TotalSeconds - Math.Floor(timeSinceLastBlock.TotalSeconds) < 0.5))
+                {
+                    // spam only every 5 seconds
+                    Logging.info(String.Format("Last block was at: {0}. That is {1} seconds in the past. {2} seconds to go.",
+                        lastBlockStartTime.ToLongTimeString(),
+                        timeSinceLastBlock.TotalSeconds,
+                        blockGenerationInterval - timeSinceLastBlock.TotalSeconds));
+                }*/
                 if (timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
                 {
                     if (Node.forceNextBlock)
@@ -131,6 +137,7 @@ namespace DLT
                 // TODO: Blacklisting point
                 return;
             }
+            //Logging.info(String.Format("Received valid block #{0} ({1}).", b.blockNum, b.blockChecksum));
             if (inSyncMode)
             {
                 if (b.signatures.Count() < consensusSignaturesRequired)
@@ -170,7 +177,12 @@ namespace DLT
                 }
                 else
                 {
-                    Node.blockChain.refreshSignatures(b);
+                    if(Node.blockChain.refreshSignatures(b))
+                    {
+                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                        ProtocolMessage.broadcastNewBlock(updatedBlock);
+                    }
                 }
             }
         }
@@ -261,7 +273,12 @@ namespace DLT
                 {
                     if(localNewBlock.blockChecksum == b.blockChecksum)
                     {
-                        localNewBlock.addSignaturesFrom(b);
+                        //Logging.info("This is the block we are currently working on. Merging signatures.");
+                        if(localNewBlock.addSignaturesFrom(b))
+                        {
+                            // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                        }
                     }
                     else
                     {
@@ -327,7 +344,7 @@ namespace DLT
                         // accept this block, apply its transactions, recalc consensus, etc
                         applyAcceptedBlock();
                         Node.blockChain.appendBlock(localNewBlock);
-                        Logging.info(String.Format("Accepted block #{0}: {1}.", localNewBlock.blockNum, localNewBlock.blockChecksum));
+                        Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
                         localNewBlock.logBlockDetails();
                         localNewBlock = null;
                     }
@@ -338,16 +355,17 @@ namespace DLT
         private void applyAcceptedBlock()
         {
             TransactionPool.applyTransactionsFromBlock(localNewBlock);
-            // recalculating consensus minimums: we use #n-5 and #n-6 to get amortize potential sudden spikes
-            int sigs5 = Node.blockChain.getBlockSignaturesReverse(5);
-            int sigs6 = Node.blockChain.getBlockSignaturesReverse(6);
+            // recalculating consensus minimums: we use #n-5 and #n-6 to amortize potential sudden spikes
+            int sigs5 = Node.blockChain.getBlockSignaturesReverse(4);
+            int sigs6 = Node.blockChain.getBlockSignaturesReverse(5);
             if(sigs5 == 0 || sigs6 == 0)
             {
                 return;
             }
+            Logging.info(String.Format("Signatures (-5): {0}, Signatures (-6): {1}", sigs5, sigs6));
             int avgSigs = (sigs5 + sigs6) / 2;
-            int requiredSigs = (int)Math.Floor(avgSigs * 0.75);
-            int deltaSigs = (requiredSigs - consensusSignaturesRequired) / 2; // divide 2, so we amortize the change a little
+            int requiredSigs = (int)Math.Ceiling(avgSigs * 0.75);
+            int deltaSigs = requiredSigs - consensusSignaturesRequired; // divide 2, so we amortize the change a little
             int prevConsensus = consensusSignaturesRequired;
             consensusSignaturesRequired = consensusSignaturesRequired + deltaSigs;
             if (consensusSignaturesRequired == 0)

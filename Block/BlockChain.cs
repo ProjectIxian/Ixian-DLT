@@ -109,22 +109,30 @@ namespace DLT
             }
         }
 
-        public void refreshSignatures(Block b)
+        public bool refreshSignatures(Block b)
         {
             // we refuse to change sig numbers older than 5 blocks
             ulong sigLockHeight = getLastBlockNum() > 5 ? getLastBlockNum() - 5 : 1;
             if(b.blockNum <= sigLockHeight)
             {
-                return;
+                return false;
             }
             lock (blocks)
             {
                 int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum == b.blockChecksum);
                 if (idx > 0)
                 {
-                    blocks[idx].signatures = blocks[idx].signatures.Union(b.signatures).ToList();
+                    int beforeSigs = blocks[idx].signatures.Count;
+                    blocks[idx].addSignaturesFrom(b);
+                    int afterSigs = blocks[idx].signatures.Count;
+                    if (beforeSigs != afterSigs)
+                    {
+                        Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
+                        return true;
+                    }
                 }
             }
+            return false;
         }
 
     }

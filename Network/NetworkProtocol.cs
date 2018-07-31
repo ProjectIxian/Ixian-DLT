@@ -56,6 +56,7 @@ namespace DLT
 
             public static void broadcastNewBlock(Block b)
             {
+                //Logging.info(String.Format("Broadcasting block #{0} : {1}.", b.blockNum, b.blockChecksum));
                 broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes());
             }
 
@@ -310,6 +311,11 @@ namespace DLT
 
                                     ulong lastBlock = Node.blockChain.getLastBlockNum();
                                     Block block = Node.blockChain.getBlock(lastBlock);
+                                    if(block == null)
+                                    {
+                                        Logging.warn("Clients are connecting, but we have no blocks yet to send them!");
+                                        return;
+                                    }
                                     lastBlock = block.blockNum;
                                     writer.Write(lastBlock);
                                     writer.Write(block.blockChecksum);
@@ -476,6 +482,7 @@ namespace DLT
                         case ProtocolMessageCode.newBlock:
                             {
                                 Block block = new Block(data);
+                                //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
                                 Node.blockProcessor.onBlockReceived(block);
                             }
                             break;
