@@ -145,7 +145,7 @@ namespace DLT
                 Console.WriteLine("\t\t|- Block Number: {0}", localNewBlock.blockNum);
 
                 ulong total_transactions = 0;
-                ulong total_amount = 0;
+                IxiNumber total_amount = new IxiNumber();
                 lock (TransactionPool.transactions)
                 {
                     foreach (var transaction in TransactionPool.transactions)

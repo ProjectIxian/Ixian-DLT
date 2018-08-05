@@ -17,7 +17,7 @@ namespace DLT
             public static bool noHistory = false; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
 
-            public static ulong genesisFunds = 0; // If 0, it'll use a hardcoded wallet address
+            public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
 
             public static string walletFile = "wallet.dat";
 
@@ -28,12 +28,18 @@ namespace DLT
             // Read-only values
             public static readonly string dltVersion = "0.1.1";
             public static readonly int nodeVersion = 4; // Node protocol version
-            public static readonly ulong minimumMasterNodeFunds = 0;//2000; // Limit master nodes to this amount or above
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
             public static readonly int keepAliveInterval = 45; // Number of seconds to wait until next keepalive ping
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
             public static readonly ulong compileTimeBlockNumber = 0;
+
+            // Transactions and fees
+            public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000");//2000; // Limit master nodes to this amount or above
+            public static readonly IxiNumber transactionPriceInitial = new IxiNumber("0.00005"); // Per kB
+            public static readonly double foundationFee = 0.03; // 3% of transaction fees
+            public static readonly string foundationAddress = ""; // Foundation wallet address
+            public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
 
             private static Config singletonInstance;
             private Config()
@@ -73,7 +79,7 @@ namespace DLT
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
 
                 // Convert the genesis block funds to ulong, as only long is accepted with FCLP
-                cmd_parser.Setup<long>('g', "genesis").Callback(value => genesisFunds = (ulong)value).Required();
+                cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 

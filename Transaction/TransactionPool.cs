@@ -71,10 +71,10 @@ namespace DLT
 
                 // Verify the transaction against the wallet state
                 // If the balance after the transaction is negative, do not add it.
-                ulong fromBalance = WalletState.getBalanceForAddress(transaction.from);
-                long finalFromBalance = (long)fromBalance - (long)transaction.amount;
+                IxiNumber fromBalance = WalletState.getBalanceForAddress(transaction.from);
+                IxiNumber finalFromBalance = fromBalance - transaction.amount;
 
-                if (finalFromBalance < 0)
+                if (finalFromBalance < (long)0)
                 {
                     // Prevent overspending
                     return false;
@@ -178,10 +178,10 @@ namespace DLT
 
                             // Applies the transaction to the wallet state
                             // TODO: re-validate the transactions here to prevent any potential exploits
-                            ulong fromBalance = WalletState.getBalanceForAddress(transaction.from);
-                            long finalFromBalance = (long)fromBalance - (long)transaction.amount;
+                            IxiNumber fromBalance = WalletState.getBalanceForAddress(transaction.from);
+                            IxiNumber finalFromBalance = fromBalance - transaction.amount;
 
-                            ulong toBalance = WalletState.getBalanceForAddress(transaction.to);
+                            IxiNumber toBalance = WalletState.getBalanceForAddress(transaction.to);
 
                             WalletState.setBalanceForAddress(transaction.to, toBalance + transaction.amount);
                             WalletState.setBalanceForAddress(transaction.from, fromBalance - transaction.amount);
@@ -285,10 +285,10 @@ namespace DLT
         }
 
         // Returns the initial balance of a wallet by reversing all the transactions in the memory pool
-        public static ulong getInitialBalanceForWallet(string address, ulong finalBalance)
+        public static IxiNumber getInitialBalanceForWallet(string address, IxiNumber finalBalance)
         {
             List<Transaction> cached_pool;
-            ulong initialBalance = finalBalance;
+            IxiNumber initialBalance = finalBalance;
 
             lock (transactions)
             {

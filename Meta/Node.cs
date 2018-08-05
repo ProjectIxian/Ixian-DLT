@@ -45,6 +45,8 @@ namespace DLT.Meta
             // Show the IP selector menu
             showIPmenu();
 
+            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
+
             if (Config.recoverFromFile)
             {
                 Storage.readFromStorage();
@@ -54,7 +56,7 @@ namespace DLT.Meta
             }
             else
             // Check if this is a genesis node
-            if (Config.genesisFunds > 0)
+            if (genesisFunds > (long)0)
             {
                 genesisNode = true;
 

@@ -61,7 +61,7 @@ namespace DLT
             {
                 public string id { get; set; }
                 public int type { get; set; }
-                public long amount { get; set; }
+                public string amount { get; set; }
                 public string to { get; set; }
                 public string from { get; set; }
                 public string timestamp { get; set; }
@@ -73,10 +73,10 @@ namespace DLT
                 Logging.info("Reading blockchain from storage");
 
                 // Setup the genesis balances
-                WalletState.setBalanceForAddress("70e27b7f48ef8f6cf691b331879c2fb9a5edfb7239d4ca463764d25e48189f51", 99999999999999);
-                WalletState.setBalanceForAddress("fca32c0ab94f1051adb16881e41e1fa5024076615bd0e63d14cc00738c89b6d0", 4000);
-                WalletState.setBalanceForAddress("b27785b95e534eabd9ddb2785ed6b841262eed4d74284e87f0518b635fe12e29", 4000);
-                WalletState.setBalanceForAddress("1dab9d028759a4fd84503a15cd680ec964ccec17a034347408c34d15195baa76", 4000);
+                WalletState.setBalanceForAddress("70e27b7f48ef8f6cf691b331879c2fb9a5edfb7239d4ca463764d25e48189f51", new IxiNumber("99999999999999"));
+                WalletState.setBalanceForAddress("fca32c0ab94f1051adb16881e41e1fa5024076615bd0e63d14cc00738c89b6d0", new IxiNumber("4000"));
+                WalletState.setBalanceForAddress("b27785b95e534eabd9ddb2785ed6b841262eed4d74284e87f0518b635fe12e29", new IxiNumber("4000"));
+                WalletState.setBalanceForAddress("1dab9d028759a4fd84503a15cd680ec964ccec17a034347408c34d15195baa76", new IxiNumber("4000"));
 
                 Logging.info(string.Format("Genesis wallet state checksum: {0}", WalletState.calculateChecksum()));
 
@@ -90,7 +90,7 @@ namespace DLT
 
                     Transaction new_transaction = new Transaction();
                     new_transaction.id = tx.id;
-                    new_transaction.amount = (ulong)tx.amount;
+                    new_transaction.amount = new IxiNumber(tx.amount);
                     new_transaction.type = tx.type;
                     new_transaction.from = tx.from;
                     new_transaction.to = tx.to;
@@ -109,10 +109,10 @@ namespace DLT
 
                     // Applies the transaction to the wallet state
                     // TODO: re-validate the transactions here to prevent any potential exploits
-                    ulong fromBalance = WalletState.getBalanceForAddress(new_transaction.from);
-                    long finalFromBalance = (long)fromBalance - (long)new_transaction.amount;
+                    IxiNumber fromBalance = WalletState.getBalanceForAddress(new_transaction.from);
+                    IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
 
-                    ulong toBalance = WalletState.getBalanceForAddress(new_transaction.to);
+                    IxiNumber toBalance = WalletState.getBalanceForAddress(new_transaction.to);
 
                     WalletState.setBalanceForAddress(new_transaction.to, toBalance + new_transaction.amount);
                     WalletState.setBalanceForAddress(new_transaction.from, fromBalance - new_transaction.amount);
@@ -164,10 +164,10 @@ namespace DLT
 
                                 // Applies the transaction to the wallet state
                                 // TODO: re-validate the transactions here to prevent any potential exploits
-                                ulong fromBalance = WalletState.getBalanceForAddress(new_transaction.from);
-                                long finalFromBalance = (long)fromBalance - (long)new_transaction.amount;
+                                IxiNumber fromBalance = WalletState.getBalanceForAddress(new_transaction.from);
+                                IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
 
-                                ulong toBalance = WalletState.getBalanceForAddress(new_transaction.to);
+                                IxiNumber toBalance = WalletState.getBalanceForAddress(new_transaction.to);
 
                              //   WalletState.setBalanceForAddress(new_transaction.to, toBalance + new_transaction.amount);
                              //   WalletState.setBalanceForAddress(new_transaction.from, fromBalance - new_transaction.amount);
@@ -239,8 +239,8 @@ namespace DLT
 
             public static bool insertTransaction(Transaction transaction)
             {
-                string sql = string.Format("INSERT INTO `transactions`(`id`,`type`,`amount`,`to`,`from`,`timestamp`,`checksum`,`signature`) VALUES (\"{0}\",{1},{2},\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\");",
-                    transaction.id, transaction.type, transaction.amount, transaction.to, transaction.from, transaction.timeStamp, transaction.checksum, transaction.signature);
+                string sql = string.Format("INSERT INTO `transactions`(`id`,`type`,`amount`,`to`,`from`,`timestamp`,`checksum`,`signature`) VALUES (\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\");",
+                    transaction.id, transaction.type, transaction.amount.ToString(), transaction.to, transaction.from, transaction.timeStamp, transaction.checksum, transaction.signature);
                 executeSQL(sql);
 
                 return false;
