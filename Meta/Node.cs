@@ -34,6 +34,9 @@ namespace DLT.Meta
             // Initialize the wallet state
             WalletState.generateWalletState();
 
+            // Generate presence list
+            PresenceList.generatePresenceList(Config.publicServerIP);
+
             // Initialize storage
             //Storage.prepareStorage();
 
@@ -46,16 +49,14 @@ namespace DLT.Meta
             // Show the IP selector menu
             showIPmenu();
 
+            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
+
             /*if (Config.recoverFromFile)
             {
                 Storage.readFromStorage();
-
-                // Generate the initial presence list
-                PresenceList.generatePresenceList(Config.publicServerIP);
-            }
-            else*/
+            }*/
             // Check if this is a genesis node
-            if (Config.genesisFunds > 0)
+            if (genesisFunds > (long)0)
             {
                 genesisNode = true;
 
@@ -65,7 +66,6 @@ namespace DLT.Meta
                 // Stop at here since it's a genesis node
                 return;
             }
-            PresenceList.generatePresenceList(Config.publicServerIP);
 
             // Start the network client manager
             NetworkClientManager.startClients();

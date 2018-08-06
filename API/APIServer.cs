@@ -210,27 +210,16 @@ namespace DLTNode
 
                 string to = request.QueryString["to"];
                 string amount_string = request.QueryString["amount"];
-                ulong amount = 0;
-
-                try
-                {
-                    amount = Convert.ToUInt64(amount_string);
-                }
-                catch (Exception e)
-                {
-                    amount = 0;
-                    Logging.warn(string.Format("Exception on addtransaction API request: {0}", e.ToString()));
-                }
+                IxiNumber amount = new IxiNumber(amount_string);
 
                 // Only create a transaction if there is a valid amount
-                if(amount > 0)
+                if(amount > (long)0)
                 {
                     string from = Node.walletStorage.address;
                     Transaction transaction = new Transaction(amount, to, from);
                     TransactionPool.addTransaction(transaction);
                     responseString = JsonConvert.SerializeObject(transaction);
                 }
-
 
                 // Respond with the transaction details
                 sendResponse(context.Response, responseString);
@@ -242,10 +231,10 @@ namespace DLTNode
             {
                 string address = request.QueryString["address"];
 
-                ulong balance = WalletState.getBalanceForAddress(address);
+                IxiNumber balance = WalletState.getBalanceForAddress(address);
 
                 // Respond with the transaction details
-                string responseString = JsonConvert.SerializeObject(balance);
+                string responseString = JsonConvert.SerializeObject(balance.ToString());
                 sendResponse(context.Response, responseString);
 
                 return true;
@@ -309,7 +298,7 @@ namespace DLTNode
             {
                 // Show own address, balance and blockchain synchronization status
                 string address = Node.walletStorage.getWalletAddress();
-                ulong balance = WalletState.getDeltaBalanceForAddress(address);
+                IxiNumber balance = WalletState.getDeltaBalanceForAddress(address);
                 string sync_status = "ready";
                 if (Node.blockProcessor.synchronizing)
                     sync_status = "sync";

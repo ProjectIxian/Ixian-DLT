@@ -18,7 +18,8 @@ namespace DLT
         // The initial wallet state contains the distribution of all tokens in the specified wallet(s)
         public static void generateWalletState()
         {
-            if (Config.genesisFunds > 0)
+            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
+            if (genesisFunds > (long)0)
             {
                 // Add genesis funds to this node's address
                 Wallet wallet = new Wallet(
@@ -185,7 +186,7 @@ namespace DLT
                                 wallets.Insert(wallet_index, new_wallet);
 
                                 // Reverse any transactions during synchronization
-                                ulong finalBalance = new_wallet.balance;
+                                IxiNumber finalBalance = new_wallet.balance;
                                 new_wallet.balance = TransactionPool.getInitialBalanceForWallet(new_wallet.id, finalBalance);
 
                                 Console.WriteLine("SYNC Wallet: {0}", new_wallet.id);
@@ -246,10 +247,10 @@ namespace DLT
         }
 
         // Get the balance of a specific address according to the last generated block's state
-        public static ulong getBalanceForAddress(string address)
+        public static IxiNumber getBalanceForAddress(string address)
         {
             if (address == null)
-                return 0;
+                return new IxiNumber();
 
             lock (wallets)
             {
@@ -263,11 +264,11 @@ namespace DLT
                 }
             }
 
-            return 0;
+            return new IxiNumber();
         }
 
         // Calculate the latest wallet balance, including transactions from the txpool
-        public static ulong getDeltaBalanceForAddress(string address)
+        public static IxiNumber getDeltaBalanceForAddress(string address)
         {
             if (address == null)
                 return 0;
@@ -279,7 +280,7 @@ namespace DLT
                 {
                     if (address.Equals(wallet.id))
                     {
-                        ulong valid_balance = wallet.balance;
+                        IxiNumber valid_balance = wallet.balance;
                         Transaction[] transactions = TransactionPool.getAllTransactions();
                         foreach (Transaction transaction in transactions)
                         {
@@ -303,7 +304,7 @@ namespace DLT
         }
 
         // Sets a wallet balance for a specific address
-        public static void setBalanceForAddress(string address, ulong balance)
+        public static void setBalanceForAddress(string address, IxiNumber balance)
         {
             if (address == null)
                 return;

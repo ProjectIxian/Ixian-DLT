@@ -268,7 +268,7 @@ namespace DLT
                                         if(node_type == 'M')
                                         {
                                             // Check the wallet balance for the minimum amount of coins
-                                            ulong balance = WalletState.getDeltaBalanceForAddress(addr);
+                                            IxiNumber balance = WalletState.getDeltaBalanceForAddress(addr);
                                             if(balance < Config.minimumMasterNodeFunds)
                                             {
                                                 using (MemoryStream m2 = new MemoryStream())
@@ -276,7 +276,7 @@ namespace DLT
                                                     using (BinaryWriter writer = new BinaryWriter(m2))
                                                     {
                                                         writer.Write(string.Format("Insufficient funds. Minimum is {0}", Config.minimumMasterNodeFunds));
-                                                        Logging.info(string.Format("Rejected master node {0} due to insufficient funds: {1}", hostname, balance));
+                                                        Logging.info(string.Format("Rejected master node {0} due to insufficient funds: {1}", hostname, balance.ToString()));
                                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
                                                         socket.Disconnect(true);
                                                         return;
@@ -410,7 +410,7 @@ namespace DLT
                                         string address = reader.ReadString();
 
                                         // Retrieve the latest balance
-                                        ulong balance = WalletState.getDeltaBalanceForAddress(address);
+                                        IxiNumber balance = WalletState.getDeltaBalanceForAddress(address);
 
                                         // Return the balance for the matching address
                                         using (MemoryStream mw = new MemoryStream())
@@ -418,7 +418,7 @@ namespace DLT
                                             using (BinaryWriter writerw = new BinaryWriter(mw))
                                             {
                                                 writerw.Write(address);
-                                                writerw.Write(balance);
+                                                writerw.Write(balance.ToString());
 
  
                                                 byte[] ba = prepareProtocolMessage(ProtocolMessageCode.balance, mw.ToArray());

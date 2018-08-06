@@ -41,7 +41,7 @@ namespace DLT
             lastBlockStartTime = DateTime.Now;
             localNewBlock = null;
             // we start up in sync mode (except for genesis block)
-            inSyncMode = Config.genesisFunds == 0;
+            inSyncMode = Config.genesisFunds == "0";
             syncTargetBlockNum = 0;
         }
 
@@ -192,7 +192,7 @@ namespace DLT
             // Check all transactions in the block against our TXpool, make sure all is legal
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Intederminate
             bool hasAllTransactions = true;
-            Dictionary<string, ulong> minusBalances = new Dictionary<string, ulong>();
+            Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
             foreach (string txid in b.transactions)
             {
                 Transaction t = TransactionPool.getTransaction(txid);
@@ -208,11 +208,8 @@ namespace DLT
                 }
                 try
                 {
-                    checked
-                    {
-                        ulong new_minus_balance = minusBalances[t.from] + t.amount;
-                        minusBalances[t.from] = new_minus_balance;
-                    }
+                    IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
+                    minusBalances[t.from] = new_minus_balance;
                 }
                 catch (OverflowException)
                 {
@@ -226,7 +223,7 @@ namespace DLT
             // overspending:
             foreach (string addr in minusBalances.Keys)
             {
-                ulong initial_balance = WalletState.getBalanceForAddress(addr);
+                IxiNumber initial_balance = WalletState.getBalanceForAddress(addr);
                 if (initial_balance < minusBalances[addr])
                 {
                     Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
@@ -401,7 +398,7 @@ namespace DLT
                 Console.WriteLine("\t\t|- Block Number: {0}", localNewBlock.blockNum);
 
                 ulong total_transactions = 0;
-                ulong total_amount = 0;
+                IxiNumber total_amount = 0;
 
                 Transaction[] poolTransactions = TransactionPool.getAllTransactions();
                 foreach (var transaction in poolTransactions)
