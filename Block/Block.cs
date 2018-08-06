@@ -9,6 +9,7 @@ namespace DLT
 {
     public class Block
     {
+        // TODO: Refactor all of these as readonly get-params
         [PrimaryKey, AutoIncrement]
         public ulong blockNum { get; set; }
 
@@ -150,17 +151,72 @@ namespace DLT
             return checksum;
         }
 
-        // Create and apply a new signature for this block
         public bool applySignature()
         {
-            string private_key = Node.walletStorage.privateKey;
-            string signature =  CryptoManager.lib.getSignature(blockChecksum, private_key);
-
+            // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
             string public_key = Node.walletStorage.publicKey;
-            string merged_signature = signature + splitter[0] + public_key;
+            lock (signatures)
+            {
+                foreach (string sig in signatures)
+                {
+                    string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    if(parts[1] == public_key)
+                    {
+                        // we have already signed it
+                        return false;
+                    }
+                }
+                string private_key = Node.walletStorage.privateKey;
+                string signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
 
-            signatures.Add(merged_signature);
+                string merged_signature = signature + splitter[0] + public_key;
 
+                signatures.Add(merged_signature);
+                Logging.info(String.Format("Signed block #{0}.", blockNum));
+            }
+
+            return true;
+        }
+
+        public bool addSignaturesFrom(Block other)
+        {
+            // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
+            lock (signatures)
+            {
+                int count = 0;
+                foreach (String sig in other.signatures)
+                {
+                    if(signatures.Contains(sig) == false)
+                    {
+                        count++;
+                        signatures.Add(sig);
+                    }
+                }
+                if (count > 0)
+                {
+                    //Logging.info(String.Format("Merged {0} new signatures from incoming block.", count));
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public bool verifySignatures()
+        {
+            foreach(string sig in signatures)
+            {
+                string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                if(parts.Length != 2)
+                {
+                    return false;
+                }
+                string signature = parts[0];
+                string signerPubkey = parts[1];
+                if(CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature) == false)
+                {
+                    return false;
+                }
+            }
             return true;
         }
 
@@ -191,7 +247,7 @@ namespace DLT
                         // Somebody tampered this block. Show a warning and do not broadcast it further
                         // TODO: Possibly denounce the tampered block's origin node
                         Logging.warn(string.Format("Possible tampering on received block: {0}", blockNum));
-                        return true;
+                        return false;
                     }
                 }
             }
@@ -235,6 +291,20 @@ namespace DLT
         public void setWalletStateChecksum(string checksum)
         {
             walletStateChecksum = string.Copy(checksum);
+        }
+
+        public void logBlockDetails()
+        {
+            string last_block_chksum = lastBlockChecksum;
+            if(last_block_chksum.Length == 0)
+            {
+                last_block_chksum = "G E N E S I S  B L O C K";
+            }
+            Console.WriteLine("\t\t|- Block Number:\t\t {0}", blockNum);
+            Console.WriteLine("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockProcessor.currentConsensus);
+            Console.WriteLine("\t\t|- Block Checksum:\t\t {0}", blockChecksum);
+            Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", last_block_chksum);
+            Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum);
         }
 
         public bool isGenesis { get { return this.blockNum == 0 && this.lastBlockChecksum == null; } }

@@ -32,7 +32,7 @@ namespace DLT
                         }
                     }
                 }
-                catch(Exception)
+                catch (Exception)
                 {
                     return hostname;
                 }
@@ -120,6 +120,6 @@ namespace DLT
             }
         }
 
-        }
+    }
 
 }

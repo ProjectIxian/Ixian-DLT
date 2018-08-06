@@ -85,7 +85,7 @@ namespace DLT
                 {
                     tcpClient.Client.Close();
                 }
-                catch(Exception e)
+                catch(Exception)
                 {
                     Logging.warn(string.Format("Socket exception for {0}:{1} when closing.", hostname, port));
                 }
@@ -93,7 +93,7 @@ namespace DLT
                 running = false;
                 return false;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 Logging.warn(string.Format("Network client connection to {0}:{1} has failed.", hostname, port));
                 running = false;
@@ -207,7 +207,7 @@ namespace DLT
                     // Let the protocol handler receive and handle messages
                     ProtocolMessage.readProtocolMessage(tcpClient.Client, null);
                 }
-                catch(Exception e)
+                catch(Exception)
                 {
                     disconnect();
                     Thread.Yield();

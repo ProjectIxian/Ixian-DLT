@@ -13,17 +13,7 @@ namespace DLT
     {
         public static List<Wallet> wallets = new List<Wallet> { }; // The entire wallet list
 
-        private static WalletState singletonInstance = new WalletState();
-
         static WalletState() { }
-
-        public static WalletState singleton
-        {
-            get
-            {
-                return singletonInstance;
-            }
-        }
 
         // The initial wallet state contains the distribution of all tokens in the specified wallet(s)
         public static void generateWalletState()
@@ -45,13 +35,6 @@ namespace DLT
                 // The walletstate will be fetched from the network
             }
 
-        }
-
-        // Downloads a complete copy of the wallet state
-        public static bool downloadCompleteWalletState()
-        {
-
-            return true;
         }
 
         // Calculate the checksum of the entire wallet state
@@ -150,7 +133,7 @@ namespace DLT
         // Process an incoming walletstate chunk
         public static void processChunk(byte[] bytes)
         {
-            if(Node.blockProcessor.inSyncMode == false)
+            if(Node.blockProcessor.synchronizing == false)
             {
                 // Node is not in synchronization mode, discard.
                 Logging.warn("Received walletstate chunk while not in synchronization mode.");
@@ -215,9 +198,12 @@ namespace DLT
                     }
                 }
             }
+        }
 
-            // Check if the new walletstate is ready
-            Node.blockProcessor.checkWalletState();
+        public static bool checkWalletStateChecksum(String targetChecksum)
+        {
+            if (targetChecksum == "") return false;
+            return calculateChecksum() == targetChecksum;
         }
 
 
@@ -294,19 +280,17 @@ namespace DLT
                     if (address.Equals(wallet.id))
                     {
                         ulong valid_balance = wallet.balance;
-                        lock (TransactionPool.transactions)
+                        Transaction[] transactions = TransactionPool.getAllTransactions();
+                        foreach (Transaction transaction in transactions)
                         {
-                            foreach (Transaction transaction in TransactionPool.transactions)
+                            if (transaction.to.Equals(address))
                             {
-                                if (transaction.to.Equals(address))
-                                {
-                                    valid_balance += transaction.amount;
-                                }
-                                else
-                                if (transaction.from.Equals(address))
-                                {
-                                    valid_balance -= transaction.amount;
-                                }
+                                valid_balance += transaction.amount;
+                            }
+                            else
+                            if (transaction.from.Equals(address))
+                            {
+                                valid_balance -= transaction.amount;
                             }
                         }
 

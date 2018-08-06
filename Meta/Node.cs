@@ -16,6 +16,7 @@ namespace DLT.Meta
 
 
         public static bool genesisNode = false;
+        public static bool forceNextBlock = false;
 
 
         public static bool serverStarted = false;
@@ -34,7 +35,7 @@ namespace DLT.Meta
             WalletState.generateWalletState();
 
             // Initialize storage
-            Storage.prepareStorage();
+            //Storage.prepareStorage();
 
             // Initialize the block chain
             blockChain = new BlockChain();
@@ -45,14 +46,14 @@ namespace DLT.Meta
             // Show the IP selector menu
             showIPmenu();
 
-            if (Config.recoverFromFile)
+            /*if (Config.recoverFromFile)
             {
                 Storage.readFromStorage();
 
                 // Generate the initial presence list
                 PresenceList.generatePresenceList(Config.publicServerIP);
             }
-            else
+            else*/
             // Check if this is a genesis node
             if (Config.genesisFunds > 0)
             {
@@ -61,12 +62,10 @@ namespace DLT.Meta
                 // Start the node server if genesis
                 NetworkServer.beginNetworkOperations();
 
-                // Generate the initial presence list
-                PresenceList.generatePresenceList(Config.publicServerIP);
-
                 // Stop at here since it's a genesis node
                 return;
             }
+            PresenceList.generatePresenceList(Config.publicServerIP);
 
             // Start the network client manager
             NetworkClientManager.startClients();
@@ -76,6 +75,9 @@ namespace DLT.Meta
         {
             // Check passed time since last block generation and if needed generate a new block
             blockProcessor.onUpdate();
+
+            // Update redacted blockchain
+            blockChain.onUpdate();
 
             // Cleanup the presence list
             // TODO: optimize this by using a different thread perhaps

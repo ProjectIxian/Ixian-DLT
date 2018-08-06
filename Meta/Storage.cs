@@ -6,7 +6,7 @@ using System.IO;
 namespace DLT
 {
     namespace Meta
-    {
+    {   /*
         public class Storage
         {
             public static string filename = "blockchain.dat";
@@ -263,5 +263,6 @@ namespace DLT
             }
 
         }
+        /**/
     }
 }

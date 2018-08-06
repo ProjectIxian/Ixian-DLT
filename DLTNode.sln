@@ -9,6 +9,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "S2Node", "..\IxianS2\S2Node
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "IXICore", "..\IxianCore\IXICore.shproj", "{80487C64-619A-4B60-97BD-ED7670BF45B3}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4C02EBEA-117F-47BC-ABD6-375DD2985E9C}"
+	ProjectSection(SolutionItems) = preProject
+		Rebracer.xml = Rebracer.xml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		..\IxianCore\IXICore.projitems*{80487c64-619a-4b60-97bd-ed7670bf45b3}*SharedItemsImports = 13

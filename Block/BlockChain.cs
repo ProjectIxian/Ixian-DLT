@@ -10,257 +10,130 @@ namespace DLT
 {
     class BlockChain
     {
-        public List<Block> blocks = new List<Block> { };
-        public bool synchronized = false;
-        public ulong currentBlockNum = 0;
-        public int minimumConsensusSignatures = 2;
+        public ulong redactedWindow { get => redactedWindowSize; }
 
+        ulong redactedWindowSize = 3000; // approx 25 hours - this should be a network-calculable parameter at some point
+        List<Block> blocks = new List<Block>();
 
-
-        // Maintain a list of temporary blocks to be processed during synchronization
-        public List<Block> temporaryBlocks = new List<Block> { };
-
+        public int Count { get => blocks.Count; }
 
         public BlockChain()
         {
-            synchronized = false;
         }
 
-        public bool insertBlock(Block new_block)
+        public void onUpdate() {
+            lock (blocks)
+            {
+                // redaction
+                int begin_size = blocks.Count();
+                while ((ulong)blocks.Count() > redactedWindowSize)
+                {
+                    blocks.RemoveAt(0);
+                }
+                if (begin_size > blocks.Count())
+                {
+                    Console.WriteLine(String.Format("REDACTED {0} blocks to keep the chain length appropriate.", begin_size - blocks.Count()));
+                }
+            }
+        }
+
+        public bool appendBlock(Block b)
+        {
+            lock (blocks)
+            {
+                // special case when we are starting up and have an empty chain
+                if (blocks.Count == 0)
+                {
+                    blocks.Add(b);
+                    return true;
+                }
+                // check for invalid block appending
+                if (b.blockNum != blocks[blocks.Count - 1].blockNum + 1)
+                {
+                    Logging.warn(String.Format("Attempting to add non-sequential block #{0} after block #{1}.",
+                        b.blockNum,
+                        blocks[blocks.Count - 1].blockNum));
+                    return false;
+                }
+                if(b.lastBlockChecksum != blocks[blocks.Count-1].blockChecksum)
+                {
+                    Logging.warn(String.Format("Attempting to add a block #{0}with invalid lastBlockChecksum!", b.blockNum));
+                    return false;
+                }
+                blocks.Add(b);
+                return true;
+            }
+        }
+
+        public Block getBlock(ulong blocknum)
         {
             lock(blocks)
             {
-                // Verify the block's checksums and signatures
-                if (new_block.blockNum > 2 && blocks.Count() > 2)
-                {
-                    // Retrieve the latest block in the local chain
-                    Block lastBlock = blocks.Last();
-
-                    // Verify if the checksums match
-                    if (lastBlock.blockChecksum.Equals(new_block.lastBlockChecksum))
-                    {
-                        // Checksum matches, continue
-                    }
-                    else
-                    {
-                        // The checksums didn't match. 
-                        if (new_block.blockNum > lastBlock.blockNum + 1)
-                        {
-                            // A block has been skipped at this point
-                            // TODO: fetch the correct missing block(s)
-                        }
-                        else
-                        {
-                            // Discard this block
-                            Logging.log(LogSeverity.info, String.Format("Invalid block {0} checksum! Block has not been added to blockchain.",
-                            new_block.blockNum));
-                            return false;
-                        }
-                    }
-                }
-
-                // Check signatures before adding the block
-                if (checkBlockSignatures(new_block))
-                {
-                    // Add to the blockchain
-                    addToBlockchain(new_block);
-                    currentBlockNum = new_block.blockNum;
-                    
-                    // Set the next minimum consensus to 75% of previous block's signatures
-                    minimumConsensusSignatures = (int)((float)new_block.getUniqueSignatureCount() * 0.75);
-
-                    // Require at least two signatures to proceed
-                    if (minimumConsensusSignatures < 2)
-                        minimumConsensusSignatures = 2;
-
-                    Logging.info(String.Format("Added block {0} to blockchain. Minimum consensus is {1} / {2}\n", 
-                        currentBlockNum, minimumConsensusSignatures, new_block.getUniqueSignatureCount()));
-                    return true;
-                }
-
+                return blocks.Find(x => x.blockNum == blocknum);
             }
-            return false;
         }
 
-        // Insert an older block into the blockchain, provided it passes validation
-        public bool insertOldBlock(Block block)
+        public ulong getLastBlockNum()
         {
-            // Check if we already have the blocknum in the local chain
-            foreach(Block local_block in blocks)
+            if (blocks.Count == 0) return 0;
+            lock (blocks)
             {
-                if(local_block.blockNum == block.blockNum)
-                {
-                    // We already have the block in our local blockchain
-
-                    // Check the signatures
-                    if(checkBlockSignatures(block) == false)
-                    {
-                        return false;
-                    }
-
-                    return false;
-                }
+                return blocks[blocks.Count - 1].blockNum;
             }
-
-            // If we're here, it means the block is not already in the local blockchain.
-            // Check the signatures
-            if (checkBlockSignatures(block))
-            {
-                addToBlockchain(block);
-                return true;
-            }
-
-            return false;
-        }
-
-        // Insert a block into the temporary list, until synchronization is complete
-        public bool insertTemporaryBlock(Block block)
-        {
-            if (block == null)
-                return false;
-
-            // Check if we already have the blocknum in the temporary list
-            foreach (Block temporary_block in temporaryBlocks)
-            {
-                if (temporary_block.blockNum == block.blockNum)
-                {
-                    // We already have the block in our local blockchain
-
-                    // Check the signatures
-                    if (checkBlockSignatures(block) == false)
-                    {
-                        return false;
-                    }
-
-                    // Check wallet state checksum
-                    if (temporary_block.walletStateChecksum.Equals(block.walletStateChecksum, StringComparison.Ordinal) == false)
-                    {
-                        // Wallet state is different, request a new wallet state
-                        // Todo: figure out what to do in this case
-                        return false;
-                    }
-
-                    return false;
-                }
-            }
-
-            // Check the signatures
-            if (checkBlockSignatures(block))
-            {
-                lock (temporaryBlocks)
-                {
-                    temporaryBlocks.Add(block);
-                }
-                Console.WriteLine("Added block {0} to temporary blockchain.", block.blockNum);
-
-                return true;
-            }
-            return true;
-        }
-
-        // Check and validate a block's signature
-        public bool checkBlockSignatures(Block block)
-        {
-            // Block 1 is always the genesis block
-            if (block.blockNum == 1)
-                return true;
-
-            // TODO: add additional verification based on signatures
-            if (block.getUniqueSignatureCount() >= minimumConsensusSignatures)
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        // Call this to perform a merge operation of temporary blocks into the active blockchain.
-        // This will empty the temporary blocks list
-        public bool mergeTemporaryBlocks()
-        {
-            lock (temporaryBlocks)
-            {
-                // Sort the temporary block list according to blockNum ascending
-                List<Block> sorted_List = temporaryBlocks.OrderBy(o => o.blockNum).ToList();
-
-                foreach (Block temporary_block in sorted_List)
-                {
-                    insertBlock(temporary_block);
-                }
-
-                // Clear the temporary block list
-                temporaryBlocks.Clear();
-            }
-
-            return true;
         }
 
         public string getLastBlockChecksum()
         {
-            if (blocks.Count() < 1)
-                return Crypto.sha256("IXIAN-GENESIS");
-
-            return blocks.Last().blockChecksum;
-        }
-
-        public Block getLastBlock()
-        {
-            if (blocks.Count() < 1)
-                return null;
-
-            return blocks.Last();
-        }
-
-        // Adds the block to the memory-stored blockchain and writes to storage if history is enabled
-        private bool addToBlockchain(Block block)
-        {
-            blocks.Add(block);
-
-            //Storage.appendToStorage(block.getBytes());
-            Storage.insertBlock(block);
-
-            /* // For debugging block signatures
-            Console.WriteLine("### BLOCK {0}", block.blockNum);
-            // Write each signature
-            foreach (string signature in block.signatures)
+            if (blocks.Count == 0) return "";
+            lock(blocks)
             {
-                Console.WriteLine(signature);
+                return blocks[blocks.Count - 1].blockChecksum;
             }
-            Console.WriteLine("######");
-            */
-            return true;
         }
 
-        public Block getBlock(ulong block_num)
+        public string getCurrentWalletState()
         {
-            if (blocks.Count() < 1)
-                return null;
-
-            if (block_num < 0)
+            if (blocks.Count == 0) return "";
+            lock(blocks)
             {
-                return null;
+                return blocks[blocks.Count - 1].walletStateChecksum;
             }
+        }
 
-            // Return the block based on corresponding block number
-            foreach (Block block in blocks)
+        public int getBlockSignaturesReverse(int index)
+        {
+            if (blocks.Count - index - 1 < 0) return 0;
+            lock(blocks)
             {
-                if (block.blockNum == block_num)
+                return blocks[blocks.Count - index - 1].signatures.Count();
+            }
+        }
+
+        public bool refreshSignatures(Block b)
+        {
+            // we refuse to change sig numbers older than 5 blocks
+            ulong sigLockHeight = getLastBlockNum() > 5 ? getLastBlockNum() - 5 : 1;
+            if(b.blockNum <= sigLockHeight)
+            {
+                return false;
+            }
+            lock (blocks)
+            {
+                int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum == b.blockChecksum);
+                if (idx > 0)
                 {
-                    return block;
+                    int beforeSigs = blocks[idx].signatures.Count;
+                    blocks[idx].addSignaturesFrom(b);
+                    int afterSigs = blocks[idx].signatures.Count;
+                    if (beforeSigs != afterSigs)
+                    {
+                        Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
+                        return true;
+                    }
                 }
             }
-
-            // If the block is still no found and the node is a full history node
-            if(Config.noHistory == false)
-            {
-                // TODO: quickly scan the storage for blocks not stored in memory
-            }
-
-            return null;
+            return false;
         }
-
-
-
 
     }
 }
