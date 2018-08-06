@@ -12,10 +12,19 @@ namespace DLT
 {
     class TransactionPool
     {
-        static List<Transaction> transactions = new List<Transaction> { };
-        public static int activeTransactions = 0;
+        static readonly List<Transaction> transactions = new List<Transaction> { };
+        public static int activeTransactions
+        {
+            get
+            {
+                lock(transactions)
+                {
+                    return transactions.Count;
+                }
+            }
+        }
 
-        public static int numTransactions { get => transactions.Count; }
+        public static int numTransactions { get => activeTransactions; }
 
         static TransactionPool()
         {
@@ -33,6 +42,7 @@ namespace DLT
             string checksum = Transaction.calculateChecksum(transaction);
             if(checksum.Equals(transaction.checksum) == false)
             {
+                Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
                 return false;
             }
 
@@ -70,6 +80,7 @@ namespace DLT
                 if (finalFromBalance < (long)0)
                 {
                     // Prevent overspending
+                    Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));
                     return false;
                 }
 
@@ -80,9 +91,8 @@ namespace DLT
                     Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
                     return false;
                 }
-
+                Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
                 transactions.Add(transaction);
-                activeTransactions = transactions.Count;
             }
 
             // Broadcast this transaction to the network
@@ -95,6 +105,7 @@ namespace DLT
         {
             lock(transactions)
             {
+                Logging.info(String.Format("Looking for transaction {{ {0} }}. Pool has {1}.", txid, transactions.Count));
                 return transactions.Find(x => x.id == txid);
             }
         }
@@ -206,7 +217,7 @@ namespace DLT
                 }
 
                 transactions.Clear();
-                transactions = new List<Transaction>(cached_pool);
+                transactions.AddRange(cached_pool);
                 // Console.WriteLine("||| Transactions after applyTransactionsFromBlock: {0}", transactions.Count());
             }
         }
@@ -289,7 +300,6 @@ namespace DLT
             lock(transactions)
             {
                 transactions.Clear();
-                activeTransactions = 0;
             }
         }
 

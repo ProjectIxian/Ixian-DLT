@@ -442,7 +442,10 @@ namespace DLT
                                         // Check for a transaction corresponding to this id
                                         Transaction transaction = TransactionStorage.getTransaction(txid);
                                         if (transaction == null)
+                                        {
+                                            Logging.info(String.Format("I do not have txid '{0}.", txid));
                                             return;
+                                        }
                                         
                                         byte[] ba = prepareProtocolMessage(ProtocolMessageCode.transactionData, transaction.getBytes());
                                         socket.Send(ba, SocketFlags.None);

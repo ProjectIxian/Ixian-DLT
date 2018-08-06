@@ -25,7 +25,7 @@ namespace DLT
         public int currentConsensus { get => consensusSignaturesRequired; }
 
         Block localNewBlock; // Block being worked on currently
-        Object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
+        readonly Object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
         bool inSyncMode = false;
@@ -33,7 +33,7 @@ namespace DLT
         List<Block> pendingBlocks = new List<Block>();
         ulong syncTargetBlockNum;
         int consensusSignaturesRequired = 1;
-        int blockGenerationInterval = 300; // in seconds
+        int blockGenerationInterval = 30; // in seconds
         int maxBlockRequests = 100;
 
         public BlockProcessor()
@@ -198,6 +198,7 @@ namespace DLT
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
+                    Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
                     ProtocolMessage.broadcastGetTransaction(txid);
                     hasAllTransactions = false;
                     continue;
@@ -274,6 +275,7 @@ namespace DLT
                         if(localNewBlock.addSignaturesFrom(b))
                         {
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
+                            Logging.info(String.Format("Block #{0} was signed, re-transmitting. (total signatures: {1}).", b.blockNum, b.getUniqueSignatureCount()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
@@ -281,6 +283,7 @@ namespace DLT
                     {
                         if(b.signatures.Count() > localNewBlock.signatures.Count())
                         {
+                            Logging.info(String.Format("Incoming block #{0} has more signatures, accepting instead of our own.", b.blockNum));
                             localNewBlock = b;
                         }
                     }
@@ -329,9 +332,9 @@ namespace DLT
 
         private void verifyBlockAcceptance()
         {
-            if (localNewBlock == null) return;
             lock (localBlockLock)
             {
+                if (localNewBlock == null) return;
                 if (verifyBlock(localNewBlock) == BlockVerifyStatus.Valid)
                 {
                     // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
@@ -387,6 +390,7 @@ namespace DLT
                 if (localNewBlock != null)
                 {
                     // it must have arrived just before we started creating it!
+                    Logging.info("Block is already being processed!");
                     return;
                 }
 
