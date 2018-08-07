@@ -131,6 +131,7 @@ namespace DLT
 
         public void onBlockReceived(Block b)
         {
+            //Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
             if (verifyBlock(b) == BlockVerifyStatus.Invalid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
@@ -171,17 +172,20 @@ namespace DLT
             }
             else // !inSyncMode
             {
-                if (b.blockNum > Node.blockChain.getLastBlockNum())
+                lock (localBlockLock)
                 {
-                    onBlockReceived_currentBlock(b);
-                }
-                else
-                {
-                    if(Node.blockChain.refreshSignatures(b))
+                    if (b.blockNum > Node.blockChain.getLastBlockNum())
                     {
-                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                        ProtocolMessage.broadcastNewBlock(updatedBlock);
+                        onBlockReceived_currentBlock(b);
+                    }
+                    else
+                    {
+                        if (Node.blockChain.refreshSignatures(b))
+                        {
+                            // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                            Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                            ProtocolMessage.broadcastNewBlock(updatedBlock);
+                        }
                     }
                 }
             }
@@ -275,7 +279,7 @@ namespace DLT
                         if(localNewBlock.addSignaturesFrom(b))
                         {
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
-                            Logging.info(String.Format("Block #{0} was signed, re-transmitting. (total signatures: {1}).", b.blockNum, b.getUniqueSignatureCount()));
+                            Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
@@ -360,9 +364,17 @@ namespace DLT
             int sigs6 = Node.blockChain.getBlockSignaturesReverse(5);
             if(sigs5 == 0 || sigs6 == 0)
             {
+                // special case to bootstrap the network more smoothly
+                if(Node.blockChain.getBlockSignaturesReverse(0) > 1)
+                {
+                    Logging.info(String.Format("Bootstrapping the consensus: Previous block had {0} signatures.", Node.blockChain.getBlockSignaturesReverse(0)));
+                    consensusSignaturesRequired = Node.blockChain.getBlockSignaturesReverse(0);
+                }
                 return;
             }
-            Logging.info(String.Format("Signatures (-5): {0}, Signatures (-6): {1}", sigs5, sigs6));
+            Logging.info(String.Format("Signatures (#{0}): {1}, Signatures ({2}): {3}",
+                Node.blockChain.getLastBlockNum() - 5, sigs5,
+                Node.blockChain.getLastBlockNum() - 6, sigs6));
             int avgSigs = (sigs5 + sigs6) / 2;
             int requiredSigs = (int)Math.Ceiling(avgSigs * 0.75);
             int deltaSigs = requiredSigs - consensusSignaturesRequired; // divide 2, so we amortize the change a little
@@ -371,6 +383,11 @@ namespace DLT
             if (consensusSignaturesRequired == 0)
             {
                 consensusSignaturesRequired = 1;
+            }
+            if(consensusSignaturesRequired == 1 && Node.blockChain.getBlockSignaturesReverse(0) > 1)
+            {
+                Logging.info(String.Format("DLT network init: Forcing signatures to {0}.", Node.blockChain.getBlockSignaturesReverse(0)));
+                consensusSignaturesRequired = Node.blockChain.getBlockSignaturesReverse(0);
             }
             if (consensusSignaturesRequired != prevConsensus)
             {
@@ -386,7 +403,7 @@ namespace DLT
         {
             lock (localBlockLock)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine("GENERATING NEW BLOCK");
                 Console.ResetColor();
                 if (localNewBlock != null)

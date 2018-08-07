@@ -211,7 +211,7 @@ namespace DLT
                     {
                         continue;
                     }
-                    Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
+                    //Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
                     if(tx.applied == true)
                     {
                         Logging.error(String.Format("Transaction {{ {0} }} has already been applied!", txid));
