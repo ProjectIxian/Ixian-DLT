@@ -271,8 +271,11 @@ namespace DLT
         public static IxiNumber getDeltaBalanceForAddress(string address)
         {
             if (address == null)
+            {
                 return 0;
+            }
 
+            Transaction[] transactions = TransactionPool.getAllTransactions();
             lock (wallets)
             {
                 // TODO: optimize this for low-powered devices+
@@ -281,7 +284,6 @@ namespace DLT
                     if (address.Equals(wallet.id))
                     {
                         IxiNumber valid_balance = wallet.balance;
-                        Transaction[] transactions = TransactionPool.getAllTransactions();
                         foreach (Transaction transaction in transactions)
                         {
                             if (transaction.to.Equals(address))

@@ -386,7 +386,9 @@ namespace DLT
         {
             lock (localBlockLock)
             {
+                Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("GENERATING NEW BLOCK");
+                Console.ResetColor();
                 if (localNewBlock != null)
                 {
                     // it must have arrived just before we started creating it!
@@ -404,7 +406,7 @@ namespace DLT
                 ulong total_transactions = 0;
                 IxiNumber total_amount = 0;
 
-                Transaction[] poolTransactions = TransactionPool.getAllTransactions();
+                Transaction[] poolTransactions = TransactionPool.getUnappliedTransactions();
                 foreach (var transaction in poolTransactions)
                 {
                     //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);

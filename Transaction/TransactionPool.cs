@@ -12,6 +12,15 @@ namespace DLT
 {
     class TransactionPool
     {
+        // Estimate transaction pool memory size for ~3000 blocks @ ~3k tx per block
+        // Current TX: ~200 B.
+        //  3k transactions: ~600 KB
+        //  3k blocks: 1.8 GB (Acceptable?)
+        // Shrunken TX: 97B (See Transaction.cs)
+        //  3k transactions: ~300 KB
+        //  3k blocks: 850 MB
+        //
+
         static readonly List<Transaction> transactions = new List<Transaction> { };
         public static int activeTransactions
         {
@@ -105,7 +114,7 @@ namespace DLT
         {
             lock(transactions)
             {
-                Logging.info(String.Format("Looking for transaction {{ {0} }}. Pool has {1}.", txid, transactions.Count));
+                //Logging.info(String.Format("Looking for transaction {{ {0} }}. Pool has {1}.", txid, transactions.Count));
                 return transactions.Find(x => x.id == txid);
             }
         }
@@ -115,6 +124,14 @@ namespace DLT
             lock(transactions)
             {
                 return transactions.ToArray();
+            }
+        }
+
+        public static Transaction[] getUnappliedTransactions()
+        {
+            lock(transactions)
+            {
+                return transactions.Where(x => x.applied == false).ToArray();
             }
         }
 
@@ -171,55 +188,53 @@ namespace DLT
 
         // This applies all the transactions from a block to the actual walletstate.
         // It removes the corresponding transactions as well from the pool.
-        public static void applyTransactionsFromBlock(Block block)
+        public static bool applyTransactionsFromBlock(Block block)
         {
             if (block == null)
-                return;
+            {
+                return true;
+            }
 
             lock (transactions)
             {
-                List<Transaction> cached_pool;
-                // Console.WriteLine("||| Transactions before applyTransactionsFromBlock: {0}", transactions.Count());
-                cached_pool = new List<Transaction>(transactions);
-
-                // Check the transactions against what we have in the transaction pool
-                foreach (string txid in block.transactions)
+                List<Transaction> tx_to_apply = new List<Transaction>();
+                foreach(string txid in block.transactions)
                 {
-                    foreach (Transaction transaction in cached_pool)
+                    Transaction tx = getTransaction(txid);
+                    if(tx == null)
                     {
-                        if (txid.Equals(transaction.id))
-                        {
-                            // Don't remove 'pending' transactions
-                            // TODO: add an expire condition to prevent potential spaming of the txpool
-                            if(transaction.amount == 0)
-                            {
-                                continue;
-                            }
-
-                            // Applies the transaction to the wallet state
-                            // TODO: re-validate the transactions here to prevent any potential exploits
-                            IxiNumber fromBalance = WalletState.getBalanceForAddress(transaction.from);
-                            IxiNumber finalFromBalance = fromBalance - transaction.amount;
-
-                            IxiNumber toBalance = WalletState.getBalanceForAddress(transaction.to);
-
-                            WalletState.setBalanceForAddress(transaction.to, toBalance + transaction.amount);
-                            WalletState.setBalanceForAddress(transaction.from, fromBalance - transaction.amount);
-
-                            // Add the transaction to storage
-                            TransactionStorage.addTransaction(transaction);
-
-                            // Remove from
-                            cached_pool.Remove(transaction);
-                            break;
-                        }
+                        Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.", 
+                            block.blockNum, block.blockChecksum, txid));
+                        return false;
                     }
+                    if (tx.amount == 0)
+                    {
+                        continue;
+                    }
+                    Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
+                    if(tx.applied == true)
+                    {
+                        Logging.error(String.Format("Transaction {{ {0} }} has already been applied!", txid));
+                        return false;
+                    }
+                    IxiNumber source_balance_before = WalletState.getBalanceForAddress(tx.from);
+                    IxiNumber dest_balance_before = WalletState.getBalanceForAddress(tx.to);
+                    //
+                    IxiNumber source_balance_after = source_balance_before - tx.amount;
+                    if(source_balance_after < (long)0)
+                    {
+                        Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
+                            txid, block.blockNum, block.lastBlockChecksum, tx.from));
+                        return false;
+                    }
+                    IxiNumber dest_balance_after = dest_balance_before + tx.amount;
+                    //
+                    WalletState.setBalanceForAddress(tx.from, source_balance_after);
+                    WalletState.setBalanceForAddress(tx.to, dest_balance_after);
+                    tx.applied = true;
                 }
-
-                transactions.Clear();
-                transactions.AddRange(cached_pool);
-                // Console.WriteLine("||| Transactions after applyTransactionsFromBlock: {0}", transactions.Count());
             }
+            return true;
         }
 
 
@@ -306,15 +321,12 @@ namespace DLT
         // Returns the initial balance of a wallet by reversing all the transactions in the memory pool
         public static IxiNumber getInitialBalanceForWallet(string address, IxiNumber finalBalance)
         {
-            List<Transaction> cached_pool;
+            // TODO: After redaction, this is no longer viable (will have to change logic to on longer depend on this function)
             IxiNumber initialBalance = finalBalance;
-
             lock (transactions)
             {
-                cached_pool = new List<Transaction>(transactions);
-
                 // Go through each transaction and reverse it for the specific address
-                foreach (Transaction transaction in cached_pool)
+                foreach (Transaction transaction in transactions)
                 {
                     if (address.Equals(transaction.from))
                     {
