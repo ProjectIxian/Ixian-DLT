@@ -100,6 +100,12 @@ namespace DLT.Meta
                 }
             }
 
+            // Check for node deprecation
+            if (checkCurrentBlockDeprecation(Node.blockChain.getLastBlockNum()) == false)
+            {
+                running = false;
+            }
+
             return running;
         }
 
