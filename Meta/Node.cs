@@ -38,7 +38,7 @@ namespace DLT.Meta
             PresenceList.generatePresenceList(Config.publicServerIP);
 
             // Initialize storage
-            //Storage.prepareStorage();
+            Storage.prepareStorage();
 
             // Initialize the block chain
             blockChain = new BlockChain();

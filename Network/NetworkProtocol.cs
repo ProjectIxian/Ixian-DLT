@@ -468,6 +468,12 @@ namespace DLT
                             }
                             break;
 
+                        case ProtocolMessageCode.transactionData:
+                            {
+                                Transaction transaction = new Transaction(data);
+                                TransactionPool.updateTransaction(transaction);
+                            }
+                            break;
                         case ProtocolMessageCode.bye:
                             {
                                 using (MemoryStream m = new MemoryStream(data))

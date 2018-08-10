@@ -160,6 +160,7 @@ namespace DLT
                 Logging.warn(string.Format("Invalid signature for updated transaction id: {0}", transaction.id));
                 return false;
             }
+            Storage.insertTransaction(transaction);
 
             // Run through existing transactions in the pool and verify for double-spending / invalid states
             // Note that we lock the transaction for the entire duration of the checks, which might pose performance issues
@@ -207,6 +208,7 @@ namespace DLT
                             block.blockNum, block.blockChecksum, txid));
                         return false;
                     }
+
                     if (tx.amount == 0)
                     {
                         continue;

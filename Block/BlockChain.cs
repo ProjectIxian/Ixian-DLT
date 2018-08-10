@@ -45,6 +45,7 @@ namespace DLT
                 if (blocks.Count == 0)
                 {
                     blocks.Add(b);
+                    Storage.insertBlock(b);
                     return true;
                 }
                 // check for invalid block appending
@@ -61,9 +62,11 @@ namespace DLT
                     return false;
                 }
                 blocks.Add(b);
+                Storage.insertBlock(b);
                 return true;
             }
         }
+
 
         public Block getBlock(ulong blocknum)
         {

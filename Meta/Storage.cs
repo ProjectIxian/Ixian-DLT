@@ -6,7 +6,7 @@ using System.IO;
 namespace DLT
 {
     namespace Meta
-    {   /*
+    {   
         public class Storage
         {
             public static string filename = "blockchain.dat";
@@ -197,9 +197,9 @@ namespace DLT
                     initial_block.signatures.Add(s1);
                 }
 
-                Node.blockProcessor.enterSyncMode((ulong)last_block.blockNum, last_block.blockChecksum, last_block.walletStateChecksum);
-                Node.blockProcessor.setInitialLocalBlock(initial_block);
-                Node.blockProcessor.exitSyncMode();
+        //        Node.blockProcessor.enterSyncMode((ulong)last_block.blockNum, last_block.blockChecksum, last_block.walletStateChecksum);
+        //        Node.blockProcessor.setInitialLocalBlock(initial_block);
+        //        Node.blockProcessor.exitSyncMode();
 
                 Console.WriteLine("Current wallet state checksum: {0}", WalletState.calculateChecksum());
 

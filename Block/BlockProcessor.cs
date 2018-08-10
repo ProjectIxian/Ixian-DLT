@@ -34,7 +34,7 @@ namespace DLT
         ulong syncTargetBlockNum;
         int consensusSignaturesRequired = 1;
         int blockGenerationInterval = 30; // in seconds
-        int maxBlockRequests = 100;
+        int maxBlockRequests = 10;
 
         public BlockProcessor()
         {
@@ -131,7 +131,7 @@ namespace DLT
 
         public void onBlockReceived(Block b)
         {
-            //Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
+            Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
             if (verifyBlock(b) == BlockVerifyStatus.Invalid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
