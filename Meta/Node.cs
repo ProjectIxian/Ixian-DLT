@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -47,7 +48,14 @@ namespace DLT.Meta
             blockProcessor = new BlockProcessor();
 
             // Show the IP selector menu
-            showIPmenu();
+            if (Config.externalIp != "" && IPAddress.TryParse(Config.externalIp, out _))
+            {
+                Config.publicServerIP = Config.externalIp;
+            }
+            else
+            {
+                showIPmenu();
+            }
 
             IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
 
@@ -255,5 +263,20 @@ namespace DLT.Meta
             return splitValues.All(r => byte.TryParse(r, out tempForParsing));
         }
 
+        public static void debugDumpState()
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Logging.trace("===================== Dumping Node State: =====================");
+            Logging.trace(String.Format(" -> Current blockchain height: #{0}. In redacted chain: #{1}.", Node.blockChain.getLastBlockNum(), Node.blockChain.Count));
+            Logging.trace(String.Format(" -> Last Block Checksum: {0}.", Node.blockChain.getLastBlockChecksum()));
+            Logging.trace("Last five signature counts:");
+            for (int i = 0; i < 6; i++)
+            {
+                Logging.trace(String.Format(" -> block #{0}, signatures: {1}.", Node.blockChain.getLastBlockNum() - (ulong)i, Node.blockChain.getBlockSignaturesReverse(i)));
+            }
+            Logging.trace(String.Format(" -> Block processor is synchronizing: {0}.", Node.blockProcessor.synchronizing));
+            Logging.trace(String.Format(" -> Current consensus number: {0}.", Node.blockProcessor.currentConsensus));
+            Console.ResetColor();
+        }
     }
 }

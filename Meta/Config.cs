@@ -23,7 +23,7 @@ namespace DLT
 
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
-
+            public static string externalIp = "";
 
             // Read-only values
             public static readonly string dltVersion = "0.1.1";
@@ -77,6 +77,8 @@ namespace DLT
 
                 cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
+
+                cmd_parser.Setup<string>('i').Callback(value => externalIp = value).SetDefault("");
 
                 // Convert the genesis block funds to ulong, as only long is accepted with FCLP
                 cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();

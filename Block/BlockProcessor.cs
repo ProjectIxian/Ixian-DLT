@@ -23,6 +23,7 @@ namespace DLT
         public bool synchronized { get => !inSyncMode; }
         public ulong syncTarget { get => syncTargetBlockNum; }
         public int currentConsensus { get => consensusSignaturesRequired; }
+        public ulong firstSplitOccurence { get; private set; }
 
         Block localNewBlock; // Block being worked on currently
         readonly Object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
@@ -408,8 +409,51 @@ namespace DLT
                 Console.ResetColor();
                 if (localNewBlock != null)
                 {
-                    // it must have arrived just before we started creating it!
-                    Logging.info("Block is already being processed!");
+                    Node.debugDumpState();
+                    // either it arrived just before we started creating it, or previous block couldn't get signed in time
+                    ulong current_block_num = localNewBlock.blockNum;
+                    ulong supposed_block_num = Node.blockChain.getLastBlockNum() + 1;
+                    if (current_block_num == supposed_block_num)
+                    {
+                        // this means the block currently being processed couldn't be signed in time.
+                        TimeSpan since_last_blockgen = DateTime.Now - lastBlockStartTime;
+                        if ((int)since_last_blockgen.TotalSeconds >= (2 * blockGenerationInterval))
+                        {
+                            // it has been two generation cycles without enough signatures
+                            // we assume a network split (or a massive node drop) here and fix consensus to keep going
+                            firstSplitOccurence = current_block_num; // This should be handled when network merges again, but that part isn't implemented yet
+                            int consensus_number = (int)((double)localNewBlock.signatures.Count * 0.75);
+                            if (consensus_number <= 0)
+                            {
+                                // we have become isolated from the network, so we shutdown
+                                Logging.error(String.Format("Currently generated block only has {0} signaures. Attempting to reconnect to the network...", localNewBlock.signatures.Count));
+                                // TODO: disable block generation and notify network to reconnect to other nodes on the PL
+                                lastBlockStartTime = DateTime.MaxValue;
+                                return;
+                            }
+                            Logging.warn(String.Format("Unable to achieve consensus. Maybe the network was split or too many nodes dropped at once. Split mode assumed and proceeding with consensus {0}.", consensus_number));
+                            consensusSignaturesRequired = consensus_number;
+                        }
+                        else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)
+                        {
+                            Logging.warn(String.Format("It is takign too long to achieve consensus! Re-broadcasting block."));
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                        }
+                    }
+                    else if (current_block_num < supposed_block_num)
+                    {
+                        // we are falling behind. Clear out current state and wait for the next network state
+                        Logging.error(String.Format("We were processing #{0}, but that is already accepted. Lagging behind the network!", current_block_num));
+                        localNewBlock = null;
+                        lastBlockStartTime = DateTime.MaxValue;
+                    }
+                    else
+                    {
+                        // we are too far ahead (this should never happen)
+                        Logging.error(String.Format("Logic error detected. Current block num is #{0}, but should be #{1}. Clearing state and waiting for the network.", current_block_num, supposed_block_num));
+                        localNewBlock = null;
+                        lastBlockStartTime = DateTime.MaxValue;
+                    }
                     return;
                 }
 
