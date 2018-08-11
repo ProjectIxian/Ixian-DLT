@@ -283,9 +283,6 @@ namespace DLT
                                                     }
                                                 }
                                             }
-
-                                            if (NetworkServer.addNeighbor(hostname))
-                                                Logging.info(string.Format("Master node detected at {0}. Added as neighbor.", hostname));
                                         }
 
 
@@ -656,26 +653,6 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.getNeighbors:
-                            {
-                                //Console.WriteLine("Get neighbor data");
-                                byte[] ndata = NetworkUtils.getNeighborsData();
-                                if (ndata == null)
-                                    return;
-                                byte[] ba = prepareProtocolMessage(ProtocolMessageCode.neighborData, ndata);
-                                socket.Send(ba, SocketFlags.None);
-                            }
-                            break;
-
-                        case ProtocolMessageCode.neighborData:
-                            {
-                                if (isAuthoritativeNode(endpoint, socket))
-                                {
-                                    //Console.WriteLine("Received neighbor data");
-                                    NetworkUtils.processNeighborsData(data);
-                                }
-                            }
-                            break;
 
                         case ProtocolMessageCode.syncPresenceList:
                             {

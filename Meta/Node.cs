@@ -76,7 +76,7 @@ namespace DLT.Meta
             }
 
             // Start the network client manager
-            NetworkClientManager.startClients();
+            NetworkClientManager.start();
         }
 
         static public bool update()
@@ -120,7 +120,7 @@ namespace DLT.Meta
         static public void stop()
         {
             // Stop all network clients
-            NetworkClientManager.stopClients();
+            NetworkClientManager.stop();
             
             // Stop the network server
             NetworkServer.stopNetworkOperations();

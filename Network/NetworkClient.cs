@@ -19,6 +19,7 @@ namespace DLT
 
         private string tcpHostname = "";
         private int tcpPort = 0;
+        private int failedReconnects = 0;
 
         public NetworkClient()
         {
@@ -44,6 +45,9 @@ namespace DLT
             //tcpClient.Client.ReceiveBufferSize = 1024 * 64;
             //tcpClient.Client.SendBufferSize = 1024 * 64;
             tcpClient.Client.SendTimeout = 5000;
+
+            // Reset the failed reconnects count
+            failedReconnects = 0;
 
         }
 
@@ -91,16 +95,21 @@ namespace DLT
                 }
 
                 running = false;
+                failedReconnects++;
                 return false;
             }
             catch (Exception)
             {
                 Logging.warn(string.Format("Network client connection to {0}:{1} has failed.", hostname, port));
                 running = false;
+                failedReconnects++;
                 return false;
             }
 
             Logging.info(string.Format("Network client connected to {0}:{1}", hostname, port));
+            
+            // Reset the failed reconnects count
+            failedReconnects = 0;
 
             running = true;
             Thread thread = new Thread(new ThreadStart(onUpdate));
@@ -115,6 +124,7 @@ namespace DLT
             if(tcpHostname.Length < 1 )
             {
                 Logging.warn("Network client reconnect failed due to invalid hostname.");
+                failedReconnects++;
                 return false;
             }
 
@@ -287,6 +297,11 @@ namespace DLT
             }
         }
 
+        // Returns the number of failed reconnects
+        public int getFailedReconnectsCount()
+        {
+            return failedReconnects;
+        }
 
     }
 

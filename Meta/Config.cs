@@ -31,6 +31,8 @@ namespace DLT
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
             public static readonly int keepAliveInterval = 45; // Number of seconds to wait until next keepalive ping
+            public static readonly int maximumNeighborReconnectCount = 5; // Number of retries before proceeding to a different neighbor node
+            public static readonly int simultaneousConnectedNeighbors = 4; // Desired number of simulatenously connected neighbor nodes
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
             public static readonly ulong compileTimeBlockNumber = 0;
 

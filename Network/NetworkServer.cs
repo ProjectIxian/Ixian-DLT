@@ -19,7 +19,6 @@ namespace DLT
         public class NetworkServer
         {
             public static string publicIPAddress = "127.0.0.1";
-            public static List<String> neighborClients = new List<String>();
 
 
             private static bool continueRunning;
@@ -46,48 +45,7 @@ namespace DLT
             }
 
 
-            public static bool addNeighbor(string hostname)
-            {
-                // Detect if neighbor hostname syntax is valid
-                string[] server = hostname.Split(':');
-                if (server.Count() < 2)
-                {
-                    Logging.warn(string.Format("Cannot connect to invalid potential neightbor hostname: {0}", hostname));
-                    return false;
-                }
 
-                // Don't connect to self
-                if (server[0].Equals(CoreNetworkUtils.GetLocalIPAddress(), StringComparison.Ordinal))
-                {
-                    if (server[1].Equals(string.Format("{0}", Config.serverPort), StringComparison.Ordinal))
-                    {
-                        // Silently ignore
-                        return false;
-                    }
-                }
-
-                // Check if neighbor is connected as client already
-                foreach(string client in NetworkClientManager.getConnectedClients())
-                {
-                    if (client.Equals(hostname, StringComparison.Ordinal))
-                        return false;
-                }
-
-                lock (neighborClients)
-                {
-                    // Check for duplicates
-                    foreach (string neighbor in neighborClients)
-                    {
-                        // Ignore duplicates
-                        if (neighbor.Equals(hostname, StringComparison.Ordinal))
-                            return false;
-                    }
-
-                    // Add to neighbors list
-                    neighborClients.Add(hostname);
-                    return true;
-                }
-            }
 
             public static void beginNetworkOperations()
             {
@@ -142,14 +100,7 @@ namespace DLT
                     {
                         client.state = RemoteEndpointState.Closed;
                     }
-                }
-
-                // Clear all neighbors
-                //lock (neighborClients)
-                {
-                    neighborClients.Clear();
-                }
-                
+                }               
             }
 
             // Restart the network server

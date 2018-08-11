@@ -20,25 +20,9 @@ namespace DLT
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
 
-        private static NetworkClientManager singletonInstance = new NetworkClientManager();
-        static NetworkClientManager()
-        {
-        }
-
-        private NetworkClientManager()
-        {
-        }
-
-        public static NetworkClientManager singleton
-        {
-            get
-            {
-                return singletonInstance;
-            }
-        }
-
-
-        public static void startClients()
+        // Starts the Network Client Manager. First it connects to one of the seed nodes in order to fetch the Presence List.
+        // Afterwards, it starts the reconnect and keepalive threads
+        public static void start()
         {
             networkClients = new List<NetworkClient>();
 
@@ -81,7 +65,7 @@ namespace DLT
             th.Start();
         }
 
-        public static void stopClients()
+        public static void stop()
         {
             autoKeepalive = false;
             autoReconnect = false;
@@ -115,10 +99,10 @@ namespace DLT
         public static void restartClients()
         {
             Logging.info("Stopping network clients...");
-            stopClients();
+            stop();
             Thread.Sleep(100);
             Logging.info("Starting network clients...");
-            startClients();
+            start();
         }
 
         // Connects to a specified node, with the syntax host:port
@@ -257,6 +241,84 @@ namespace DLT
             return result.ToArray();
         }
 
+        // Scans the Presence List for a new potential neighbor. Returns null if no new neighbor is found.
+        public static string scanForNeighbor()
+        {
+            // Cache the connected clients string array first for faster comparisons
+            string[] connectedClients = getConnectedClients();
+
+            // Prepare a list of candidate nodes
+            List<string> candidates = new List<string>();
+            Random rnd = new Random();
+
+            lock (PresenceList.presences)
+            {
+                foreach (Presence presence in PresenceList.presences)
+                {
+                    // Find only masternodes
+                    foreach (PresenceAddress addr in presence.addresses)
+                    {
+                        if (addr.type == 'M')
+                        {
+                            // Check if the address format is correct
+                            string[] server = addr.address.Split(':');
+                            if (server.Count() < 2)
+                            {
+                                continue;
+                            }
+
+                            bool addr_valid = true;
+
+                            // Check if we are already connected to this address
+                            lock (networkClients)
+                            {
+                                foreach (NetworkClient client in networkClients)
+                                {
+                                    if (client.address.Equals(addr.address, StringComparison.Ordinal))
+                                    {
+                                        // Address is already in the client list
+                                        addr_valid = false;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Next, check if we're connecting to a self address of this node
+
+                            // Resolve the hostname first
+                            string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
+
+                            // Get all self addresses and run through them
+                            List<string> self_addresses = CoreNetworkUtils.GetAllLocalIPAddresses();
+                            foreach (string self_address in self_addresses)
+                            {
+                                // Don't connect to self
+                                if (resolved_server_name.Equals(self_address, StringComparison.Ordinal))
+                                {
+                                    if (server[1].Equals(string.Format("{0}", Config.serverPort), StringComparison.Ordinal))
+                                    {
+                                        addr_valid = false;
+                                    }
+                                }
+                            }
+
+                            // If the address is valid, add it to the candidates
+                            if (addr_valid)
+                            {
+                                candidates.Add(addr.address);
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            if (candidates.Count < 1)
+                    return null;
+
+            string candidate = candidates[rnd.Next(candidates.Count)];
+            return candidate;
+        }
 
         // Checks for missing clients
         private static void reconnectClients()
@@ -268,10 +330,42 @@ namespace DLT
             {
                 lock (networkClients)
                 {
+                    // Check if we need to connect to more neighbors
+                    if(networkClients.Count < Config.simultaneousConnectedNeighbors)
+                    {
+                        // Scan for and connect to a new neighbor
+                        string neighbor = scanForNeighbor();
+                        if(neighbor != null)
+                        {
+                            Logging.info(string.Format("Attempting to add new neighbor: {0}", neighbor));
+                            connectTo(neighbor);
+                        }
+                    }
+
+                    // Prepare a list of failed clients
+                    List<NetworkClient> failed_clients = new List<NetworkClient>();
+
                     foreach (NetworkClient client in networkClients)
                     {
-                        client.sendPing();
+                        // Check if we exceeded the maximum reconnect count
+                        if (client.getFailedReconnectsCount() >= Config.maximumNeighborReconnectCount)
+                        {
+                            // Remove this client so we can search for a new neighbor
+                            failed_clients.Add(client);
+                        }
+                        else
+                        {
+                            // Everything is in order, send a ping message
+                            client.sendPing();
+                        }
                     }
+
+                    // Go through the list of failed clients and remove them
+                    foreach (NetworkClient client in failed_clients)
+                    {
+                        networkClients.Remove(client);
+                    }
+
                 }
 
                 // Wait 5 seconds before rechecking
