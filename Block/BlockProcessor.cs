@@ -37,6 +37,8 @@ namespace DLT
         int blockGenerationInterval = 30; // in seconds
         int maxBlockRequests = 10;
 
+        private static string[] splitter = { "::" };
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.Now;
@@ -398,8 +400,122 @@ namespace DLT
                     deltaSigs < 0 ? "-" : "+",
                     deltaSigs));
             }
+
+            // Finally, apply transaction fee rewards
+            applyTransactionFeeRewards();
         }
 
+        // Deposits the transaction fees corresponding to the 5th last block
+        public void applyTransactionFeeRewards()
+        {
+            string sigfreezechecksum = "0";
+            lock (localNewBlock)
+            {
+                // Should never happen
+                if (localNewBlock == null)
+                    return;
+
+                sigfreezechecksum = localNewBlock.signatureFreezeChecksum;
+            }
+            // Verify the checksum is valid
+            if (sigfreezechecksum.Length < 3)
+            {
+                return;
+            }
+
+            // Obtain the 5th last block, aka target block
+            // Last block num - 4 gets us the 5th last block
+            Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+
+            // Calculate the signature checksum
+            string targetSigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+
+            if (sigfreezechecksum.Equals(targetSigFreezeChecksum, StringComparison.Ordinal) == false)
+            {
+                Logging.info(string.Format("Signature freeze mismatch for block {0}. Current block height: {1}", targetBlock.blockNum, localNewBlock.blockNum));
+                // TODO: fetch the block again or re-sync
+                return;
+            }
+
+            // Calculate the total transactions amount and number of transactions in the target block
+            IxiNumber tAmount = 0;
+            ulong txcount = 0;
+            foreach(string txid in targetBlock.transactions)
+            {
+                Transaction tx = TransactionStorage.getTransaction(txid);
+                if (tx != null)
+                {
+                    tAmount += tx.amount;
+                    txcount++;
+                }
+            }
+
+            // Check if there are any transactions processed in the target block
+            if(txcount < 1)
+            { 
+                return;
+            }
+
+            // Check the amount
+            if(tAmount == (long) 0)
+            {
+                return;
+            }
+
+            // Calculate the total fee amount
+            IxiNumber tFeeAmount =  Config.transactionPrice * txcount;
+            IxiNumber foundationAward = tFeeAmount * Config.foundationFeePercent / 100;
+
+            // Award foundation fee
+            IxiNumber foundation_balance_before = WalletState.getBalanceForAddress(Config.foundationAddress);
+            IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
+            WalletState.setBalanceForAddress(Config.foundationAddress, foundation_balance_after);
+            Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
+
+            // Subtract the foundation award from total fee amount
+            tFeeAmount = tFeeAmount - foundationAward;
+
+            long numSigs = targetBlock.signatures.Count();
+            if(numSigs < 1)
+            {
+                // Something is not right, there are no signers on this block
+                return;
+            }
+
+            // Calculate the award per signer
+            IxiNumber sigs = new IxiNumber(numSigs);
+            IxiNumber tAward = tFeeAmount / sigs; // TODO: use floor and distribute the remainder to the foundation wallet
+
+            // Go through each signature in the block
+            foreach (string sig in targetBlock.signatures)
+            {
+                // Extract the public key
+                string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                string pubkey = parts[1];
+                if(pubkey.Length < 1)
+                {
+                    // TODO: find out what to do here. Perhaps send fee to the foundation wallet?
+                    continue;
+                }
+
+                // Generate the corresponding Ixian address
+                Address addr = new Address(pubkey);
+
+                // Update the walletstate and deposit the award
+                IxiNumber balance_before = WalletState.getBalanceForAddress(addr.ToString());
+                IxiNumber balance_after = balance_before + tAward;
+                WalletState.setBalanceForAddress(addr.ToString(), balance_after);
+
+                Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
+            }
+
+            // Output stats for this block's fee distribution
+            Logging.info(string.Format("Total block TX amount: {0} Total TXs: {1} Reward per Signer: {2} Foundation Reward: {3}", tAmount.ToString(), txcount, 
+                tAward.ToString(), foundationAward.ToString()));
+          
+        }
+
+        // Generate a new block
         public void generateNewBlock()
         {
             lock (localBlockLock)
@@ -477,19 +593,37 @@ namespace DLT
                 }
                 Console.WriteLine("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount);
 
+
                 // Calculate the block checksums and sign it
                 localNewBlock.setWalletStateChecksum(WalletState.calculateChecksum());
                 localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();
+                localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
                 localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.applySignature();
 
                 localNewBlock.logBlockDetails();
 
                 // Broadcast the new block
-                ProtocolMessage.broadcastNewBlock(localNewBlock);
+                ProtocolMessage.broadcastNewBlock(localNewBlock);         
+
             }
         }
 
+        public string getSignatureFreeze()
+        {
+            // Prevent calculations if we don't have 5 fully generated blocks yet
+            if(Node.blockChain.getLastBlockNum() < 5)
+            {
+                return "0";
+            }
+
+            // Last block num - 4 gets us the 5th last block
+            Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+
+            // Calculate the signature checksum
+            string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+            return sigFreezeChecksum;
+        }
 
         public bool hasNewBlock()
         {

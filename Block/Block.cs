@@ -16,10 +16,11 @@ namespace DLT
         public List<string> transactions = new List<string> { };
         public List<string> signatures = new List<string> { };
 
-        public string blockChecksum;
-        public string lastBlockChecksum;
-        public string walletStateChecksum;
-
+        public string blockChecksum = "0";
+        public string lastBlockChecksum = "0";
+        public string walletStateChecksum = "0";
+        public string signatureFreezeChecksum = "0";
+        public string powField = "";
 
         private static string[] splitter = { "::" };
 
@@ -59,36 +60,47 @@ namespace DLT
             blockChecksum = block.blockChecksum;
             lastBlockChecksum = block.lastBlockChecksum;
             walletStateChecksum = block.walletStateChecksum;
+            signatureFreezeChecksum = block.signatureFreezeChecksum;
+            powField = block.powField;
         }
 
         public Block(byte[] bytes)
         {
-            using (MemoryStream m = new MemoryStream(bytes))
+            try
             {
-                using (BinaryReader reader = new BinaryReader(m))
+                using (MemoryStream m = new MemoryStream(bytes))
                 {
-                    blockNum = reader.ReadUInt64();
-
-                    // Get the transaction ids
-                    int num_transactions = reader.ReadInt32();
-                    for(int i = 0; i < num_transactions; i++)
+                    using (BinaryReader reader = new BinaryReader(m))
                     {
-                        string txid = reader.ReadString();
-                        transactions.Add(txid);
-                    }
+                        blockNum = reader.ReadUInt64();
 
-                    // Get the signatures
-                    int num_signatures = reader.ReadInt32();
-                    for (int i = 0; i < num_signatures; i++)
-                    {
-                        string signature = reader.ReadString();
-                        signatures.Add(signature);
-                    }
+                        // Get the transaction ids
+                        int num_transactions = reader.ReadInt32();
+                        for (int i = 0; i < num_transactions; i++)
+                        {
+                            string txid = reader.ReadString();
+                            transactions.Add(txid);
+                        }
 
-                    blockChecksum = reader.ReadString();
-                    lastBlockChecksum = reader.ReadString();
-                    walletStateChecksum = reader.ReadString();
+                        // Get the signatures
+                        int num_signatures = reader.ReadInt32();
+                        for (int i = 0; i < num_signatures; i++)
+                        {
+                            string signature = reader.ReadString();
+                            signatures.Add(signature);
+                        }
+
+                        blockChecksum = reader.ReadString();
+                        lastBlockChecksum = reader.ReadString();
+                        walletStateChecksum = reader.ReadString();
+                        signatureFreezeChecksum = reader.ReadString();
+                        powField = reader.ReadString();
+                    }
                 }
+            }
+            catch(Exception e)
+            {
+                Logging.warn(string.Format("Cannot create block from bytes: {0}", e.ToString()));
             }
         }
 
@@ -123,6 +135,8 @@ namespace DLT
                     writer.Write(blockChecksum);
                     writer.Write(lastBlockChecksum);
                     writer.Write(walletStateChecksum);
+                    writer.Write(signatureFreezeChecksum);
+                    writer.Write(powField);
                 }
                 return m.ToArray();
             }
@@ -138,6 +152,7 @@ namespace DLT
             return true;
         }
 
+        // Returns the checksum of this block, without considering signatures
         public string calculateChecksum()
         {
             System.Text.StringBuilder merged_txids = new System.Text.StringBuilder();
@@ -146,11 +161,30 @@ namespace DLT
                 merged_txids.Append(txid);
             }
 
-            string checksum = Crypto.sha256(blockNum + merged_txids.ToString() + lastBlockChecksum + walletStateChecksum);
-
+            string checksum = Crypto.sha256(blockNum + merged_txids.ToString() + lastBlockChecksum + walletStateChecksum + signatureFreezeChecksum);
             return checksum;
         }
 
+        // Returns the checksum of all signatures of this block
+        public string calculateSignatureChecksum()
+        {
+            // Sort the signature first
+            List<string> sortedSigs = new List<string>(signatures);
+            sortedSigs.Sort();
+
+            // Merge the sorted signatures
+            System.Text.StringBuilder merged_sigs = new System.Text.StringBuilder();
+            foreach (string sig in sortedSigs)
+            {
+                merged_sigs.Append(sig);
+            }
+
+            // Generate a checksum from the merged sorted signatures
+            string checksum = Crypto.sha256(merged_sigs.ToString());
+            return checksum;
+        }
+
+        // Applies this node's signature to this block
         public bool applySignature()
         {
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
@@ -305,6 +339,7 @@ namespace DLT
             Console.WriteLine("\t\t|- Block Checksum:\t\t {0}", blockChecksum);
             Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", last_block_chksum);
             Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum);
+            Console.WriteLine("\t\t|- Sig Freeze Checksum: \t {0}", signatureFreezeChecksum);
         }
 
         public bool isGenesis { get { return this.blockNum == 0 && this.lastBlockChecksum == null; } }

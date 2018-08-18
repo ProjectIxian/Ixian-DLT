@@ -14,7 +14,7 @@ namespace DLT.Meta
         public static BlockChain blockChain;
         public static BlockProcessor blockProcessor;
         public static WalletStorage walletStorage;
-
+        public static Miner miner;
 
         public static bool genesisNode = false;
         public static bool forceNextBlock = false;
@@ -77,6 +77,10 @@ namespace DLT.Meta
 
             // Start the network client manager
             NetworkClientManager.start();
+
+            // Start the miner
+            miner = new Miner();
+            miner.start();
         }
 
         static public bool update()
@@ -119,6 +123,9 @@ namespace DLT.Meta
 
         static public void stop()
         {
+            // Stop the miner
+            miner.stop();
+
             // Stop all network clients
             NetworkClientManager.stop();
             

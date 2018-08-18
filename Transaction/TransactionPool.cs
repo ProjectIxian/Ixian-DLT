@@ -80,6 +80,13 @@ namespace DLT
                         return false;
                 }
 
+                // Verify if the transaction contains the minimum fee
+                if(transaction.amount < Config.transactionPrice)
+                {
+                    // Prevent transactions that can't pay the minimum fee
+                    Logging.warn(String.Format("Transaction amount does not cover fee for {{ {0} }}.", transaction.id));
+                    return false;
+                }
 
                 // Verify the transaction against the wallet state
                 // If the balance after the transaction is negative, do not add it.
@@ -102,6 +109,9 @@ namespace DLT
                 }
                 Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
                 transactions.Add(transaction);
+
+                // Also add the transaction to storage
+                TransactionStorage.addTransaction(transaction);
             }
 
             // Broadcast this transaction to the network
@@ -160,7 +170,6 @@ namespace DLT
                 Logging.warn(string.Format("Invalid signature for updated transaction id: {0}", transaction.id));
                 return false;
             }
-            Storage.insertTransaction(transaction);
 
             // Run through existing transactions in the pool and verify for double-spending / invalid states
             // Note that we lock the transaction for the entire duration of the checks, which might pose performance issues
@@ -177,6 +186,9 @@ namespace DLT
 
                         // Broadcast this transaction update to the network
                         ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
+
+                        // Also update the transaction to storage
+                        TransactionStorage.updateTransaction(transaction);
 
                         return true;
                     }
@@ -219,9 +231,20 @@ namespace DLT
                         Logging.error(String.Format("Transaction {{ {0} }} has already been applied!", txid));
                         return false;
                     }
+
+                    // Calculate the transaction amount without fee
+                    IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
+
+                    if (txAmountWithoutFee < (long) 0)
+                    {
+                        Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", txid));
+                        continue;
+                    }
+
                     IxiNumber source_balance_before = WalletState.getBalanceForAddress(tx.from);
                     IxiNumber dest_balance_before = WalletState.getBalanceForAddress(tx.to);
-                    //
+
+                    // Withdraw the full amount, including fee
                     IxiNumber source_balance_after = source_balance_before - tx.amount;
                     if(source_balance_after < (long)0)
                     {
@@ -229,8 +252,11 @@ namespace DLT
                             txid, block.blockNum, block.lastBlockChecksum, tx.from));
                         return false;
                     }
-                    IxiNumber dest_balance_after = dest_balance_before + tx.amount;
-                    //
+
+                    // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
+                    IxiNumber dest_balance_after = dest_balance_before + txAmountWithoutFee;
+
+                    // Update the walletstate
                     WalletState.setBalanceForAddress(tx.from, source_balance_after);
                     WalletState.setBalanceForAddress(tx.to, dest_balance_after);
                     tx.applied = true;

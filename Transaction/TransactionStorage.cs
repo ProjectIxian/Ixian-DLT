@@ -40,9 +40,28 @@ namespace DLT
                 transactions.Add(transaction);
 
                 // Storage the transaction in the database
-                //Meta.Storage.insertTransaction(transaction);
+                Meta.Storage.insertTransaction(transaction);               
             }
             return true;
+        }
+
+        public static bool updateTransaction(Transaction transaction)
+        {
+            lock (transactions)
+            {
+                foreach (Transaction tx in transactions)
+                {
+                    if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
+                    {
+                        tx.amount = transaction.amount;
+                        tx.data = transaction.data;
+                        tx.checksum = transaction.checksum;
+
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
     }

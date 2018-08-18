@@ -26,7 +26,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string dltVersion = "0.1.1";
+            public static readonly string dltVersion = "0.1.2";
             public static readonly int nodeVersion = 4; // Node protocol version
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
@@ -38,9 +38,9 @@ namespace DLT
 
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000");//2000; // Limit master nodes to this amount or above
-            public static readonly IxiNumber transactionPriceInitial = new IxiNumber("0.00005"); // Per kB
-            public static readonly double foundationFee = 0.03; // 3% of transaction fees
-            public static readonly string foundationAddress = ""; // Foundation wallet address
+            public static readonly IxiNumber transactionPrice = 5000; // Per kB
+            public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
+            public static readonly string foundationAddress = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481"; // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
 
             private static Config singletonInstance;
