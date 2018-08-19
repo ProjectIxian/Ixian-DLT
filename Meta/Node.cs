@@ -35,6 +35,16 @@ namespace DLT.Meta
             // Initialize the wallet state
             WalletState.generateWalletState();
 
+            // Show the IP selector menu
+            if (Config.externalIp != "" && IPAddress.TryParse(Config.externalIp, out _))
+            {
+                Config.publicServerIP = Config.externalIp;
+            }
+            else
+            {
+                showIPmenu();
+            }
+
             // Generate presence list
             PresenceList.generatePresenceList(Config.publicServerIP);
 
@@ -46,16 +56,6 @@ namespace DLT.Meta
 
             // Create the block processor
             blockProcessor = new BlockProcessor();
-
-            // Show the IP selector menu
-            if (Config.externalIp != "" && IPAddress.TryParse(Config.externalIp, out _))
-            {
-                Config.publicServerIP = Config.externalIp;
-            }
-            else
-            {
-                showIPmenu();
-            }
 
             IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
 
