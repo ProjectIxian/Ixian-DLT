@@ -484,7 +484,17 @@ namespace DLT
 
             // Calculate the award per signer
             IxiNumber sigs = new IxiNumber(numSigs);
-            IxiNumber tAward = tFeeAmount / sigs; // TODO: use floor and distribute the remainder to the foundation wallet
+
+            IxiNumber remainder = 0;
+            IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out remainder);
+
+            // Division of fee amount and sigs left a remainder, distribute that to the foundation wallet
+            if(remainder > (long) 0)
+            {
+                foundation_balance_after = foundation_balance_after + remainder;
+                WalletState.setBalanceForAddress(Config.foundationAddress, foundation_balance_after);
+                Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
+            }
 
             // Go through each signature in the block
             foreach (string sig in targetBlock.signatures)
