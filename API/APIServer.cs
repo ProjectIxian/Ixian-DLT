@@ -231,7 +231,7 @@ namespace DLTNode
             {
                 string address = request.QueryString["address"];
 
-                IxiNumber balance = WalletState.getBalanceForAddress(address);
+                IxiNumber balance = Node.walletState.getWalletBalance(address);
 
                 // Respond with the transaction details
                 string responseString = JsonConvert.SerializeObject(balance.ToString());
@@ -298,7 +298,7 @@ namespace DLTNode
             {
                 // Show own address, balance and blockchain synchronization status
                 string address = Node.walletStorage.getWalletAddress();
-                IxiNumber balance = WalletState.getDeltaBalanceForAddress(address);
+                IxiNumber balance = Node.walletState.getWalletBalance(address);
                 string sync_status = "ready";
                 if (Node.blockProcessor.synchronizing)
                     sync_status = "sync";
@@ -316,21 +316,19 @@ namespace DLTNode
             if (methodName.Equals("walletlist", StringComparison.OrdinalIgnoreCase))
             {
                 // Show a list of wallets - capped to 10
-                lock (WalletState.wallets)
+                Wallet[] wallets = Node.walletState.debugGetWallets();
+                string[][] walletStates = new string[wallets.Length][];
+                int count = 0;
+                foreach (Wallet w in wallets)
                 {
-                    string[][] walletStates = new string[WalletState.wallets.Count][];
-                    int count = 0;
-                    foreach (Wallet w in WalletState.wallets)
-                    {
-                        walletStates[count] = new string[2];
-                        walletStates[count][0] = w.id;
-                        walletStates[count][1] = w.balance.ToString();
-                        count++;
-                    }
-
-                    string responseString = JsonConvert.SerializeObject(walletStates);
-                    sendResponse(context.Response, responseString);
+                    walletStates[count] = new string[2];
+                    walletStates[count][0] = w.id;
+                    walletStates[count][1] = w.balance.ToString();
+                    count++;
                 }
+
+                string responseString = JsonConvert.SerializeObject(walletStates);
+                sendResponse(context.Response, responseString);
                 return true;
             }
 

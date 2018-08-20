@@ -268,7 +268,7 @@ namespace DLT
                                         if(node_type == 'M')
                                         {
                                             // Check the wallet balance for the minimum amount of coins
-                                            IxiNumber balance = WalletState.getDeltaBalanceForAddress(addr);
+                                            IxiNumber balance = Node.walletState.getWalletBalance(addr);
                                             if(balance < Config.minimumMasterNodeFunds)
                                             {
                                                 using (MemoryStream m2 = new MemoryStream())
@@ -407,7 +407,7 @@ namespace DLT
                                         string address = reader.ReadString();
 
                                         // Retrieve the latest balance
-                                        IxiNumber balance = WalletState.getDeltaBalanceForAddress(address);
+                                        IxiNumber balance = Node.walletState.getWalletBalance(address);
 
                                         // Return the balance for the matching address
                                         using (MemoryStream mw = new MemoryStream())
@@ -526,8 +526,8 @@ namespace DLT
                                     using (BinaryWriter writer = new BinaryWriter(m))
                                     {
                                         ulong walletstate_block = 0;
-                                        long walletstate_count = WalletState.getTotalWallets();
-                                        string walletstate_checksum = WalletState.calculateChecksum();
+                                        long walletstate_count = Node.walletState.numWallets;
+                                        string walletstate_checksum = Node.walletState.calculateWalletStateChecksum();
 
                                         // Return the current walletstate block and walletstate count
                                         writer.Write(walletstate_block);
@@ -572,7 +572,7 @@ namespace DLT
                                         }
 
                                         // Clear the walletstate first
-                                        WalletState.clear();
+                                        Node.walletState.clear();
 
                                         // Loop this based on walletstate_count and Config.walletStateChunkSplit
                                         int requestCount = 0;
@@ -636,7 +636,7 @@ namespace DLT
                                         }
 
                                         ulong blockNum = Node.blockChain.getLastBlockNum();
-                                        byte[] pdata = WalletState.getChunkBytes(startOffset, walletCount, blockNum);
+                                        byte[] pdata = null;//WalletState.getChunkBytes(startOffset, walletCount, blockNum);
                                         if (pdata == null)
                                             return;
 
@@ -649,7 +649,7 @@ namespace DLT
 
                         case ProtocolMessageCode.walletStateChunk:
                             {                                
-                                WalletState.processChunk(data);
+                                //WalletState.processChunk(data);
                             }
                             break;
 

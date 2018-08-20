@@ -73,12 +73,12 @@ namespace DLT
                 Logging.info("Reading blockchain from storage");
 
                 // Setup the genesis balances
-                WalletState.setBalanceForAddress("70e27b7f48ef8f6cf691b331879c2fb9a5edfb7239d4ca463764d25e48189f51", new IxiNumber("99999999999999"));
-                WalletState.setBalanceForAddress("fca32c0ab94f1051adb16881e41e1fa5024076615bd0e63d14cc00738c89b6d0", new IxiNumber("4000"));
-                WalletState.setBalanceForAddress("b27785b95e534eabd9ddb2785ed6b841262eed4d74284e87f0518b635fe12e29", new IxiNumber("4000"));
-                WalletState.setBalanceForAddress("1dab9d028759a4fd84503a15cd680ec964ccec17a034347408c34d15195baa76", new IxiNumber("4000"));
+                Node.walletState.setWalletBalance("70e27b7f48ef8f6cf691b331879c2fb9a5edfb7239d4ca463764d25e48189f51", new IxiNumber("99999999999999"));
+                Node.walletState.setWalletBalance("fca32c0ab94f1051adb16881e41e1fa5024076615bd0e63d14cc00738c89b6d0", new IxiNumber("4000"));
+                Node.walletState.setWalletBalance("b27785b95e534eabd9ddb2785ed6b841262eed4d74284e87f0518b635fe12e29", new IxiNumber("4000"));
+                Node.walletState.setWalletBalance("1dab9d028759a4fd84503a15cd680ec964ccec17a034347408c34d15195baa76", new IxiNumber("4000"));
 
-                Logging.info(string.Format("Genesis wallet state checksum: {0}", WalletState.calculateChecksum()));
+                Logging.info(string.Format("Genesis wallet state checksum: {0}", Node.walletState.calculateWalletStateChecksum()));
 
                 var _storage_txlist = sqlConnection.Query<_storage_Transaction>("select * from transactions").ToArray();
 
@@ -109,13 +109,13 @@ namespace DLT
 
                     // Applies the transaction to the wallet state
                     // TODO: re-validate the transactions here to prevent any potential exploits
-                    IxiNumber fromBalance = WalletState.getBalanceForAddress(new_transaction.from);
+                    IxiNumber fromBalance = Node.walletState.getWalletBalance(new_transaction.from);
                     IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
 
-                    IxiNumber toBalance = WalletState.getBalanceForAddress(new_transaction.to);
+                    IxiNumber toBalance = Node.walletState.getWalletBalance(new_transaction.to);
 
-                    WalletState.setBalanceForAddress(new_transaction.to, toBalance + new_transaction.amount);
-                    WalletState.setBalanceForAddress(new_transaction.from, fromBalance - new_transaction.amount);
+                    Node.walletState.setWalletBalance(new_transaction.to, toBalance + new_transaction.amount);
+                    Node.walletState.setWalletBalance(new_transaction.from, fromBalance - new_transaction.amount);
                     
 
                 }
@@ -164,10 +164,10 @@ namespace DLT
 
                                 // Applies the transaction to the wallet state
                                 // TODO: re-validate the transactions here to prevent any potential exploits
-                                IxiNumber fromBalance = WalletState.getBalanceForAddress(new_transaction.from);
+                                IxiNumber fromBalance = Node.walletState.getWalletBalance(new_transaction.from);
                                 IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
 
-                                IxiNumber toBalance = WalletState.getBalanceForAddress(new_transaction.to);
+                                IxiNumber toBalance = Node.walletState.getWalletBalance(new_transaction.to);
 
                              //   WalletState.setBalanceForAddress(new_transaction.to, toBalance + new_transaction.amount);
                              //   WalletState.setBalanceForAddress(new_transaction.from, fromBalance - new_transaction.amount);
@@ -201,7 +201,7 @@ namespace DLT
         //        Node.blockProcessor.setInitialLocalBlock(initial_block);
         //        Node.blockProcessor.exitSyncMode();
 
-                Console.WriteLine("Current wallet state checksum: {0}", WalletState.calculateChecksum());
+                Console.WriteLine("Current wallet state checksum: {0}", Node.walletState.calculateWalletStateChecksum());
 
                 return true;
             }

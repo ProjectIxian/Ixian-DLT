@@ -11,345 +11,244 @@ namespace DLT
 {
     class WalletState
     {
-        public static List<Wallet> wallets = new List<Wallet> { }; // The entire wallet list
+        private readonly object stateLock = new object();
+        private readonly Dictionary<string, Wallet> walletState = new Dictionary<string, Wallet>(); // The entire wallet list
+        private string cachedChecksum = "";
+        private List<Dictionary<string, Wallet>> wsDeltas = new List<Dictionary<string, Wallet>>();
+        private readonly List<string> cachedDeltaChecksums = new List<string>();
 
-        static WalletState() { }
+        /* Size:
+         * 10_000 wallets: ~510 KB
+         * 100_000 wallets: ~5 MB
+         * 10_000_000 wallets: ~510 MB (312 MB)
+         * 
+         * Keys only:
+         * 10_000_000 addresses: 350 MB (176 MB)
+         * 
+         */
 
-        // The initial wallet state contains the distribution of all tokens in the specified wallet(s)
-        public static void generateWalletState()
+        public int numSnapshots { get => wsDeltas.Count; }
+        public int numWallets { get => walletState.Count; }
+
+        public WalletState()
         {
-            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
-            if (genesisFunds > (long)0)
-            {
-                // Add genesis funds to this node's address
-                Wallet wallet = new Wallet(
-                    Node.walletStorage.address,
-                    Config.genesisFunds
-                );
-                wallets.Add(wallet);
+        }
 
-                Logging.info(String.Format("Node started with Genesis Mode and distributed {0} tokens to {1}", 
-                    Config.genesisFunds, Node.walletStorage.address));
+        public WalletState(IEnumerable<Wallet> genesisState)
+        {
+            Logging.info(String.Format("Generating genesis WalletState with {0} wallets.", genesisState.Count()));
+            foreach(Wallet w in genesisState)
+            {
+                Logging.info(String.Format("-> Genesis wallet ( {0} ) : {1}.", w.id, w.balance));
+                walletState.Add(w.id, w);
+            }
+        }
+
+        public void clear()
+        {
+            Logging.info("Clearing wallet state!!");
+            lock(stateLock)
+            {
+                walletState.Clear();
+                cachedChecksum = "";
+                wsDeltas.Clear();
+                cachedDeltaChecksums.Clear();
+
+            }
+        }
+
+        public void revert()
+        {
+            lock (stateLock)
+            {
+                Logging.info(String.Format("Reverting {0} WalletState snapshots.", wsDeltas.Count));
+                wsDeltas.Clear();
+                cachedDeltaChecksums.Clear();
+            }
+        }
+
+        public void commit()
+        {
+            lock(stateLock)
+            {
+                while (wsDeltas.Count > 0)
+                {
+                    Logging.info(String.Format("Committting WalletState snapshot ({0} remain). Wallets in snapshot: {1}", 
+                        wsDeltas.Count, wsDeltas[0].Count));
+                    foreach (var wallet in wsDeltas[0])
+                    {
+                        walletState.AddOrReplace(wallet.Key, wallet.Value);
+                    }
+                    wsDeltas.RemoveAt(0);
+                }
+                cachedDeltaChecksums.Clear();
+                cachedChecksum = "";
+            }
+        }
+
+        public IxiNumber getWalletBalance(string id, int snapshot = 0)
+        {
+            return getWallet(id, snapshot).balance;
+        }
+
+        private int translateSnapshotNum(int snapshot)
+        {
+            if (Math.Abs(snapshot) > numSnapshots)
+            {
+                return numSnapshots;
+            }
+            if (snapshot < 0)
+            {
+                return (numSnapshots + snapshot + 1);
+            }
+            return snapshot;
+        }
+
+        public Wallet getWallet(string id, int snapshot = 0)
+        {
+            lock (stateLock)
+            {
+                snapshot = translateSnapshotNum(snapshot);
+                Wallet candidateWallet = new Wallet(id, (ulong)0);
+                if (walletState.ContainsKey(id))
+                {
+                    candidateWallet = walletState[id];
+                }
+                for (int i = snapshot-1; i >= 0; i--)
+                {
+                    if (wsDeltas[i].ContainsKey(id))
+                    {
+                        candidateWallet = wsDeltas[i][id];
+                        break;
+                    }
+                }
+                return candidateWallet;
+            }
+        }
+
+        public void setWalletBalance(string id, IxiNumber balance, int snapshot = 0)
+        {
+            lock(stateLock)
+            {
+                snapshot = translateSnapshotNum(snapshot);
+                getWallet(id, snapshot).balance = balance;
+                if(snapshot == 0)
+                {
+                    cachedChecksum = "";
+                } else
+                {
+                    cachedDeltaChecksums[snapshot] = "";
+                }
+            }
+        }
+
+        public bool applyTransactions(Block b, bool createSnapshot = false)
+        {
+            lock(stateLock)
+            {
+                Logging.info(String.Format("Applying transactions from block #{0} ({1}). Snapshot: {2}",
+                    b.blockNum, b.blockChecksum.Substring(4), createSnapshot));
+                if(createSnapshot)
+                {
+                    wsDeltas.Add(new Dictionary<string, Wallet>());
+                    cachedDeltaChecksums.Add("");
+                    Logging.info(String.Format("WalletState snapshot {0} created.", wsDeltas.Count));
+                }
+                int targetSnapshot = numSnapshots;
+                foreach(string txid in b.transactions)
+                {
+                    Transaction tx = TransactionPool.getTransaction(txid);
+                    if(tx == null)
+                    {
+                        Logging.warn(String.Format("Unable to apply transaction {{ {0} }} from block #{1} ({2}), because it is not in the pool.", 
+                            txid, b.blockNum, b.blockChecksum.Substring(0, 4)));
+                        return false;
+                    }
+                    applyTransactionInternal(tx, targetSnapshot);
+                }
+                return true;
+            }
+        }
+
+        private void applyTransactionInternal(Transaction tx, int targetSnapshot)
+        {
+            if(tx.amount == (long)0)
+            {
+                return;
+            }
+            int sourceSnapshot = targetSnapshot;
+            Wallet sourceWallet = getWallet(tx.from, sourceSnapshot);
+            Wallet destWallet = getWallet(tx.to, sourceSnapshot);
+            if (tx.amount > sourceWallet.balance)
+            {
+                throw new Exception(String.Format("Attempted to withdraw more than wallet contains: wallet ( {0} ), balance: {1}, tx amount: {2}",
+                    tx.from, sourceWallet.balance, tx.amount));
+            }
+            // TODO: TXFee
+            sourceWallet.balance -= tx.amount;
+            destWallet.balance += tx.amount;
+
+            if (targetSnapshot > 0)
+            {
+                wsDeltas[targetSnapshot].AddOrReplace(tx.from, sourceWallet);
+                wsDeltas[targetSnapshot].AddOrReplace(tx.to, destWallet);
+                cachedDeltaChecksums[targetSnapshot] = "";
             }
             else
             {
-                // The walletstate will be fetched from the network
+                walletState.AddOrReplace(tx.from, sourceWallet);
+                walletState.AddOrReplace(tx.to, destWallet);
+                cachedChecksum = "";
             }
-
         }
 
-        // Calculate the checksum of the entire wallet state
-        public static string calculateChecksum()
+        public string calculateWalletStateChecksum(int snapshot = 0)
         {
-            string checksum = Crypto.sha256("IXIAN-DLT");
-            lock (wallets)
+            lock (stateLock)
             {
-                foreach (var wallet in wallets)
+                snapshot = translateSnapshotNum(snapshot);
+                if(snapshot == 0 && cachedChecksum != "")
                 {
-                    string wallet_checksum = wallet.calculateChecksum();
+                    return cachedChecksum;
+                } else if(cachedDeltaChecksums[snapshot-1] != "")
+                {
+                    return cachedDeltaChecksums[snapshot - 1];
+                }
+                // TODO: This could get unwieldy above ~100M wallet addresses. We have to implement sharding by then.
+                SortedSet<string> eligible_addresses = new SortedSet<string>(walletState.Keys);
+                for (int i = 0; i < snapshot - 1; i++)
+                {
+                    foreach (string addr in wsDeltas[i].Keys)
+                    {
+                        eligible_addresses.Add(addr);
+                    }
+                }
+                // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
+                // Note: addresses are fixed size
+                string checksum = Crypto.sha256("IXIAN-DLT");
+                foreach(string addr in eligible_addresses)
+                {
+                    string wallet_checksum = getWallet(addr, snapshot).calculateChecksum();
                     checksum = Crypto.sha256(checksum + wallet_checksum);
                 }
-            }
-            return checksum;
-        }
-
-        public static byte[] getBytes()
-        {
-            using (MemoryStream m = new MemoryStream())
-            {
-                using (BinaryWriter writer = new BinaryWriter(m))
+                if(snapshot == 0)
                 {
-
-                    lock (wallets)
-                    {
-                        // Write the number of wallets
-                        int num_wallets = wallets.Count();
-                        writer.Write(num_wallets);
-
-                        // Write the checksum to validate the state
-                        string checksum = calculateChecksum();
-                        writer.Write(checksum);
-
-                        // Write each wallet
-                        foreach (Wallet wallet in wallets)
-                        {
-                            byte[] wallet_data = wallet.getBytes();
-                            int wallet_data_size = wallet_data.Length;
-                            writer.Write(wallet_data_size);
-                            writer.Write(wallet_data);
-                        }
-                    }
-                }
-                return m.ToArray();
-            }
-        }
-
-        // Retrieves a chunk of wallet states
-        public static byte[] getChunkBytes(long startOffset, long walletCount, ulong blockNumber)
-        {
-            // First protect against any size issues
-            if (startOffset > getTotalWallets())
-            {
-                Logging.warn("Attempted to retrieve inexistent wallet chunks");
-                return null;
-            }
-
-            // We should never exceed the total amount of wallets
-            if (startOffset + walletCount > getTotalWallets())
-            {
-                walletCount = getTotalWallets() - startOffset;
-            }
-
-            using (MemoryStream m = new MemoryStream())
-            {
-                using (BinaryWriter writer = new BinaryWriter(m))
+                    cachedChecksum = checksum;
+                } else
                 {
-                    // Write the start offset
-                    writer.Write(startOffset);
-
-                    // Write the number of wallets
-                    writer.Write(walletCount);
-
-                    // Write the block number corresponding to this state
-                    writer.Write(blockNumber);
-
-                    lock (wallets)
-                    {
-                        // Write each corresponding wallet.
-                        // TODO: handle larger than maxint values
-                        for (int i = (int)startOffset; i < (int)startOffset + (int)walletCount; i++)
-                        {
-                            Wallet wallet = wallets[i];
-                            byte[] wallet_data = wallet.getBytes();
-                            int wallet_data_size = wallet_data.Length;
-                            writer.Write(wallet_data_size);
-                            writer.Write(wallet_data);
-                        }
-                    }
+                    cachedDeltaChecksums[snapshot - 1] = checksum;
                 }
-                return m.ToArray();
+                return checksum;
             }
         }
 
-        // Process an incoming walletstate chunk
-        public static void processChunk(byte[] bytes)
+        // only returns 10 wallets from base state (no snapshotting)
+        public Wallet[] debugGetWallets()
         {
-            if(Node.blockProcessor.synchronizing == false)
+            lock (stateLock)
             {
-                // Node is not in synchronization mode, discard.
-                Logging.warn("Received walletstate chunk while not in synchronization mode.");
-                return;
-            }
-
-            using (MemoryStream m = new MemoryStream(bytes))
-            {
-                using (BinaryReader reader = new BinaryReader(m))
-                {
-                    try
-                    {
-                        // Read the number of wallets
-                        long startOffset = reader.ReadInt64();
-                        long walletCount = reader.ReadInt64();
-                        ulong blockNumber = reader.ReadUInt64();
-
-                        // Ignore invalid wallet state chunks
-                        if(startOffset < 0 || walletCount < 0)
-                        {
-                            Logging.warn("Skipped tainted walletstate chunk.");
-                            return;
-                        }
-
-                        lock (wallets)
-                        {
-                            // Go through each wallet and add it to the temporary wallet list
-                            for (int i = 0; i < walletCount; i++)
-                            {
-                                int wallet_data_size = reader.ReadInt32();
-                                if (wallet_data_size < 1)
-                                    continue;
-                                byte[] wallet_bytes = reader.ReadBytes(wallet_data_size);
-                                Wallet new_wallet = new Wallet(wallet_bytes);
-
-                                foreach(Wallet twallet in wallets)
-                                {
-                                    if(twallet.id.Equals(new_wallet.id, StringComparison.Ordinal))
-                                    {
-                                        // Wallet is already present in the walletstate, don't add it again
-                                        Logging.info(string.Format("Received duplicate wallet for id {0} and balance {1}", 
-                                            new_wallet.id, new_wallet.balance));
-                                        continue;
-                                    }
-                                }
-
-                                // Insert the wallet at the specified index
-                                int wallet_index = (int)startOffset + i;
-                                wallets.Insert(wallet_index, new_wallet);
-
-                                // Reverse any transactions during synchronization
-                                IxiNumber finalBalance = new_wallet.balance;
-                                new_wallet.balance = TransactionPool.getInitialBalanceForWallet(new_wallet.id, finalBalance);
-
-                                Console.WriteLine("SYNC Wallet: {0}", new_wallet.id);
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Logging.error(string.Format("Error processing walletstate chunk: {0}", e.ToString()));
-                    }
-                }
+                return walletState.Take(10).Select(x => x.Value).ToArray();
             }
         }
-
-        public static bool checkWalletStateChecksum(String targetChecksum)
-        {
-            if (targetChecksum == "") return false;
-            return calculateChecksum() == targetChecksum;
-        }
-
-
-        public static bool syncFromBytes(byte[] bytes)
-        {
-            // Todo: import into a temporary wallet list, validate the checksum and only then update the wallet state
-
-            // Clear the wallets
-            clear();
-
-            using (MemoryStream m = new MemoryStream(bytes))
-            {
-                using (BinaryReader reader = new BinaryReader(m))
-                {
-                    // Read the number of wallets
-                    int num_wallets = reader.ReadInt32();
-                    string checksum = reader.ReadString();
-
-                    lock (wallets)
-                    {
-                        for (int i = 0; i < num_wallets; i++)
-                        {
-                            int wallet_data_size = reader.ReadInt32();
-                            if (wallet_data_size < 1)
-                                continue;
-                            byte[] wallet_bytes = reader.ReadBytes(wallet_data_size);
-                            Wallet new_wallet = new Wallet(wallet_bytes);
-                            wallets.Add(new_wallet);
-
-                            //Logging.log(LogSeverity.info, String.Format("SYNC WALLET address created: {0}", new_wallet.id));
-                            Console.WriteLine("SYNC Wallet: {0}", new_wallet.id);
-
-                        }
-                    }
-
-                }
-            }
-
-            return true;
-        }
-
-        // Get the balance of a specific address according to the last generated block's state
-        public static IxiNumber getBalanceForAddress(string address)
-        {
-            if (address == null)
-                return new IxiNumber();
-
-            lock (wallets)
-            {
-                // Now check the entire wallet list
-                foreach (var wallet in wallets)
-                {
-                    if (address.Equals(wallet.id))
-                    {
-                        return wallet.balance;
-                    }
-                }
-            }
-
-            return new IxiNumber();
-        }
-
-        // Calculate the latest wallet balance, including transactions from the txpool
-        public static IxiNumber getDeltaBalanceForAddress(string address)
-        {
-            if (address == null)
-            {
-                return 0;
-            }
-
-            Transaction[] transactions = TransactionPool.getAllTransactions();
-            lock (wallets)
-            {
-                // TODO: optimize this for low-powered devices+
-                foreach (var wallet in wallets)
-                {
-                    if (address.Equals(wallet.id))
-                    {
-                        IxiNumber valid_balance = wallet.balance;
-                        foreach (Transaction transaction in transactions)
-                        {
-                            if (transaction.to.Equals(address))
-                            {
-                                valid_balance += transaction.amount;
-                            }
-                            else
-                            if (transaction.from.Equals(address))
-                            {
-                                valid_balance -= transaction.amount;
-                            }
-                        }
-
-                        return valid_balance;
-                    }
-                }
-            }
-
-            return 0;
-        }
-
-        // Sets a wallet balance for a specific address
-        public static void setBalanceForAddress(string address, IxiNumber balance)
-        {
-            if (address == null)
-                return;
-
-            lock (wallets)
-            {
-                foreach (var wallet in wallets)
-                {
-                    if (address.Equals(wallet.id))
-                    {
-                        wallet.balance = balance;
-                        return;
-                    }
-                }
-
-                // Address not found, create a new entry
-                Wallet new_wallet = new Wallet(address, balance);
-                wallets.Add(new_wallet);
-                Logging.log(LogSeverity.info, String.Format("New wallet created: {0}", address));
-            }
-        }
-
-        // Returns the total number of wallets in the current state
-        public static long getTotalWallets()
-        {
-            long total = 0;
-            lock(wallets)
-            {
-                total = wallets.LongCount();
-            }
-            return total;
-        }
-
-        // Clears all the wallets
-        public static void clear()
-        {
-            lock (wallets)
-            {
-                wallets.Clear();
-            }
-        }
-
-
-
     }
 }

@@ -90,7 +90,7 @@ namespace DLT
 
                 // Verify the transaction against the wallet state
                 // If the balance after the transaction is negative, do not add it.
-                IxiNumber fromBalance = WalletState.getBalanceForAddress(transaction.from);
+                IxiNumber fromBalance = Node.walletState.getWalletBalance(transaction.from);
                 IxiNumber finalFromBalance = fromBalance - transaction.amount;
 
                 if (finalFromBalance < (long)0)
@@ -228,7 +228,6 @@ namespace DLT
                     //Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
                     if(tx.applied == true)
                     {
-                        Logging.error(String.Format("Transaction {{ {0} }} has already been applied!", txid));
                         return false;
                     }
 
@@ -241,8 +240,8 @@ namespace DLT
                         continue;
                     }
 
-                    IxiNumber source_balance_before = WalletState.getBalanceForAddress(tx.from);
-                    IxiNumber dest_balance_before = WalletState.getBalanceForAddress(tx.to);
+                    IxiNumber source_balance_before = Node.walletState.getWalletBalance(tx.from);
+                    IxiNumber dest_balance_before = Node.walletState.getWalletBalance(tx.to);
 
                     // Withdraw the full amount, including fee
                     IxiNumber source_balance_after = source_balance_before - tx.amount;
@@ -257,8 +256,8 @@ namespace DLT
                     IxiNumber dest_balance_after = dest_balance_before + txAmountWithoutFee;
 
                     // Update the walletstate
-                    WalletState.setBalanceForAddress(tx.from, source_balance_after);
-                    WalletState.setBalanceForAddress(tx.to, dest_balance_after);
+                    Node.walletState.setWalletBalance(tx.from, source_balance_after);
+                    Node.walletState.setWalletBalance(tx.to, dest_balance_after);
                     tx.applied = true;
                 }
             }

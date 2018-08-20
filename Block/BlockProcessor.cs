@@ -26,7 +26,7 @@ namespace DLT
         public ulong firstSplitOccurence { get; private set; }
 
         Block localNewBlock; // Block being worked on currently
-        readonly Object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
+        readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
         bool inSyncMode = false;
@@ -86,7 +86,7 @@ namespace DLT
                     if (syncTargetBlockNum > 0 && Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
                     {
                         // we cannot exit sync until wallet state is OK
-                        if (WalletState.checkWalletStateChecksum(Node.blockChain.getCurrentWalletState()))
+                        if (Node.blockChain.getCurrentWalletState() == Node.walletState.calculateWalletStateChecksum())
                         {
                             Logging.info(String.Format("Synchronization state achieved at block #{0}.", syncTargetBlockNum));
                             inSyncMode = false;
@@ -231,7 +231,7 @@ namespace DLT
             // overspending:
             foreach (string addr in minusBalances.Keys)
             {
-                IxiNumber initial_balance = WalletState.getBalanceForAddress(addr);
+                IxiNumber initial_balance = Node.walletState.getWalletBalance(addr);
                 if (initial_balance < minusBalances[addr])
                 {
                     Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
@@ -400,26 +400,26 @@ namespace DLT
                     deltaSigs < 0 ? "-" : "+",
                     deltaSigs));
             }
-
-            // Finally, apply transaction fee rewards
             applyTransactionFeeRewards();
         }
 
-        // Deposits the transaction fees corresponding to the 5th last block
         public void applyTransactionFeeRewards()
         {
             string sigfreezechecksum = "0";
-            lock (localNewBlock)
+            lock (localBlockLock)
             {
                 // Should never happen
                 if (localNewBlock == null)
+                {
+                    Logging.warn("Applying fee rewards: local block is null.");
                     return;
+                }
 
                 sigfreezechecksum = localNewBlock.signatureFreezeChecksum;
             }
-            // Verify the checksum is valid
             if (sigfreezechecksum.Length < 3)
             {
+                Logging.info("Current block does not have sigfreeze checksum.");
                 return;
             }
 
@@ -427,7 +427,6 @@ namespace DLT
             // Last block num - 4 gets us the 5th last block
             Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
 
-            // Calculate the signature checksum
             string targetSigFreezeChecksum = targetBlock.calculateSignatureChecksum();
 
             if (sigfreezechecksum.Equals(targetSigFreezeChecksum, StringComparison.Ordinal) == false)
@@ -467,9 +466,9 @@ namespace DLT
             IxiNumber foundationAward = tFeeAmount * Config.foundationFeePercent / 100;
 
             // Award foundation fee
-            IxiNumber foundation_balance_before = WalletState.getBalanceForAddress(Config.foundationAddress);
+            IxiNumber foundation_balance_before = Node.walletState.getWalletBalance(Config.foundationAddress);
             IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
-            WalletState.setBalanceForAddress(Config.foundationAddress, foundation_balance_after);
+            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after);
             Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
             // Subtract the foundation award from total fee amount
@@ -479,20 +478,20 @@ namespace DLT
             if(numSigs < 1)
             {
                 // Something is not right, there are no signers on this block
+                Logging.error("Transaction fee: no signatures on block!");
                 return;
             }
 
             // Calculate the award per signer
             IxiNumber sigs = new IxiNumber(numSigs);
 
-            IxiNumber remainder = 0;
-            IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out remainder);
+            IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out IxiNumber remainder);
 
             // Division of fee amount and sigs left a remainder, distribute that to the foundation wallet
-            if(remainder > (long) 0)
+            if (remainder > (long) 0)
             {
                 foundation_balance_after = foundation_balance_after + remainder;
-                WalletState.setBalanceForAddress(Config.foundationAddress, foundation_balance_after);
+                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after);
                 Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
             }
 
@@ -512,9 +511,9 @@ namespace DLT
                 Address addr = new Address(pubkey);
 
                 // Update the walletstate and deposit the award
-                IxiNumber balance_before = WalletState.getBalanceForAddress(addr.ToString());
+                IxiNumber balance_before = Node.walletState.getWalletBalance(addr.ToString());
                 IxiNumber balance_after = balance_before + tAward;
-                WalletState.setBalanceForAddress(addr.ToString(), balance_after);
+                Node.walletState.setWalletBalance(addr.ToString(), balance_after);
 
                 Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
             }
@@ -605,7 +604,7 @@ namespace DLT
 
 
                 // Calculate the block checksums and sign it
-                localNewBlock.setWalletStateChecksum(WalletState.calculateChecksum());
+                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
                 localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();
                 localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
                 localNewBlock.blockChecksum = localNewBlock.calculateChecksum();

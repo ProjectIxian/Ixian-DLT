@@ -15,6 +15,7 @@ namespace DLT.Meta
         public static BlockProcessor blockProcessor;
         public static WalletStorage walletStorage;
         public static Miner miner;
+        public static WalletState walletState;
 
         public static bool genesisNode = false;
         public static bool forceNextBlock = false;
@@ -32,8 +33,17 @@ namespace DLT.Meta
             // Load or Generate the wallet
             walletStorage = new WalletStorage(Config.walletFile);
 
+            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
+
             // Initialize the wallet state
-            WalletState.generateWalletState();
+            // TODO: Genesis funds could be read from a JSON here.
+            List<Wallet> genesisWallets = new List<Wallet>();
+            if(genesisFunds > (ulong)0)
+            {
+                genesisWallets.Add(new Wallet(walletStorage.address, genesisFunds));
+            }
+
+            walletState = new WalletState(genesisWallets);
 
             // Show the IP selector menu
             if (Config.externalIp != "" && IPAddress.TryParse(Config.externalIp, out _))
@@ -57,7 +67,6 @@ namespace DLT.Meta
             // Create the block processor
             blockProcessor = new BlockProcessor();
 
-            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
 
             /*if (Config.recoverFromFile)
             {
@@ -150,7 +159,7 @@ namespace DLT.Meta
 
             blockProcessor = new BlockProcessor();
             blockChain = new BlockChain();
-            WalletState.clear();
+            walletState.clear();
             TransactionPool.clear();
 
             // Finally, reconnect to the network
