@@ -13,6 +13,7 @@ namespace DLT.Meta
 
         public static BlockChain blockChain;
         public static BlockProcessor blockProcessor;
+        public static BlockSync blockSync;
         public static WalletStorage walletStorage;
         public static Miner miner;
         public static WalletState walletState;
@@ -64,8 +65,9 @@ namespace DLT.Meta
             // Initialize the block chain
             blockChain = new BlockChain();
 
-            // Create the block processor
+            // Create the block processor and sync
             blockProcessor = new BlockProcessor();
+            blockSync = new BlockSync();
 
 
             /*if (Config.recoverFromFile)
@@ -76,11 +78,8 @@ namespace DLT.Meta
             if (genesisFunds > (long)0)
             {
                 genesisNode = true;
-
-                // Start the node server if genesis
+                Node.blockProcessor.resumeOperation();
                 NetworkServer.beginNetworkOperations();
-
-                // Stop at here since it's a genesis node
                 return;
             }
 
@@ -106,7 +105,7 @@ namespace DLT.Meta
 
             if(serverStarted == false)
             {
-                if(Node.blockProcessor.synchronized == true)
+                if(Node.blockProcessor.operating == true)
                 {
                     Console.WriteLine("Resuming client connections.");
 
@@ -290,7 +289,8 @@ namespace DLT.Meta
             {
                 Logging.trace(String.Format(" -> block #{0}, signatures: {1}.", Node.blockChain.getLastBlockNum() - (ulong)i, Node.blockChain.getBlockSignaturesReverse(i)));
             }
-            Logging.trace(String.Format(" -> Block processor is synchronizing: {0}.", Node.blockProcessor.synchronizing));
+            Logging.trace(String.Format(" -> Block processor is operating: {0}.", Node.blockProcessor.operating));
+            Logging.trace(String.Format(" -> Block processor is synchronizing: {0}.", Node.blockSync.synchronizing));
             Logging.trace(String.Format(" -> Current consensus number: {0}.", Node.blockProcessor.currentConsensus));
             Console.ResetColor();
         }

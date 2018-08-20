@@ -330,7 +330,7 @@ namespace DLT
                                 using (BinaryReader reader = new BinaryReader(m))
                                 {
                                     int node_version = reader.ReadInt32();
-
+                                    Console.WriteLine(string.Format("Received Hello: Node version {0}", node_version));
                                     // Check for incompatible nodes
                                     if (node_version < Config.nodeVersion)
                                     {
@@ -338,16 +338,11 @@ namespace DLT
                                         socket.Disconnect(true);
                                         return;
                                     }
-                                   
 
                                     ulong last_block_num = reader.ReadUInt64();
                                     string block_checksum = reader.ReadString();
                                     string walletstate_checksum = reader.ReadString();
 
-                                    Console.WriteLine(string.Format("Received Hello: Node version {0}", node_version));
-                                    Console.WriteLine(string.Format("\t|- Block Height:\t\t#{0}", last_block_num));
-                                    Console.WriteLine(string.Format("\t|- Block Checksum:\t\t{0}", block_checksum));
-                                    Console.WriteLine(string.Format("\t|- WalletState checksum:\t{0}", walletstate_checksum));
 
                                     if(Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                     {
@@ -355,17 +350,7 @@ namespace DLT
                                         return;
                                     }
 
-                                    if(Node.blockProcessor.synchronizing && Node.blockProcessor.syncTarget == 0)
-                                    {
-                                        // Start sync
-                                        ulong redactedChainStart = (Node.blockChain.redactedWindow > last_block_num) ? 1 : last_block_num - Node.blockChain.redactedWindow + 1;
-                                        broadcastSyncWalletState();
-                                        broadcastGetBlock(last_block_num);
-                                        // Get neighbors
-                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.getNeighbors, new byte[1]), SocketFlags.None);
-                                        // Get presences
-                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.syncPresenceList, new byte[1]), SocketFlags.None);
-                                    }
+                                    Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum);
                                 }
                             }
                             break;
@@ -544,112 +529,20 @@ namespace DLT
 
                         case ProtocolMessageCode.walletState:
                             {
-                                // Check if we're in synchronization mode
-                                if (Node.blockProcessor.synchronizing == false)
-                                {
-                                    Logging.warn(string.Format("Received walletstate while not in sync mode from {0}", socket.RemoteEndPoint.ToString()));
-                                    return;
-                                }
-
-                                Console.WriteLine("NET: Received a new wallet state header");
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        ulong walletstate_block = 0;
-                                        long walletstate_count = 0;
-                                        string walletstate_checksum = "";
-                                        try
-                                        {
-                                            walletstate_block = reader.ReadUInt64();
-                                            walletstate_count = reader.ReadInt64();
-                                            walletstate_checksum = reader.ReadString();
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            Logging.warn(e.ToString());
-                                            return;
-                                        }
-
-                                        // Clear the walletstate first
-                                        Node.walletState.clear();
-
-                                        // Loop this based on walletstate_count and Config.walletStateChunkSplit
-                                        int requestCount = 0;
-                                        if (walletstate_count > 0)
-                                            requestCount = (int)(walletstate_count / Config.walletStateChunkSplit) + 1;
-
-                                        if (walletstate_count == 0)
-                                            Logging.error("Received walletstate count is 0. Possibly corrupted walletstate. Ignoring...");
-
-                                        for (int i = 0; i < requestCount; i++)
-                                        {
-                                            // Request the latest block
-                                            using (MemoryStream mw = new MemoryStream())
-                                            {
-                                                using (BinaryWriter writerw = new BinaryWriter(mw))
-                                                {
-                                                    long startOffset = i * Config.walletStateChunkSplit;
-                                                    long walletCount = Config.walletStateChunkSplit;
-
-                                                    // Don't request more wallets than we need
-                                                    // TODO: this might be a problem if the walletstate increases in size while fetching.
-                                                    if (startOffset + walletCount > walletstate_count)
-                                                        walletCount = walletstate_count - startOffset;
-
-                                                    writerw.Write(startOffset);
-                                                    writerw.Write(walletCount);
-                                                    //Console.WriteLine("\t\t\tRequesting WalletState Chunk: {0} - {1}", startOffset, walletCount);
-
-                                                    // Either broadcast the request
-                                                    //  broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray());
-                                                    // or send it to this specific node only
-                                                    byte[] ba = prepareProtocolMessage(ProtocolMessageCode.getWalletStateChunk, mw.ToArray());
-                                                    socket.Send(ba, SocketFlags.None);
-
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                // TODO
                             }
                             
                             break;
 
                         case ProtocolMessageCode.getWalletStateChunk:
                             {
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        long startOffset = 0;
-                                        long walletCount = 0;
-                                        try
-                                        {
-                                            startOffset = reader.ReadInt64();
-                                            walletCount = reader.ReadInt64();
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            Logging.warn(e.ToString());
-                                            return;
-                                        }
-
-                                        ulong blockNum = Node.blockChain.getLastBlockNum();
-                                        byte[] pdata = null;//WalletState.getChunkBytes(startOffset, walletCount, blockNum);
-                                        if (pdata == null)
-                                            return;
-
-                                        byte[] ba = prepareProtocolMessage(ProtocolMessageCode.walletStateChunk, pdata);
-                                        socket.Send(ba, SocketFlags.None);
-                                    }
-                                }
+                                // TODO
                             }
                             break;
 
                         case ProtocolMessageCode.walletStateChunk:
                             {                                
-                                //WalletState.processChunk(data);
+                                // TODO
                             }
                             break;
 

@@ -48,7 +48,7 @@ namespace DLT
             while(!shouldStop)
             {
                 // Wait for blockprocessor network synchronization
-                if(Node.blockProcessor.synchronized == false)
+                if(Node.blockSync.synchronizing == true)
                 {
                     Thread.Sleep(1000);
                     continue;

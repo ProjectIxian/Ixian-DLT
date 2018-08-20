@@ -19,9 +19,7 @@ namespace DLT
     }
     class BlockProcessor
     {
-        public bool synchronizing { get => inSyncMode; }
-        public bool synchronized { get => !inSyncMode; }
-        public ulong syncTarget { get => syncTargetBlockNum; }
+        public bool operating { get; private set; }
         public int currentConsensus { get => consensusSignaturesRequired; }
         public ulong firstSplitOccurence { get; private set; }
 
@@ -29,13 +27,8 @@ namespace DLT
         readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
-        bool inSyncMode = false;
-
-        List<Block> pendingBlocks = new List<Block>();
-        ulong syncTargetBlockNum;
         int consensusSignaturesRequired = 1;
         int blockGenerationInterval = 30; // in seconds
-        int maxBlockRequests = 10;
 
         private static string[] splitter = { "::" };
 
@@ -43,97 +36,39 @@ namespace DLT
         {
             lastBlockStartTime = DateTime.Now;
             localNewBlock = null;
-            // we start up in sync mode (except for genesis block)
-            inSyncMode = Config.genesisFunds == "0";
-            syncTargetBlockNum = 0;
+            operating = false;
         }
 
-        // Returns true if a block was generated
+        public void resumeOperation()
+        {
+            Logging.info("BlockProcessor resuming normal operation.");
+            lastBlockStartTime = DateTime.Now;
+            operating = true;
+        }
+        
         public bool onUpdate()
         {
-            if (inSyncMode)
+            // check if it is time to generate a new block
+            TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+            if (timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
             {
-                if (syncTargetBlockNum == 0)
+                if (Node.forceNextBlock)
                 {
-                    // we haven't connected to any clients yet
-                    return true;
+                    Logging.info("Forcing new block generation");
+                    Node.forceNextBlock = false;
                 }
-                // attempt to merge pending blocks to the chain
-                lock (pendingBlocks)
-                {
-                    while (pendingBlocks.Count > 0)
-                    {
-                        ulong nextRequired = Node.blockChain.getLastBlockNum() + 1;
-                        int idx = pendingBlocks.FindIndex(x => x.blockNum == nextRequired);
-                        if (idx > -1)
-                        {
-                            Block toAppend = pendingBlocks[idx];
-                            pendingBlocks.RemoveAt(idx);
-                            if (!Node.blockChain.appendBlock(toAppend))
-                            {
-                                Logging.warn(String.Format("Block #{0} could not be appended to the chain. It is possibly corrupt. Requesting a new copy...", toAppend.blockNum));
-                                ProtocolMessage.broadcastGetBlock(toAppend.blockNum);
-                                return true;
-                            }
-                        }
-                        else // idx == -1
-                        {
-                            requestMissingBlocks();
-                            break;
-                        }
-                    }
-                    // we keep this locked so that onBlockReceive can't change syncTarget while we're processing
-                    if (syncTargetBlockNum > 0 && Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
-                    {
-                        // we cannot exit sync until wallet state is OK
-                        if (Node.blockChain.getCurrentWalletState() == Node.walletState.calculateWalletStateChecksum())
-                        {
-                            Logging.info(String.Format("Synchronization state achieved at block #{0}.", syncTargetBlockNum));
-                            inSyncMode = false;
-                            syncTargetBlockNum = 0;
-                            lastBlockStartTime = DateTime.Now; // the network will probably generate a new block before we, but then we will take time from them.
-                            lock (pendingBlocks)
-                            {
-                                pendingBlocks.Clear();
-                            }
-                            return true;
-                        } // TODO: Possibly check if this has been going on too long and abort/restart
-                    }
-                }
+                generateNewBlock();
             }
-            else // !inSyncMode
+            else
             {
-                // check if it is time to generate a new block
-                TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
-                /*if ((int)timeSinceLastBlock.TotalSeconds % 5 == 0
-                    && (timeSinceLastBlock.TotalSeconds - Math.Floor(timeSinceLastBlock.TotalSeconds) < 0.5))
-                {
-                    // spam only every 5 seconds
-                    Logging.info(String.Format("Last block was at: {0}. That is {1} seconds in the past. {2} seconds to go.",
-                        lastBlockStartTime.ToLongTimeString(),
-                        timeSinceLastBlock.TotalSeconds,
-                        blockGenerationInterval - timeSinceLastBlock.TotalSeconds));
-                }*/
-                if (timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
-                {
-                    if (Node.forceNextBlock)
-                    {
-                        Logging.info("Forcing new block generation");
-                        Node.forceNextBlock = false;
-                    }
-                    generateNewBlock();
-                }
-                else
-                {
-                    verifyBlockAcceptance();
-                }
+                verifyBlockAcceptance();
             }
-
             return true;
         }
 
         public void onBlockReceived(Block b)
         {
+            if (operating == false) return;
             Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
             if (verifyBlock(b) == BlockVerifyStatus.Invalid)
             {
@@ -141,54 +76,19 @@ namespace DLT
                 // TODO: Blacklisting point
                 return;
             }
-            //Logging.info(String.Format("Received valid block #{0} ({1}).", b.blockNum, b.blockChecksum));
-            if (inSyncMode)
+            lock (localBlockLock)
             {
-                if (b.signatures.Count() < consensusSignaturesRequired)
+                if (b.blockNum > Node.blockChain.getLastBlockNum())
                 {
-                    // ignore blocks which haven't been accepted while we're syncing.
-                    return;
+                    onBlockReceived_currentBlock(b);
                 }
                 else
                 {
-                    lock (pendingBlocks)
+                    if (Node.blockChain.refreshSignatures(b))
                     {
-                        int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);
-                        if (idx > -1)
-                        {
-                            if (pendingBlocks[idx].signatures.Count() < b.signatures.Count())
-                            {
-                                pendingBlocks[idx] = b;
-                            }
-                        }
-                        else // idx <= -1
-                        {
-                            if (b.blockNum > syncTargetBlockNum)
-                            {
-                                // we move the goalpost to make sure we end up in the valid state
-                                syncTargetBlockNum = b.blockNum;
-                            }
-                            pendingBlocks.Add(b);
-                        }
-                    }
-                }
-            }
-            else // !inSyncMode
-            {
-                lock (localBlockLock)
-                {
-                    if (b.blockNum > Node.blockChain.getLastBlockNum())
-                    {
-                        onBlockReceived_currentBlock(b);
-                    }
-                    else
-                    {
-                        if (Node.blockChain.refreshSignatures(b))
-                        {
-                            // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                            Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                            ProtocolMessage.broadcastNewBlock(updatedBlock);
-                        }
+                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                        ProtocolMessage.broadcastNewBlock(updatedBlock);
                     }
                 }
             }
@@ -304,35 +204,6 @@ namespace DLT
                 if (localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
                 {
                     ProtocolMessage.broadcastNewBlock(localNewBlock);
-                }
-            }
-        }
-
-        private void requestMissingBlocks()
-        {
-            if (syncTargetBlockNum == 0)
-            {
-                return;
-            }
-            lock (pendingBlocks)
-            {
-                ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow;
-                ulong lastBlock = syncTargetBlockNum;
-                List<ulong> missingBlocks = new List<ulong>(
-                    Enumerable.Range(0, (int)(lastBlock - firstBlock)).Select(x => (ulong)x + firstBlock)
-                    );
-                foreach (Block b in pendingBlocks)
-                {
-                    missingBlocks.RemoveAll(x => x == b.blockNum);
-                }
-                // whatever is left in pendingBlocks is what we need to request
-                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
-                int count = 0;
-                foreach (ulong blockNum in missingBlocks)
-                {
-                    ProtocolMessage.broadcastGetBlock(blockNum);
-                    count++;
-                    if (count >= maxBlockRequests) break;
                 }
             }
         }
