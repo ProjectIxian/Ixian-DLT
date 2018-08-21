@@ -214,6 +214,22 @@ namespace DLT
             }
         }
 
+        public static bool sendToClient(string neighbor, ProtocolMessageCode code, byte[] data)
+        {
+            lock(networkClients)
+            {
+                foreach(NetworkClient c in networkClients)
+                {
+                    if(c.getFullAddress() == neighbor)
+                    {
+                        c.sendData(code, data);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         // Returns all the connected clients
         public static string[] getConnectedClients()
         {

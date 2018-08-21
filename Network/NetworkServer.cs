@@ -276,6 +276,26 @@ namespace DLT
                 }
             }
 
+            public static bool sendToClient(string neighbor, ProtocolMessageCode code, byte[] data)
+            {
+                lock (connectedClients)
+                {
+                    foreach (RemoteEndpoint ep in connectedClients)
+                    {
+                        foreach(PresenceAddress addr in ep.presence.addresses)
+                        {
+                            if(addr.address == neighbor)
+                            {
+                                byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
+                                ep.clientSocket.Send(ba, SocketFlags.None);
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+
             // Send a ping packet to verify the connection status
             private static void sendPing(RemoteEndpoint endpoint, byte[] data)
             {

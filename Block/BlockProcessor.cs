@@ -1,13 +1,8 @@
 ﻿using DLT.Meta;
 using DLT.Network;
-using DLTNode;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DLT
 {
@@ -45,7 +40,16 @@ namespace DLT
             lastBlockStartTime = DateTime.Now;
             operating = true;
         }
-        
+
+        public void setSyncConsensus(int consensus)
+        {
+            if(operating == false)
+            {
+                consensusSignaturesRequired = consensus;
+            }
+        }
+
+
         public bool onUpdate()
         {
             // check if it is time to generate a new block

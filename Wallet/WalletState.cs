@@ -131,12 +131,13 @@ namespace DLT
             lock(stateLock)
             {
                 snapshot = translateSnapshotNum(snapshot);
-                getWallet(id, snapshot).balance = balance;
                 if(snapshot == 0)
                 {
+                    walletState.AddOrReplace(id, new Wallet(id, balance));
                     cachedChecksum = "";
                 } else
                 {
+                    wsDeltas[snapshot].AddOrReplace(id, new Wallet(id, balance));
                     cachedDeltaChecksums[snapshot] = "";
                 }
             }
@@ -239,6 +240,31 @@ namespace DLT
                     cachedDeltaChecksums[snapshot - 1] = checksum;
                 }
                 return checksum;
+            }
+        }
+
+        public Wallet[] getWalletStateChunk(long chunk_number, int chunk_size)
+        {
+            lock(stateLock)
+            {
+                // <3 functional programming :)
+                return walletState.Skip((int)(chunk_number * chunk_size)).Take(chunk_size).Select(x => x.Value).ToArray();
+            }
+        }
+
+        public void setWalletChunk(Wallet[] wallets)
+        {
+            lock(stateLock)
+            {
+                if(numSnapshots>0)
+                {
+                    Logging.error("Attempted to apply a WalletState chunk, but snapshots exist!");
+                    return;
+                }
+                foreach(Wallet w in wallets)
+                {
+                    walletState.AddOrReplace(w.id, w);
+                }
             }
         }
 

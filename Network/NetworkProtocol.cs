@@ -91,6 +91,51 @@ namespace DLT
                 NetworkServer.broadcastData(code, data, skipSocket);
             }
 
+            public static void syncWalletStateNeighbor(string neighbor)
+            {
+                if(NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1]) == false)
+                {
+                    NetworkServer.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1]);
+                }
+            }
+
+            public static void getWalletStateChunkNeighbor(string neighbor, long chunk)
+            {
+                using (MemoryStream m = new MemoryStream())
+                {
+                    using (BinaryWriter writer = new BinaryWriter(m))
+                    {
+                        writer.Write(chunk);
+
+                        if (NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray()) == false)
+                        {
+                            NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray());
+                        }
+                    }
+                }
+            }
+
+            public static void sendWalletStateChunk(RemoteEndpoint endpoint, WsChunk chunk)
+            {
+                using (MemoryStream m = new MemoryStream())
+                {
+                    using (BinaryWriter writer = new BinaryWriter(m))
+                    {
+                        writer.Write(chunk.blockNum);
+                        writer.Write(chunk.chunkNum);
+                        writer.Write(chunk.wallets.Length);
+                        foreach(Wallet w in chunk.wallets)
+                        {
+                            writer.Write(w.id);
+                            writer.Write(w.balance.ToString());
+                            writer.Write(w.data);
+                        }
+                        //
+                        endpoint.clientSocket.Send(ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.walletStateChunk, m.ToArray()));
+                    }
+                }
+            }
+
             // Server-side protocol reading
             public static void readProtocolMessage(Socket socket, RemoteEndpoint endpoint)
             {
@@ -317,6 +362,7 @@ namespace DLT
                                     writer.Write(lastBlock);
                                     writer.Write(block.blockChecksum);
                                     writer.Write(block.walletStateChecksum);
+                                    writer.Write(Node.blockProcessor.currentConsensus);
 
                                     byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
                                     socket.Send(ba, SocketFlags.None);
@@ -342,6 +388,7 @@ namespace DLT
                                     ulong last_block_num = reader.ReadUInt64();
                                     string block_checksum = reader.ReadString();
                                     string walletstate_checksum = reader.ReadString();
+                                    int consensus = reader.ReadInt32();
 
 
                                     if(Node.checkCurrentBlockDeprecation(last_block_num) == false)
@@ -350,7 +397,7 @@ namespace DLT
                                         return;
                                     }
 
-                                    Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum);
+                                    Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum, consensus);
                                 }
                             }
                             break;
@@ -512,12 +559,10 @@ namespace DLT
                                     {
                                         ulong walletstate_block = 0;
                                         long walletstate_count = Node.walletState.numWallets;
-                                        string walletstate_checksum = Node.walletState.calculateWalletStateChecksum();
 
                                         // Return the current walletstate block and walletstate count
                                         writer.Write(walletstate_block);
                                         writer.Write(walletstate_count);
-                                        writer.Write(walletstate_checksum);
 
                                         byte[] ba = prepareProtocolMessage(ProtocolMessageCode.walletState, m.ToArray());
                                         socket.Send(ba, SocketFlags.None);
@@ -529,20 +574,74 @@ namespace DLT
 
                         case ProtocolMessageCode.walletState:
                             {
-                                // TODO
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        ulong walletstate_block = 0;
+                                        long walletstate_count = 0;
+                                        try
+                                        {
+                                            walletstate_block = reader.ReadUInt64();
+                                            walletstate_count = reader.ReadInt64();
+                                        } catch(Exception e)
+                                        {
+                                            Logging.warn(String.Format("Error while receiving the WalletState header: {0}.", e.Message));
+                                            return;
+                                        }
+                                        Node.blockSync.onWalletStateHeader(walletstate_block,walletstate_count);
+                                    }
+                                }
                             }
                             
                             break;
 
                         case ProtocolMessageCode.getWalletStateChunk:
                             {
-                                // TODO
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        long chunk_num = reader.ReadInt64();
+                                        Node.blockSync.onRequestWalletChunk(chunk_num, endpoint);
+                                    }
+                                }
                             }
                             break;
 
                         case ProtocolMessageCode.walletStateChunk:
-                            {                                
-                                // TODO
+                            {
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        ulong block_num = reader.ReadUInt64();
+                                        long chunk_num = reader.ReadInt64();
+                                        int num_wallets = reader.ReadInt32();
+                                        if(num_wallets > Config.walletStateChunkSplit)
+                                        {
+                                            Logging.error(String.Format("Received {0} wallets in a chunk. ( > {1}).",
+                                                num_wallets, Config.walletStateChunkSplit));
+                                            return;
+                                        }
+                                        Wallet[] wallets = new Wallet[num_wallets];
+                                        for(int i =0;i<num_wallets;i++)
+                                        {
+                                            string w_id = reader.ReadString();
+                                            IxiNumber w_balance = new IxiNumber(reader.ReadString());
+                                            string w_data = reader.ReadString();
+                                            wallets[i] = new Wallet(w_id, w_balance);
+                                            wallets[i].data = w_data;
+                                        }
+                                        WsChunk c = new WsChunk
+                                        {
+                                            chunkNum = chunk_num,
+                                            blockNum = block_num,
+                                            wallets = wallets
+                                        };
+                                        Node.blockSync.onWalletChunkReceived(c);
+                                    }
+                                }
                             }
                             break;
 
