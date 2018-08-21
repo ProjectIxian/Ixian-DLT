@@ -23,7 +23,7 @@ namespace DLT
         DateTime lastBlockStartTime;
 
         int consensusSignaturesRequired = 1;
-        int blockGenerationInterval = 30; // in seconds
+        int blockGenerationInterval = 300; // in seconds
 
         private static string[] splitter = { "::" };
 
@@ -157,6 +157,7 @@ namespace DLT
                     b.blockNum, b.blockChecksum, checksum));
                 return BlockVerifyStatus.Invalid;
             }
+            // TODO: verify that walletstate ends up on the same checksum as block promises
             // Verify signatures
             if (!b.verifySignatures())
             {

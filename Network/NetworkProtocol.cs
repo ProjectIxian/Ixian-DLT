@@ -99,7 +99,7 @@ namespace DLT
                 }
             }
 
-            public static void getWalletStateChunkNeighbor(string neighbor, long chunk)
+            public static void getWalletStateChunkNeighbor(string neighbor, int chunk)
             {
                 using (MemoryStream m = new MemoryStream())
                 {
@@ -112,6 +112,14 @@ namespace DLT
                             NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray());
                         }
                     }
+                }
+            }
+
+            public static void syncCompleteNeighbor(string neighbor)
+            {
+                if(NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.syncWalletStateComplete, new byte[1]) == false)
+                {
+                    NetworkServer.sendToClient(neighbor, ProtocolMessageCode.syncWalletStateComplete, new byte[1]);
                 }
             }
 
@@ -552,6 +560,11 @@ namespace DLT
 
                         case ProtocolMessageCode.syncWalletState:
                             {
+                                if(Node.blockSync.startOutgoingWSSync() == false)
+                                {
+                                    Logging.warn(String.Format("Unable to start synchronizing with neighbor {0}",
+                                        endpoint.presence.addresses[0]));
+                                }
                                 // Request the latest walletstate header
                                 using (MemoryStream m = new MemoryStream())
                                 {
@@ -570,6 +583,9 @@ namespace DLT
                                 }
 
                             }
+                            break;
+                        case ProtocolMessageCode.syncWalletStateComplete:
+                            Node.blockSync.outgoingSyncComplete();
                             break;
 
                         case ProtocolMessageCode.walletState:
@@ -602,7 +618,7 @@ namespace DLT
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
-                                        long chunk_num = reader.ReadInt64();
+                                        int chunk_num = reader.ReadInt32();
                                         Node.blockSync.onRequestWalletChunk(chunk_num, endpoint);
                                     }
                                 }
@@ -616,7 +632,7 @@ namespace DLT
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
                                         ulong block_num = reader.ReadUInt64();
-                                        long chunk_num = reader.ReadInt64();
+                                        int chunk_num = reader.ReadInt32();
                                         int num_wallets = reader.ReadInt32();
                                         if(num_wallets > Config.walletStateChunkSplit)
                                         {

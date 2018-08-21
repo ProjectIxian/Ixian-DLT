@@ -143,66 +143,6 @@ namespace DLT
             }
         }
 
-        public bool applyTransactions(Block b, bool createSnapshot = false)
-        {
-            lock(stateLock)
-            {
-                Logging.info(String.Format("Applying transactions from block #{0} ({1}). Snapshot: {2}",
-                    b.blockNum, b.blockChecksum.Substring(4), createSnapshot));
-                if(createSnapshot)
-                {
-                    wsDeltas.Add(new Dictionary<string, Wallet>());
-                    cachedDeltaChecksums.Add("");
-                    Logging.info(String.Format("WalletState snapshot {0} created.", wsDeltas.Count));
-                }
-                int targetSnapshot = numSnapshots;
-                foreach(string txid in b.transactions)
-                {
-                    Transaction tx = TransactionPool.getTransaction(txid);
-                    if(tx == null)
-                    {
-                        Logging.warn(String.Format("Unable to apply transaction {{ {0} }} from block #{1} ({2}), because it is not in the pool.", 
-                            txid, b.blockNum, b.blockChecksum.Substring(0, 4)));
-                        return false;
-                    }
-                    applyTransactionInternal(tx, targetSnapshot);
-                }
-                return true;
-            }
-        }
-
-        private void applyTransactionInternal(Transaction tx, int targetSnapshot)
-        {
-            if(tx.amount == (long)0)
-            {
-                return;
-            }
-            int sourceSnapshot = targetSnapshot;
-            Wallet sourceWallet = getWallet(tx.from, sourceSnapshot);
-            Wallet destWallet = getWallet(tx.to, sourceSnapshot);
-            if (tx.amount > sourceWallet.balance)
-            {
-                throw new Exception(String.Format("Attempted to withdraw more than wallet contains: wallet ( {0} ), balance: {1}, tx amount: {2}",
-                    tx.from, sourceWallet.balance, tx.amount));
-            }
-            // TODO: TXFee
-            sourceWallet.balance -= tx.amount;
-            destWallet.balance += tx.amount;
-
-            if (targetSnapshot > 0)
-            {
-                wsDeltas[targetSnapshot].AddOrReplace(tx.from, sourceWallet);
-                wsDeltas[targetSnapshot].AddOrReplace(tx.to, destWallet);
-                cachedDeltaChecksums[targetSnapshot] = "";
-            }
-            else
-            {
-                walletState.AddOrReplace(tx.from, sourceWallet);
-                walletState.AddOrReplace(tx.to, destWallet);
-                cachedChecksum = "";
-            }
-        }
-
         public string calculateWalletStateChecksum(int snapshot = 0)
         {
             lock (stateLock)
@@ -211,7 +151,7 @@ namespace DLT
                 if(snapshot == 0 && cachedChecksum != "")
                 {
                     return cachedChecksum;
-                } else if(cachedDeltaChecksums[snapshot-1] != "")
+                } else if(snapshot > 0 && cachedDeltaChecksums[snapshot-1] != "")
                 {
                     return cachedDeltaChecksums[snapshot - 1];
                 }
@@ -243,12 +183,24 @@ namespace DLT
             }
         }
 
-        public Wallet[] getWalletStateChunk(long chunk_number, int chunk_size)
+        public WsChunk[] getWalletStateChunks(int chunk_size)
         {
             lock(stateLock)
             {
-                // <3 functional programming :)
-                return walletState.Skip((int)(chunk_number * chunk_size)).Take(chunk_size).Select(x => x.Value).ToArray();
+                ulong block_num = Node.blockChain.getLastBlockNum();
+                int num_chunks = walletState.Count / chunk_size + 1;
+                Logging.info(String.Format("Preparing {0} chunks of walletState. Total wallets: {1}", num_chunks, walletState.Count));
+                WsChunk[] chunks = new WsChunk[num_chunks];
+                for(int i=0;i<num_chunks;i++)
+                {
+                    chunks[i] = new WsChunk
+                    {
+                        blockNum = block_num,
+                        chunkNum = i,
+                        wallets = walletState.Skip(num_chunks * chunk_size).Take(chunk_size).Select(x => x.Value).ToArray()
+                    };
+                }
+                return chunks;
             }
         }
 

@@ -132,7 +132,10 @@ namespace DLT.Meta
         static public void stop()
         {
             // Stop the miner
-            miner.stop();
+            if (miner != null)
+            {
+                miner.stop();
+            }
 
             // Stop all network clients
             NetworkClientManager.stop();
