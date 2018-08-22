@@ -41,6 +41,7 @@ namespace DLT.Meta
             List<Wallet> genesisWallets = new List<Wallet>();
             if(genesisFunds > (ulong)0)
             {
+                Logging.info(String.Format("Genesis {0} specified. Preparing genesis wallets.", genesisFunds));
                 genesisWallets.Add(new Wallet(walletStorage.address, genesisFunds));
             }
 
@@ -77,6 +78,7 @@ namespace DLT.Meta
             // Check if this is a genesis node
             if (genesisFunds > (long)0)
             {
+                Logging.info(String.Format("Genesis {0} specified. Starting operation.", genesisFunds));
                 genesisNode = true;
                 Node.blockProcessor.resumeOperation();
                 NetworkServer.beginNetworkOperations();

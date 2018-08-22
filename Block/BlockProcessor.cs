@@ -52,6 +52,10 @@ namespace DLT
 
         public bool onUpdate()
         {
+            if(operating == false)
+            {
+                return true;
+            }
             // check if it is time to generate a new block
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
             if (timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
