@@ -419,18 +419,15 @@ namespace DLT
                                         ulong block_number = reader.ReadUInt64();
                                         bool fetch_walletstate = reader.ReadBoolean(); // Deprecated as of version 4
 
+                                        Logging.info(String.Format("Block #{0} has been requested.", block_number));
+
                                         Block block = Node.blockChain.getBlock(block_number);
                                         if (block == null)
                                         {
-                                            // If it's not in the blockchain, it's likely the local block
-                                            block = Node.blockProcessor.getLocalBlock();
-
-                                            // No localblock
-                                            if (block == null || block.blockNum != block_number)
-                                                return;
-
+                                            Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
+                                            return;
                                         }
-
+                                        Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Substring(4)));
                                         // Send the block
                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.blockData, block.getBytes()), SocketFlags.None);
                                     }
@@ -536,6 +533,7 @@ namespace DLT
                         case ProtocolMessageCode.blockData:
                             {
                                 Block block = new Block(data);
+                                Node.blockSync.onBlockReceived(block);
                                 Node.blockProcessor.onBlockReceived(block);
                             }
                             break;
@@ -570,7 +568,7 @@ namespace DLT
                                 {
                                     using (BinaryWriter writer = new BinaryWriter(m))
                                     {
-                                        ulong walletstate_block = 0;
+                                        ulong walletstate_block = Node.blockChain.getLastBlockNum();
                                         long walletstate_count = Node.walletState.numWallets;
 
                                         // Return the current walletstate block and walletstate count

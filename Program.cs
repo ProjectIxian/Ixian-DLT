@@ -78,7 +78,13 @@ namespace DLTNode
                 {
                     Node.forceNextBlock = true;
                 }
-            }*/
+                if(key.Key == ConsoleKey.W)
+                {
+                    string ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                    Console.WriteLine(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
+                        Node.walletState.numWallets, Node.walletState.numSnapshots, ws_checksum));
+                }
+            }/**/
 
             Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
         }
@@ -88,12 +94,19 @@ namespace DLTNode
             if (Console.KeyAvailable)
             {
                 ConsoleKeyInfo key = Console.ReadKey();
-                if(key.Key == ConsoleKey.B)
+                /*if(key.Key == ConsoleKey.B)
                 {
                     Node.forceNextBlock = true;
                 }
+                if (key.Key == ConsoleKey.W)
+                {
+                    string ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                    Console.WriteLine(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
+                        Node.walletState.numWallets, Node.walletState.numSnapshots, ws_checksum));
+                }*/
+
             }
-            if(Node.update() == false)
+            if (Node.update() == false)
             {
                 apiServer.forceShutdown = true;
             }

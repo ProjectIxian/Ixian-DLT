@@ -95,6 +95,7 @@ namespace DLT.Meta
         {
             // Check passed time since last block generation and if needed generate a new block
             blockProcessor.onUpdate();
+            blockSync.onUpdate();
 
             // Update redacted blockchain
             blockChain.onUpdate();

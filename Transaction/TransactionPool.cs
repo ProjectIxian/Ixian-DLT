@@ -47,6 +47,11 @@ namespace DLT
         // Returns true if the transaction is added to the pool, false otherwise
         public static bool addTransaction(Transaction transaction)
         {
+            if(Node.blockChain.getLastBlockNum() < 10)
+            {
+                Logging.warn(String.Format("Ignoring transaction before block 10."));
+                return false;
+            }
             // Calculate the transaction checksum and compare it
             string checksum = Transaction.calculateChecksum(transaction);
             if(checksum.Equals(transaction.checksum) == false)

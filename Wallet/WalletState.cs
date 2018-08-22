@@ -197,9 +197,12 @@ namespace DLT
                     {
                         blockNum = block_num,
                         chunkNum = i,
-                        wallets = walletState.Skip(num_chunks * chunk_size).Take(chunk_size).Select(x => x.Value).ToArray()
+                        wallets = walletState.Skip(i * chunk_size).Take(chunk_size).Select(x => x.Value).ToArray()
                     };
                 }
+                Logging.info(String.Format("Prepared {0} WalletState chunks with {1} total wallets.",
+                    num_chunks,
+                    chunks.Sum(x => x.wallets.Count())));
                 return chunks;
             }
         }

@@ -23,7 +23,7 @@ namespace DLT
         DateTime lastBlockStartTime;
 
         int consensusSignaturesRequired = 1;
-        int blockGenerationInterval = 300; // in seconds
+        int blockGenerationInterval = 30; // in seconds
 
         private static string[] splitter = { "::" };
 
@@ -433,6 +433,7 @@ namespace DLT
                                 return;
                             }
                             Logging.warn(String.Format("Unable to achieve consensus. Maybe the network was split or too many nodes dropped at once. Split mode assumed and proceeding with consensus {0}.", consensus_number));
+                            // TODO TODO TODO : Split handling
                             consensusSignaturesRequired = consensus_number;
                         }
                         else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)
