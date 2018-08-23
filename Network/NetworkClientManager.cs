@@ -180,7 +180,7 @@ namespace DLT
                 }
             }
 
-            return true;
+            return result;
         }
 
         // Connects to a specified node, with the syntax host:port
