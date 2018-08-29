@@ -223,6 +223,26 @@ namespace DLT
             }
         }
 
+        // Calculates the entire IXI supply based on the latest wallet state
+        public IxiNumber calculateTotalSupply()
+        {
+            IxiNumber total = new IxiNumber();
+            try
+            {
+                foreach (var item in walletState)
+                {
+                    Wallet wal = (Wallet)item.Value;
+                    total = total + wal.balance;
+                }
+            }
+            catch(Exception e)
+            {
+                Logging.error(string.Format("Exception calculating total supply: {0}", e.Message));
+            }
+
+            return total;
+        }
+
         // only returns 10 wallets from base state (no snapshotting)
         public Wallet[] debugGetWallets()
         {

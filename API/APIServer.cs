@@ -407,6 +407,15 @@ namespace DLTNode
                 return true;
             }
 
+            if (methodName.Equals("supply", StringComparison.OrdinalIgnoreCase))
+            {
+                string supply = Node.walletState.calculateTotalSupply().ToString();
+                string responseString = JsonConvert.SerializeObject(supply);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
+
             return false;
         }
 
