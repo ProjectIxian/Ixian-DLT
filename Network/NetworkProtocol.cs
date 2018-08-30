@@ -480,7 +480,9 @@ namespace DLT
                                             Logging.info(String.Format("I do not have txid '{0}.", txid));
                                             return;
                                         }
-                                        
+
+                                        Logging.info(String.Format("Sending transaction {0} - {1} - {2} - {3}.", txid, transaction.id, transaction.checksum, transaction.amount));
+
                                         byte[] ba = prepareProtocolMessage(ProtocolMessageCode.transactionData, transaction.getBytes());
                                         socket.Send(ba, SocketFlags.None);
                                     }
@@ -505,7 +507,10 @@ namespace DLT
                         case ProtocolMessageCode.transactionData:
                             {
                                 Transaction transaction = new Transaction(data);
-                                TransactionPool.updateTransaction(transaction);
+                                if(!TransactionPool.updateTransaction(transaction))
+                                {
+                                    TransactionPool.addTransaction(transaction);
+                                }
                             }
                             break;
                         case ProtocolMessageCode.bye:

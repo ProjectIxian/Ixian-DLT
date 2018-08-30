@@ -154,10 +154,13 @@ namespace DLT
         // Returns true if the transaction has been updated, false otherwise
         public static bool updateTransaction(Transaction transaction)
         {
+            Logging.info(String.Format("Received transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
+
             // Calculate the transaction checksum and compare it
             string checksum = Transaction.calculateChecksum(transaction);
             if (checksum.Equals(transaction.checksum) == false)
             {
+                Logging.warn(string.Format("Invalid checksum for updated transaction id: {0}", transaction.id));
                 return false;
             }
 
@@ -190,14 +193,17 @@ namespace DLT
                         tx.checksum = transaction.checksum;
 
                         // Broadcast this transaction update to the network
-                        ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
+                        //ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
 
                         // Also update the transaction to storage
                         TransactionStorage.updateTransaction(transaction);
 
+                        Logging.info(String.Format("Updated transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
+
                         return true;
                     }
                 }
+
             }
 
             return false;
