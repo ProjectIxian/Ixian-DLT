@@ -85,6 +85,26 @@ namespace DLT
             }
         }
 
+        public int getRequiredConsensus()
+        {
+            if (blocks.Count == 0) return 2;
+            lock (blocks)
+            {
+                int totalConsensus = 0;
+                int blockCount = blocks.Count < 10 ? blocks.Count : 10;
+                for (int i = 1; i < blockCount; i++)
+                {
+                    totalConsensus += blocks[blocks.Count - i].signatures.Count;
+                }
+                int consensus = (int)Math.Ceiling(totalConsensus / blockCount * Config.networkConsensusRatio);
+                if (consensus < 2)
+                {
+                    consensus = 2;
+                }
+                return consensus;
+            }
+        }
+
         public string getLastBlockChecksum()
         {
             if (blocks.Count == 0) return "";

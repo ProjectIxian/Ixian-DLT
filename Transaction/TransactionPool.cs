@@ -119,6 +119,10 @@ namespace DLT
                 TransactionStorage.addTransaction(transaction);
             }
 
+            // TODO quick and dirty fix proposed by C, seems to reduce network "spam" in some situations
+            if (Node.blockSync.synchronizing == true)
+                return true;
+
             // Broadcast this transaction to the network
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
 
@@ -146,7 +150,7 @@ namespace DLT
         {
             lock(transactions)
             {
-                return transactions.Where(x => x.applied == false).ToArray();
+                return transactions.Where(x => x.applied == 0).ToArray();
             }
         }
 
@@ -237,7 +241,8 @@ namespace DLT
                         continue;
                     }
                     //Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
-                    if(tx.applied == true)
+                    // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
+                    if(tx.applied > 0)
                     {
                         return false;
                     }
@@ -269,7 +274,7 @@ namespace DLT
                     // Update the walletstate
                     Node.walletState.setWalletBalance(tx.from, source_balance_after);
                     Node.walletState.setWalletBalance(tx.to, dest_balance_after);
-                    tx.applied = true;
+                    tx.applied = block.blockNum;
                 }
             }
             return true;

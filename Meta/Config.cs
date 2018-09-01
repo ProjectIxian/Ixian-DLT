@@ -36,6 +36,8 @@ namespace DLT
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
             public static readonly ulong compileTimeBlockNumber = 0;
 
+            public static readonly double networkConsensusRatio = 0.75;
+
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000");//2000; // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB

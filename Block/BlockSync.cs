@@ -128,6 +128,21 @@ namespace DLT
                         TransactionPool.applyTransactionsFromBlock(b);
                     }
                     Node.blockChain.appendBlock(b);
+                    // if last block doesn't have enough sigs, set as local block, get more sigs
+                    if (Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).signatures.Count < Node.blockChain.getRequiredConsensus())
+                    {
+                        if (next_to_apply == syncTargetBlockNum) // if last block
+                        {
+                            Node.blockProcessor.onBlockReceived(b);
+                        }
+                        else
+                        {
+                            Logging.info(String.Format("Block #{0} has less than the required sigs. Discarding and requesting a new one.", b.blockNum));
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            ProtocolMessage.broadcastGetBlock(b.blockNum);
+                            return;
+                        }
+                    }
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                 }
                 // if we reach here, we are synchronized

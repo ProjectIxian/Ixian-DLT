@@ -259,7 +259,7 @@ namespace DLT
                 Node.blockChain.getLastBlockNum() - 5, sigs5,
                 Node.blockChain.getLastBlockNum() - 6, sigs6));
             int avgSigs = (sigs5 + sigs6) / 2;
-            int requiredSigs = (int)Math.Ceiling(avgSigs * 0.75);
+            int requiredSigs = (int)Math.Ceiling(avgSigs * Config.networkConsensusRatio);
             int deltaSigs = requiredSigs - consensusSignaturesRequired; // divide 2, so we amortize the change a little
             int prevConsensus = consensusSignaturesRequired;
             consensusSignaturesRequired = consensusSignaturesRequired + deltaSigs;
@@ -415,6 +415,7 @@ namespace DLT
                 if (localNewBlock != null)
                 {
                     Node.debugDumpState();
+                    Logging.info(String.Format("Local new block #{0}, sigs: {1}, checksum: {2}, wsChecksum: {3}", localNewBlock.blockNum, localNewBlock.signatures.Count, localNewBlock.blockChecksum, localNewBlock.walletStateChecksum));
                     // either it arrived just before we started creating it, or previous block couldn't get signed in time
                     ulong current_block_num = localNewBlock.blockNum;
                     ulong supposed_block_num = Node.blockChain.getLastBlockNum() + 1;
@@ -427,22 +428,22 @@ namespace DLT
                             // it has been two generation cycles without enough signatures
                             // we assume a network split (or a massive node drop) here and fix consensus to keep going
                             firstSplitOccurence = current_block_num; // This should be handled when network merges again, but that part isn't implemented yet
-                            int consensus_number = (int)((double)localNewBlock.signatures.Count * 0.75);
-                            if (consensus_number <= 0)
+                            int consensus_number = Node.blockChain.getRequiredConsensus();
+                            Logging.warn(String.Format("Unable to achieve consensus. Maybe the network was split or too many nodes dropped at once. Split mode assumed and proceeding with consensus {0}.", consensus_number));
+                            if (localNewBlock.signatures.Count < consensus_number)
                             {
                                 // we have become isolated from the network, so we shutdown
-                                Logging.error(String.Format("Currently generated block only has {0} signaures. Attempting to reconnect to the network...", localNewBlock.signatures.Count));
-                                // TODO: disable block generation and notify network to reconnect to other nodes on the PL
-                                lastBlockStartTime = DateTime.MaxValue;
-                                return;
+                                Logging.error(String.Format("Currently generated block only has {0} signatures. Attempting to reconnect to the network...", localNewBlock.signatures.Count));
+                                // TODO: notify network to reconnect to other nodes on the PL
+                                // TODO TODO TODO : Split handling
                             }
-                            Logging.warn(String.Format("Unable to achieve consensus. Maybe the network was split or too many nodes dropped at once. Split mode assumed and proceeding with consensus {0}.", consensus_number));
-                            // TODO TODO TODO : Split handling
+                            lastBlockStartTime = DateTime.MaxValue;
                             consensusSignaturesRequired = consensus_number;
+                            return;
                         }
                         else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)
                         {
-                            Logging.warn(String.Format("It is takign too long to achieve consensus! Re-broadcasting block."));
+                            Logging.warn(String.Format("It is taking too long to achieve consensus! Re-broadcasting block."));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }

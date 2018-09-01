@@ -54,7 +54,10 @@ namespace DLT
 
             foreach (string signature in block.signatures)
             {
-                signatures.Add(signature);
+                if (!containsSignature(signature))
+                {
+                    signatures.Add(signature);
+                }
             }
 
             blockChecksum = block.blockChecksum;
@@ -87,7 +90,10 @@ namespace DLT
                         for (int i = 0; i < num_signatures; i++)
                         {
                             string signature = reader.ReadString();
-                            signatures.Add(signature);
+                            if (!containsSignature(signature))
+                            {
+                                signatures.Add(signature);
+                            }
                         }
 
                         blockChecksum = reader.ReadString();
@@ -194,7 +200,7 @@ namespace DLT
                 foreach (string sig in signatures)
                 {
                     string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    if(parts[1] == public_key)
+                    if (parts[1].Equals(public_key, StringComparison.Ordinal))
                     {
                         // we have already signed it
                         return false;
@@ -212,6 +218,23 @@ namespace DLT
             return true;
         }
 
+        public bool containsSignature(String verifiedSig)
+        {
+            lock (signatures)
+            {
+                foreach (string sig in signatures)
+                {
+                    string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    string[] parts2 = verifiedSig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts[1] == parts2[1])
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
         public bool addSignaturesFrom(Block other)
         {
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
@@ -220,7 +243,7 @@ namespace DLT
                 int count = 0;
                 foreach (String sig in other.signatures)
                 {
-                    if(signatures.Contains(sig) == false)
+                    if(!containsSignature(sig))
                     {
                         count++;
                         signatures.Add(sig);
@@ -305,7 +328,9 @@ namespace DLT
                     if (sindex1 == sindex2)
                         continue;
 
-                    if(signature.Equals(signature_check, StringComparison.Ordinal))
+                    string[] partsSignature_check = signature_check.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    string[] partsSignature = signature.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (partsSignature[1].Equals(partsSignature_check[1], StringComparison.Ordinal))
                     {
                         duplicate = true;
                     }

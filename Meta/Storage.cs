@@ -140,7 +140,10 @@ namespace DLT
                         if (sigcounter == 1)
                             continue;
 
-                        new_block.signatures.Add(s1);
+                        if (!new_block.containsSignature(s1))
+                        {
+                            new_block.signatures.Add(s1);
+                        }
                     }
 
                     string[] split_str2 = block.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
@@ -194,7 +197,10 @@ namespace DLT
                     if (sigcount == 1)
                         continue;
 
-                    initial_block.signatures.Add(s1);
+                    if (!initial_block.containsSignature(s1))
+                    {
+                        initial_block.signatures.Add(s1);
+                    }
                 }
 
         //        Node.blockProcessor.enterSyncMode((ulong)last_block.blockNum, last_block.blockChecksum, last_block.walletStateChecksum);
