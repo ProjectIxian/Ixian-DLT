@@ -12,7 +12,7 @@ namespace DLT
     {
         public ulong redactedWindow { get => redactedWindowSize; }
 
-        ulong redactedWindowSize = 3000; // approx 25 hours - this should be a network-calculable parameter at some point
+        public ulong redactedWindowSize = 3000; // approx 25 hours - this should be a network-calculable parameter at some point
         List<Block> blocks = new List<Block>();
 
         public int Count { get => blocks.Count; }
