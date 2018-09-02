@@ -354,7 +354,7 @@ namespace DLT
             // Subtract the foundation award from total fee amount
             tFeeAmount = tFeeAmount - foundationAward;
 
-            long numSigs = targetBlock.signatures.Count();
+            ulong numSigs = (ulong)targetBlock.signatures.Count();
             if(numSigs < 1)
             {
                 // Something is not right, there are no signers on this block
@@ -363,7 +363,7 @@ namespace DLT
             }
 
             // Calculate the award per signer
-            IxiNumber sigs = new IxiNumber(numSigs);
+            IxiNumber sigs = new IxiNumber(numSigs, true); // Create the IxiNumber with no decimals
 
             IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out IxiNumber remainder);
 

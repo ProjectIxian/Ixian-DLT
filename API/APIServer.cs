@@ -356,6 +356,14 @@ namespace DLTNode
                 return true;
             }
 
+            if (methodName.Equals("servers", StringComparison.OrdinalIgnoreCase))
+            {
+                String[] res = NetworkClientManager.getConnectedClients();
+                string responseString = JsonConvert.SerializeObject(res);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
             if (methodName.Equals("tx", StringComparison.OrdinalIgnoreCase))
             {
                 // Show a list of transactions
