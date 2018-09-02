@@ -43,7 +43,7 @@ namespace DLT
             }
             Logging.info(String.Format("Sync running: {0} blocks, {1} walletstate chunks.",
                 pendingBlocks.Count, pendingWsChunks.Count));
-            requestMissingBlocks();
+            requestMissingBlocks(); // TODO: this is a bad hack that just spams the network in the end
             if (wsSyncStartBlock > 0)
             {
                 Logging.info(String.Format("We are synchronizing from block #{0}.", wsSyncStartBlock));
@@ -98,9 +98,18 @@ namespace DLT
             }
             // if we reach here, we can proceed with rolling forward the chain until we reach syncTargetBlockNum
             lock (pendingBlocks) {
+                ulong lowestBlockNum = 1;
+                if (Node.blockChain.redactedWindowSize < syncTargetBlockNum)
+                {
+                    lowestBlockNum = syncTargetBlockNum - Node.blockChain.redactedWindowSize + 1;
+                }
                 while (Node.blockChain.getLastBlockNum() < syncTargetBlockNum)
                 {
                     ulong next_to_apply = Node.blockChain.getLastBlockNum() + 1;
+                    if(next_to_apply < lowestBlockNum)
+                    {
+                        next_to_apply = lowestBlockNum;
+                    }
                     Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
                     if(b==null)
                     {
@@ -161,7 +170,7 @@ namespace DLT
             }
             lock (pendingBlocks)
             {
-                ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow;
+                ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow + 1;
                 ulong lastBlock = syncTargetBlockNum;
                 List<ulong> missingBlocks = new List<ulong>(
                     Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
