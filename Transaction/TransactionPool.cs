@@ -85,24 +85,33 @@ namespace DLT
                         return false;
                 }
 
-                // Verify if the transaction contains the minimum fee
-                if(transaction.amount < Config.transactionPrice)
+                // Special case for PoWSolution transactions
+                if (transaction.type == (int)Transaction.Type.PoWSolution)
                 {
-                    // Prevent transactions that can't pay the minimum fee
-                    Logging.warn(String.Format("Transaction amount does not cover fee for {{ {0} }}.", transaction.id));
-                    return false;
+                    // TODO: pre-validate the transaction in such a way it doesn't affect performance
+
                 }
-
-                // Verify the transaction against the wallet state
-                // If the balance after the transaction is negative, do not add it.
-                IxiNumber fromBalance = Node.walletState.getWalletBalance(transaction.from);
-                IxiNumber finalFromBalance = fromBalance - transaction.amount;
-
-                if (finalFromBalance < (long)0)
+                else
                 {
-                    // Prevent overspending
-                    Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));
-                    return false;
+                    // Verify if the transaction contains the minimum fee
+                    if (transaction.amount < Config.transactionPrice)
+                    {
+                        // Prevent transactions that can't pay the minimum fee
+                        Logging.warn(String.Format("Transaction amount does not cover fee for {{ {0} }}.", transaction.id));
+                        return false;
+                    }
+
+                    // Verify the transaction against the wallet state
+                    // If the balance after the transaction is negative, do not add it.
+                    IxiNumber fromBalance = Node.walletState.getWalletBalance(transaction.from);
+                    IxiNumber finalFromBalance = fromBalance - transaction.amount;
+
+                    if (finalFromBalance < (long)0)
+                    {
+                        // Prevent overspending
+                        Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));
+                        return false;
+                    }
                 }
 
                 // Finally, verify the signature
@@ -213,6 +222,42 @@ namespace DLT
             return false;
         }
 
+        // Verify if a PoW transaction is valid
+        public static bool verifyPoWTransaction(Transaction tx)
+        {
+            if (tx.type != (int)Transaction.Type.PoWSolution)
+                return false;
+
+            // Split the transaction data field
+            string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
+            if (split.Length < 3)
+                return false;
+            try
+            {
+                // Extract the block number and nonce
+                ulong block_num = Convert.ToUInt64(split[1]);
+                string nonce = split[2];
+
+                // Check if the block has an empty PoW field
+                Block block = Node.blockChain.getBlock(block_num);
+                if(block.powField.Length > 0)
+                {
+                    return false;
+                }
+
+                // Verify the nonce
+                if (Miner.verifyNonce(nonce, block_num, tx.from))
+                {
+                    return true;
+                }
+            }
+            catch(Exception e)
+            {
+                Logging.warn(string.Format("Error verifying PoW Transaction: {0}. Message: {1}", tx.id, e.Message));
+            }
+
+            return false;
+        }
 
         // This applies all the transactions from a block to the actual walletstate.
         // It removes the corresponding transactions as well from the pool.
@@ -235,6 +280,24 @@ namespace DLT
                             block.blockNum, block.blockChecksum, txid));
                         return false;
                     }
+
+                    if (tx.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        tx.applied = block.blockNum;
+                        // Verify if the solution is correct
+                        if(verifyPoWTransaction(tx) == true)
+                        {
+                            // Reward the miner
+                            // TODO: delay this until we've discovered all valid solutions for this block and split the reward
+                            IxiNumber miner_balance_before = Node.walletState.getWalletBalance(tx.from);
+                            IxiNumber miner_balance_after = miner_balance_before + new IxiNumber("1");
+                            Node.walletState.setWalletBalance(tx.from, miner_balance_after);
+
+                        }
+
+                        continue;
+                    }
+
 
                     if (tx.amount == 0)
                     {
@@ -265,7 +328,7 @@ namespace DLT
                     {
                         Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
                             txid, block.blockNum, block.lastBlockChecksum, tx.from));
-                        return false;
+                        continue;
                     }
 
                     // Deposit the amount without fee, as the fee is distributed by the network a few blocks later

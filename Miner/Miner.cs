@@ -30,6 +30,7 @@ namespace DLT
         Block activeBlock = null;
         bool blockFound = false;
 
+        private static Random random = new Random(); // Used for random nonce
 
         public Miner()
         {
@@ -40,6 +41,7 @@ namespace DLT
         // Starts the mining threads
         public bool start()
         {
+            return true;
             shouldStop = false;
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
@@ -61,6 +63,13 @@ namespace DLT
             {
                 // Wait for blockprocessor network synchronization
                 if (Node.blockProcessor.operating == false)
+                {
+                    Thread.Sleep(1000);
+                    continue;
+                }
+                
+                // Edge case for seeds
+                if (Node.blockChain.getLastBlockNum() < 10)
                 {
                     Thread.Sleep(1000);
                     continue;
@@ -111,8 +120,8 @@ namespace DLT
             return;
         }
 
-        private static Random random = new Random();
-        public static string RandomString(int length)
+        // Generate a random nonce with a specified length
+        private static string randomNonce(int length)
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             return new string(Enumerable.Repeat(chars, length)
@@ -125,20 +134,39 @@ namespace DLT
             string block_checksum = activeBlock.blockChecksum;
             string solver_address = Node.walletStorage.address;
             string p1 = string.Format("{0}{1}", block_checksum, solver_address);
-            string hash = findHash(p1, RandomString(128));
+            string nonce = randomNonce(128);
+            string hash = findHash(p1, nonce);
 
             hashesPerSecond++;
 
+            // We have a valid hash, update the corresponding block
+            if (Miner.validateHash(hash) == true)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash);
+                Console.ResetColor();
+
+                // Broadcast the nonce to the network
+                sendSolution(nonce);
+
+                activeBlock.powField = hash;
+                blockFound = false;
+            }
+        }
+
+        // Check if a hash is valid based on the current difficulty
+        public static bool validateHash(string hash)
+        {
             bool valid = false;
             int minDif = 2;
             int numZeros = 0;
 
             foreach (char c in hash)
             {
-                if(c == '0')
+                if (c == '0')
                 {
                     numZeros++;
-                    if(numZeros >= minDif)
+                    if (numZeros >= minDif)
                     {
                         valid = true;
                         break;
@@ -147,20 +175,56 @@ namespace DLT
                 else
                 {
                     valid = false;
-                    return;
+                    return false;
                 }
             }
-
-            // We have a valid hash, update the corresponding block
-            if (valid == true)
-            {
-                Console.WriteLine("HASH FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash);
-                activeBlock.powField = hash;
-                blockFound = false;
-            }
+            return valid;
         }
 
-        private string findHash(string p1, string p2)
+        // Verify nonce
+        public static bool verifyNonce(string nonce, ulong block_num, string solver_address)
+        {
+            Block block = Node.blockChain.getBlock(block_num);
+            if (block == null)
+                return false;
+
+            // TODO checksum the solver_address just in case it's not valid
+            // also protect against spamming with invalid nonce/block_num
+
+            string p1 = string.Format("{0}{1}", block.blockChecksum, solver_address);
+            string hash = Miner.findHash(p1, nonce);
+
+            if (Miner.validateHash(hash) == true)
+            {
+                // Hash is valid
+                return true;
+            }
+
+            return false;
+        }
+
+        // Broadcasts the solution to the network
+        public void sendSolution(string nonce)
+        {
+            Transaction tx = new Transaction();
+            tx.type = (int)Transaction.Type.PoWSolution;
+            tx.from = Node.walletStorage.getWalletAddress();
+            tx.to = "IXIAN";
+            tx.amount = "0";
+
+            string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, activeBlock.blockNum, nonce);
+            Console.WriteLine("Data: {0}", data);
+            tx.data = data;
+
+            tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+            tx.checksum = Transaction.calculateChecksum(tx);
+            tx.signature = Transaction.getSignature(tx.checksum);
+
+            // Broadcast this transaction to the network
+            ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
+        }
+
+        private static string findHash(string p1, string p2)
         {
             string ret = "";
             byte[] hash = new byte[32];
