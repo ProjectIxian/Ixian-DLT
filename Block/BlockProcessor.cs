@@ -179,6 +179,10 @@ namespace DLT
             {
                 Logging.warn(String.Format("Received block #{0}, but next block should be #{1}.", b.blockNum, Node.blockChain.getLastBlockNum() + 1));
                 // TODO: keep a counter - if this happens too often, this node is falling behind the network
+                for (ulong missingBlock = Node.blockChain.getLastBlockNum() + 1; missingBlock < b.blockNum; missingBlock++)
+                {
+                    ProtocolMessage.broadcastGetBlock(missingBlock);
+                }
                 return;
             }
             lock (localBlockLock)
@@ -429,7 +433,7 @@ namespace DLT
                             // we assume a network split (or a massive node drop) here and fix consensus to keep going
                             firstSplitOccurence = current_block_num; // This should be handled when network merges again, but that part isn't implemented yet
                             int consensus_number = Node.blockChain.getRequiredConsensus();
-                            Logging.warn(String.Format("Unable to achieve consensus. Maybe the network was split or too many nodes dropped at once. Split mode assumed and proceeding with consensus {0}.", consensus_number));
+                            Logging.warn(String.Format("Unable to reach consensus. Maybe the network was split or too many nodes dropped at once. Split mode assumed and proceeding with consensus {0}.", consensus_number));
                             if (localNewBlock.signatures.Count < consensus_number)
                             {
                                 // we have become isolated from the network, so we shutdown
@@ -443,7 +447,7 @@ namespace DLT
                         }
                         else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)
                         {
-                            Logging.warn(String.Format("It is taking too long to achieve consensus! Re-broadcasting block."));
+                            Logging.warn(String.Format("It is taking too long to reach consensus! Re-broadcasting block."));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
