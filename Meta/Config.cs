@@ -10,7 +10,7 @@ namespace DLT
         {
             // Providing pre-defined values
             // Can be read from a file later, or read from the command line
-            public static int serverPort = 10515;
+            public static int serverPort = 10234;
             public static int apiPort = 8081;
             public static string publicServerIP = "127.0.0.1";
 
