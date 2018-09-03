@@ -367,7 +367,7 @@ namespace DLT
             }
 
             // Calculate the award per signer
-            IxiNumber sigs = new IxiNumber(numSigs, true); // Create the IxiNumber with no decimals
+            IxiNumber sigs = new IxiNumber(numSigs, false);
 
             IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out IxiNumber remainder);
 
