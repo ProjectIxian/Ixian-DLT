@@ -87,7 +87,7 @@ namespace DLT
 
         public int getRequiredConsensus()
         {
-            if (blocks.Count == 0) return 2;
+            if (blocks.Count == 0) return 1; // special case for block #1
             lock (blocks)
             {
                 int totalConsensus = 0;
