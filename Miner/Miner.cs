@@ -41,7 +41,9 @@ namespace DLT
         // Starts the mining threads
         public bool start()
         {
-            return true;
+            if(Config.disableMiner)
+                return true;
+
             shouldStop = false;
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();

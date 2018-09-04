@@ -16,6 +16,7 @@ namespace DLT
 
             public static bool noHistory = false; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
+            public static bool disableMiner = false; // Flag to disable miner
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
 
@@ -44,6 +45,7 @@ namespace DLT
             public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
             public static readonly string foundationAddress = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481"; // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
+            public static readonly IxiNumber powReward = new IxiNumber("12.5");
 
             private static Config singletonInstance;
             private Config()
@@ -74,6 +76,9 @@ namespace DLT
 
                 // Toggle between full history node and no history
                 cmd_parser.Setup<bool>('n', "no-history").Callback(value => noHistory = value).Required();
+
+                // Toggle between mining and no mining mode
+                cmd_parser.Setup<bool>('m', "no-mining").Callback(value => disableMiner = value).Required();
 
                 // Check for recovery parameter
                 cmd_parser.Setup<bool>('r', "recover").Callback(value => recoverFromFile = value).Required();

@@ -223,8 +223,9 @@ namespace DLT
         }
 
         // Verify if a PoW transaction is valid
-        public static bool verifyPoWTransaction(Transaction tx)
+        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum)
         {
+            blocknum = 0;
             if (tx.type != (int)Transaction.Type.PoWSolution)
                 return false;
 
@@ -236,6 +237,7 @@ namespace DLT
             {
                 // Extract the block number and nonce
                 ulong block_num = Convert.ToUInt64(split[1]);
+                blocknum = block_num;
                 string nonce = split[2];
 
                 // Check if the block has an empty PoW field
@@ -270,6 +272,8 @@ namespace DLT
 
             lock (transactions)
             {
+                IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
+
                 List<Transaction> tx_to_apply = new List<Transaction>();
                 foreach(string txid in block.transactions)
                 {
@@ -284,17 +288,18 @@ namespace DLT
                     if (tx.type == (int)Transaction.Type.PoWSolution)
                     {
                         tx.applied = block.blockNum;
+
                         // Verify if the solution is correct
-                        if(verifyPoWTransaction(tx) == true)
+                        if(verifyPoWTransaction(tx, out ulong powBlockNum) == true)
                         {
-                            // Reward the miner
-                            // TODO: delay this until we've discovered all valid solutions for this block and split the reward
-                            IxiNumber miner_balance_before = Node.walletState.getWalletBalance(tx.from);
-                            IxiNumber miner_balance_after = miner_balance_before + new IxiNumber("1");
-                            Node.walletState.setWalletBalance(tx.from, miner_balance_after);
-
+                            // Check if we already have a key matching the block number
+                            if(blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
+                            {
+                                blockSolutionsDictionary[powBlockNum] = new List<string>();
+                            }
+                            // Add the miner to the block number dictionary reward list
+                            blockSolutionsDictionary[powBlockNum].Add(tx.from);
                         }
-
                         continue;
                     }
 
@@ -307,7 +312,7 @@ namespace DLT
                     // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
                     if(tx.applied > 0)
                     {
-                        return false;
+                        continue;
                     }
 
                     // Calculate the transaction amount without fee
@@ -339,10 +344,51 @@ namespace DLT
                     Node.walletState.setWalletBalance(tx.to, dest_balance_after);
                     tx.applied = block.blockNum;
                 }
+
+                // Finally, Check if we have any miners to reward
+                if(blockSolutionsDictionary.Count > 0)
+                {
+                    rewardMiners(blockSolutionsDictionary);
+                }
+
+                // Clear the solutions dictionary
+                blockSolutionsDictionary.Clear();
             }
             return true;
         }
 
+        // Go through a dictionary of block numbers and respective miners and reward them
+        public static void rewardMiners(IDictionary<ulong, List<string>> blockSolutionsDictionary)
+        {
+            for (int i = 0; i < blockSolutionsDictionary.Count; i++)
+            {
+                ulong blockNum = blockSolutionsDictionary.Keys.ElementAt(i);
+
+                // Stop rewarding miners after 5th year
+                if(blockNum > 5256000)
+                {
+                    continue;
+                }
+
+                List<string> miners_to_reward = blockSolutionsDictionary[blockNum];
+
+                IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
+                IxiNumber powRewardPart = Config.powReward / miners_count;
+
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum);
+                Console.ResetColor();
+
+                foreach (string miner in miners_to_reward)
+                {
+                    // TODO add another address checksum here, just in case
+                    // Update the wallet state
+                    IxiNumber miner_balance_before = Node.walletState.getWalletBalance(miner);
+                    IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
+                    Node.walletState.setWalletBalance(miner, miner_balance_after);
+                }
+            }
+        }
 
         // Get the current snapshot of transactions in the pool
         public static byte[] getBytes()
