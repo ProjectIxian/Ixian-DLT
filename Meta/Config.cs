@@ -26,7 +26,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string dltVersion = "0.1.2";
+            public static readonly string dltVersion = "0.2.0";
             public static readonly int nodeVersion = 4; // Node protocol version
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds

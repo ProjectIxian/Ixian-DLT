@@ -370,7 +370,7 @@ namespace DLT
                                     writer.Write(lastBlock);
                                     writer.Write(block.blockChecksum);
                                     writer.Write(block.walletStateChecksum);
-                                    writer.Write(Node.blockProcessor.currentConsensus);
+                                    writer.Write(Node.blockChain.getRequiredConsensus());
 
                                     byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
                                     socket.Send(ba, SocketFlags.None);

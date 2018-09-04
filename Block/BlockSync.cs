@@ -275,7 +275,7 @@ namespace DLT
             if (synchronizing == false) return;
             if(b.blockNum >= syncTargetBlockNum)
             {
-                if (b.signatures.Count < Node.blockProcessor.currentConsensus)
+                if (b.signatures.Count < Node.blockChain.getRequiredConsensus())
                 {
                     Logging.info(String.Format("Block is currently being calculated and does not meet consensus."));
                     return;
@@ -350,10 +350,10 @@ namespace DLT
 
         public void onHelloDataReceived(ulong block_height, string block_checksum, string walletstate_checksum, int consensus)
         {
-            Console.WriteLine(string.Format("\t|- Block Height:\t\t#{0}", block_height));
-            Console.WriteLine(string.Format("\t|- Block Checksum:\t\t{0}", block_checksum));
-            Console.WriteLine(string.Format("\t|- WalletState checksum:\t{0}", walletstate_checksum));
-            Console.WriteLine(string.Format("\t|- Current Consensus:\t{0}", consensus));
+            Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));
+            Logging.info(string.Format("\t|- Block Checksum:\t\t{0}", block_checksum));
+            Logging.info(string.Format("\t|- WalletState checksum:\t{0}", walletstate_checksum));
+            Logging.info(string.Format("\t|- Currently reported consensus:\t{0}", consensus));
 
             if (synchronizing)
             {
@@ -362,9 +362,6 @@ namespace DLT
                     Logging.info(String.Format("Sync target increased from {0} to {1}.",
                         syncTargetBlockNum, block_height));
                     syncTargetBlockNum = block_height;
-                    Logging.info(String.Format("Consensus changed from {0} to {1}.",
-                        Node.blockProcessor.currentConsensus, consensus));
-                    Node.blockProcessor.setSyncConsensus(consensus);
                 }
             } else
             {
@@ -374,7 +371,6 @@ namespace DLT
                     // Node: some of the chain might be loaded from disk, so we might need to walk through that. This case is ignored for now.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
                     syncTargetBlockNum = block_height;
-                    Node.blockProcessor.setSyncConsensus(consensus);
                     startSync();
                 }
             }

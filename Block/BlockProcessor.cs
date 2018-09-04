@@ -15,14 +15,12 @@ namespace DLT
     class BlockProcessor
     {
         public bool operating { get; private set; }
-        public int currentConsensus { get => consensusSignaturesRequired; }
         public ulong firstSplitOccurence { get; private set; }
 
         Block localNewBlock; // Block being worked on currently
         readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
-        int consensusSignaturesRequired = 1;
         int blockGenerationInterval = 30; // in seconds
 
         private static string[] splitter = { "::" };
@@ -40,15 +38,6 @@ namespace DLT
             lastBlockStartTime = DateTime.Now;
             operating = true;
         }
-
-        public void setSyncConsensus(int consensus)
-        {
-            if(operating == false)
-            {
-                consensusSignaturesRequired = consensus;
-            }
-        }
-
 
         public bool onUpdate()
         {
@@ -230,7 +219,7 @@ namespace DLT
                 {
                     // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
                     // can no longer be reached according to this number - I don't have a clean answer yet - MZ
-                    if (localNewBlock.signatures.Count() >= consensusSignaturesRequired)
+                    if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
                     {
                         // accept this block, apply its transactions, recalc consensus, etc
                         applyAcceptedBlock();
@@ -246,41 +235,14 @@ namespace DLT
         private void applyAcceptedBlock()
         {
             TransactionPool.applyTransactionsFromBlock(localNewBlock);
-            // recalculating consensus minimums: we use #n-5 and #n-6 to amortize potential sudden spikes
-            int sigs5 = Node.blockChain.getBlockSignaturesReverse(4);
-            int sigs6 = Node.blockChain.getBlockSignaturesReverse(5);
-            if(sigs5 == 0 || sigs6 == 0)
-            {
-                // special case to bootstrap the network more smoothly
-                if(Node.blockChain.getBlockSignaturesReverse(0) > 1)
-                {
-                    Logging.info(String.Format("Bootstrapping the consensus: Previous block had {0} signatures.", Node.blockChain.getBlockSignaturesReverse(0)));
-                    consensusSignaturesRequired = Node.blockChain.getBlockSignaturesReverse(0);
-                }
-                return;
-            }
-            Logging.info(String.Format("Signatures (#{0}): {1}, Signatures ({2}): {3}",
-                Node.blockChain.getLastBlockNum() - 5, sigs5,
-                Node.blockChain.getLastBlockNum() - 6, sigs6));
-            int avgSigs = (sigs5 + sigs6) / 2;
-            int requiredSigs = (int)Math.Ceiling(avgSigs * Config.networkConsensusRatio);
-            int deltaSigs = requiredSigs - consensusSignaturesRequired; // divide 2, so we amortize the change a little
-            int prevConsensus = consensusSignaturesRequired;
-            consensusSignaturesRequired = consensusSignaturesRequired + deltaSigs;
-            if (consensusSignaturesRequired == 0)
-            {
-                consensusSignaturesRequired = 1;
-            }
-            if(consensusSignaturesRequired == 1 && Node.blockChain.getBlockSignaturesReverse(0) > 1)
-            {
-                Logging.info(String.Format("DLT network init: Forcing signatures to {0}.", Node.blockChain.getBlockSignaturesReverse(0)));
-                consensusSignaturesRequired = Node.blockChain.getBlockSignaturesReverse(0);
-            }
-            if (consensusSignaturesRequired != prevConsensus)
+            int blockConsensus = localNewBlock.signatures.Count;
+            int consensusSignaturesRequired = Node.blockChain.getRequiredConsensus();
+            int deltaSigs = consensusSignaturesRequired - blockConsensus;
+            if (consensusSignaturesRequired != blockConsensus)
             {
                 Logging.info(String.Format("Consensus changed from {0} to {1} ({2}{3})",
-                    prevConsensus,
                     consensusSignaturesRequired,
+                    blockConsensus,
                     deltaSigs < 0 ? "-" : "+",
                     deltaSigs));
             }
@@ -442,7 +404,6 @@ namespace DLT
                                 // TODO TODO TODO : Split handling
                             }
                             lastBlockStartTime = DateTime.MaxValue;
-                            consensusSignaturesRequired = consensus_number;
                             return;
                         }
                         else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)

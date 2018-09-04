@@ -360,7 +360,7 @@ namespace DLT
                 last_block_chksum = "G E N E S I S  B L O C K";
             }
             Console.WriteLine("\t\t|- Block Number:\t\t {0}", blockNum);
-            Console.WriteLine("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockProcessor.currentConsensus);
+            Console.WriteLine("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockChain.getRequiredConsensus());
             Console.WriteLine("\t\t|- Block Checksum:\t\t {0}", blockChecksum);
             Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", last_block_chksum);
             Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum);
