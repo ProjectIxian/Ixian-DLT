@@ -315,7 +315,7 @@ namespace DLTNode
 
             if (methodName.Equals("walletlist", StringComparison.OrdinalIgnoreCase))
             {
-                // Show a list of wallets - capped to 10
+                // Show a list of wallets - capped to 50
                 Wallet[] wallets = Node.walletState.debugGetWallets();
                 string[][] walletStates = new string[wallets.Length][];
                 int count = 0;

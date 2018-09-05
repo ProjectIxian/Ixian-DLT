@@ -299,7 +299,7 @@ namespace DLT.Meta
             }
             Logging.trace(String.Format(" -> Block processor is operating: {0}.", Node.blockProcessor.operating));
             Logging.trace(String.Format(" -> Block processor is synchronizing: {0}.", Node.blockSync.synchronizing));
-            Logging.trace(String.Format(" -> Current consensus number: {0}.", Node.blockProcessor.currentConsensus));
+            Logging.trace(String.Format(" -> Current consensus number: {0}.", Node.blockChain.getRequiredConsensus()));
             Console.ResetColor();
         }
     }

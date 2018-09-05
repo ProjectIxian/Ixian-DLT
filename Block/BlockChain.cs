@@ -87,14 +87,15 @@ namespace DLT
 
         public int getRequiredConsensus()
         {
-            if (blocks.Count == 0) return 1; // special case for block #1
+            int blockOffset = 5;
+            if (blocks.Count < blockOffset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-X blocks
             lock (blocks)
             {
                 int totalConsensus = 0;
-                int blockCount = blocks.Count < 10 ? blocks.Count : 10;
-                for (int i = 1; i < blockCount; i++)
+                int blockCount = blocks.Count - blockOffset < 10 ? blocks.Count - blockOffset : 10;
+                for (int i = 0; i < blockCount; i++)
                 {
-                    totalConsensus += blocks[blocks.Count - i].signatures.Count;
+                    totalConsensus += blocks[blocks.Count - i - blockOffset - 1].signatures.Count;
                 }
                 int consensus = (int)Math.Ceiling(totalConsensus / blockCount * Config.networkConsensusRatio);
                 if (consensus < 2)

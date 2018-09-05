@@ -248,7 +248,7 @@ namespace DLT
         {
             lock (stateLock)
             {
-                return walletState.Take(10).Select(x => x.Value).ToArray();
+                return walletState.Take(50).Select(x => x.Value).ToArray();
             }
         }
     }

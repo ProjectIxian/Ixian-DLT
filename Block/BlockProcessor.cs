@@ -180,7 +180,7 @@ namespace DLT
                 {
                     if(localNewBlock.blockChecksum == b.blockChecksum)
                     {
-                        //Logging.info("This is the block we are currently working on. Merging signatures.");
+                        Logging.info("This is the block we are currently working on. Merging signatures.");
                         if(localNewBlock.addSignaturesFrom(b))
                         {
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
@@ -194,6 +194,11 @@ namespace DLT
                         {
                             Logging.info(String.Format("Incoming block #{0} has more signatures, accepting instead of our own.", b.blockNum));
                             localNewBlock = b;
+                        }
+                        else if((b.signatures.Count() == localNewBlock.signatures.Count()))
+                        {
+                            Logging.info(String.Format("Incoming block #{0} has the same amount of signatures, but is different than our own. Re-transmitting our block.", b.blockNum));
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
                 }
@@ -236,14 +241,14 @@ namespace DLT
         {
             TransactionPool.applyTransactionsFromBlock(localNewBlock);
             int blockConsensus = localNewBlock.signatures.Count;
-            int consensusSignaturesRequired = Node.blockChain.getRequiredConsensus();
-            int deltaSigs = consensusSignaturesRequired - blockConsensus;
-            if (consensusSignaturesRequired != blockConsensus)
+            int prevBlockConsensus = Node.blockChain.getBlockSignaturesReverse(0);
+            if (prevBlockConsensus != blockConsensus)
             {
+                int deltaSigs = blockConsensus - prevBlockConsensus;
                 Logging.info(String.Format("Consensus changed from {0} to {1} ({2}{3})",
-                    consensusSignaturesRequired,
+                    prevBlockConsensus,
                     blockConsensus,
-                    deltaSigs < 0 ? "-" : "+",
+                    deltaSigs < 0 ? "" : "+",
                     deltaSigs));
             }
             applyTransactionFeeRewards();
