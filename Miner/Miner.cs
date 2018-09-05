@@ -138,6 +138,12 @@ namespace DLT
             string p1 = string.Format("{0}{1}", block_checksum, solver_address);
             string nonce = randomNonce(128);
             string hash = findHash(p1, nonce);
+            if(hash.Length < 1)
+            {
+                Logging.warn("Stopping miner due to invalid hash.");
+                stop();
+                return;
+            }
 
             hashesPerSecond++;
 
@@ -229,24 +235,31 @@ namespace DLT
         private static string findHash(string p1, string p2)
         {
             string ret = "";
-            byte[] hash = new byte[32];
-            byte[] sdata = ASCIIEncoding.ASCII.GetBytes(p1);
-            byte[] salt = ASCIIEncoding.ASCII.GetBytes(p2);
-            IntPtr data_ptr = Marshal.AllocHGlobal(sdata.Length);
-            IntPtr salt_ptr = Marshal.AllocHGlobal(sdata.Length);
-            Marshal.Copy(sdata, 0, data_ptr, sdata.Length);
-            Marshal.Copy(salt, 0, salt_ptr, salt.Length);
-            UIntPtr data_len = (UIntPtr)sdata.Length;
-            UIntPtr salt_len = (UIntPtr)salt.Length;
-            IntPtr result_ptr = Marshal.AllocHGlobal(32);
-            DateTime start = DateTime.Now;
-            int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)4, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
-            DateTime end = DateTime.Now;
-        //    Console.WriteLine(String.Format("Argon took: {0} ms.", (end - start).TotalMilliseconds));
-            Marshal.Copy(result_ptr, hash, 0, 32);
-            ret = BitConverter.ToString(hash).Replace("-", string.Empty);
-            Marshal.FreeHGlobal(data_ptr);
-            Marshal.FreeHGlobal(result_ptr);
+            try
+            {
+                byte[] hash = new byte[32];
+                byte[] sdata = ASCIIEncoding.ASCII.GetBytes(p1);
+                byte[] salt = ASCIIEncoding.ASCII.GetBytes(p2);
+                IntPtr data_ptr = Marshal.AllocHGlobal(sdata.Length);
+                IntPtr salt_ptr = Marshal.AllocHGlobal(sdata.Length);
+                Marshal.Copy(sdata, 0, data_ptr, sdata.Length);
+                Marshal.Copy(salt, 0, salt_ptr, salt.Length);
+                UIntPtr data_len = (UIntPtr)sdata.Length;
+                UIntPtr salt_len = (UIntPtr)salt.Length;
+                IntPtr result_ptr = Marshal.AllocHGlobal(32);
+                DateTime start = DateTime.Now;
+                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)4, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
+                DateTime end = DateTime.Now;
+                //    Console.WriteLine(String.Format("Argon took: {0} ms.", (end - start).TotalMilliseconds));
+                Marshal.Copy(result_ptr, hash, 0, 32);
+                ret = BitConverter.ToString(hash).Replace("-", string.Empty);
+                Marshal.FreeHGlobal(data_ptr);
+                Marshal.FreeHGlobal(result_ptr);
+            }
+            catch(Exception e)
+            {
+                Logging.warn(string.Format("Error during mining: {0}", e.Message));
+            }
             return ret;
         }
 
