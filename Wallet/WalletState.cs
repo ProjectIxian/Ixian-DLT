@@ -126,18 +126,26 @@ namespace DLT
             }
         }
 
-        public void setWalletBalance(string id, IxiNumber balance, int snapshot = 0)
+        // Sets the wallet balance for a specified wallet
+        public void setWalletBalance(string id, IxiNumber balance, int snapshot = 0, ulong nonce = 0)
         {
             lock(stateLock)
             {
                 snapshot = translateSnapshotNum(snapshot);
+
+                Wallet wallet = new Wallet(id, balance);
+
+                // Apply nonce if needed
+                if (nonce > 0)
+                    wallet.nonce = nonce;
+
                 if(snapshot == 0)
                 {
-                    walletState.AddOrReplace(id, new Wallet(id, balance));
+                    walletState.AddOrReplace(id, wallet);
                     cachedChecksum = "";
                 } else
                 {
-                    wsDeltas[snapshot].AddOrReplace(id, new Wallet(id, balance));
+                    wsDeltas[snapshot].AddOrReplace(id, wallet);
                     cachedDeltaChecksums[snapshot] = "";
                 }
             }

@@ -94,6 +94,7 @@ namespace DLT
                     new_transaction.type = tx.type;
                     new_transaction.from = tx.from;
                     new_transaction.to = tx.to;
+                    new_transaction.nonce = 0;
                     new_transaction.timeStamp = tx.timestamp;
                     new_transaction.signature = tx.signature;
 
@@ -109,13 +110,16 @@ namespace DLT
 
                     // Applies the transaction to the wallet state
                     // TODO: re-validate the transactions here to prevent any potential exploits
-                    IxiNumber fromBalance = Node.walletState.getWalletBalance(new_transaction.from);
+                    Wallet from_wallet = Node.walletState.getWallet(new_transaction.from);
+                    Wallet to_wallet = Node.walletState.getWallet(new_transaction.to);
+
+                    IxiNumber fromBalance = from_wallet.balance;
                     IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
 
-                    IxiNumber toBalance = Node.walletState.getWalletBalance(new_transaction.to);
+                    IxiNumber toBalance = to_wallet.balance;
 
-                    Node.walletState.setWalletBalance(new_transaction.to, toBalance + new_transaction.amount);
-                    Node.walletState.setWalletBalance(new_transaction.from, fromBalance - new_transaction.amount);
+                    Node.walletState.setWalletBalance(new_transaction.to, toBalance + new_transaction.amount, 0, to_wallet.nonce);
+                    Node.walletState.setWalletBalance(new_transaction.from, fromBalance - new_transaction.amount, 0, from_wallet.nonce);
                     
 
                 }

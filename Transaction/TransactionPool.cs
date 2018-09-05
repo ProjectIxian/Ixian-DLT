@@ -35,6 +35,9 @@ namespace DLT
 
         public static int numTransactions { get => activeTransactions; }
 
+        public static ulong internalNonce = 0;  // Used to calculate the nonce when sending transactions from this node
+                                                // TODO: move this to a more suitable location while still being able to reset it every block
+
         static TransactionPool()
         {
         }
@@ -324,8 +327,11 @@ namespace DLT
                         continue;
                     }
 
-                    IxiNumber source_balance_before = Node.walletState.getWalletBalance(tx.from);
-                    IxiNumber dest_balance_before = Node.walletState.getWalletBalance(tx.to);
+                    Wallet source_wallet = Node.walletState.getWallet(tx.from);
+                    Wallet dest_wallet = Node.walletState.getWallet(tx.to);
+
+                    IxiNumber source_balance_before = source_wallet.balance;
+                    IxiNumber dest_balance_before = dest_wallet.balance;
 
                     // Withdraw the full amount, including fee
                     IxiNumber source_balance_after = source_balance_before - tx.amount;
@@ -336,12 +342,22 @@ namespace DLT
                         continue;
                     }
 
+                    // Check the nonce
+                    if(source_wallet.nonce + 1 != tx.nonce)
+                    {
+                        Logging.warn(String.Format("Incorrect nonce for transaction {0}. Is {1} should be {2}", txid, tx.nonce, source_wallet.nonce + 1));
+                        continue;
+                    }
+
+                    // Increase the source wallet nonce to match the transaction nonce
+                    source_wallet.nonce = tx.nonce;
+
                     // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
                     IxiNumber dest_balance_after = dest_balance_before + txAmountWithoutFee;
 
                     // Update the walletstate
-                    Node.walletState.setWalletBalance(tx.from, source_balance_after);
-                    Node.walletState.setWalletBalance(tx.to, dest_balance_after);
+                    Node.walletState.setWalletBalance(tx.from, source_balance_after,0, source_wallet.nonce);
+                    Node.walletState.setWalletBalance(tx.to, dest_balance_after, 0, dest_wallet.nonce);
                     tx.applied = block.blockNum;
                 }
 
@@ -353,6 +369,9 @@ namespace DLT
 
                 // Clear the solutions dictionary
                 blockSolutionsDictionary.Clear();
+
+                // Reset the internal nonce
+                internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
             }
             return true;
         }
@@ -383,9 +402,10 @@ namespace DLT
                 {
                     // TODO add another address checksum here, just in case
                     // Update the wallet state
-                    IxiNumber miner_balance_before = Node.walletState.getWalletBalance(miner);
+                    Wallet miner_wallet = Node.walletState.getWallet(miner);
+                    IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
-                    Node.walletState.setWalletBalance(miner, miner_balance_after);
+                    Node.walletState.setWalletBalance(miner, miner_balance_after, 0, miner_wallet.nonce);
                 }
             }
         }

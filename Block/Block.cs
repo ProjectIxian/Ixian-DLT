@@ -20,6 +20,9 @@ namespace DLT
         public string lastBlockChecksum = "0";
         public string walletStateChecksum = "0";
         public string signatureFreezeChecksum = "0";
+        public ulong difficulty = 0;
+
+        // Locally calculated
         public string powField = "";
 
         private static string[] splitter = { "::" };
@@ -64,6 +67,7 @@ namespace DLT
             lastBlockChecksum = block.lastBlockChecksum;
             walletStateChecksum = block.walletStateChecksum;
             signatureFreezeChecksum = block.signatureFreezeChecksum;
+            difficulty = block.difficulty;
             powField = block.powField;
         }
 
@@ -100,7 +104,7 @@ namespace DLT
                         lastBlockChecksum = reader.ReadString();
                         walletStateChecksum = reader.ReadString();
                         signatureFreezeChecksum = reader.ReadString();
-                        powField = reader.ReadString();
+                        difficulty = reader.ReadUInt64();
                     }
                 }
             }
@@ -142,7 +146,7 @@ namespace DLT
                     writer.Write(lastBlockChecksum);
                     writer.Write(walletStateChecksum);
                     writer.Write(signatureFreezeChecksum);
-                    writer.Write(powField);
+                    writer.Write(difficulty);
                 }
                 return m.ToArray();
             }
@@ -167,7 +171,7 @@ namespace DLT
                 merged_txids.Append(txid);
             }
 
-            string checksum = Crypto.sha256(blockNum + merged_txids.ToString() + lastBlockChecksum + walletStateChecksum + signatureFreezeChecksum);
+            string checksum = Crypto.sha256(blockNum + merged_txids.ToString() + lastBlockChecksum + walletStateChecksum + signatureFreezeChecksum + difficulty);
             return checksum;
         }
 
@@ -365,6 +369,7 @@ namespace DLT
             Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", last_block_chksum);
             Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum);
             Console.WriteLine("\t\t|- Sig Freeze Checksum: \t {0}", signatureFreezeChecksum);
+            Console.WriteLine("\t\t|- Difficulty:\t\t\t {0}", difficulty);
         }
 
         public bool isGenesis { get { return this.blockNum == 0 && this.lastBlockChecksum == null; } }

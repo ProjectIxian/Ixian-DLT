@@ -321,9 +321,10 @@ namespace DLT
             IxiNumber foundationAward = tFeeAmount * Config.foundationFeePercent / 100;
 
             // Award foundation fee
-            IxiNumber foundation_balance_before = Node.walletState.getWalletBalance(Config.foundationAddress);
+            Wallet foundation_wallet = Node.walletState.getWallet(Config.foundationAddress);
+            IxiNumber foundation_balance_before = foundation_wallet.balance;
             IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
-            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after);
+            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, 0, foundation_wallet.nonce);
             Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
             // Subtract the foundation award from total fee amount
@@ -346,7 +347,7 @@ namespace DLT
             if (remainder > (long) 0)
             {
                 foundation_balance_after = foundation_balance_after + remainder;
-                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after);
+                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, 0, foundation_wallet.nonce);
                 Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
             }
 
@@ -366,9 +367,10 @@ namespace DLT
                 Address addr = new Address(pubkey);
 
                 // Update the walletstate and deposit the award
-                IxiNumber balance_before = Node.walletState.getWalletBalance(addr.ToString());
+                Wallet signer_wallet = Node.walletState.getWallet(addr.ToString());
+                IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
-                Node.walletState.setWalletBalance(addr.ToString(), balance_after);
+                Node.walletState.setWalletBalance(addr.ToString(), balance_after, 0, signer_wallet.nonce);
 
                 Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
             }
@@ -457,6 +459,8 @@ namespace DLT
                     total_transactions++;
                 }
                 Console.WriteLine("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount);
+
+                // Calculate previous difficulty
 
 
                 // Calculate the block checksums and sign it

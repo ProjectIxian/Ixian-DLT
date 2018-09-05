@@ -300,6 +300,9 @@ namespace DLT
                                 }
                             }
 
+                            if (addr_valid == false)
+                                continue;
+
                             // Next, check if we're connecting to a self address of this node
 
                             // Resolve the hostname first

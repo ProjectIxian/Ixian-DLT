@@ -101,9 +101,11 @@ namespace DLTNode
                             sendError(context, "{\"message\":\"error\"}");
                         }
                     }
-                    catch(Exception)
+                    catch(Exception e)
                     {
                         sendError(context, "{\"message\":\"error\"}");
+                        Logging.error(string.Format("Error in API server {0}", e.ToString()));
+
                     }
                 }
                 catch(Exception)
@@ -216,7 +218,11 @@ namespace DLTNode
                 if(amount > (long)0)
                 {
                     string from = Node.walletStorage.address;
-                    Transaction transaction = new Transaction(amount, to, from);
+
+                    TransactionPool.internalNonce++;
+                    ulong nonce = TransactionPool.internalNonce;
+
+                    Transaction transaction = new Transaction(amount, to, from, nonce);
                     TransactionPool.addTransaction(transaction);
                     responseString = JsonConvert.SerializeObject(transaction);
                 }
