@@ -169,7 +169,8 @@ namespace DLT
 
             // Connect to the specified node
             NetworkClient new_client = new NetworkClient();
-            bool result = new_client.connectToServer(server[0], Convert.ToInt32(server[1]));
+            // Recompose the connection address from the resolved IP and the original port
+            bool result = new_client.connectToServer(resolved_server_name, Convert.ToInt32(server[1]));
 
             // Add this node to the client list if connection was successfull
             if (result == true)
