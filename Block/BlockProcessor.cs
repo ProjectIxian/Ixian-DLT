@@ -186,6 +186,10 @@ namespace DLT
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
                             Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
+                        }else if(localNewBlock.signatures.Count != b.signatures.Count)
+                        {
+                            Logging.info(String.Format("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
                     else
@@ -195,9 +199,9 @@ namespace DLT
                             Logging.info(String.Format("Incoming block #{0} has more signatures, accepting instead of our own.", b.blockNum));
                             localNewBlock = b;
                         }
-                        else if((b.signatures.Count() == localNewBlock.signatures.Count()))
+                        else //if((b.signatures.Count() <= localNewBlock.signatures.Count()))
                         {
-                            Logging.info(String.Format("Incoming block #{0} has the same amount of signatures, but is different than our own. Re-transmitting our block.", b.blockNum));
+                            Logging.info(String.Format("Incoming block #{0} has the same amount or less of signatures, but is different than our own. Re-transmitting our block.", b.blockNum));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
