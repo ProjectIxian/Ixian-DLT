@@ -241,7 +241,7 @@ namespace DLTNode
                 }
 
                 // Respond with the transaction details
-                sendResponse(context.Response, JsonConvert.SerializeObject(responseString));
+                sendResponse(context.Response, responseString);
 
                 return true;
             }
