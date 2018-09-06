@@ -430,6 +430,13 @@ namespace DLT
                                         Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Substring(4)));
                                         // Send the block
                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.blockData, block.getBytes()), SocketFlags.None);
+
+                                        // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
+                                        // TODO: looking for a better solution but will likely need an updated network subsystem
+                                        if(Node.blockChain.getLastBlockNum() == block_number)
+                                        {
+                                            ProtocolMessage.broadcastNewBlock(Node.blockProcessor.getLocalBlock());
+                                        }
                                     }
                                 }
                             }
