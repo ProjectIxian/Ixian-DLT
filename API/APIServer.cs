@@ -208,7 +208,7 @@ namespace DLTNode
             if (methodName.Equals("addtransaction", StringComparison.OrdinalIgnoreCase))
             {
                 // Add a new transaction. This test allows sending and receiving from arbitrary addresses
-                string responseString = "Incorrect transaction parameters";
+                string responseString = "Incorrect transaction parameters.";
 
                 string to = request.QueryString["to"];
                 string amount_string = request.QueryString["amount"];
@@ -222,13 +222,26 @@ namespace DLTNode
                     TransactionPool.internalNonce++;
                     ulong nonce = TransactionPool.internalNonce;
 
-                    Transaction transaction = new Transaction(amount, to, from, nonce);
-                    TransactionPool.addTransaction(transaction);
-                    responseString = JsonConvert.SerializeObject(transaction);
+                    if (!Address.validateChecksum(to))
+                    {
+                        responseString = "Incorrect to address.";
+                    }
+                    else
+                    {
+                        Transaction transaction = new Transaction(amount, to, from, nonce);
+                        if (TransactionPool.addTransaction(transaction))
+                        {
+                            responseString = JsonConvert.SerializeObject(transaction);
+                        }
+                        else
+                        {
+                            responseString = "There was an error adding the transaction.";
+                        }
+                    }
                 }
 
                 // Respond with the transaction details
-                sendResponse(context.Response, responseString);
+                sendResponse(context.Response, JsonConvert.SerializeObject(responseString));
 
                 return true;
             }

@@ -454,6 +454,7 @@ namespace DLT
                 foreach (var transaction in poolTransactions)
                 {
                     //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);
+                    // TODO: add an if check if adding the transaction failed ?
                     localNewBlock.addTransaction(transaction);
                     total_amount += transaction.amount;
                     total_transactions++;

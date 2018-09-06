@@ -55,11 +55,24 @@ namespace DLT
                 Logging.warn(String.Format("Ignoring transaction before block 10."));
                 return false;
             }
+
             // Calculate the transaction checksum and compare it
             string checksum = Transaction.calculateChecksum(transaction);
             if(checksum.Equals(transaction.checksum) == false)
             {
                 Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
+                return false;
+            }
+
+            if (!Address.validateChecksum(transaction.from))
+            {
+                Logging.warn(String.Format("Adding transaction {{ {0} }}, but from address is incorrect!", transaction.id));
+                return false;
+            }
+
+            if (!Address.validateChecksum(transaction.to))
+            {
+                Logging.warn(String.Format("Adding transaction {{ {0} }}, but to address is incorrect!", transaction.id));
                 return false;
             }
 
@@ -71,7 +84,7 @@ namespace DLT
             }*/
 
             // Prevent sending to the sender's address
-            if(transaction.from.Equals(transaction.to,StringComparison.Ordinal))
+            if (transaction.from.Equals(transaction.to,StringComparison.Ordinal))
             {
                 Logging.warn(string.Format("Invalid TO address for transaction id: {0}", transaction.id));
                 return false;
