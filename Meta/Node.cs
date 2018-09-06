@@ -128,6 +128,7 @@ namespace DLT.Meta
 
             // Start the network client manager
             NetworkClientManager.start();
+            NetworkServer.beginNetworkOperations();
 
             // Start the miner
             miner = new Miner();
@@ -156,10 +157,10 @@ namespace DLT.Meta
                     // Connect to the rest of the clients
                     NetworkClientManager.resumeConnections();
 
-                    Console.WriteLine("Starting Network Server now.");
+                    //Console.WriteLine("Starting Network Server now.");
 
                     // Start the node server
-                    NetworkServer.beginNetworkOperations();
+                    //NetworkServer.beginNetworkOperations();
                     serverStarted = true;
                 }
             }
