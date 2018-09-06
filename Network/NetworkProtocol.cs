@@ -448,9 +448,13 @@ namespace DLT
 
                                         // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
                                         // TODO: looking for a better solution but will likely need an updated network subsystem
-                                        if(Node.blockChain.getLastBlockNum() == block_number)
+                                        if (Node.blockChain.getLastBlockNum() == block_number)
                                         {
-                                            ProtocolMessage.broadcastNewBlock(Node.blockProcessor.getLocalBlock());
+                                            Block localNewBlock = Node.blockProcessor.getLocalBlock();
+                                            if (localNewBlock != null)
+                                            {
+                                                ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                            }
                                         }
                                     }
                                 }
