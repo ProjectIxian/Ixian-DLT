@@ -137,26 +137,6 @@ namespace DLT
                 // housekeeping tasks
                 while (continueRunning)
                 {
-                    
-                    // check for new incoming connections
-                    /*if (listener.Pending())
-                    {
-                        
-                        try
-                        {
-                              listener.BeginAcceptSocket(new AsyncCallback(doAcceptConnection), null);
-                        }
-                        catch (SocketException socketException)
-                        {
-                            // log error while accepting connection, then simply drop it
-                            Logging.warn("Error while accepting client connection: " + socketException.Message);
-                        }
-                    }
-                    else
-                    {
-                        Thread.Sleep(100);
-                    }*/
-
                     // Use a blocking mechanism
                     try
                     {
@@ -331,7 +311,7 @@ namespace DLT
                 {
                     foreach (RemoteEndpoint rclient in connectedClients)
                     {
-                      //  if (client.isConnected())
+                        if (rclient.presence is null) continue; // ignore, if the clients are in the process of connecting and have not yet sent their identity
                       foreach(PresenceAddress addr in rclient.presence.addresses)
                         {
                             try
@@ -413,18 +393,15 @@ namespace DLT
                 bool clientActive = true;
                 while (clientActive)
                 {
-                    // Check if the socket is active
+                    // Let the protocol handler receive and handle messages
+                    try
                     {
-                        // Let the protocol handler receive and handle messages
-                        try
-                        {
-                            ProtocolMessage.readProtocolMessage(client.clientSocket, client);
-                        }
-                        catch (Exception)
-                        {
-                            //Console.WriteLine("Disconnected client: {0}", e.ToString());
-                            client.state = RemoteEndpointState.Closed;
-                        }
+                        ProtocolMessage.readProtocolMessage(client.clientSocket, client);
+                    }
+                    catch (Exception)
+                    {
+                        //Console.WriteLine("Disconnected client: {0}", e.ToString());
+                        client.state = RemoteEndpointState.Closed;
                     }
                     
                     // Check if the client disconnected
