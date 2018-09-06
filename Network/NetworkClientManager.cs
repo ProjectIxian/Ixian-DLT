@@ -14,6 +14,8 @@ namespace DLT
     class NetworkClientManager
     {
         private static List<NetworkClient> networkClients = new List<NetworkClient>();
+        private static List<string> connectingClients = new List<string>(); // A list of clients that we're currently connecting
+
         private static Thread reconnectThread;
         private static bool autoReconnect = true;
 
@@ -176,6 +178,21 @@ namespace DLT
                 }
             }
 
+            lock(connectingClients)
+            {
+                foreach (string client in connectingClients)
+                {
+                    if(resolved_host.Equals(client, StringComparison.Ordinal))
+                    {
+                        // We're already connecting to this client
+                        return false;
+                    }
+                }
+
+                // The the client to the connecting clients list
+                connectingClients.Add(resolved_host);
+            }
+
             // Connect to the specified node
             NetworkClient new_client = new NetworkClient();
             // Recompose the connection address from the resolved IP and the original port
@@ -184,10 +201,18 @@ namespace DLT
             // Add this node to the client list if connection was successfull
             if (result == true)
             {
-                lock(networkClients)
+                // Add this node to the client list
+                lock (networkClients)
                 {
                     networkClients.Add(new_client);
                 }
+
+            }
+
+            // Remove this node from the connecting clients list
+            lock (connectingClients)
+            {
+                connectingClients.Remove(resolved_host);
             }
 
             return result;
@@ -306,6 +331,24 @@ namespace DLT
                                         break;
                                     }
                                 }
+                            }
+
+                            if (addr_valid == false)
+                                continue;
+
+                            // Check against connecting clients list as well
+                            lock (connectingClients)
+                            {
+                                foreach (string client in connectingClients)
+                                {
+                                    if (addr.address.Equals(client, StringComparison.Ordinal))
+                                    {
+                                        // Address is already in the connecting client list
+                                        addr_valid = false;
+                                        break;
+                                    }
+                                }
+
                             }
 
                             if (addr_valid == false)

@@ -217,11 +217,10 @@ namespace DLT
             Transaction tx = new Transaction();
             tx.type = (int)Transaction.Type.PoWSolution;
             tx.from = Node.walletStorage.getWalletAddress();
-            tx.to = "IXIAN";
+            tx.to = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
             tx.amount = "0";
 
             string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, activeBlock.blockNum, nonce);
-            Console.WriteLine("Data: {0}", data);
             tx.data = data;
 
             tx.timeStamp = Clock.getTimestamp(DateTime.Now);
