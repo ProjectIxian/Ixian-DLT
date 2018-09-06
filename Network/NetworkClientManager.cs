@@ -127,6 +127,14 @@ namespace DLT
 
             // Resolve the hostname first
             string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
+
+            // Skip hostnames we can't resolve
+            if(resolved_server_name.Length < 1)
+            {
+                Logging.info(string.Format("Cannot resolve IP for {0}, skipping connection.", server[0]));
+                return false;
+            }
+
             string resolved_host = string.Format("{0}:{1}", resolved_server_name, server[1]);
 
             // Verify against the publicly disclosed ip
