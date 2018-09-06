@@ -127,6 +127,7 @@ namespace DLT
 
             // Resolve the hostname first
             string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
+            string resolved_host = string.Format("{0}:{1}", resolved_server_name, server[1]);
 
             // Verify against the publicly disclosed ip
             // Don't connect to self
@@ -159,7 +160,7 @@ namespace DLT
             {
                 foreach (NetworkClient client in networkClients)
                 {
-                    if(client.address.Equals(host, StringComparison.Ordinal))
+                    if(client.address.Equals(resolved_host, StringComparison.Ordinal))
                     {
                         // Address is already in the client list
                         return false;
@@ -209,7 +210,6 @@ namespace DLT
                         }
 
                         client.sendData(code, data);
-                        //Console.WriteLine("CLNMGR-BROADCAST SENT: {0}", code);
                     }
                 }
             }
