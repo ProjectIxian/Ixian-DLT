@@ -32,6 +32,8 @@ namespace DLT
 
         private static Random random = new Random(); // Used for random nonce
 
+        private static byte[] hashStartDifficulty = { 0, 0 };
+
         public Miner()
         {
             lastStatTime = DateTime.Now;
@@ -57,6 +59,24 @@ namespace DLT
         {
             shouldStop = true;
             return true;
+        }
+
+        // difficulty is number of consecutive starting bits which must be 0 in the calculated hash
+        public static void setDifficulty(int difficulty)
+        {
+            List<byte> diff_temp = new List<byte>();
+            while(difficulty >= 4)
+            {
+                diff_temp.Add(0);
+                difficulty -= 4;
+            }
+            switch(difficulty)
+            {
+                case 3: diff_temp.Add(1); break;
+                case 2: diff_temp.Add(3); break;
+                case 1: diff_temp.Add(7); break;
+            }
+            hashStartDifficulty = diff_temp.ToArray();
         }
 
         private void threadLoop(object data)
@@ -165,28 +185,13 @@ namespace DLT
         // Check if a hash is valid based on the current difficulty
         public static bool validateHash(string hash)
         {
-            bool valid = false;
-            int minDif = 2;
-            int numZeros = 0;
-
-            foreach (char c in hash)
+            if (hash.Length < hashStartDifficulty.Length) return false;
+            for(int i=0;i<hashStartDifficulty.Length;i++)
             {
-                if (c == '0')
-                {
-                    numZeros++;
-                    if (numZeros >= minDif)
-                    {
-                        valid = true;
-                        break;
-                    }
-                }
-                else
-                {
-                    valid = false;
-                    return false;
-                }
+                byte hash_byte = byte.Parse(hash.Substring(i, 1), System.Globalization.NumberStyles.HexNumber);
+                if (hash_byte > hashStartDifficulty[i]) return false;
             }
-            return valid;
+            return true;
         }
 
         // Verify nonce

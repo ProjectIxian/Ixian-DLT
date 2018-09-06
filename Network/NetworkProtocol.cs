@@ -283,7 +283,7 @@ namespace DLT
                                     }
 
                                     string hostname = reader.ReadString();
-                                    Logging.info(String.Format("New node connected with advertised address {0}", hostname));
+                                    /*Logging.info(String.Format("New node connected with advertised address {0}", hostname));
                                     if(CoreNetworkUtils.PingAddressReachable(hostname) == false)
                                     {
                                         Logging.warn("New node was not reachable on the advertised address.");
@@ -297,7 +297,7 @@ namespace DLT
                                                 return;
                                             }
                                         }
-                                    }
+                                    }*/
                                     //Console.WriteLine("Received IP: {0}", hostname);
 
                                     // Verify that the reported hostname matches the actual socket's IP
