@@ -18,6 +18,8 @@ namespace DLT.Meta
         public static Miner miner;
         public static WalletState walletState;
 
+        public static UPnP upnp;
+
         public static bool genesisNode = false;
         public static bool forceNextBlock = false;
 
@@ -47,14 +49,53 @@ namespace DLT.Meta
 
             walletState = new WalletState(genesisWallets);
 
-            // Show the IP selector menu
+            // Network configuration
+            upnp = new UPnP();
             if (Config.externalIp != "" && IPAddress.TryParse(Config.externalIp, out _))
             {
                 Config.publicServerIP = Config.externalIp;
             }
             else
             {
-                showIPmenu();
+                Config.publicServerIP = "";
+                List<IPAndMask> local_ips = CoreNetworkUtils.GetAllLocalIPAddressesAndMasks();
+                foreach (IPAndMask local_ip in local_ips)
+                {
+                    if(IPv4Subnet.IsPublicIP(local_ip.Address))
+                    {
+                        Logging.info(String.Format("Public IP detected: {0}, mask {1}.", local_ip.Address.ToString(), local_ip.SubnetMask.ToString()));
+                        Config.publicServerIP = local_ip.Address.ToString();
+                    }
+                }
+                if(Config.publicServerIP == "")
+                {
+                    IPAddress primary_local = CoreNetworkUtils.GetPrimaryIPAddress();
+                    if(primary_local == null)
+                    {
+                        Logging.warn("Unable to determine primary IP address.");
+                        showIPmenu();
+                    } else
+                    {
+                        Logging.info(String.Format("None of the locally configured IP addresses are public. Attempting UPnP..."));
+                        IPAddress public_ip = upnp.GetExternalIPAddress();
+                        if(public_ip == null)
+                        {
+                            Logging.info("UPnP failed.");
+                            showIPmenu();
+                        } else
+                        {
+                            Logging.info(String.Format("UPNP-determined public IP: {0}. Attempting to configure a port-forwarding rule.", public_ip.ToString()));
+                            if(upnp.MapPublicPort(Config.serverPort, primary_local))
+                            {
+                                Logging.info("Network configured.");
+                            } else
+                            {
+                                Logging.info("UPnP configuration failed.");
+                                showIPmenu();
+                            }
+                        }
+                    }
+                }
             }
 
             // Generate presence list
