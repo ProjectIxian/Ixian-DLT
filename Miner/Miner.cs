@@ -32,7 +32,8 @@ namespace DLT
 
         private static Random random = new Random(); // Used for random nonce
 
-        private static byte[] hashStartDifficulty = { 0, 0 };
+        public static int currentDificulty { get; private set; }
+        private static byte[] hashStartDifficulty = { 0xff, 0xfc }; // minimum = 14
 
         public Miner()
         {
@@ -64,17 +65,25 @@ namespace DLT
         // difficulty is number of consecutive starting bits which must be 0 in the calculated hash
         public static void setDifficulty(int difficulty)
         {
-            List<byte> diff_temp = new List<byte>();
-            while(difficulty >= 4)
+            if(difficulty< 14)
             {
-                diff_temp.Add(0);
-                difficulty -= 4;
+                difficulty = 14;
             }
-            switch(difficulty)
+            if(difficulty > 256)
             {
-                case 3: diff_temp.Add(1); break;
-                case 2: diff_temp.Add(3); break;
-                case 1: diff_temp.Add(7); break;
+                difficulty = 256;
+            }
+            currentDificulty = difficulty;
+            List<byte> diff_temp = new List<byte>();
+            while(difficulty >= 8)
+            {
+                diff_temp.Add(0xff);
+                difficulty -= 8;
+            }
+            if(difficulty > 0)
+            {
+                byte lastbyte = (byte)(0xff << (8 - difficulty));
+                diff_temp.Add(lastbyte);
             }
             hashStartDifficulty = diff_temp.ToArray();
         }
@@ -188,8 +197,11 @@ namespace DLT
             if (hash.Length < hashStartDifficulty.Length) return false;
             for(int i=0;i<hashStartDifficulty.Length;i++)
             {
-                byte hash_byte = byte.Parse(hash.Substring(i, 1), System.Globalization.NumberStyles.HexNumber);
-                if (hash_byte > hashStartDifficulty[i]) return false;
+                byte hash_byte = byte.Parse(hash.Substring(2*i, 2), System.Globalization.NumberStyles.HexNumber);
+                if ((hash_byte & hashStartDifficulty[i]) != 0)
+                {
+                    return false;
+                }
             }
             return true;
         }
