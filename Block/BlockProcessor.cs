@@ -113,8 +113,12 @@ namespace DLT
                 }
                 try
                 {
-                    IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
-                    minusBalances[t.from] = new_minus_balance;
+                    // TODO: check to see if other transaction types need additional verification
+                    if (t.type == (int)Transaction.Type.Normal)
+                    {
+                        IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
+                        minusBalances[t.from] = new_minus_balance;
+                    }
                 }
                 catch (OverflowException)
                 {
@@ -447,6 +451,12 @@ namespace DLT
 
                 Console.WriteLine("\t\t|- Block Number: {0}", localNewBlock.blockNum);
 
+                // Apply signature freeze
+                localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
+
+                // Distribute staking rewards
+                distributeStakingRewards();
+
                 ulong total_transactions = 0;
                 IxiNumber total_amount = 0;
 
@@ -467,7 +477,6 @@ namespace DLT
                 // Calculate the block checksums and sign it
                 localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
                 localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();
-                localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
                 localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.applySignature();
 
@@ -479,6 +488,7 @@ namespace DLT
             }
         }
 
+        // Retrieve the signature freeze of the 5th last block
         public string getSignatureFreeze()
         {
             // Prevent calculations if we don't have 5 fully generated blocks yet
@@ -489,10 +499,95 @@ namespace DLT
 
             // Last block num - 4 gets us the 5th last block
             Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+            if (targetBlock == null)
+            {
+                return "0";
+            }
 
             // Calculate the signature checksum
             string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
             return sigFreezeChecksum;
+        }
+
+
+        // Distribute the staking rewards according to the 5th last block signatures
+        public bool distributeStakingRewards()
+        {
+            // Prevent distribution if we don't have 10 fully generated blocks yet
+            if (Node.blockChain.getLastBlockNum() < 10)
+            {
+                return false;
+            }
+
+            // Last block num - 4 gets us the 5th last block
+            Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+            if(targetBlock == null)
+            {
+                return false;
+            }
+
+            IxiNumber totalIxis = Node.walletState.calculateTotalSupply();
+            IxiNumber inflationPA = new IxiNumber("10"); // 10% inflation per year
+
+            // Set the anual inflation to 5% after 50bn IXIs in circulation 
+            if (totalIxis > new IxiNumber("50000000000"))
+            {
+                inflationPA = new IxiNumber("5");
+            }
+
+            // Calculate the amount of new IXIs to be minted
+            IxiNumber newIxis = totalIxis * inflationPA / new IxiNumber("100000000");
+
+
+
+
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine("----STAKING REWARDS for #{0}----", targetBlock.blockNum);
+            // Retrieve the list of signature wallets
+            List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+
+            IxiNumber totalIxisStaked = new IxiNumber(0);
+            int stakers = signatureWallets.Count;
+
+            // First pass, go through each wallet to find it's balance
+            foreach( string wallet_addr in signatureWallets)
+            {
+                Wallet wallet = Node.walletState.getWallet(wallet_addr);
+                totalIxisStaked += wallet.balance;              
+            }
+
+            // Second pass, issue the transactions
+            foreach (string wallet_addr in signatureWallets)
+            {
+                // Set a dummy reward for now
+                IxiNumber award = new IxiNumber("5");
+
+                Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
+
+                Transaction tx = new Transaction();
+                tx.type = (int) Transaction.Type.StakingReward;
+                tx.to = wallet_addr;
+                tx.from = Node.walletStorage.address;
+
+                tx.amount = award;
+
+                string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
+                tx.data = data;
+                tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+                tx.checksum = Transaction.calculateChecksum(tx);
+                tx.signature = Transaction.getSignature(tx.checksum);
+
+                TransactionPool.addTransaction(tx);
+
+            }
+            Console.WriteLine("------");
+            Console.ResetColor();
+
+
+
+
+
+            return true;
         }
 
         public bool hasNewBlock()

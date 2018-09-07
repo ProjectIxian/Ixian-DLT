@@ -316,6 +316,39 @@ namespace DLT
             return false;
         }
 
+        // Goes through all signatures and generates the corresponding Ixian wallet addresses
+        public List<string> getSignaturesWalletAddresses()
+        {
+            List<string> result = new List<string>();
+
+            foreach(string merged_signature in signatures)
+            {
+                string[] signature_parts = merged_signature.Split(splitter, StringSplitOptions.None);
+                if (signature_parts.Length < 2)
+                    continue;
+
+                string signature = signature_parts[0];
+                string public_key = signature_parts[1];
+
+                // Check if signature is actually valid
+                if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature) == false)
+                {
+                    // Signature is not valid, don't extract the wallet address
+                    // TODO: maybe do something else here as well. Perhaps reject the block?
+                    continue;
+                }
+                
+                Address address = new Address(public_key);
+                string address_string = address.ToString();
+                // TODO: check if it's it worth it validating the address again here
+
+                // Add the address to the list
+                result.Add(address_string);
+            }
+
+            return result;
+        }
+
         // Returns the number of unique signatures
         public int getUniqueSignatureCount()
         {

@@ -107,6 +107,11 @@ namespace DLT
                     // TODO: pre-validate the transaction in such a way it doesn't affect performance
 
                 }
+                // Special case for Staking Reward transaction
+                else if(transaction.type == (int)Transaction.Type.StakingReward)
+                {
+
+                }
                 else
                 {
                     // Verify if the transaction contains the minimum fee
@@ -290,6 +295,9 @@ namespace DLT
             {
                 IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
 
+                List<string> blockStakers = new List<string>();
+
+
                 List<Transaction> tx_to_apply = new List<Transaction>();
                 foreach(string txid in block.transactions)
                 {
@@ -301,6 +309,14 @@ namespace DLT
                         return false;
                     }
 
+                    //Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
+                    // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
+                    if (tx.applied > 0)
+                    {
+                        continue;
+                    }
+
+                    // Special case for PoWSolution transactions
                     if (tx.type == (int)Transaction.Type.PoWSolution)
                     {
                         tx.applied = block.blockNum;
@@ -319,15 +335,74 @@ namespace DLT
                         continue;
                     }
 
-
+                    // Check the transaction amount
                     if (tx.amount == 0)
                     {
                         continue;
                     }
-                    //Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
-                    // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
-                    if(tx.applied > 0)
+
+                    // Special case for Staking Reward transaction
+                    if (tx.type == (int)Transaction.Type.StakingReward)
                     {
+                        // Check if the staker's transaction has already been processed
+                        bool valid = true;
+                        foreach(string staker in blockStakers)
+                        {
+                            if (staker.Equals(tx.to, StringComparison.Ordinal))
+                            {
+                                valid = false;
+                                break;
+                            }
+                        }
+                        // If there's another staking transaction for the staker in this block, ignore
+                        if(valid == false)
+                        {
+                            continue;
+                        }
+
+                        Wallet staking_wallet = Node.walletState.getWallet(tx.to);
+                        IxiNumber staking_balance_before = staking_wallet.balance;
+
+                        IxiNumber tx_amount = tx.amount;
+
+                        if(tx_amount < (long) 0)
+                        {
+                            Logging.error(String.Format("Staking transaction {0} does not have a positive amount.", txid));
+                            continue;
+                        }
+
+                        // Check if the transaction is in the sigfreeze
+                        // TODO: refactor this and make it more efficient
+                        string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
+                        if (split.Length < 1)
+                            continue;
+                        string blocknum = split[1];
+                        // Verify the staking transaction is accurate
+                        Block targetBlock = Node.blockChain.getBlock(Convert.ToUInt64(blocknum));
+                        if (targetBlock == null)
+                            continue;
+
+                        valid = false;
+                        List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+                        foreach (string wallet_addr in signatureWallets)
+                        {
+                            if (tx.to.Equals(wallet_addr))
+                                valid = true;
+                        }
+                        if (valid == false)
+                        {
+                            Logging.error(String.Format("Staking transaction {0} does not have a corresponding block signature.", txid));
+                            continue;
+                        }
+
+                        // Deposit the amount
+                        IxiNumber staking_balance_after = staking_balance_before + tx_amount;
+
+                        Node.walletState.setWalletBalance(tx.to, staking_balance_after, 0, staking_wallet.nonce);
+                        tx.applied = block.blockNum;
+
+                        blockStakers.Add(tx.to);
+
                         continue;
                     }
 
