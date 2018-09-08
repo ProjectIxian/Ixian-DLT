@@ -47,7 +47,7 @@ namespace DLT
             }
             // check if it is time to generate a new block
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
-            if (timeSinceLastBlock.TotalSeconds > blockGenerationInterval || Node.forceNextBlock)
+            if ((Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval) || Node.forceNextBlock)
             {
                 if (Node.forceNextBlock)
                 {
@@ -61,6 +61,12 @@ namespace DLT
                 verifyBlockAcceptance();
             }
             return true;
+        }
+
+        public int getElectedNodeOffset()
+        {
+            TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+            return timeSinceLastBlock.Seconds % blockGenerationInterval;
         }
 
         public void onBlockReceived(Block b)
@@ -198,7 +204,8 @@ namespace DLT
                     }
                     else
                     {
-                        if(b.signatures.Count() > localNewBlock.signatures.Count())
+                        /* TODO We don't need this chunk anymore, left it here for some of the edge case tests, has to be removed later
+                        if (b.signatures.Count() > localNewBlock.signatures.Count())
                         {
                             Logging.info(String.Format("Incoming block #{0} has more signatures, accepting instead of our own.", b.blockNum));
                             localNewBlock = b;
@@ -206,6 +213,16 @@ namespace DLT
                         else //if((b.signatures.Count() <= localNewBlock.signatures.Count()))
                         {
                             Logging.info(String.Format("Incoming block #{0} has the same amount or less of signatures, but is different than our own. Re-transmitting our block.", b.blockNum));
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                        }*/
+                        if (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())))
+                        {
+                            Logging.info(String.Format("Incoming block #{0} has elected nodes sig, accepting instead of our own. (total signatures: {1})", b.blockNum, b.signatures.Count));
+                            localNewBlock = b;
+                        }else
+                        {
+                            // discard with a warning, likely spam, resend our local block
+                            Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and  re-transmitting local block. (total signatures: {1}).", b.blockNum, b.signatures.Count));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }

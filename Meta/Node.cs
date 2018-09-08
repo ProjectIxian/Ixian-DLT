@@ -344,5 +344,16 @@ namespace DLT.Meta
             Logging.trace(String.Format(" -> Current consensus number: {0}.", Node.blockChain.getRequiredConsensus()));
             Console.ResetColor();
         }
+
+        public static bool isElectedToGenerateNextBlock(int offset = 0)
+        {
+            string pubKey = blockChain.getLastElectedNodePubKey(offset);
+            if(pubKey == null || pubKey == walletStorage.publicKey)
+            {
+                return true;
+            }
+
+            return false;
+        }
     }
 }

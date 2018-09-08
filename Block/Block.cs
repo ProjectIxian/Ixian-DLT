@@ -25,7 +25,7 @@ namespace DLT
         // Locally calculated
         public string powField = "";
 
-        private static string[] splitter = { "::" };
+        public static string[] splitter = { "::" };
 
         // Generate the genesis block
         static Block createGenesisBlock()
@@ -282,9 +282,12 @@ namespace DLT
         }
 
         // Goes through all signatures and verifies if the block is already signed with this node's pubkey
-        public bool hasNodeSignature()
+        public bool hasNodeSignature(string public_key = null)
         {
-            string public_key = Node.walletStorage.publicKey;
+            if (public_key == null)
+            {
+                public_key = Node.walletStorage.publicKey;
+            }
             string private_key = Node.walletStorage.privateKey;
 
             string signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
