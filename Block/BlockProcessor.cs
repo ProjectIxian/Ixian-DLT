@@ -471,8 +471,8 @@ namespace DLT
                 }
                 Console.WriteLine("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount);
 
-                // Calculate previous difficulty
-
+                // Calculate mining difficulty
+                localNewBlock.difficulty = calculateDifficulty();
 
                 // Calculate the block checksums and sign it
                 localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
@@ -486,6 +486,38 @@ namespace DLT
                 ProtocolMessage.broadcastNewBlock(localNewBlock);         
 
             }
+        }
+
+        // Calculate the current mining difficulty
+        public ulong calculateDifficulty()
+        {
+            ulong current_difficulty = 14;
+            if (localNewBlock.blockNum > 1)
+            {
+                Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
+                if (previous_block != null)
+                    current_difficulty = previous_block.difficulty;
+
+                // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
+                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
+                if (solved_blocks > Node.blockChain.redactedWindowSize / 2)
+                {
+                    current_difficulty++;
+                }
+                else
+                {
+                    current_difficulty--;
+                }
+
+                // Set some limits
+                if (current_difficulty > 256)
+                    current_difficulty = 256;
+                else if (current_difficulty < 14)
+                    current_difficulty = 14;
+
+            }
+
+            return current_difficulty;
         }
 
         // Retrieve the signature freeze of the 5th last block
@@ -513,6 +545,7 @@ namespace DLT
         // Distribute the staking rewards according to the 5th last block signatures
         public bool distributeStakingRewards()
         {
+            return false;
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {
@@ -589,6 +622,8 @@ namespace DLT
 
             return true;
         }
+
+
 
         public bool hasNewBlock()
         {

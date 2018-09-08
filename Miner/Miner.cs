@@ -32,7 +32,7 @@ namespace DLT
 
         private static Random random = new Random(); // Used for random nonce
 
-        public static int currentDificulty { get; private set; }
+        public static int currentDificulty { get; private set; } // 14 to 256
         private static byte[] hashStartDifficulty = { 0xff, 0xfc }; // minimum = 14
 
         public Miner()
@@ -90,6 +90,9 @@ namespace DLT
 
         private void threadLoop(object data)
         {
+            // Set initial difficulty
+            setDifficulty(14);
+
             while (!shouldStop)
             {
                 // Wait for blockprocessor network synchronization
@@ -140,6 +143,7 @@ namespace DLT
                 {
                     blockNum = block.blockNum;
                     activeBlock = block;
+                    setDifficulty((int)block.difficulty);
                     blockFound = true;
                     return;
                 }
@@ -192,22 +196,51 @@ namespace DLT
         }
 
         // Check if a hash is valid based on the current difficulty
-        public static bool validateHash(string hash)
+        public static bool validateHash(string hash, ulong difficulty = 0)
         {
-            if (hash.Length < hashStartDifficulty.Length) return false;
+            int c_difficulty = currentDificulty;
+            // Set the difficulty for verification purposes
+            if (difficulty > 0)
+            {
+                setDifficulty((int)difficulty);
+            }
+
+            if (hash.Length < hashStartDifficulty.Length)
+            {
+                // Reset the difficulty
+                if (difficulty > 0)
+                {
+                    setDifficulty(c_difficulty);
+                }
+                return false;
+            }
+
             for(int i=0;i<hashStartDifficulty.Length;i++)
             {
                 byte hash_byte = byte.Parse(hash.Substring(2*i, 2), System.Globalization.NumberStyles.HexNumber);
                 if ((hash_byte & hashStartDifficulty[i]) != 0)
                 {
+                    // Reset the difficulty
+                    if (difficulty > 0)
+                    {
+                        setDifficulty(c_difficulty);
+                    }
+
                     return false;
                 }
             }
+
+            // Reset the difficulty
+            if(difficulty > 0)
+            {
+                setDifficulty(c_difficulty);
+            }
+
             return true;
         }
 
         // Verify nonce
-        public static bool verifyNonce(string nonce, ulong block_num, string solver_address)
+        public static bool verifyNonce(string nonce, ulong block_num, string solver_address, ulong difficulty)
         {
             Block block = Node.blockChain.getBlock(block_num);
             if (block == null)
@@ -219,7 +252,7 @@ namespace DLT
             string p1 = string.Format("{0}{1}", block.blockChecksum, solver_address);
             string hash = Miner.findHash(p1, nonce);
 
-            if (Miner.validateHash(hash) == true)
+            if (Miner.validateHash(hash, difficulty) == true)
             {
                 // Hash is valid
                 return true;

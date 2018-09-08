@@ -40,7 +40,7 @@ namespace DLT
             public static readonly double networkConsensusRatio = 0.75;
 
             // Transactions and fees
-            public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000");//2000; // Limit master nodes to this amount or above
+            public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("0");//2000; // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
             public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
             public static readonly string foundationAddress = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481"; // Foundation wallet address

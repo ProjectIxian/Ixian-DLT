@@ -269,7 +269,7 @@ namespace DLT
                 }
 
                 // Verify the nonce
-                if (Miner.verifyNonce(nonce, block_num, tx.from))
+                if (Miner.verifyNonce(nonce, block_num, tx.from, block.difficulty))
                 {
                     return true;
                 }
@@ -477,6 +477,12 @@ namespace DLT
                     continue;
                 }
 
+                Block block = Node.blockChain.getBlock(blockNum);
+                // Check if the block is valid
+                if (block == null)
+                    continue;
+
+
                 List<string> miners_to_reward = blockSolutionsDictionary[blockNum];
 
                 IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
@@ -486,6 +492,7 @@ namespace DLT
                 Console.WriteLine("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum);
                 Console.ResetColor();
 
+                string checksum_source = "MINERS";
                 foreach (string miner in miners_to_reward)
                 {
                     // TODO add another address checksum here, just in case
@@ -494,7 +501,13 @@ namespace DLT
                     IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
                     Node.walletState.setWalletBalance(miner, miner_balance_after, 0, miner_wallet.nonce);
+
+                    checksum_source += miner;
                 }
+
+                // Set the powField as a checksum of all miners for this block
+                block.powField = Crypto.sha256(checksum_source);
+
             }
         }
 

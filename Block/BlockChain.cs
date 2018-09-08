@@ -159,5 +159,23 @@ namespace DLT
             return false;
         }
 
+        // Get the number of PoW solved blocks
+        public ulong getSolvedBlocksCount()
+        {
+            ulong solved_blocks = 0;
+
+            lock (blocks)
+            {
+                foreach (Block block in blocks)
+                {
+                    if(block.powField.Length > 0)
+                    {
+                        // TODO: an additional verification would be nice
+                        solved_blocks++;
+                    }
+                }
+            }
+            return solved_blocks;
+        }
     }
 }
