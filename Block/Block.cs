@@ -105,6 +105,7 @@ namespace DLT
                         walletStateChecksum = reader.ReadString();
                         signatureFreezeChecksum = reader.ReadString();
                         difficulty = reader.ReadUInt64();
+                        powField = reader.ReadString();
                     }
                 }
             }
@@ -147,6 +148,7 @@ namespace DLT
                     writer.Write(walletStateChecksum);
                     writer.Write(signatureFreezeChecksum);
                     writer.Write(difficulty);
+                    writer.Write(powField);
                 }
                 return m.ToArray();
             }

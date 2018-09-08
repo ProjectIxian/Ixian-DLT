@@ -47,6 +47,7 @@ namespace DLT
             }
             // check if it is time to generate a new block
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+            Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
             if ((Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval) || Node.forceNextBlock)
             {
                 if (Node.forceNextBlock)
@@ -66,7 +67,7 @@ namespace DLT
         public int getElectedNodeOffset()
         {
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
-            return timeSinceLastBlock.Seconds % blockGenerationInterval;
+            return (int)(timeSinceLastBlock.TotalSeconds / (blockGenerationInterval*3));
         }
 
         public void onBlockReceived(Block b)
@@ -160,6 +161,25 @@ namespace DLT
                     b.blockNum, b.blockChecksum, checksum));
                 return BlockVerifyStatus.Invalid;
             }
+            // verify signatureFreezeChecksum
+            if(b.signatureFreezeChecksum.Length > 3)
+            {
+                Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
+                if(targetBlock == null)
+                {
+                    ProtocolMessage.broadcastGetBlock(b.blockNum-5);
+                    return BlockVerifyStatus.Indeterminate;
+                }
+                string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+                if (b.signatureFreezeChecksum != sigFreezeChecksum)
+                {
+                    Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting blocks #{3} and #{4}",
+                        b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum, b.blockNum - 5));
+                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                    ProtocolMessage.broadcastGetBlock(b.blockNum);
+                    return BlockVerifyStatus.Indeterminate;
+                }
+            }
             // TODO: verify that walletstate ends up on the same checksum as block promises
             // Verify signatures
             if (!b.verifySignatures())
@@ -215,9 +235,9 @@ namespace DLT
                             Logging.info(String.Format("Incoming block #{0} has the same amount or less of signatures, but is different than our own. Re-transmitting our block.", b.blockNum));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }*/
-                        if (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())))
+                        if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() || b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())))
                         {
-                            Logging.info(String.Format("Incoming block #{0} has elected nodes sig, accepting instead of our own. (total signatures: {1})", b.blockNum, b.signatures.Count));
+                            Logging.info(String.Format("Incoming block #{0} has elected nodes sig or full consensus, accepting instead of our own. (total signatures: {1})", b.blockNum, b.signatures.Count));
                             localNewBlock = b;
                         }else
                         {
@@ -435,7 +455,7 @@ namespace DLT
                                 // TODO: notify network to reconnect to other nodes on the PL
                                 // TODO TODO TODO : Split handling
                             }
-                            lastBlockStartTime = DateTime.MaxValue;
+                            lastBlockStartTime = DateTime.Now;
                             return;
                         }
                         else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)
@@ -449,14 +469,14 @@ namespace DLT
                         // we are falling behind. Clear out current state and wait for the next network state
                         Logging.error(String.Format("We were processing #{0}, but that is already accepted. Lagging behind the network!", current_block_num));
                         localNewBlock = null;
-                        lastBlockStartTime = DateTime.MaxValue;
+                        lastBlockStartTime = DateTime.Now;
                     }
                     else
                     {
                         // we are too far ahead (this should never happen)
                         Logging.error(String.Format("Logic error detected. Current block num is #{0}, but should be #{1}. Clearing state and waiting for the network.", current_block_num, supposed_block_num));
                         localNewBlock = null;
-                        lastBlockStartTime = DateTime.MaxValue;
+                        lastBlockStartTime = DateTime.Now;
                     }
                     return;
                 }

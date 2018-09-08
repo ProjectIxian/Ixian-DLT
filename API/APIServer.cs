@@ -282,9 +282,42 @@ namespace DLTNode
                 blockData[1] = new string[2] { "Block Checksum", block.blockChecksum };
                 blockData[2] = new string[2] { "Last Block Checksum", block.lastBlockChecksum };
                 blockData[3] = new string[2] { "Wallet State Checksum", block.walletStateChecksum };
+                blockData[4] = new string[2] { "Sig freeze Checksum", block.signatureFreezeChecksum };
+                blockData[5] = new string[2] { "PoW field", block.powField };
+                blockData[6] = new string[2] { "Difficulty", block.difficulty.ToString() };
+                blockData[7] = new string[2] { "Signatures", block.signatures.Count.ToString() };
+                blockData[8] = new string[2] { "Transaction", block.transactions.Count.ToString() };
 
                 // Respond with the block details
                 string responseString = JsonConvert.SerializeObject(blockData);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
+            if (methodName.Equals("getlastblocks", StringComparison.OrdinalIgnoreCase))
+            {
+                string[][][] blocks = new string[10][][];
+                for (ulong i = 0; i < 10; i++)
+                {
+                    Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
+                    if (block == null)
+                        return false;
+
+                    string[][] blockData = new string[10][];
+
+                    blockData[0] = new string[2] { "Block Number", block.blockNum.ToString() };
+                    blockData[1] = new string[2] { "Block Checksum", block.blockChecksum };
+                    blockData[2] = new string[2] { "Last Block Checksum", block.lastBlockChecksum };
+                    blockData[3] = new string[2] { "Wallet State Checksum", block.walletStateChecksum };
+                    blockData[4] = new string[2] { "Sig freeze Checksum", block.signatureFreezeChecksum };
+                    blockData[5] = new string[2] { "PoW field", block.powField };
+                    blockData[6] = new string[2] { "Difficulty", block.difficulty.ToString() };
+                    blockData[7] = new string[2] { "Signatures", block.signatures.Count.ToString() };
+                    blockData[8] = new string[2] { "Transaction", block.transactions.Count.ToString() };
+                    blocks[i] = blockData;
+                }
+                // Respond with the block details
+                string responseString = JsonConvert.SerializeObject(blocks).ToString();
                 sendResponse(context.Response, responseString);
                 return true;
             }

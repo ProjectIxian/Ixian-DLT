@@ -159,28 +159,21 @@ namespace DLT
             return false;
         }
 
-        // Returns the last block that has a signatureFreezeChecksum set
-        public Block getLastSigFreezedBlock()
-        {
-            for(int i = 1; i < blocks.Count; i++)
-            {
-                if(blocks[blocks.Count - i].signatureFreezeChecksum != "0")
-                {
-                    return blocks[blocks.Count - i];
-                }
-            }
-            return null;
-        }
-
         // Gets the elected node's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
         public string getLastElectedNodePubKey(int offset = 0)
         {
-            Block b = getLastSigFreezedBlock();
-            if (b != null)
+            Block targetBlock = getBlock(getLastBlockNum()-5);
+            Block curBlock = getBlock(getLastBlockNum());
+            if (targetBlock != null && curBlock != null)
             {
-                string sigFreezeChecksum = b.signatureFreezeChecksum;
+                string sigFreezeChecksum = curBlock.signatureFreezeChecksum;
                 int sigNr = BitConverter.ToInt32(Encoding.UTF8.GetBytes(sigFreezeChecksum), 0) + offset;
-                string sig = b.signatures[sigNr % b.signatures.Count];
+
+                // Sort the signatures first
+                List<string> sortedSigs = new List<string>(targetBlock.signatures);
+                sortedSigs.Sort();
+
+                string sig = sortedSigs[sigNr % sortedSigs.Count];
 
                 string[] parts = sig.Split(Block.splitter, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length != 2)
