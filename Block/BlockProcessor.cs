@@ -47,7 +47,7 @@ namespace DLT
             }
             // check if it is time to generate a new block
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
-            Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
+            //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
             if ((Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval) || Node.forceNextBlock)
             {
                 if (Node.forceNextBlock)
@@ -337,11 +337,14 @@ namespace DLT
             ulong txcount = 0;
             foreach(string txid in targetBlock.transactions)
             {
-                Transaction tx = TransactionStorage.getTransaction(txid);
+                Transaction tx = TransactionStorage.getTransaction(txid);               
                 if (tx != null)
                 {
-                    tAmount += tx.amount;
-                    txcount++;
+                    if (tx.type == (int)Transaction.Type.Normal)
+                    {
+                        tAmount += tx.amount;
+                        txcount++;
+                    }
                 }
             }
 
@@ -582,7 +585,6 @@ namespace DLT
         // Distribute the staking rewards according to the 5th last block signatures
         public bool distributeStakingRewards()
         {
-            return false;
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {
@@ -637,7 +639,7 @@ namespace DLT
                 Transaction tx = new Transaction();
                 tx.type = (int) Transaction.Type.StakingReward;
                 tx.to = wallet_addr;
-                tx.from = Node.walletStorage.address;
+                tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
 
                 tx.amount = award;
 
@@ -645,17 +647,13 @@ namespace DLT
                 tx.data = data;
                 tx.timeStamp = Clock.getTimestamp(DateTime.Now);
                 tx.checksum = Transaction.calculateChecksum(tx);
-                tx.signature = Transaction.getSignature(tx.checksum);
+                tx.signature = "Stake";
 
                 TransactionPool.addTransaction(tx);
 
             }
             Console.WriteLine("------");
             Console.ResetColor();
-
-
-
-
 
             return true;
         }

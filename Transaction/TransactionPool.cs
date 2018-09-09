@@ -101,6 +101,8 @@ namespace DLT
                         return false;
                 }
 
+                bool check_signature = true; // Default to verifying transaction signature
+
                 // Special case for PoWSolution transactions
                 if (transaction.type == (int)Transaction.Type.PoWSolution)
                 {
@@ -110,7 +112,7 @@ namespace DLT
                 // Special case for Staking Reward transaction
                 else if(transaction.type == (int)Transaction.Type.StakingReward)
                 {
-
+                    check_signature = false; // Skip signature verification for staking rewards
                 }
                 else
                 {
@@ -136,11 +138,14 @@ namespace DLT
                 }
 
                 // Finally, verify the signature
-                if (transaction.verifySignature() == false)
+                if (check_signature)
                 {
-                    // Transaction signature is invalid
-                    Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
-                    return false;
+                    if (transaction.verifySignature() == false)
+                    {
+                        // Transaction signature is invalid
+                        Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
+                        return false;
+                    }
                 }
                 Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
                 transactions.Add(transaction);
@@ -291,176 +296,184 @@ namespace DLT
                 return true;
             }
 
-            lock (transactions)
+            try
             {
-                IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
-
-                List<string> blockStakers = new List<string>();
-
-
-                List<Transaction> tx_to_apply = new List<Transaction>();
-                foreach(string txid in block.transactions)
+                lock (transactions)
                 {
-                    Transaction tx = getTransaction(txid);
-                    if(tx == null)
-                    {
-                        Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.", 
-                            block.blockNum, block.blockChecksum, txid));
-                        return false;
-                    }
+                    IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
 
-                    //Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
-                    // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
-                    if (tx.applied > 0)
-                    {
-                        continue;
-                    }
+                    List<string> blockStakers = new List<string>();
 
-                    // Special case for PoWSolution transactions
-                    if (tx.type == (int)Transaction.Type.PoWSolution)
-                    {
-                        tx.applied = block.blockNum;
 
-                        // Verify if the solution is correct
-                        if(verifyPoWTransaction(tx, out ulong powBlockNum) == true)
+                    List<Transaction> tx_to_apply = new List<Transaction>();
+                    foreach (string txid in block.transactions)
+                    {
+                        Transaction tx = getTransaction(txid);
+                        if (tx == null)
                         {
-                            // Check if we already have a key matching the block number
-                            if(blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
+                            Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
+                                block.blockNum, block.blockChecksum, txid));
+                            return false;
+                        }
+
+                        //Logging.info(String.Format("{{ {0} }}->Applied: {1}.", txid, tx.applied));
+                        // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
+                        if (tx.applied > 0)
+                        {
+                            continue;
+                        }
+
+                        // Special case for PoWSolution transactions
+                        if (tx.type == (int)Transaction.Type.PoWSolution)
+                        {
+                            tx.applied = block.blockNum;
+
+                            // Verify if the solution is correct
+                            if (verifyPoWTransaction(tx, out ulong powBlockNum) == true)
                             {
-                                blockSolutionsDictionary[powBlockNum] = new List<string>();
+                                // Check if we already have a key matching the block number
+                                if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
+                                {
+                                    blockSolutionsDictionary[powBlockNum] = new List<string>();
+                                }
+                                // Add the miner to the block number dictionary reward list
+                                blockSolutionsDictionary[powBlockNum].Add(tx.from);
                             }
-                            // Add the miner to the block number dictionary reward list
-                            blockSolutionsDictionary[powBlockNum].Add(tx.from);
+                            continue;
                         }
-                        continue;
-                    }
 
-                    // Check the transaction amount
-                    if (tx.amount == 0)
-                    {
-                        continue;
-                    }
-
-                    // Special case for Staking Reward transaction
-                    if (tx.type == (int)Transaction.Type.StakingReward)
-                    {
-                        // Check if the staker's transaction has already been processed
-                        bool valid = true;
-                        foreach(string staker in blockStakers)
+                        // Check the transaction amount
+                        if (tx.amount == 0)
                         {
-                            if (staker.Equals(tx.to, StringComparison.Ordinal))
+                            continue;
+                        }
+
+                        // Special case for Staking Reward transaction
+                        if (tx.type == (int)Transaction.Type.StakingReward)
+                        {
+                            // Check if the staker's transaction has already been processed
+                            bool valid = true;
+                            foreach (string staker in blockStakers)
                             {
-                                valid = false;
-                                break;
+                                if (staker.Equals(tx.to, StringComparison.Ordinal))
+                                {
+                                    valid = false;
+                                    break;
+                                }
                             }
+                            // If there's another staking transaction for the staker in this block, ignore
+                            if (valid == false)
+                            {
+                                continue;
+                            }
+
+                            Wallet staking_wallet = Node.walletState.getWallet(tx.to);
+                            IxiNumber staking_balance_before = staking_wallet.balance;
+
+                            IxiNumber tx_amount = tx.amount;
+
+                            if (tx_amount < (long)0)
+                            {
+                                Logging.error(String.Format("Staking transaction {0} does not have a positive amount.", txid));
+                                continue;
+                            }
+
+                            // Check if the transaction is in the sigfreeze
+                            // TODO: refactor this and make it more efficient
+                            string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
+                            if (split.Length < 1)
+                                continue;
+                            string blocknum = split[1];
+                            // Verify the staking transaction is accurate
+                            Block targetBlock = Node.blockChain.getBlock(Convert.ToUInt64(blocknum));
+                            if (targetBlock == null)
+                                continue;
+
+                            valid = false;
+                            List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+                            foreach (string wallet_addr in signatureWallets)
+                            {
+                                if (tx.to.Equals(wallet_addr))
+                                    valid = true;
+                            }
+                            if (valid == false)
+                            {
+                                Logging.error(String.Format("Staking transaction {0} does not have a corresponding block signature.", txid));
+                                continue;
+                            }
+
+                            // Deposit the amount
+                            IxiNumber staking_balance_after = staking_balance_before + tx_amount;
+
+                            Node.walletState.setWalletBalance(tx.to, staking_balance_after, 0, staking_wallet.nonce);
+                            tx.applied = block.blockNum;
+
+                            blockStakers.Add(tx.to);
+
+                            continue;
                         }
-                        // If there's another staking transaction for the staker in this block, ignore
-                        if(valid == false)
+
+                        // Calculate the transaction amount without fee
+                        IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
+
+                        if (txAmountWithoutFee < (long)0)
                         {
+                            Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", txid));
                             continue;
                         }
 
-                        Wallet staking_wallet = Node.walletState.getWallet(tx.to);
-                        IxiNumber staking_balance_before = staking_wallet.balance;
+                        Wallet source_wallet = Node.walletState.getWallet(tx.from);
+                        Wallet dest_wallet = Node.walletState.getWallet(tx.to);
 
-                        IxiNumber tx_amount = tx.amount;
+                        IxiNumber source_balance_before = source_wallet.balance;
+                        IxiNumber dest_balance_before = dest_wallet.balance;
 
-                        if(tx_amount < (long) 0)
+                        // Withdraw the full amount, including fee
+                        IxiNumber source_balance_after = source_balance_before - tx.amount;
+                        if (source_balance_after < (long)0)
                         {
-                            Logging.error(String.Format("Staking transaction {0} does not have a positive amount.", txid));
+                            Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
+                                txid, block.blockNum, block.lastBlockChecksum, tx.from));
                             continue;
                         }
 
-                        // Check if the transaction is in the sigfreeze
-                        // TODO: refactor this and make it more efficient
-                        string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
-                        if (split.Length < 1)
-                            continue;
-                        string blocknum = split[1];
-                        // Verify the staking transaction is accurate
-                        Block targetBlock = Node.blockChain.getBlock(Convert.ToUInt64(blocknum));
-                        if (targetBlock == null)
-                            continue;
-
-                        valid = false;
-                        List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
-                        foreach (string wallet_addr in signatureWallets)
+                        // Check the nonce
+                        if (source_wallet.nonce + 1 != tx.nonce)
                         {
-                            if (tx.to.Equals(wallet_addr))
-                                valid = true;
-                        }
-                        if (valid == false)
-                        {
-                            Logging.error(String.Format("Staking transaction {0} does not have a corresponding block signature.", txid));
+                            Logging.warn(String.Format("Incorrect nonce for transaction {0}. Is {1} should be {2}", txid, tx.nonce, source_wallet.nonce + 1));
                             continue;
                         }
 
-                        // Deposit the amount
-                        IxiNumber staking_balance_after = staking_balance_before + tx_amount;
+                        // Increase the source wallet nonce to match the transaction nonce
+                        source_wallet.nonce = tx.nonce;
 
-                        Node.walletState.setWalletBalance(tx.to, staking_balance_after, 0, staking_wallet.nonce);
+                        // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
+                        IxiNumber dest_balance_after = dest_balance_before + txAmountWithoutFee;
+
+                        // Update the walletstate
+                        Node.walletState.setWalletBalance(tx.from, source_balance_after, 0, source_wallet.nonce);
+                        Node.walletState.setWalletBalance(tx.to, dest_balance_after, 0, dest_wallet.nonce);
                         tx.applied = block.blockNum;
-
-                        blockStakers.Add(tx.to);
-
-                        continue;
                     }
 
-                    // Calculate the transaction amount without fee
-                    IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
-
-                    if (txAmountWithoutFee < (long) 0)
+                    // Finally, Check if we have any miners to reward
+                    if (blockSolutionsDictionary.Count > 0)
                     {
-                        Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", txid));
-                        continue;
+                        rewardMiners(blockSolutionsDictionary);
                     }
 
-                    Wallet source_wallet = Node.walletState.getWallet(tx.from);
-                    Wallet dest_wallet = Node.walletState.getWallet(tx.to);
+                    // Clear the solutions dictionary
+                    blockSolutionsDictionary.Clear();
 
-                    IxiNumber source_balance_before = source_wallet.balance;
-                    IxiNumber dest_balance_before = dest_wallet.balance;
-
-                    // Withdraw the full amount, including fee
-                    IxiNumber source_balance_after = source_balance_before - tx.amount;
-                    if(source_balance_after < (long)0)
-                    {
-                        Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
-                            txid, block.blockNum, block.lastBlockChecksum, tx.from));
-                        continue;
-                    }
-
-                    // Check the nonce
-                    if(source_wallet.nonce + 1 != tx.nonce)
-                    {
-                        Logging.warn(String.Format("Incorrect nonce for transaction {0}. Is {1} should be {2}", txid, tx.nonce, source_wallet.nonce + 1));
-                        continue;
-                    }
-
-                    // Increase the source wallet nonce to match the transaction nonce
-                    source_wallet.nonce = tx.nonce;
-
-                    // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
-                    IxiNumber dest_balance_after = dest_balance_before + txAmountWithoutFee;
-
-                    // Update the walletstate
-                    Node.walletState.setWalletBalance(tx.from, source_balance_after,0, source_wallet.nonce);
-                    Node.walletState.setWalletBalance(tx.to, dest_balance_after, 0, dest_wallet.nonce);
-                    tx.applied = block.blockNum;
+                    // Reset the internal nonce
+                    internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
                 }
-
-                // Finally, Check if we have any miners to reward
-                if(blockSolutionsDictionary.Count > 0)
-                {
-                    rewardMiners(blockSolutionsDictionary);
-                }
-
-                // Clear the solutions dictionary
-                blockSolutionsDictionary.Clear();
-
-                // Reset the internal nonce
-                internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
             }
+            catch(Exception e)
+            {
+                Logging.error(string.Format("Error applying transactions from block #{0}. Message: {1}", block.blockNum, e.Message));
+            }
+
             return true;
         }
 
