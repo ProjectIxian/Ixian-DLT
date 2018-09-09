@@ -70,6 +70,25 @@ namespace DLT
             return (int)(timeSinceLastBlock.TotalSeconds / (blockGenerationInterval*3));
         }
 
+        public bool verifySignaturesAgainstPL(Block b)
+        {
+            for (int i = 0; i < b.signatures.Count; i++)
+            {
+                string[] parts = b.signatures[i].Split(Block.splitter, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 2)
+                {
+                    return false;
+                }
+                //Logging.info(String.Format("Searching for {0}", parts[1]));
+                Presence p = PresenceList.presences.Find(x => x.metadata == parts[1]);
+                if (p == null)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public void onBlockReceived(Block b)
         {
             if (operating == false) return;
@@ -77,6 +96,14 @@ namespace DLT
             if (verifyBlock(b) == BlockVerifyStatus.Invalid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
+                // TODO: Blacklisting point
+                return;
+            }
+            // TODO TODO TODO verify sigs against WS as well?
+            if (!verifySignaturesAgainstPL(b))
+            {
+                // TODO TODO TODO We should probably remove only the invalid sigs instead of discarding the whole block
+                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
                 return;
             }
@@ -136,7 +163,7 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
             }
-            // overspending:
+            // overspending
             foreach (string addr in minusBalances.Keys)
             {
                 IxiNumber initial_balance = Node.walletState.getWalletBalance(addr);
@@ -242,7 +269,7 @@ namespace DLT
                         }else
                         {
                             // discard with a warning, likely spam, resend our local block
-                            Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and  re-transmitting local block. (total signatures: {1}).", b.blockNum, b.signatures.Count));
+                            Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and re-transmitting local block. (total signatures: {1}).", b.blockNum, b.signatures.Count));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
@@ -649,7 +676,10 @@ namespace DLT
                 tx.checksum = Transaction.calculateChecksum(tx);
                 tx.signature = "Stake";
 
-                TransactionPool.addTransaction(tx);
+                if(!TransactionPool.addTransaction(tx))
+                {
+                    Logging.warn("An error occured while trying to add staking stransaction");
+                }
 
             }
             Console.WriteLine("------");
