@@ -67,13 +67,25 @@ namespace DLT
             }
         }
 
-
+        // Attempts to retrieve a block from memory or from storage
+        // Returns null if no block is found
         public Block getBlock(ulong blocknum)
         {
-            lock(blocks)
+            Block block = null;
+
+            // Search memory
+            lock (blocks)
             {
-                return blocks.Find(x => x.blockNum == blocknum);
+                block = blocks.Find(x => x.blockNum == blocknum);
             }
+
+            if (block != null)
+                return block;
+
+            // Search storage
+            block = Storage.getBlock(blocknum);
+
+            return block;
         }
 
         public ulong getLastBlockNum()

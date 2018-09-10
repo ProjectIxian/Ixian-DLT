@@ -101,8 +101,6 @@ namespace DLT
                         return false;
                 }
 
-                bool check_signature = true; // Default to verifying transaction signature
-
                 // Special case for PoWSolution transactions
                 if (transaction.type == (int)Transaction.Type.PoWSolution)
                 {
@@ -112,7 +110,7 @@ namespace DLT
                 // Special case for Staking Reward transaction
                 else if(transaction.type == (int)Transaction.Type.StakingReward)
                 {
-                    check_signature = false; // Skip signature verification for staking rewards
+
                 }
                 else
                 {
@@ -138,15 +136,13 @@ namespace DLT
                 }
 
                 // Finally, verify the signature
-                if (check_signature)
+                if (transaction.verifySignature() == false)
                 {
-                    if (transaction.verifySignature() == false)
-                    {
-                        // Transaction signature is invalid
-                        Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
-                        return false;
-                    }
+                    // Transaction signature is invalid
+                    Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
+                    return false;
                 }
+                
                 Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
                 transactions.Add(transaction);
 
@@ -164,13 +160,24 @@ namespace DLT
             return true;
         }
 
+        // Attempts to retrieve a transaction from memory or from storage
+        // Returns null if no transaction is found
         public static Transaction getTransaction(string txid)
         {
+            Transaction transaction = null;
+
             lock(transactions)
             {
                 //Logging.info(String.Format("Looking for transaction {{ {0} }}. Pool has {1}.", txid, transactions.Count));
-                return transactions.Find(x => x.id == txid);
+                transaction = transactions.Find(x => x.id == txid);
             }
+
+            if (transaction != null)
+                return transaction;
+
+            // No transaction found in memory, look into storage
+            transaction = Storage.getTransaction(txid);
+            return transaction;
         }
 
         public static Transaction[] getAllTransactions()
