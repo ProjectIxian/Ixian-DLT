@@ -755,16 +755,23 @@ namespace DLT
 
                         case ProtocolMessageCode.getPresence:
                             {
-                                // TODO re-verify this
-                                Presence p = PresenceList.presences.Find(x => x.wallet == data.ToString());
-                                if (p != null)
+                                using (MemoryStream m = new MemoryStream(data))
                                 {
-                                    broadcastProtocolMessage(ProtocolMessageCode.updatePresence, p.getBytes());
-                                }
-                                else
-                                {
-                                    // TODO blacklisting point
-                                    Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", data.ToString()));
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        string wallet = reader.ReadString();
+                                        // TODO re-verify this
+                                        Presence p = PresenceList.presences.Find(x => x.wallet == wallet);
+                                        if (p != null)
+                                        {
+                                            broadcastProtocolMessage(ProtocolMessageCode.updatePresence, p.getBytes());
+                                        }
+                                        else
+                                        {
+                                            // TODO blacklisting point
+                                            Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", wallet));
+                                        }
+                                    }
                                 }
                             }
                             break;
