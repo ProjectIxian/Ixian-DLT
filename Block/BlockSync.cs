@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +44,9 @@ namespace DLT
             }
             Logging.info(String.Format("Sync running: {0} blocks, {1} walletstate chunks.",
                 pendingBlocks.Count, pendingWsChunks.Count));
+
             requestMissingBlocks(); // TODO: this is a bad hack that just spams the network in the end
+
             if (wsSyncStartBlock > 0)
             {
                 Logging.info(String.Format("We are synchronizing from block #{0}.", wsSyncStartBlock));
@@ -184,6 +187,15 @@ namespace DLT
                 int count = 0;
                 foreach (ulong blockNum in missingBlocks)
                 {
+                    // First check if the missing block can be found in storage
+                    Block block = Node.blockChain.getBlock(blockNum);
+                    if (block != null)
+                    {
+                        Node.blockSync.onBlockReceived(block);
+                        continue;
+                    }
+
+                    // Didn't find the block in storage, request it from the network
                     ProtocolMessage.broadcastGetBlock(blockNum);
                     count++;
                     if (count >= maxBlockRequests) break;
@@ -272,7 +284,6 @@ namespace DLT
 
         public void onBlockReceived(Block b)
         {
-            Logging.info(String.Format("Received block #{0} ({1}.", b.blockNum, b.blockChecksum.Substring(4)));
             if (synchronizing == false) return;
             if(b.blockNum >= syncTargetBlockNum)
             {
@@ -318,11 +329,16 @@ namespace DLT
             }
             synchronizing = true;
             // select sync partner for walletstate
+            wsSyncStartBlock = 0;
             HashSet<string> all_neighbors = new HashSet<string>(NetworkClientManager.getConnectedClients().Concat(NetworkServer.getConnectedClients()));
+            if (all_neighbors.Count < 1)
+            {
+                Logging.info(String.Format("Starting node synchronization from storage."));
+                return;
+            }
             Random r = new Random();
             syncNeighbor = all_neighbors.ElementAt(r.Next(all_neighbors.Count));
-            Logging.info(String.Format("Starting node synchronization. Neighbor {0} chosen.", syncNeighbor));
-            wsSyncStartBlock = 0;
+            Logging.info(String.Format("Starting node synchronization. Neighbor {0} chosen.", syncNeighbor));           
             ProtocolMessage.syncWalletStateNeighbor(syncNeighbor);
         }
 

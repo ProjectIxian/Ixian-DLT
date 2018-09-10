@@ -111,11 +111,6 @@ namespace DLT.Meta
             blockProcessor = new BlockProcessor();
             blockSync = new BlockSync();
 
-
-            /*if (Config.recoverFromFile)
-            {
-                Storage.readFromStorage();
-            }*/
             // Check if this is a genesis node
             if (genesisFunds > (long)0)
             {
@@ -126,9 +121,15 @@ namespace DLT.Meta
                 return;
             }
 
-            // Start the network client manager
-            NetworkClientManager.start();
-            //NetworkServer.beginNetworkOperations();
+            if (Config.recoverFromFile)
+            {
+                Storage.readFromStorage();
+            }
+            else 
+            {
+                // Start the network client manager
+                NetworkClientManager.start();
+            }
 
             // Start the miner
             miner = new Miner();

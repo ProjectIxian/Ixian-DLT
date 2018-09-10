@@ -3,6 +3,7 @@ using DLT.Network;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 namespace DLT
 {
@@ -688,8 +689,15 @@ namespace DLT
             // Second pass, issue the transactions
             foreach (string wallet_addr in signatureWallets)
             {
-                // Set a dummy reward for now
-                IxiNumber award = new IxiNumber("5");
+                // Calculate the reward
+                Wallet wallet = Node.walletState.getWallet(wallet_addr);
+
+                BigInteger p = (newIxis.getAmount() * wallet.balance.getAmount() * 100) / totalIxisStaked.getAmount();
+                p /= 100;
+                
+                // TODO: check for remainders
+
+                IxiNumber award = new IxiNumber(p);
 
                 Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
