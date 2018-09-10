@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using SQLite;
 using System;
 using System.Collections.Generic;
@@ -53,7 +54,7 @@ namespace DLT
                 public string blockChecksum { get; set; }
                 public string lastBlockChecksum { get; set; }
                 public string walletStateChecksum { get; set; }
-                public string signatureFreezeChecksum { get; set; }
+                public string sigFreezeChecksum { get; set; }
                 public long difficulty { get; set; }
                 public string powField { get; set; }
                 public string signatures { get; set; }
@@ -235,6 +236,9 @@ namespace DLT
 
             public static bool insertBlock(Block block)
             {
+                // TODO: prevent this from executing when the inserted block is from storage instead of network
+
+                Block b = block;
                 string transactions = "";
                 foreach(string tx in block.transactions)
                 {
@@ -277,9 +281,6 @@ namespace DLT
             {
                 Block block = null;
                 string sql = string.Format("select * from blocks where `blocknum` = {0}", blocknum);
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("SQL: {0}", sql);
-                Console.ResetColor();
                 var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
 
                 if(_storage_block == null)
@@ -288,66 +289,49 @@ namespace DLT
                 if (_storage_block.Length < 1)
                     return block;
 
-                Block new_block = new Block();
-                new_block.blockNum = (ulong)_storage_block[0].blockNum;
-                new_block.blockChecksum = _storage_block[0].blockChecksum;
-                new_block.lastBlockChecksum = _storage_block[0].lastBlockChecksum;
-                new_block.walletStateChecksum = _storage_block[0].walletStateChecksum;
+                _storage_Block blk = _storage_block[0];
 
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("SQL: {0}", new_block.blockChecksum);
-                Console.ResetColor();
+                block = new Block
+                {
+                    blockNum = (ulong)blk.blockNum,
+                    blockChecksum = blk.blockChecksum,
+                    lastBlockChecksum = blk.lastBlockChecksum,
+                    walletStateChecksum = blk.walletStateChecksum,
+                    signatureFreezeChecksum = blk.sigFreezeChecksum,
+                    difficulty = (ulong)blk.difficulty,
+                    powField = blk.powField,
+                    transactions = new List<string>(),
+                    signatures = new List<string>()
+                };
 
-                /*         string[] split_str = block.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
-                         int sigcounter = 0;
-                         foreach (string s1 in split_str)
-                         {
-                             sigcounter++;
-                             if (sigcounter == 1)
-                                 continue;
+                // Add signatures
+                string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
+                int sigcounter = 0;
+                foreach (string s1 in split_str)
+                {
+                    sigcounter++;
+                    if (sigcounter == 1)
+                        continue;
 
-                             if (!new_block.containsSignature(s1))
-                             {
-                                 new_block.signatures.Add(s1);
-                             }
-                         }
+                    if (!block.containsSignature(s1))
+                    {
+                        block.signatures.Add(s1);
+                    }
+                }
 
-                         string[] split_str2 = block.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
-                         int txcounter = 0;
-                         foreach (string s1 in split_str2)
-                         {
-                             txcounter++;
-                             if (txcounter == 1)
-                                 continue;
+                // Add transaction
+                string[] split_str2 = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
+                int txcounter = 0;
+                foreach (string s1 in split_str2)
+                {
+                    txcounter++;
+                    if (txcounter == 1)
+                        continue;
 
-                             new_block.transactions.Add(s1);
+                    block.transactions.Add(s1);
+                }
 
-                             foreach (Transaction new_transaction in cached_transactions)
-                             {
-                                 if (new_transaction.id.Equals(s1, StringComparison.Ordinal))
-                                 {
-                                     if (new_transaction.amount == 0)
-                                     {
-                                         continue;
-                                     }
-
-                                     // Applies the transaction to the wallet state
-                                     // TODO: re-validate the transactions here to prevent any potential exploits
-                                     IxiNumber fromBalance = Node.walletState.getWalletBalance(new_transaction.from);
-                                     IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
-
-                                     IxiNumber toBalance = Node.walletState.getWalletBalance(new_transaction.to);
-
-                                     //   WalletState.setBalanceForAddress(new_transaction.to, toBalance + new_transaction.amount);
-                                     //   WalletState.setBalanceForAddress(new_transaction.from, fromBalance - new_transaction.amount);
-                                 }
-                             }
-                         }*/
-                /*
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("SQL: {0}", e.Message);
-                Console.ResetColor();
-                */
+                Console.WriteLine("Read block #{0} from storage.", block.blockNum);
                 return block;
             }
 
