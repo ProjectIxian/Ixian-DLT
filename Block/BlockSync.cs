@@ -328,11 +328,16 @@ namespace DLT
             }
             synchronizing = true;
             // select sync partner for walletstate
+            wsSyncStartBlock = 0;
             HashSet<string> all_neighbors = new HashSet<string>(NetworkClientManager.getConnectedClients().Concat(NetworkServer.getConnectedClients()));
+            if (all_neighbors.Count < 1)
+            {
+                Logging.info(String.Format("Starting node synchronization from storage."));
+                return;
+            }
             Random r = new Random();
             syncNeighbor = all_neighbors.ElementAt(r.Next(all_neighbors.Count));
-            Logging.info(String.Format("Starting node synchronization. Neighbor {0} chosen.", syncNeighbor));
-            wsSyncStartBlock = 0;
+            Logging.info(String.Format("Starting node synchronization. Neighbor {0} chosen.", syncNeighbor));           
             ProtocolMessage.syncWalletStateNeighbor(syncNeighbor);
         }
 

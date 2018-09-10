@@ -80,146 +80,20 @@ namespace DLT
             {
                 Logging.info("Reading blockchain from storage");
 
-                // Setup the genesis balances
-/*                Node.walletState.setWalletBalance("70e27b7f48ef8f6cf691b331879c2fb9a5edfb7239d4ca463764d25e48189f51", new IxiNumber("99999999999999"));
-                Node.walletState.setWalletBalance("fca32c0ab94f1051adb16881e41e1fa5024076615bd0e63d14cc00738c89b6d0", new IxiNumber("4000"));
-                Node.walletState.setWalletBalance("b27785b95e534eabd9ddb2785ed6b841262eed4d74284e87f0518b635fe12e29", new IxiNumber("4000"));
-                Node.walletState.setWalletBalance("1dab9d028759a4fd84503a15cd680ec964ccec17a034347408c34d15195baa76", new IxiNumber("4000"));
-                */
-                Logging.info(string.Format("Genesis wallet state checksum: {0}", Node.walletState.calculateWalletStateChecksum()));
+                string sql = string.Format("SELECT * FROM blocks ORDER BY blockNum DESC LIMIT 1");
+                var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
 
-                var _storage_txlist = sqlConnection.Query<_storage_Transaction>("select * from transactions").ToArray();
+                if (_storage_block == null)
+                    return false;
 
-                List<Transaction> cached_transactions = new List<Transaction>();
+                if (_storage_block.Length < 1)
+                    return false;
 
-                foreach (_storage_Transaction tx in _storage_txlist)
-                {
-                    Console.WriteLine("{0} {1}", tx.id, tx.amount);
+                _storage_Block blk = _storage_block[0];
 
-                    Transaction new_transaction = new Transaction();
-                    new_transaction.id = tx.id;
-                    new_transaction.amount = new IxiNumber(tx.amount);
-                    new_transaction.type = tx.type;
-                    new_transaction.from = tx.from;
-                    new_transaction.to = tx.to;
-                    new_transaction.nonce = 0;
-                    new_transaction.timeStamp = tx.timestamp;
-                    new_transaction.signature = tx.signature;
+                Logging.info(string.Format("Storage blockchain goes up to block #{0}", blk.blockNum));
 
-                    cached_transactions.Add(new_transaction);
-
-                    
-                    // Don't remove 'pending' transactions
-                    // TODO: add an expire condition to prevent potential spaming of the txpool
-                    if (new_transaction.amount == 0)
-                    {
-                        continue;
-                    }
-
-                    // Applies the transaction to the wallet state
-                    // TODO: re-validate the transactions here to prevent any potential exploits
-                    Wallet from_wallet = Node.walletState.getWallet(new_transaction.from);
-                    Wallet to_wallet = Node.walletState.getWallet(new_transaction.to);
-
-                    IxiNumber fromBalance = from_wallet.balance;
-                    IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
-
-                    IxiNumber toBalance = to_wallet.balance;
-
-                    Node.walletState.setWalletBalance(new_transaction.to, toBalance + new_transaction.amount, 0, to_wallet.nonce);
-                    Node.walletState.setWalletBalance(new_transaction.from, fromBalance - new_transaction.amount, 0, from_wallet.nonce);
-                    
-
-                }
-
-                // Go through each block now
-                var _storage_blocklist = sqlConnection.Query<_storage_Block>("select * from blocks").ToArray();
-
-                foreach (_storage_Block block in _storage_blocklist)
-                {
-                    Console.WriteLine("{0} {1}", block.blockNum, block.blockChecksum);
-                    Block new_block = new Block();
-                    new_block.blockNum = (ulong)block.blockNum;
-                    new_block.blockChecksum = block.blockChecksum;
-                    new_block.lastBlockChecksum = block.lastBlockChecksum;
-                    new_block.walletStateChecksum = block.walletStateChecksum;
-
-                    string[] split_str = block.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
-                    int sigcounter = 0;
-                    foreach (string s1 in split_str)
-                    {
-                        sigcounter++;
-                        if (sigcounter == 1)
-                            continue;
-
-                        if (!new_block.containsSignature(s1))
-                        {
-                            new_block.signatures.Add(s1);
-                        }
-                    }
-
-                    string[] split_str2 = block.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
-                    int txcounter = 0;
-                    foreach (string s1 in split_str2)
-                    {
-                        txcounter++;
-                        if (txcounter == 1)
-                            continue;
-
-                        new_block.transactions.Add(s1);
-
-                        foreach(Transaction new_transaction in cached_transactions)
-                        {
-                            if(new_transaction.id.Equals(s1, StringComparison.Ordinal))
-                            {
-                                if (new_transaction.amount == 0)
-                                {
-                                    continue;
-                                }
-
-                                // Applies the transaction to the wallet state
-                                // TODO: re-validate the transactions here to prevent any potential exploits
-                                IxiNumber fromBalance = Node.walletState.getWalletBalance(new_transaction.from);
-                                IxiNumber finalFromBalance = fromBalance - new_transaction.amount;
-
-                                IxiNumber toBalance = Node.walletState.getWalletBalance(new_transaction.to);
-
-                             //   WalletState.setBalanceForAddress(new_transaction.to, toBalance + new_transaction.amount);
-                             //   WalletState.setBalanceForAddress(new_transaction.from, fromBalance - new_transaction.amount);
-                            }
-                        }
-                    }
-                    //       Node.blockProcessor.checkIncomingBlock(new_block, null);
-                }
-
-                _storage_Block last_block = _storage_blocklist[_storage_blocklist.Length - 1];
-                Logging.info(string.Format("Last block {0} - Wallet Checksum {2}", last_block.blockNum, last_block.blockChecksum, last_block.walletStateChecksum));
-
-                Block initial_block = new Block();
-                initial_block.blockNum = (ulong)last_block.blockNum;
-                initial_block.blockChecksum = last_block.blockChecksum;
-                initial_block.lastBlockChecksum = last_block.lastBlockChecksum;
-                initial_block.walletStateChecksum = last_block.walletStateChecksum;
-
-                string[] split = last_block.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
-                int sigcount = 0;
-                foreach (string s1 in split)
-                {
-                    sigcount++;
-                    if (sigcount == 1)
-                        continue;
-
-                    if (!initial_block.containsSignature(s1))
-                    {
-                        initial_block.signatures.Add(s1);
-                    }
-                }
-
-        //        Node.blockProcessor.enterSyncMode((ulong)last_block.blockNum, last_block.blockChecksum, last_block.walletStateChecksum);
-        //        Node.blockProcessor.setInitialLocalBlock(initial_block);
-        //        Node.blockProcessor.exitSyncMode();
-
-                Console.WriteLine("Current wallet state checksum: {0}", Node.walletState.calculateWalletStateChecksum());
+                Node.blockSync.onHelloDataReceived((ulong)blk.blockNum, blk.blockChecksum, blk.walletStateChecksum, 1);
 
                 return true;
             }
@@ -280,7 +154,7 @@ namespace DLT
             public static Block getBlock(ulong blocknum)
             {
                 Block block = null;
-                string sql = string.Format("select * from blocks where `blocknum` = {0}", blocknum);
+                string sql = string.Format("select * from blocks where `blocknum` = {0} LIMIT 1", blocknum);
                 var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
 
                 if(_storage_block == null)

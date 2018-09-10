@@ -3,6 +3,7 @@ using DLT.Network;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 namespace DLT
 {
@@ -105,7 +106,7 @@ namespace DLT
                 // TODO TODO TODO We should probably remove only the invalid sigs instead of discarding the whole block
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
-                return;
+      //          return;
             }
             lock (localBlockLock)
             {
@@ -658,8 +659,15 @@ namespace DLT
             // Second pass, issue the transactions
             foreach (string wallet_addr in signatureWallets)
             {
-                // Set a dummy reward for now
-                IxiNumber award = new IxiNumber("5");
+                // Calculate the reward
+                Wallet wallet = Node.walletState.getWallet(wallet_addr);
+
+                BigInteger p = (newIxis.getAmount() * wallet.balance.getAmount() * 100) / totalIxisStaked.getAmount();
+                p /= 100;
+                
+                // TODO: check for remainders
+
+                IxiNumber award = new IxiNumber(p);
 
                 Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
