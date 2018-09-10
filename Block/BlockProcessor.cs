@@ -23,6 +23,8 @@ namespace DLT
 
         int blockGenerationInterval = 30; // in seconds
 
+        public bool firstBlockAfterSync;
+
         private static string[] splitter = { "::" };
 
         public BlockProcessor()
@@ -30,6 +32,7 @@ namespace DLT
             lastBlockStartTime = DateTime.Now;
             localNewBlock = null;
             operating = false;
+            firstBlockAfterSync = false;
         }
 
         public void resumeOperation()
@@ -67,26 +70,48 @@ namespace DLT
         public int getElectedNodeOffset()
         {
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 15) // edge case, if network is stuck for more than 15 blocks always return 0 as the node offset.
+            {
+                return 0;
+            }
             return (int)(timeSinceLastBlock.TotalSeconds / (blockGenerationInterval*3));
         }
 
-        public bool verifySignaturesAgainstPL(Block b)
+        public List<string> getSignaturesWithoutPlEntry(Block b)
         {
+            List<string> sigs = new List<string>();
+
             for (int i = 0; i < b.signatures.Count; i++)
             {
                 string[] parts = b.signatures[i].Split(Block.splitter, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length != 2)
                 {
-                    return false;
+                    sigs.Add(b.signatures[i]);
+                    continue;
                 }
                 //Logging.info(String.Format("Searching for {0}", parts[1]));
                 Presence p = PresenceList.presences.Find(x => x.metadata == parts[1]);
                 if (p == null)
                 {
-                    return false;
+                    sigs.Add(b.signatures[i]);
+                    continue;
                 }
             }
-            return true;
+            return sigs;
+        }
+
+        public bool removeSignaturesWithoutPlEntry(Block b)
+        {
+            List<string> sigs = getSignaturesWithoutPlEntry(b);
+            for(int i = 0; i < sigs.Count; i++)
+            {
+                b.signatures.Remove(sigs[i]);
+            }
+            if(sigs.Count > 0)
+            {
+                return true;
+            }
+            return false;
         }
 
         public void onBlockReceived(Block b)
@@ -100,10 +125,14 @@ namespace DLT
                 return;
             }
             // TODO TODO TODO verify sigs against WS as well?
-            if (!verifySignaturesAgainstPL(b))
+            if (removeSignaturesWithoutPlEntry(b))
             {
-                // TODO TODO TODO We should probably remove only the invalid sigs instead of discarding the whole block
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
+                // TODO: Blacklisting point
+            }
+            if(b.signatures.Count == 0)
+            {
+                Logging.warn(String.Format("Received block #{0} ({1}) which has no valid signatures!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
                 return;
             }
@@ -262,7 +291,7 @@ namespace DLT
                             Logging.info(String.Format("Incoming block #{0} has the same amount or less of signatures, but is different than our own. Re-transmitting our block.", b.blockNum));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }*/
-                        if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() || b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())))
+                        if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() || (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())) || firstBlockAfterSync == true))
                         {
                             Logging.info(String.Format("Incoming block #{0} has elected nodes sig or full consensus, accepting instead of our own. (total signatures: {1})", b.blockNum, b.signatures.Count));
                             localNewBlock = b;
@@ -272,6 +301,7 @@ namespace DLT
                             Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and re-transmitting local block. (total signatures: {1}).", b.blockNum, b.signatures.Count));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
+                        firstBlockAfterSync = false;
                     }
                 }
                 else // localNewBlock == null

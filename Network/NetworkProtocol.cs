@@ -360,6 +360,7 @@ namespace DLT
                                     }
                                     catch(Exception e)
                                     {
+                                        // TODO TODO TODO Probably send an error to the node
                                         Logging.info(string.Format("Older node connected. Please update node. {0}", e.ToString()));
                                     }
 
@@ -749,6 +750,22 @@ namespace DLT
                                     broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, data, socket);
                                 }
                                 
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getPresence:
+                            {
+                                // TODO re-verify this
+                                Presence p = PresenceList.presences.Find(x => x.wallet == data.ToString());
+                                if (p != null)
+                                {
+                                    broadcastProtocolMessage(ProtocolMessageCode.updatePresence, p.getBytes());
+                                }
+                                else
+                                {
+                                    // TODO blacklisting point
+                                    Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", data.ToString()));
+                                }
                             }
                             break;
                         
