@@ -679,30 +679,56 @@ namespace DLT
             IxiNumber totalIxisStaked = new IxiNumber(0);
             int stakers = signatureWallets.Count;
 
-            // First pass, go through each wallet to find it's balance
-            foreach( string wallet_addr in signatureWallets)
-            {
-                Wallet wallet = Node.walletState.getWallet(wallet_addr);
-                totalIxisStaked += wallet.balance;              
-            }
-
-            // Second pass, issue the transactions
+            BigInteger[] stakes = new BigInteger[signatureWallets.Count];
+            BigInteger[] awards = new BigInteger[signatureWallets.Count];
+            BigInteger[] awardRemainders = new BigInteger[signatureWallets.Count];
+            // First pass, go through each wallet to find its balance
+            int idx = 0;
             foreach (string wallet_addr in signatureWallets)
             {
-                // Calculate the reward
                 Wallet wallet = Node.walletState.getWallet(wallet_addr);
+                totalIxisStaked += wallet.balance;
+                stakes[idx] = wallet.balance.getAmount();
+                idx += 1;
+            }
 
-                BigInteger p = (newIxis.getAmount() * wallet.balance.getAmount() * 100) / totalIxisStaked.getAmount();
-                p /= 100;
-                
-                // TODO: check for remainders
-
-                IxiNumber award = new IxiNumber(p);
-
+            // Second pass, determine awards by stake
+            BigInteger totalAwarded = 0;
+            for (int i = 0; i < stakes.Length; i++)
+            {
+                BigInteger p = (newIxis.getAmount() * stakes[i] * 100) / totalIxisStaked.getAmount();
+                awardRemainders[i] = p % 100;
+                p = p / 100;
+                awards[i] = p;
+                totalAwarded += p;
+            }
+            
+            // Third pass, distribute remainders, if any
+            // This essentially "rounds up" the awards for the stakers closest to the next whole amount,
+            // until we bring the award difference down to zero.
+            BigInteger diffAward = newIxis.getAmount() - totalAwarded;
+            if(diffAward > 0)
+            {
+                int[] descRemaindersIndexes = awardRemainders
+                    .Select((v, pos) => new KeyValuePair<BigInteger, int>(v, pos))
+                    .OrderByDescending(x => x.Key)
+                    .Select(x => x.Value).ToArray();
+                int currRemainderAward = 0;
+                while(diffAward > 0)
+                {
+                    awards[descRemaindersIndexes[currRemainderAward]] += 1;
+                    currRemainderAward += 1;
+                    diffAward -= 1;
+                }
+            }
+            for (int i = 0; i < stakes.Length; i++)
+            {
+                IxiNumber award = new IxiNumber(awards[i]);
+                string wallet_addr = signatureWallets[i];
                 Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
                 Transaction tx = new Transaction();
-                tx.type = (int) Transaction.Type.StakingReward;
+                tx.type = (int)Transaction.Type.StakingReward;
                 tx.to = wallet_addr;
                 tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
 
@@ -714,7 +740,7 @@ namespace DLT
                 tx.checksum = Transaction.calculateChecksum(tx);
                 tx.signature = "Stake";
 
-                if(!TransactionPool.addTransaction(tx))
+                if (!TransactionPool.addTransaction(tx))
                 {
                     Logging.warn("An error occured while trying to add staking stransaction");
                 }
