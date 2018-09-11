@@ -672,7 +672,7 @@ namespace DLT
 
 
             Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine("----STAKING REWARDS for #{0}----", targetBlock.blockNum);
+            Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
             // Retrieve the list of signature wallets
             List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
 
