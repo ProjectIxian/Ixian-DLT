@@ -50,9 +50,24 @@ namespace DLT
         // Returns true if the transaction is added to the pool, false otherwise
         public static bool addTransaction(Transaction transaction)
         {
-            if(Node.blockChain.getLastBlockNum() < 10)
+            ulong blocknum = Node.blockChain.getLastBlockNum();
+            if (blocknum < 1)
+            {
+                if (transaction.type == (int)Transaction.Type.Genesis)
+                {
+                    // Adding GENESIS transaction
+                    Logging.info("Received GENESIS transaction.");
+                }
+            }
+            else
+            if (blocknum < 10)
             {
                 Logging.warn(String.Format("Ignoring transaction before block 10."));
+                return false;
+            }
+            else if (transaction.type == (int)Transaction.Type.Genesis)
+            {
+                Logging.warn(String.Format("Genesis transaction on block #{0} skipped. TXid: {1}.", blocknum, transaction.id));
                 return false;
             }
 
@@ -111,6 +126,15 @@ namespace DLT
                 else if(transaction.type == (int)Transaction.Type.StakingReward)
                 {
 
+                }
+                // Special case for Genesis transaction
+                else if (transaction.type == (int)Transaction.Type.Genesis)
+                {
+                    // Ignore if it's not in the genesis block
+                    if(blocknum > 1)
+                    {
+                        Logging.warn(String.Format("Genesis transaction on block #{0} ignored. TXid: {1}.", blocknum, transaction.id));
+                    }
                 }
                 else
                 {
@@ -352,6 +376,22 @@ namespace DLT
                         // Check the transaction amount
                         if (tx.amount == 0)
                         {
+                            continue;
+                        }
+
+                        // Special case for Genesis transactions
+                        if (tx.type == (int)Transaction.Type.Genesis)
+                        {
+                            // Check for the genesis block first
+                            if(block.blockNum > 1)
+                            {
+                                Logging.error(String.Format("Genesis transaction {0} detected after block #1. Ignored.", txid));
+                                continue;
+                            }
+
+                            // Apply the amount
+                            Node.walletState.setWalletBalance(tx.to, tx.amount);
+                            tx.applied = block.blockNum;
                             continue;
                         }
 

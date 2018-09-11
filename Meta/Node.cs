@@ -36,18 +36,9 @@ namespace DLT.Meta
             // Load or Generate the wallet
             walletStorage = new WalletStorage(Config.walletFile);
 
-            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
 
             // Initialize the wallet state
-            // TODO: Genesis funds could be read from a JSON here.
-            List<Wallet> genesisWallets = new List<Wallet>();
-            if(genesisFunds > (ulong)0)
-            {
-                Logging.info(String.Format("Genesis {0} specified. Preparing genesis wallets.", genesisFunds));
-                genesisWallets.Add(new Wallet(walletStorage.address, genesisFunds));
-            }
-
-            walletState = new WalletState(genesisWallets);
+            walletState = new WalletState();
 
             // Network configuration
             upnp = new UPnP();
@@ -111,10 +102,24 @@ namespace DLT.Meta
             blockProcessor = new BlockProcessor();
             blockSync = new BlockSync();
 
+            IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
+
             // Check if this is a genesis node
             if (genesisFunds > (long)0)
             {
                 Logging.info(String.Format("Genesis {0} specified. Starting operation.", genesisFunds));
+
+                Transaction tx = new Transaction();
+                tx.type = (int)Transaction.Type.Genesis;
+                tx.to = walletStorage.address;
+                tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+                tx.amount = genesisFunds;
+                tx.data = "";
+                tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+                tx.checksum = Transaction.calculateChecksum(tx);
+                tx.signature = Transaction.getSignature(tx.checksum);
+                TransactionPool.addTransaction(tx);
+
                 genesisNode = true;
                 Node.blockProcessor.resumeOperation();
                 NetworkServer.beginNetworkOperations();
