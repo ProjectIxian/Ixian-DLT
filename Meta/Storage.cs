@@ -11,6 +11,7 @@ namespace DLT
         public class Storage
         {
             public static string filename = "blockchain.dat";
+            public static string presenceFilename = "presence.dat";
 
             private static SQLiteConnection sqlConnection;
 
@@ -40,8 +41,14 @@ namespace DLT
                     string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` TEXT, `lastBlockChecksum` TEXT, `walletStateChecksum`	TEXT, `sigFreezeChecksum` TEXT, `difficulty` INTEGER, `powField` TEXT, `transactions` TEXT, `signatures` TEXT, PRIMARY KEY(`blockNum`));";
                     executeSQL(sql);
 
-                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` INTEGER, `to` TEXT, `from` TEXT,  `data` TEXT, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
+                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
                     executeSQL(sql);
+                }
+
+                // Check if the presence file exists
+                if (File.Exists(presenceFilename))
+                {
+
                 }
 
                 return true;
@@ -134,6 +141,7 @@ namespace DLT
                     // Likely already have the block stored, update the old entry
                     sql = string.Format("UPDATE `blocks` SET `blockChecksum` = \"{0}\", `lastBlockChecksum` = \"{1}\", `walletStateChecksum` = \"{2}\", `sigFreezeChecksum` = \"{3}\", `difficulty` = \"{4}\", `powField` = \"{5}\", `transactions` = \"{6}\", `signatures` = \"{7}\" WHERE `blockNum` =  {8}",
                         block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, block.difficulty, block.powField, transactions, signatures, block.blockNum);
+                    //Console.WriteLine("SQL: {0}", sql);
                     executeSQL(sql);
                 }
 
@@ -212,6 +220,7 @@ namespace DLT
             // Retrieve a transaction from the sql database
             public static Transaction getTransaction(string txid)
             {
+
                 Transaction transaction = null;
 
                 string sql = string.Format("select * from transactions where `id` = \"{0}\"", txid);
