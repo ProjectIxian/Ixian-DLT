@@ -391,9 +391,22 @@ namespace DLT
             return candidate;
         }
 
+        // Scan for and connect to a new neighbor
+        private static void connectToRandomNeighbor()
+        {
+            string neighbor = scanForNeighbor();
+            if (neighbor != null)
+            {
+                Logging.info(string.Format("Attempting to add new neighbor: {0}", neighbor));
+                connectTo(neighbor);
+            }
+        }
+
         // Checks for missing clients
         private static void reconnectClients()
         {
+            Random rnd = new Random();
+
             // Wait 5 seconds before starting the loop
             Thread.Sleep(Config.networkClientReconnectInterval);
 
@@ -405,12 +418,19 @@ namespace DLT
                     if(networkClients.Count < Config.simultaneousConnectedNeighbors)
                     {
                         // Scan for and connect to a new neighbor
-                        string neighbor = scanForNeighbor();
-                        if(neighbor != null)
-                        {
-                            Logging.info(string.Format("Attempting to add new neighbor: {0}", neighbor));
-                            connectTo(neighbor);
-                        }
+                        connectToRandomNeighbor();
+                    }
+                    else if(networkClients.Count > Config.simultaneousConnectedNeighbors)
+                    {
+                        // Disconnect the oldest connected node
+                        networkClients[0].disconnect();
+                        networkClients.RemoveAt(0);
+                    }
+
+                    // Connect randomly to a new node. Currently a 5% chance to reconnect during this iteration
+                    if(rnd.Next(20) == 1)
+                    {
+                        connectToRandomNeighbor();
                     }
 
                     // Prepare a list of failed clients

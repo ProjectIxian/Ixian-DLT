@@ -170,6 +170,13 @@ namespace DLT.Meta
             if (checkCurrentBlockDeprecation(Node.blockChain.getLastBlockNum()) == false)
             {
                 running = false;
+                return running;
+            }
+
+            // Check for sufficient node balance
+            if (checkMasternodeBalance() == false)
+            {
+                running = false;
             }
 
             return running;
@@ -308,6 +315,24 @@ namespace DLT.Meta
             return true;
         }
 
+        // Checks the current balance of the masternode
+        static public bool checkMasternodeBalance()
+        {
+            // First check if the block processor is running
+            if (blockProcessor.operating == true)
+            {
+                IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.address);
+                if(nodeBalance < Config.minimumMasterNodeFunds)
+                {
+                    Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {0} and restart the node.", Config.minimumMasterNodeFunds, walletStorage.address));
+                    Node.stop();
+                    running = false;
+                    return false;
+                }
+            }
+            // Masternode has enough IXIs to proceed
+            return true;
+        }
 
         // Helper for validating IPv4 addresses
         static private bool validateIPv4(string ipString)
