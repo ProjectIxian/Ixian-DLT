@@ -276,17 +276,20 @@ namespace DLTNode
                 if (block == null)
                     return false;
 
-                string[][] blockData = new string[10][];
+                Dictionary<string, string> blockData = new Dictionary<string, string>();
 
-                blockData[0] = new string[2] { "Block Number", block.blockNum.ToString() };
-                blockData[1] = new string[2] { "Block Checksum", block.blockChecksum };
-                blockData[2] = new string[2] { "Last Block Checksum", block.lastBlockChecksum };
-                blockData[3] = new string[2] { "Wallet State Checksum", block.walletStateChecksum };
-                blockData[4] = new string[2] { "Sig freeze Checksum", block.signatureFreezeChecksum };
-                blockData[5] = new string[2] { "PoW field", block.powField };
-                blockData[6] = new string[2] { "Difficulty", block.difficulty.ToString() };
-                blockData[7] = new string[2] { "Signatures", block.signatures.Count.ToString() };
-                blockData[8] = new string[2] { "Transaction", block.transactions.Count.ToString() };
+                blockData.Add("Block Number", block.blockNum.ToString());
+                blockData.Add("Block Checksum", block.blockChecksum);
+                blockData.Add("Last Block Checksum", block.lastBlockChecksum);
+                blockData.Add("Wallet State Checksum", block.walletStateChecksum);
+                blockData.Add("Sig freeze Checksum", block.signatureFreezeChecksum);
+                blockData.Add("PoW field", block.powField);
+                blockData.Add("Difficulty", block.difficulty.ToString());
+                blockData.Add("Signature count", block.signatures.Count.ToString());
+                blockData.Add("Transaction count", block.transactions.Count.ToString());
+                blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
+                blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
+                blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
 
                 // Respond with the block details
                 string responseString = JsonConvert.SerializeObject(blockData);
@@ -296,28 +299,71 @@ namespace DLTNode
 
             if (methodName.Equals("getlastblocks", StringComparison.OrdinalIgnoreCase))
             {
-                string[][][] blocks = new string[10][][];
+                Dictionary<string, string>[] blocks = new Dictionary<string, string>[10];
                 for (ulong i = 0; i < 10; i++)
                 {
                     Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
                     if (block == null)
                         return false;
 
-                    string[][] blockData = new string[10][];
+                    Dictionary<string, string> blockData = new Dictionary<string, string>();
 
-                    blockData[0] = new string[2] { "Block Number", block.blockNum.ToString() };
-                    blockData[1] = new string[2] { "Block Checksum", block.blockChecksum };
-                    blockData[2] = new string[2] { "Last Block Checksum", block.lastBlockChecksum };
-                    blockData[3] = new string[2] { "Wallet State Checksum", block.walletStateChecksum };
-                    blockData[4] = new string[2] { "Sig freeze Checksum", block.signatureFreezeChecksum };
-                    blockData[5] = new string[2] { "PoW field", block.powField };
-                    blockData[6] = new string[2] { "Difficulty", block.difficulty.ToString() };
-                    blockData[7] = new string[2] { "Signatures", block.signatures.Count.ToString() };
-                    blockData[8] = new string[2] { "Transaction", block.transactions.Count.ToString() };
+                    blockData.Add("Block Number", block.blockNum.ToString());
+                    blockData.Add("Block Checksum", block.blockChecksum);
+                    blockData.Add("Last Block Checksum", block.lastBlockChecksum);
+                    blockData.Add("Wallet State Checksum", block.walletStateChecksum);
+                    blockData.Add("Sig freeze Checksum", block.signatureFreezeChecksum);
+                    blockData.Add("PoW field", block.powField);
+                    blockData.Add("Difficulty", block.difficulty.ToString());
+                    blockData.Add("Signature count", block.signatures.Count.ToString());
+                    blockData.Add("Transaction count", block.transactions.Count.ToString());
+                    blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
+                    blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
+                    blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
+
                     blocks[i] = blockData;
                 }
                 // Respond with the block details
                 string responseString = JsonConvert.SerializeObject(blocks).ToString();
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
+            if (methodName.Equals("getfullblock", StringComparison.OrdinalIgnoreCase))
+            {
+                string blocknum_string = request.QueryString["num"];
+                ulong block_num = 0;
+                try
+                {
+                    block_num = Convert.ToUInt64(blocknum_string);
+                }
+                catch (OverflowException)
+                {
+                    block_num = 0;
+                }
+
+                Block block = Node.blockChain.getBlock(block_num);
+                if (block == null)
+                    return false;
+
+                Dictionary<string, string> blockData = new Dictionary<string, string>();
+
+                blockData.Add("Block Number", block.blockNum.ToString());
+                blockData.Add("Block Checksum", block.blockChecksum);
+                blockData.Add("Last Block Checksum", block.lastBlockChecksum);
+                blockData.Add("Wallet State Checksum", block.walletStateChecksum);
+                blockData.Add("Sig freeze Checksum", block.signatureFreezeChecksum);
+                blockData.Add("PoW field", block.powField);
+                blockData.Add("Difficulty", block.difficulty.ToString());
+                blockData.Add("Signature count", block.signatures.Count.ToString());
+                blockData.Add("Transaction count", block.transactions.Count.ToString());
+                blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
+                blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
+                blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
+                blockData.Add("Transactions", JsonConvert.SerializeObject(block.getFullTransactionsAsArray()));
+
+                // Respond with the block details
+                string responseString = JsonConvert.SerializeObject(blockData);
                 sendResponse(context.Response, responseString);
                 return true;
             }

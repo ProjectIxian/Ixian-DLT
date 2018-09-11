@@ -394,6 +394,69 @@ namespace DLT
             walletStateChecksum = string.Copy(checksum);
         }
 
+        // Returs a list of transactions connected to this block 
+        public List<Transaction> getFullTransactions()
+        {
+            List<Transaction> txList = new List<Transaction>();
+            for (int i = 0; i < transactions.Count; i++)
+            {
+                Transaction t = TransactionStorage.getTransaction(transactions[i]);
+                if (t == null)
+                {
+                    t = TransactionPool.getTransaction(transactions[i]);
+                }
+                txList.Add(t);
+            }
+            return txList;
+        }
+
+        // temporary function that will correctly JSON Serialize IxiNumber
+        public List<Dictionary<string, string>> getFullTransactionsAsArray()
+        {
+            List<Dictionary<string, string>> txList = new List<Dictionary<string, string>>();
+            for (int i = 0; i < transactions.Count; i++)
+            {
+                Transaction t = TransactionStorage.getTransaction(transactions[i]);
+                if (t == null)
+                {
+                    t = TransactionPool.getTransaction(transactions[i]);
+                }
+                if (t != null)
+                {
+                    Dictionary<string, string> tDic = new Dictionary<string, string>();
+                    tDic.Add("id", t.id);
+                    tDic.Add("nonce", t.nonce.ToString());
+                    tDic.Add("signature", t.signature);
+                    tDic.Add("data", t.data);
+                    tDic.Add("timeStamp", t.timeStamp);
+                    tDic.Add("type", t.type.ToString());
+                    tDic.Add("amount", t.amount.ToString());
+                    tDic.Add("applied", t.applied.ToString());
+                    tDic.Add("checksum", t.checksum);
+                    tDic.Add("from", t.from);
+                    tDic.Add("to", t.to);
+                    txList.Add(tDic);
+                }
+            }
+            return txList;
+        }
+
+        // Returs total value of transactions connected to this block 
+        public IxiNumber getTotalTransactionsValue()
+        {
+            IxiNumber val = 0;
+            for(int i = 0; i < transactions.Count; i++)
+            {
+                Transaction t = TransactionStorage.getTransaction(transactions[i]);
+                if(t == null)
+                {
+                    t = TransactionPool.getTransaction(transactions[i]);
+                }
+                val.add(t.amount);
+            }
+            return val;
+        }
+
         public void logBlockDetails()
         {
             string last_block_chksum = lastBlockChecksum;

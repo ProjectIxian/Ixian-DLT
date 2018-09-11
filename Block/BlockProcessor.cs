@@ -294,12 +294,12 @@ namespace DLT
                         }*/
                         if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() || (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())) || firstBlockAfterSync == true))
                         {
-                            Logging.info(String.Format("Incoming block #{0} has elected nodes sig or full consensus, accepting instead of our own. (total signatures: {1})", b.blockNum, b.signatures.Count));
+                            Logging.info(String.Format("Incoming block #{0} has elected nodes sig or full consensus, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             localNewBlock = b;
                         }else
                         {
                             // discard with a warning, likely spam, resend our local block
-                            Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and re-transmitting local block. (total signatures: {1}).", b.blockNum, b.signatures.Count));
+                            Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                         firstBlockAfterSync = false;
@@ -516,7 +516,7 @@ namespace DLT
                                 // TODO: notify network to reconnect to other nodes on the PL
                                 // TODO TODO TODO : Split handling
                             }
-                            lastBlockStartTime = DateTime.Now;
+                            //lastBlockStartTime = DateTime.Now;
                             return;
                         }
                         else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)
