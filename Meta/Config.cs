@@ -14,7 +14,7 @@ namespace DLT
             public static int apiPort = 8081;
             public static string publicServerIP = "127.0.0.1";
 
-            public static bool noHistory = false; // Flag confirming this is a full history node
+            public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
             public static bool disableMiner = false; // Flag to disable miner
 
@@ -75,7 +75,7 @@ namespace DLT
                 cmd_parser.Setup<string>('v').Callback(value => new_value = value).Required();
 
                 // Toggle between full history node and no history
-                cmd_parser.Setup<bool>('n', "no-history").Callback(value => noHistory = value).Required();
+                cmd_parser.Setup<bool>('s', "save-history").Callback(value => storeFullHistory = value).Required();
 
                 // Toggle between mining and no mining mode
                 cmd_parser.Setup<bool>('m', "no-mining").Callback(value => disableMiner = value).Required();

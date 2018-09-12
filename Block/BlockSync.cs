@@ -387,6 +387,11 @@ namespace DLT
                     // This should happen when node first starts up.
                     // Node: some of the chain might be loaded from disk, so we might need to walk through that. This case is ignored for now.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
+
+                    // TODO: this can get very slow depending on number of transactions.
+                    // Find a better way to handle it
+                    Storage.redactBlockStorage(block_height); // Redact block storage if needed
+
                     syncTargetBlockNum = block_height;
                     startSync();
                 }

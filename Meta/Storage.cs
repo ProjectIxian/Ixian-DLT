@@ -18,12 +18,6 @@ namespace DLT
             // Creates the storage file if not found
             public static bool prepareStorage()
             {
-                // Check if history is enabled
-                if (Config.noHistory == true)
-                {
-                    return false;
-                }
-
                 bool prepare_database = false;
                 // Check if the database file does not exist
                 if (File.Exists(filename) == false)
@@ -108,7 +102,7 @@ namespace DLT
             public static bool appendToStorage(byte[] data)
             {
                 // Check if history is enabled
-                if(Config.noHistory == true)
+                if(Config.storeFullHistory == true)
                 {
                     return false;
                 }
@@ -247,6 +241,90 @@ namespace DLT
                 transaction.signature = tx.signature;
 
                 return transaction;
+            }
+
+            // Removes a block from the storage database
+            // Also removes all transactions linked to this block
+            public static bool removeBlock(Block block, bool removePreviousBlocks = false)
+            {
+                // Only remove on non-history nodes
+                if (Config.storeFullHistory == true)
+                {
+                    return false;
+                }
+
+                // First go through all transactions and remove them from storage
+                foreach (string txid in block.transactions)
+                {
+                    if (removeTransaction(txid) == false)
+                        return false;
+                }
+
+                // Now remove the block itself from storage
+                string sql = string.Format("DELETE FROM blocks where `blockNum` = \"{0}\"", block.blockNum);
+                return executeSQL(sql);
+            }
+
+            // Removes a transaction from the storage database
+            public static bool removeTransaction(string txid)
+            {
+                string sql = string.Format("DELETE FROM transactions where `id` = \"{0}\"", txid);             
+                return executeSQL(sql);
+            }
+
+            // Remove all previous blocks and corresponding transactions outside the redacted window
+            // Takes the assigned blockheight and calculates the redacted window automatically
+            public static bool redactBlockStorage(ulong blockheight)
+            {
+                // Only redact on non-history nodes
+                if(Config.storeFullHistory == true)
+                {
+                    return false;
+                }
+
+                if (blockheight < Node.blockChain.redactedWindow)
+                {
+                    // Nothing to redact yet
+                    return false;
+                }
+
+                // Calculate the window
+                ulong redactedWindow = blockheight - Node.blockChain.redactedWindow;
+
+                Logging.info(string.Format("Redacting storage below block #{0}", redactedWindow));
+
+                string sql = string.Format("select * from blocks where `blocknum` < {0}", redactedWindow);
+                var _storage_blocks = sqlConnection.Query<_storage_Block>(sql).ToArray();
+
+                if (_storage_blocks == null)
+                    return false;
+
+                if (_storage_blocks.Length < 1)
+                    return false;
+
+                // Go through each block
+                foreach(_storage_Block blk in _storage_blocks)
+                {
+                    // Extract transactions
+                    string[] split_str = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
+                    int txcounter = 0;
+                    foreach (string s1 in split_str)
+                    {
+                        txcounter++;
+                        // Skip placeholder
+                        if (txcounter == 1)
+                            continue;
+
+                        // Remove this transaction
+                        removeTransaction(s1);
+                    }
+
+                    // Remove the block as well
+                    sql = string.Format("DELETE FROM blocks where `blockNum` = \"{0}\"", blk.blockNum);
+                    executeSQL(sql);
+                }
+
+                return true;
             }
 
             // Escape and execute an sql command

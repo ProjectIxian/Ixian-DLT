@@ -28,7 +28,8 @@ namespace DLT
                 int begin_size = blocks.Count();
                 while ((ulong)blocks.Count() > redactedWindowSize)
                 {
-                    blocks.RemoveAt(0);
+                    Storage.removeBlock(blocks[0]); // Remove from storage
+                    blocks.RemoveAt(0); // Remove from memory
                 }
                 if (begin_size > blocks.Count())
                 {
