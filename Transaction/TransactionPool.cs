@@ -279,20 +279,25 @@ namespace DLT
                 {
                     if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
                     {
-                        tx.amount = transaction.amount;
-                        tx.data = transaction.data;
-                        tx.checksum = transaction.checksum;
-                        tx.applied = transaction.applied;
+                        if (tx.applied == 0)
+                        {
+                            tx.amount = transaction.amount;
+                            tx.data = transaction.data;
+                            tx.checksum = transaction.checksum;
 
-                        // Broadcast this transaction update to the network
-                        //ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
+                            // Broadcast this transaction update to the network
+                            //ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
 
-                        // Also update the transaction to storage
-                        TransactionStorage.updateTransaction(transaction);
+                            // Also update the transaction to storage
+                            TransactionStorage.updateTransaction(transaction);
 
-                        Logging.info(String.Format("Updated transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
+                            Logging.info(String.Format("Updated transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
 
-                        return true;
+                            return true;
+                        }else
+                        {
+                            Logging.info(String.Format("Transaction was already applied, not updating {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
+                        }
                     }
                 }
 
