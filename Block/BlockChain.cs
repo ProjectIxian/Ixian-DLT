@@ -28,6 +28,7 @@ namespace DLT
                 int begin_size = blocks.Count();
                 while ((ulong)blocks.Count() > redactedWindowSize)
                 {
+                    TransactionPool.redactTransactionsForBlock(blocks[0]); // Remove from Transaction Pool
                     Storage.removeBlock(blocks[0]); // Remove from storage
                     blocks.RemoveAt(0); // Remove from memory
                 }

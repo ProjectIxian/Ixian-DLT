@@ -204,6 +204,27 @@ namespace DLT
             return transaction;
         }
 
+        // Removes all transactions from TransactionPool linked to a block.
+        public static bool redactTransactionsForBlock(Block block)
+        {
+            if (block == null)
+                return false;
+
+            Transaction transaction = null;
+
+            lock (transactions)
+            {
+                foreach (string txid in block.transactions)
+                {
+                    transaction = transactions.Find(x => x.id == txid);
+                    if (transaction != null)
+                        transactions.Remove(transaction);
+                    transaction = null;
+                }
+            }
+            return true;
+        }
+
         public static Transaction[] getAllTransactions()
         {
             lock(transactions)
