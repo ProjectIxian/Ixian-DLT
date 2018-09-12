@@ -261,6 +261,7 @@ namespace DLT
                         tx.amount = transaction.amount;
                         tx.data = transaction.data;
                         tx.checksum = transaction.checksum;
+                        tx.applied = transaction.applied;
 
                         // Broadcast this transaction update to the network
                         //ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
