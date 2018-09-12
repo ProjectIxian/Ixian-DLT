@@ -331,12 +331,15 @@ namespace DLT
             {
                 lock (transactions)
                 {
+                    // Maintain a dictionary of block solutions and the corresponding miners for solved blocks
                     IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
 
+                    // Maintain a list of stakers for this block
                     List<string> blockStakers = new List<string>();
 
+                    // Maintain a list of failed transactions to remove them from the TxPool in one go
+                    List<Transaction> failed_transactions = new List<Transaction>();
 
-                    List<Transaction> tx_to_apply = new List<Transaction>();
                     foreach (string txid in block.transactions)
                     {
                         Transaction tx = getTransaction(txid);
@@ -351,6 +354,7 @@ namespace DLT
                         // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
                         if (tx.applied > 0)
                         {
+                            
                             continue;
                         }
 
@@ -376,6 +380,7 @@ namespace DLT
                         // Check the transaction amount
                         if (tx.amount == 0)
                         {
+                            failed_transactions.Add(tx);
                             continue;
                         }
 
@@ -386,6 +391,7 @@ namespace DLT
                             if(block.blockNum > 1)
                             {
                                 Logging.error(String.Format("Genesis transaction {0} detected after block #1. Ignored.", txid));
+                                failed_transactions.Add(tx);
                                 continue;
                             }
 
@@ -411,6 +417,7 @@ namespace DLT
                             // If there's another staking transaction for the staker in this block, ignore
                             if (valid == false)
                             {
+                                failed_transactions.Add(tx);
                                 continue;
                             }
 
@@ -422,6 +429,7 @@ namespace DLT
                             if (tx_amount < (long)0)
                             {
                                 Logging.error(String.Format("Staking transaction {0} does not have a positive amount.", txid));
+                                failed_transactions.Add(tx);
                                 continue;
                             }
 
@@ -429,13 +437,18 @@ namespace DLT
                             // TODO: refactor this and make it more efficient
                             string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
                             if (split.Length < 1)
+                            {
+                                failed_transactions.Add(tx);
                                 continue;
+                            }
                             string blocknum = split[1];
                             // Verify the staking transaction is accurate
                             Block targetBlock = Node.blockChain.getBlock(Convert.ToUInt64(blocknum));
                             if (targetBlock == null)
+                            {
+                                failed_transactions.Add(tx);
                                 continue;
-
+                            }
                             valid = false;
                             List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
                             foreach (string wallet_addr in signatureWallets)
@@ -446,6 +459,7 @@ namespace DLT
                             if (valid == false)
                             {
                                 Logging.error(String.Format("Staking transaction {0} does not have a corresponding block signature.", txid));
+                                failed_transactions.Add(tx);
                                 continue;
                             }
 
@@ -466,6 +480,7 @@ namespace DLT
                         if (txAmountWithoutFee < (long)0)
                         {
                             Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", txid));
+                            failed_transactions.Add(tx);
                             continue;
                         }
 
@@ -481,6 +496,7 @@ namespace DLT
                         {
                             Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
                                 txid, block.blockNum, block.lastBlockChecksum, tx.from));
+                            failed_transactions.Add(tx);
                             continue;
                         }
 
@@ -488,6 +504,7 @@ namespace DLT
                         if (source_wallet.nonce + 1 != tx.nonce)
                         {
                             Logging.warn(String.Format("Incorrect nonce for transaction {0}. Is {1} should be {2}", txid, tx.nonce, source_wallet.nonce + 1));
+                            failed_transactions.Add(tx);
                             continue;
                         }
 
@@ -511,6 +528,14 @@ namespace DLT
 
                     // Clear the solutions dictionary
                     blockSolutionsDictionary.Clear();
+
+                    // Remove all failed transactions from the TxPool
+                    foreach(Transaction tx in failed_transactions)
+                    {
+                        // Remove from TxPool
+                        transactions.Remove(tx);
+                    }
+                    failed_transactions.Clear();
 
                     // Reset the internal nonce
                     internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
