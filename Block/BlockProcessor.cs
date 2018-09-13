@@ -121,6 +121,7 @@ namespace DLT
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
             if (sigFreezingBlock != null)
             {
+                // this block already has a sigfreeze, don't tamper with the signatures
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum);
                 if (targetBlock != null && sigFreezingBlock.signatureFreezeChecksum == targetBlock.calculateSignatureChecksum())
                 {
@@ -134,7 +135,7 @@ namespace DLT
                 if (sigFreezingBlock.signatureFreezeChecksum == b.calculateSignatureChecksum())
                 {
                     // this is likely the correct block, update and broadcast to others
-                    targetBlock.signatures = b.signatures;
+                    targetBlock.signatures = b.signatures; // TODO TODO TODO, needs to be updated in storage as well
                     ProtocolMessage.broadcastNewBlock(targetBlock);
                     return false;
                 }
@@ -160,7 +161,7 @@ namespace DLT
         {
             if (operating == false) return;
             Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
-            if (verifyBlock(b) == BlockVerifyStatus.Invalid) // TODO TODOO TODO shouldn't this be != Valid?
+            if (verifyBlock(b) != BlockVerifyStatus.Valid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
@@ -199,7 +200,11 @@ namespace DLT
         {
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
-            if ((prevBlock == null && Node.blockChain.Count > 1) || (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum))
+            if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the block
+            {
+                ProtocolMessage.broadcastGetBlock(b.blockNum - 1);
+                return BlockVerifyStatus.Indeterminate;
+            }else if (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum) // block found but checksum doesn't match
             {
                 Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
                 // TODO Blacklisting point?
