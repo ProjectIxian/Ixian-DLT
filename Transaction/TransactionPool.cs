@@ -48,7 +48,7 @@ namespace DLT
 
         // Adds a non-verified transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction)
+        public static bool addTransaction(Transaction transaction, bool no_storage_no_broadcast = false)
         {
             ulong blocknum = Node.blockChain.getLastBlockNum();
             if (blocknum < 1)
@@ -171,7 +171,8 @@ namespace DLT
                 transactions.Add(transaction);
 
                 // Storage the transaction in the database
-                Meta.Storage.insertTransaction(transaction);
+                if(no_storage_no_broadcast == false)
+                    Meta.Storage.insertTransaction(transaction);
             }
 
             // TODO quick and dirty fix proposed by C, seems to reduce network "spam" in some situations
@@ -179,7 +180,8 @@ namespace DLT
                 return true;
 
             // Broadcast this transaction to the network
-            ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
+            if (no_storage_no_broadcast == false)
+                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
 
             return true;
         }
@@ -361,9 +363,6 @@ namespace DLT
                     // Maintain a dictionary of block solutions and the corresponding miners for solved blocks
                     IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
 
-                    // Maintain a list of stakers for this block
-                    List<string> blockStakers = new List<string>();
-
                     // Maintain a list of failed transactions to remove them from the TxPool in one go
                     List<Transaction> failed_transactions = new List<Transaction>();
 
@@ -375,6 +374,11 @@ namespace DLT
                             Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
                                 block.blockNum, block.blockChecksum, txid));
                             return false;
+                        }
+
+                        if(tx.type == (int)Transaction.Type.StakingReward)
+                        {
+                            continue;
                         }
 
                         // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
@@ -398,12 +402,6 @@ namespace DLT
 
                         // Special case for Genesis transactions
                         if (applyGenesisTransaction(tx, block, failed_transactions))
-                        {
-                            continue;
-                        }
-
-                        // Special case for Staking Reward transaction
-                        if (applyStakingTransaction(tx, block, failed_transactions, blockStakers))
                         {
                             continue;
                         }
@@ -433,6 +431,40 @@ namespace DLT
                     // Reset the internal nonce
                     internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
                 }
+
+
+                // TODO: move this to a seperate function. Left here for now for dev purposes
+                // Apply any staking transactions in the pool at this moment
+                Transaction[] staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
+                if (staking_txs == null)
+                    return true;
+
+                // Maintain a list of stakers
+                List<string> blockStakers = new List<string>();
+                List<Transaction> failed_staking_transactions = new List<Transaction>();
+
+                foreach (Transaction tx in staking_txs)
+                {
+                    if (tx.applied > 0)
+                        continue;
+
+                    // Special case for Staking Reward transaction
+                    if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers))
+                    {
+                        Console.WriteLine("!!! APPLIED STAKE");
+                        continue;
+                    }
+                }
+
+                // Remove all failed transactions from the TxPool
+                foreach (Transaction tx in failed_staking_transactions)
+                {
+                    // Remove from TxPool
+                    transactions.Remove(tx);
+                }
+                failed_staking_transactions.Clear();
+
+
             }
             catch(Exception e)
             {
@@ -524,7 +556,7 @@ namespace DLT
 
             IxiNumber tx_amount = tx.amount;
 
-            if (tx_amount < (long)0)
+            if (tx_amount < new IxiNumber(1))
             {
                 Logging.error(String.Format("Staking transaction {0} does not have a positive amount.", tx.id));
                 failed_transactions.Add(tx);
@@ -536,7 +568,7 @@ namespace DLT
             string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
             if (split.Length < 1)
             {
-                failed_transactions.Add(tx);
+                //failed_transactions.Add(tx);
                 return true;
             }
             string blocknum = split[1];

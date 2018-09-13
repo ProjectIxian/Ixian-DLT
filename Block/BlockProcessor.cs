@@ -401,7 +401,10 @@ namespace DLT
                     deltaSigs < 0 ? "" : "+",
                     deltaSigs));
             }
+            // Apply transaction fees
             applyTransactionFeeRewards();
+            // Distribute staking rewards
+            distributeStakingRewards();
         }
 
         public void applyTransactionFeeRewards()
@@ -601,9 +604,6 @@ namespace DLT
                 // Apply signature freeze
                 localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
 
-                // Distribute staking rewards
-                distributeStakingRewards();
-
                 ulong total_transactions = 0;
                 IxiNumber total_amount = 0;
 
@@ -612,6 +612,13 @@ namespace DLT
                 {
                     //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);
                     // TODO: add an if check if adding the transaction failed ?
+
+                    // Skip adding staking rewards
+                    if(transaction.type == (int)Transaction.Type.StakingReward)
+                    {
+                        continue;
+                    }
+
                     localNewBlock.addTransaction(transaction);
                     total_amount += transaction.amount;
                     total_transactions++;
@@ -773,25 +780,29 @@ namespace DLT
             for (int i = 0; i < stakes.Length; i++)
             {
                 IxiNumber award = new IxiNumber(awards[i]);
-                string wallet_addr = signatureWallets[i];
-                Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
-
-                Transaction tx = new Transaction();
-                tx.type = (int)Transaction.Type.StakingReward;
-                tx.to = wallet_addr;
-                tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
-
-                tx.amount = award;
-
-                string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
-                tx.data = data;
-                tx.timeStamp = Clock.getTimestamp(DateTime.Now);
-                tx.checksum = Transaction.calculateChecksum(tx);
-                tx.signature = "Stake";
-
-                if (!TransactionPool.addTransaction(tx))
+                if (award > (long)0)
                 {
-                    Logging.warn("An error occured while trying to add staking stransaction");
+                    string wallet_addr = signatureWallets[i];
+                    Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
+
+
+                    Transaction tx = new Transaction();
+                    tx.type = (int)Transaction.Type.StakingReward;
+                    tx.to = wallet_addr;
+                    tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+
+                    tx.amount = award;
+
+                    string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
+                    tx.data = data;
+                    tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+                    tx.checksum = Transaction.calculateChecksum(tx);
+                    tx.signature = "Stake";
+
+                    if (!TransactionPool.addTransaction(tx, true))
+                    {
+                        Logging.warn("An error occured while trying to add staking stransaction");
+                    }
                 }
 
             }
