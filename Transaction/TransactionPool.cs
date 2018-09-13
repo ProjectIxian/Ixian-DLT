@@ -456,11 +456,14 @@ namespace DLT
                     }
                 }
 
-                // Remove all failed transactions from the TxPool
-                foreach (Transaction tx in failed_staking_transactions)
+                lock (transactions)
                 {
-                    // Remove from TxPool
-                    transactions.Remove(tx);
+                    // Remove all failed transactions from the TxPool
+                    foreach (Transaction tx in failed_staking_transactions)
+                    {
+                        // Remove from TxPool
+                        transactions.Remove(tx);
+                    }
                 }
                 failed_staking_transactions.Clear();
 

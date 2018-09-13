@@ -402,24 +402,24 @@ namespace DLT
                     deltaSigs));
             }
             // Apply transaction fees
-            applyTransactionFeeRewards();
+            applyTransactionFeeRewards(localNewBlock);
             // Distribute staking rewards
             distributeStakingRewards();
         }
 
-        public void applyTransactionFeeRewards()
+        public void applyTransactionFeeRewards(Block block)
         {
             string sigfreezechecksum = "0";
             lock (localBlockLock)
             {
                 // Should never happen
-                if (localNewBlock == null)
+                if (block == null)
                 {
                     Logging.warn("Applying fee rewards: local block is null.");
                     return;
                 }
 
-                sigfreezechecksum = localNewBlock.signatureFreezeChecksum;
+                sigfreezechecksum = block.signatureFreezeChecksum;
             }
             if (sigfreezechecksum.Length < 3)
             {
@@ -430,6 +430,8 @@ namespace DLT
             // Obtain the 5th last block, aka target block
             // Last block num - 4 gets us the 5th last block
             Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+            if (targetBlock == null)
+                return;
 
             string targetSigFreezeChecksum = targetBlock.calculateSignatureChecksum();
 
@@ -466,7 +468,7 @@ namespace DLT
             }
 
             // Check the amount
-            if(tAmount == (long) 0 || tFeeAmount == (long) 0)
+            if(tFeeAmount == (long) 0)
             {
                 return;
             }
@@ -699,6 +701,7 @@ namespace DLT
         // Distribute the staking rewards according to the 5th last block signatures
         public bool distributeStakingRewards()
         {
+
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {

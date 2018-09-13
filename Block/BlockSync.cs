@@ -138,6 +138,10 @@ namespace DLT
                     if (b.blockNum > wsConfirmedBlockNumber)
                     {
                         TransactionPool.applyTransactionsFromBlock(b);
+                        // Apply transaction fees
+                        Node.blockProcessor.applyTransactionFeeRewards(b);
+                        // Apply staking rewards
+                        Node.blockProcessor.distributeStakingRewards();
                     }
                     Node.blockChain.appendBlock(b);
                     // if last block doesn't have enough sigs, set as local block, get more sigs
