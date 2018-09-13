@@ -165,6 +165,9 @@ namespace DLT
                     int afterSigs = blocks[idx].signatures.Count;
                     if (beforeSigs != afterSigs)
                     {
+                        // TODO: optimize this
+                        Storage.insertBlock(blocks[idx]); // Update the block
+
                         Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
                         return true;
                     }

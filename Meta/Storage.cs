@@ -35,7 +35,7 @@ namespace DLT
                     string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` TEXT, `lastBlockChecksum` TEXT, `walletStateChecksum`	TEXT, `sigFreezeChecksum` TEXT, `difficulty` INTEGER, `powField` TEXT, `transactions` TEXT, `signatures` TEXT, PRIMARY KEY(`blockNum`));";
                     executeSQL(sql);
 
-                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
+                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
                     executeSQL(sql);
                 }
 
@@ -145,11 +145,10 @@ namespace DLT
 
             public static bool insertTransaction(Transaction transaction)
             {
-                string sql = string.Format("INSERT INTO `transactions`(`id`,`type`,`amount`,`to`,`from`,`data`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\", {6}, \"{7}\",\"{8}\", \"{9}\", {10});",
-                    transaction.id, transaction.type, transaction.amount.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
-                executeSQL(sql);
-
-                return false;
+                string sql = string.Format("INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\", {7}, \"{8}\",\"{9}\", \"{10}\", {11});",
+                    transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
+               
+                return executeSQL(sql);
             }
 
 

@@ -213,6 +213,7 @@ namespace DLTNode
                 string to = request.QueryString["to"];
                 string amount_string = request.QueryString["amount"];
                 IxiNumber amount = new IxiNumber(amount_string);
+                IxiNumber fee = Config.transactionPrice;
 
                 // Only create a transaction if there is a valid amount
                 if(amount > (long)0)
@@ -228,7 +229,7 @@ namespace DLTNode
                     }
                     else
                     {
-                        Transaction transaction = new Transaction(amount, to, from, nonce);
+                        Transaction transaction = new Transaction(amount, fee, to, from, nonce);
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
