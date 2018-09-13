@@ -124,13 +124,16 @@ namespace DLT
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum);
                 if (targetBlock != null && sigFreezingBlock.signatureFreezeChecksum == targetBlock.calculateSignatureChecksum())
                 {
-                    // we already have the correct block, broadcast our block
-                    ProtocolMessage.broadcastNewBlock(targetBlock);
+                    if (b.calculateSignatureChecksum() != sigFreezingBlock.signatureFreezeChecksum)
+                    {
+                        // we already have the correct block but the sender does not, broadcast our block
+                        ProtocolMessage.broadcastNewBlock(targetBlock);
+                    }
                     return false;
                 }
                 if (sigFreezingBlock.signatureFreezeChecksum == b.calculateSignatureChecksum())
                 {
-                    // this is likely the correct block, update
+                    // this is likely the correct block, update and broadcast to others
                     targetBlock.signatures = b.signatures;
                     ProtocolMessage.broadcastNewBlock(targetBlock);
                     return false;
@@ -144,7 +147,6 @@ namespace DLT
             }
             else
             {
-                // TODO TODO TODO verify sigs against WS as well?
                 if (removeSignaturesWithoutPlEntry(b))
                 {
                     Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
@@ -168,6 +170,7 @@ namespace DLT
             {
                 return;
             }
+            // TODO TODO TODO verify sigs against WS as well?
             if (b.signatures.Count == 0)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which has no valid signatures!", b.blockNum, b.blockChecksum));
