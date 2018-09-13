@@ -439,6 +439,8 @@ namespace DLT
 
             // Calculate the total transactions amount and number of transactions in the target block
             IxiNumber tAmount = 0;
+            IxiNumber tFeeAmount = 0;
+
             ulong txcount = 0;
             foreach(string txid in targetBlock.transactions)
             {
@@ -448,6 +450,7 @@ namespace DLT
                     if (tx.type == (int)Transaction.Type.Normal)
                     {
                         tAmount += tx.amount;
+                        tFeeAmount += tx.fee;
                         txcount++;
                     }
                 }
@@ -460,13 +463,12 @@ namespace DLT
             }
 
             // Check the amount
-            if(tAmount == (long) 0)
+            if(tAmount == (long) 0 || tFeeAmount == (long) 0)
             {
                 return;
             }
 
             // Calculate the total fee amount
-            IxiNumber tFeeAmount =  Config.transactionPrice * txcount;
             IxiNumber foundationAward = tFeeAmount * Config.foundationFeePercent / 100;
 
             // Award foundation fee

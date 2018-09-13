@@ -212,7 +212,7 @@ namespace DLTNode
 
                 string to = request.QueryString["to"];
                 string amount_string = request.QueryString["amount"];
-                IxiNumber amount = new IxiNumber(amount_string);
+                IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
                 IxiNumber fee = Config.transactionPrice;
 
                 // Only create a transaction if there is a valid amount

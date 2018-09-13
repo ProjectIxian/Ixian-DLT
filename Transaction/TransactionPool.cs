@@ -139,17 +139,17 @@ namespace DLT
                 else
                 {
                     // Verify if the transaction contains the minimum fee
-                    if (transaction.amount < Config.transactionPrice)
+                    if (transaction.fee < Config.transactionPrice)
                     {
                         // Prevent transactions that can't pay the minimum fee
-                        Logging.warn(String.Format("Transaction amount does not cover fee for {{ {0} }}.", transaction.id));
+                        Logging.warn(String.Format("Transaction fee does not cover minimum fee for {{ {0} }}.", transaction.id));
                         return false;
                     }
 
                     // Verify the transaction against the wallet state
                     // If the balance after the transaction is negative, do not add it.
                     IxiNumber fromBalance = Node.walletState.getWalletBalance(transaction.from);
-                    IxiNumber finalFromBalance = fromBalance - transaction.amount;
+                    IxiNumber finalFromBalance = fromBalance - transaction.amount - transaction.fee;
 
                     if (finalFromBalance < (long)0)
                     {
@@ -579,7 +579,9 @@ namespace DLT
             // Calculate the transaction amount without fee
             IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
 
-            if (txAmountWithoutFee < (long)0)
+            // Check if the fee covers the current network minimum fee
+            // TODO: adjust this dynamically
+            if(tx.fee - Config.transactionPrice < (long)0)
             {
                 Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", tx.id));
                 failed_transactions.Add(tx);
@@ -593,7 +595,7 @@ namespace DLT
             IxiNumber dest_balance_before = dest_wallet.balance;
 
             // Withdraw the full amount, including fee
-            IxiNumber source_balance_after = source_balance_before - tx.amount;
+            IxiNumber source_balance_after = source_balance_before - tx.amount - tx.fee;
             if (source_balance_after < (long)0)
             {
                 Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
@@ -614,7 +616,7 @@ namespace DLT
             source_wallet.nonce = tx.nonce;
 
             // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
-            IxiNumber dest_balance_after = dest_balance_before + txAmountWithoutFee;
+            IxiNumber dest_balance_after = dest_balance_before + tx.amount;
 
             // Update the walletstate
             Node.walletState.setWalletBalance(tx.from, source_balance_after, 0, source_wallet.nonce);
