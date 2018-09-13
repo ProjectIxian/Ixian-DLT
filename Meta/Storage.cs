@@ -67,6 +67,7 @@ namespace DLT
                 public string id { get; set; }
                 public int type { get; set; }
                 public string amount { get; set; }
+                public string fee { get; set; }
                 public string to { get; set; }
                 public string from { get; set; }
                 public string data { get; set; }
@@ -147,15 +148,22 @@ namespace DLT
             {
                 string sql = string.Format("INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\", {7}, \"{8}\",\"{9}\", \"{10}\", {11});",
                     transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
-               
-                return executeSQL(sql);
-            }
+                bool result = executeSQL(sql);
+                if (result == false)
+                {
+                    // Likely already have the tx stored, update the old entry
+                    sql = string.Format("UPDATE `transactions` SET `type` = {1},`amount` = \"{2}\" ,`fee` = \"{3}\",`to` = \"{4}\",`from` = \"{5}\",`data` = \"{6}\", `nonce` = {7}, `timestamp` = \"{8}\",`checksum` = \"{9}\",`signature` = \"{10}\", `applied` = {11} WHERE `id` = \"{0}\"",
+    transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
+                    return executeSQL(sql);
+                }
 
+                return result;
+            }
 
             public static Block getBlock(ulong blocknum)
             {
                 Block block = null;
-                string sql = string.Format("select * from blocks where `blocknum` = {0} LIMIT 1", blocknum);
+                string sql = string.Format("select * from blocks where `blocknum` = {0} LIMIT 1", blocknum); // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
                 var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
 
                 if(_storage_block == null)
@@ -230,6 +238,7 @@ namespace DLT
                 transaction = new Transaction();
                 transaction.id = tx.id;
                 transaction.amount = new IxiNumber(tx.amount);
+                transaction.fee = new IxiNumber(tx.fee);
                 transaction.type = tx.type;
                 transaction.from = tx.from;
                 transaction.to = tx.to;

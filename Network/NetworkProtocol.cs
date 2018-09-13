@@ -501,7 +501,7 @@ namespace DLT
                                         string txid = reader.ReadString();
 
                                         // Check for a transaction corresponding to this id
-                                        Transaction transaction = TransactionStorage.getTransaction(txid);
+                                        Transaction transaction = TransactionPool.getTransaction(txid);
                                         if (transaction == null)
                                         {
                                             Logging.info(String.Format("I do not have txid '{0}.", txid));

@@ -444,7 +444,7 @@ namespace DLT
             ulong txcount = 0;
             foreach(string txid in targetBlock.transactions)
             {
-                Transaction tx = TransactionStorage.getTransaction(txid);               
+                Transaction tx = TransactionPool.getTransaction(txid);               
                 if (tx != null)
                 {
                     if (tx.type == (int)Transaction.Type.Normal)

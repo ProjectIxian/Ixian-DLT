@@ -170,8 +170,8 @@ namespace DLT
                 Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
                 transactions.Add(transaction);
 
-                // Also add the transaction to storage
-                TransactionStorage.addTransaction(transaction);
+                // Storage the transaction in the database
+                Meta.Storage.insertTransaction(transaction);
             }
 
             // TODO quick and dirty fix proposed by C, seems to reduce network "spam" in some situations
@@ -289,7 +289,7 @@ namespace DLT
                             //ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
 
                             // Also update the transaction to storage
-                            TransactionStorage.updateTransaction(transaction);
+                            Meta.Storage.insertTransaction(transaction);
 
                             Logging.info(String.Format("Updated transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
 
@@ -581,6 +581,7 @@ namespace DLT
 
             // Check if the fee covers the current network minimum fee
             // TODO: adjust this dynamically
+
             if(tx.fee - Config.transactionPrice < (long)0)
             {
                 Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", tx.id));

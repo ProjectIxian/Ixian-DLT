@@ -400,10 +400,10 @@ namespace DLT
             List<Transaction> txList = new List<Transaction>();
             for (int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = TransactionStorage.getTransaction(transactions[i]);
+                Transaction t = t = TransactionPool.getTransaction(transactions[i]);
                 if (t == null)
                 {
-                    t = TransactionPool.getTransaction(transactions[i]);
+                    continue;
                 }
                 txList.Add(t);
             }
@@ -416,28 +416,27 @@ namespace DLT
             List<Dictionary<string, string>> txList = new List<Dictionary<string, string>>();
             for (int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = TransactionStorage.getTransaction(transactions[i]);
+                Transaction t = TransactionPool.getTransaction(transactions[i]);
                 if (t == null)
                 {
-                    t = TransactionPool.getTransaction(transactions[i]);
+                    continue;
                 }
-                if (t != null)
-                {
-                    Dictionary<string, string> tDic = new Dictionary<string, string>();
-                    tDic.Add("id", t.id);
-                    tDic.Add("nonce", t.nonce.ToString());
-                    tDic.Add("signature", t.signature);
-                    tDic.Add("data", t.data);
-                    tDic.Add("timeStamp", t.timeStamp);
-                    tDic.Add("type", t.type.ToString());
-                    tDic.Add("amount", t.amount.ToString());
-                    tDic.Add("applied", t.applied.ToString());
-                    tDic.Add("checksum", t.checksum);
-                    tDic.Add("from", t.from);
-                    tDic.Add("to", t.to);
-                    tDic.Add("fee", t.fee.ToString());
-                    txList.Add(tDic);
-                }
+
+                Dictionary<string, string> tDic = new Dictionary<string, string>();
+                tDic.Add("id", t.id);
+                tDic.Add("nonce", t.nonce.ToString());
+                tDic.Add("signature", t.signature);
+                tDic.Add("data", t.data);
+                tDic.Add("timeStamp", t.timeStamp);
+                tDic.Add("type", t.type.ToString());
+                tDic.Add("amount", t.amount.ToString());
+                tDic.Add("applied", t.applied.ToString());
+                tDic.Add("checksum", t.checksum);
+                tDic.Add("from", t.from);
+                tDic.Add("to", t.to);
+                tDic.Add("fee", t.fee.ToString());
+                txList.Add(tDic);
+
             }
             return txList;
         }
@@ -448,11 +447,7 @@ namespace DLT
             IxiNumber val = 0;
             for(int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = TransactionStorage.getTransaction(transactions[i]);
-                if(t == null)
-                {
-                    t = TransactionPool.getTransaction(transactions[i]);
-                }
+                Transaction t = TransactionPool.getTransaction(transactions[i]);
                 val.add(t.amount);
             }
             return val;
