@@ -435,6 +435,7 @@ namespace DLT
                     tDic.Add("checksum", t.checksum);
                     tDic.Add("from", t.from);
                     tDic.Add("to", t.to);
+                    tDic.Add("fee", t.fee.ToString());
                     txList.Add(tDic);
                 }
             }
