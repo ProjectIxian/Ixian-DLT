@@ -115,23 +115,60 @@ namespace DLT
             return false;
         }
 
+        // Checks if the block has been sigFreezed and if all the hashes match and if removes sigs without a PL entry, returns false if the block should be discarded
+        public bool handleSigFreezedBlock(Block b)
+        {
+            Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
+            if (sigFreezingBlock != null)
+            {
+                Block targetBlock = Node.blockChain.getBlock(b.blockNum);
+                if (targetBlock != null && sigFreezingBlock.signatureFreezeChecksum == targetBlock.calculateSignatureChecksum())
+                {
+                    // we already have the correct block, broadcast our block
+                    ProtocolMessage.broadcastNewBlock(targetBlock);
+                    return false;
+                }
+                if (sigFreezingBlock.signatureFreezeChecksum == b.calculateSignatureChecksum())
+                {
+                    // this is likely the correct block, update
+                    targetBlock.signatures = b.signatures;
+                    ProtocolMessage.broadcastNewBlock(targetBlock);
+                    return false;
+                }
+                else
+                {
+                    ProtocolMessage.broadcastGetBlock(b.blockNum);
+                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, b.blockChecksum));
+                    return false;
+                }
+            }
+            else
+            {
+                // TODO TODO TODO verify sigs against WS as well?
+                if (removeSignaturesWithoutPlEntry(b))
+                {
+                    Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
+                    // TODO: Blacklisting point
+                }
+            }
+            return true;
+        }
+
         public void onBlockReceived(Block b)
         {
             if (operating == false) return;
             Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
-            if (verifyBlock(b) == BlockVerifyStatus.Invalid)
+            if (verifyBlock(b) == BlockVerifyStatus.Invalid) // TODO TODOO TODO shouldn't this be != Valid?
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
                 return;
             }
-            // TODO TODO TODO verify sigs against WS as well?
-            if (removeSignaturesWithoutPlEntry(b))
+            if(!handleSigFreezedBlock(b))
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
-                // TODO: Blacklisting point
+                return;
             }
-            if(b.signatures.Count == 0)
+            if (b.signatures.Count == 0)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which has no valid signatures!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
@@ -157,6 +194,14 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlock(Block b)
         {
+            // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
+            Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
+            if ((prevBlock == null && Node.blockChain.Count > 1) || (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum))
+            {
+                Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
+                // TODO Blacklisting point?
+                return BlockVerifyStatus.Invalid;
+            }
             // Check all transactions in the block against our TXpool, make sure all is legal
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Intederminate
             bool hasAllTransactions = true;
@@ -281,22 +326,16 @@ namespace DLT
                     }
                     else
                     {
-                        /* TODO We don't need this chunk anymore, left it here for some of the edge case tests, has to be removed later
-                        if (b.signatures.Count() > localNewBlock.signatures.Count())
-                        {
-                            Logging.info(String.Format("Incoming block #{0} has more signatures, accepting instead of our own.", b.blockNum));
-                            localNewBlock = b;
-                        }
-                        else //if((b.signatures.Count() <= localNewBlock.signatures.Count()))
-                        {
-                            Logging.info(String.Format("Incoming block #{0} has the same amount or less of signatures, but is different than our own. Re-transmitting our block.", b.blockNum));
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
-                        }*/
                         if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() || (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())) || firstBlockAfterSync == true))
                         {
                             Logging.info(String.Format("Incoming block #{0} has elected nodes sig or full consensus, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             localNewBlock = b;
-                        }else
+                        }else if(b.getUniqueSignatureCount() > localNewBlock.getUniqueSignatureCount() && b.blockNum == localNewBlock.blockNum)
+                        {
+                            Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                            localNewBlock = b;
+                        }
+                        else
                         {
                             // discard with a warning, likely spam, resend our local block
                             Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
