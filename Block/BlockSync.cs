@@ -137,12 +137,18 @@ namespace DLT
                     }
                     if (b.blockNum > wsConfirmedBlockNumber)
                     {
-                        TransactionPool.applyTransactionsFromBlock(b);
-                        // Apply transaction fees
-                        Node.blockProcessor.applyTransactionFeeRewards(b);
-                        // Apply staking rewards
-                        Node.blockProcessor.distributeStakingRewards();
+                        // TODO: carefully verify this
+                        // Apply transactions when rolling forward from a recover file without a synced WS
+                        if (Config.recoverFromFile)
+                        {
+                            TransactionPool.applyTransactionsFromBlock(b);
+                            // Apply transaction fees
+                            Node.blockProcessor.applyTransactionFeeRewards(b);
+                            // Apply staking rewards
+                            Node.blockProcessor.distributeStakingRewards();
+                        }
                     }
+
                     Node.blockChain.appendBlock(b);
                     // if last block doesn't have enough sigs, set as local block, get more sigs
                     if (Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).signatures.Count < Node.blockChain.getRequiredConsensus())
