@@ -71,7 +71,7 @@ namespace DLT
 
         // Attempts to retrieve a block from memory or from storage
         // Returns null if no block is found
-        public Block getBlock(ulong blocknum)
+        public Block getBlock(ulong blocknum, bool search_in_storage = true)
         {
             Block block = null;
 
@@ -85,7 +85,8 @@ namespace DLT
                 return block;
 
             // Search storage
-            block = Storage.getBlock(blocknum);
+            if(search_in_storage)
+                block = Storage.getBlock(blocknum);
 
             return block;
         }

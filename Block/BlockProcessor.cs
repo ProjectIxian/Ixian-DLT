@@ -803,12 +803,14 @@ namespace DLT
                     string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
                     tx.data = data;
                     tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+                    tx.id = tx.generateID();
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = "Stake";
 
+
                     if (!TransactionPool.addTransaction(tx, true))
                     {
-                        Logging.warn("An error occured while trying to add staking stransaction");
+                        Logging.warn("An error occured while trying to add staking transaction");
                     }
                 }
 

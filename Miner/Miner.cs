@@ -274,6 +274,7 @@ namespace DLT
             tx.data = data;
 
             tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+            tx.id = tx.generateID();
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);
 
