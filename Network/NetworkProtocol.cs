@@ -40,7 +40,7 @@ namespace DLT
                 return result;
             }
 
-            public static void broadcastGetBlock(ulong block_num)
+            public static void broadcastGetBlock(ulong block_num, Socket skipSocket = null)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -49,15 +49,15 @@ namespace DLT
                         writerw.Write(block_num);
                         writerw.Write(false);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray());
+                        broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipSocket);
                     }
                 }
             }
 
-            public static void broadcastNewBlock(Block b)
+            public static void broadcastNewBlock(Block b, Socket skipSocket = null)
             {
                 //Logging.info(String.Format("Broadcasting block #{0} : {1}.", b.blockNum, b.blockChecksum));
-                broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes());
+                broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipSocket);
             }
 
             public static void broadcastGetTransaction(string txid)
@@ -437,7 +437,7 @@ namespace DLT
 
                                         Logging.info(String.Format("Block #{0} has been requested.", block_number));
 
-                                        Block block = Node.blockChain.getBlock(block_number);
+                                        Block block = Node.blockChain.getBlock(block_number, false);
                                         if (block == null)
                                         {
                                             Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
@@ -566,7 +566,7 @@ namespace DLT
                             {
                                 Block block = new Block(data);
                                 Node.blockSync.onBlockReceived(block);
-                                Node.blockProcessor.onBlockReceived(block);
+                                Node.blockProcessor.onBlockReceived(block, socket);
                             }
                             break;
 

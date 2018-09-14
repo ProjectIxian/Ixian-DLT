@@ -3,6 +3,7 @@ using DLT.Network;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Numerics;
 
 namespace DLT
@@ -116,7 +117,7 @@ namespace DLT
         }
 
         // Checks if the block has been sigFreezed and if all the hashes match and if removes sigs without a PL entry, returns false if the block should be discarded
-        public bool handleSigFreezedBlock(Block b)
+        public bool handleSigFreezedBlock(Block b, Socket socket = null)
         {
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
             if (sigFreezingBlock != null)
@@ -128,7 +129,9 @@ namespace DLT
                     if (b.calculateSignatureChecksum() != sigFreezingBlock.signatureFreezeChecksum)
                     {
                         // we already have the correct block but the sender does not, broadcast our block
-                        ProtocolMessage.broadcastNewBlock(targetBlock);
+                        //ProtocolMessage.broadcastNewBlock(targetBlock);
+                        byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.newBlock, targetBlock.getBytes());
+                        socket.Send(ba, SocketFlags.None);
                     }
                     return false;
                 }
@@ -136,12 +139,13 @@ namespace DLT
                 {
                     // this is likely the correct block, update and broadcast to others
                     targetBlock.signatures = b.signatures; // TODO TODO TODO, needs to be updated in storage as well
-                    ProtocolMessage.broadcastNewBlock(targetBlock);
+                    Meta.Storage.insertBlock(targetBlock);
+                    ProtocolMessage.broadcastNewBlock(targetBlock, socket);
                     return false;
                 }
                 else
                 {
-                    ProtocolMessage.broadcastGetBlock(b.blockNum);
+                    ProtocolMessage.broadcastGetBlock(b.blockNum, socket);
                     Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, b.blockChecksum));
                     return false;
                 }
@@ -157,7 +161,7 @@ namespace DLT
             return true;
         }
 
-        public void onBlockReceived(Block b)
+        public void onBlockReceived(Block b, Socket socket = null)
         {
             if (operating == false) return;
             Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
@@ -167,7 +171,7 @@ namespace DLT
                 // TODO: Blacklisting point
                 return;
             }
-            if(!handleSigFreezedBlock(b))
+            if(!handleSigFreezedBlock(b, socket))
             {
                 return;
             }
