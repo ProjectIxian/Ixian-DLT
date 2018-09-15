@@ -220,9 +220,15 @@ namespace DLT
             Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
             foreach (string txid in b.transactions)
             {
+                // Skip fetching staking txids
+                if(txid.StartsWith("stk"))
+                {
+                    continue;
+                }
+
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
-                {
+                {                  
                     Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
                     ProtocolMessage.broadcastGetTransaction(txid);
                     hasAllTransactions = false;
@@ -814,7 +820,7 @@ namespace DLT
                     string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
                     tx.data = data;
                     tx.timeStamp = Clock.getTimestamp(DateTime.Now);
-                    tx.id = tx.generateID();
+                    tx.id = "stk" + tx.generateID(); // Staking-specific txid
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = "Stake";
 
