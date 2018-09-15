@@ -267,8 +267,8 @@ namespace DLT
 
                 Transaction transaction = null;
 
-                string sql = string.Format("select * from transactions where `id` = \"{0}\"", txid);
-                var _storage_tx = sqlConnection.Query<_storage_Transaction>(sql).ToArray();
+                string sql = "select * from transactions where `id` = ?";
+                var _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid).ToArray();
 
                 if (_storage_tx == null)
                     return transaction;
@@ -312,15 +312,15 @@ namespace DLT
                 }
 
                 // Now remove the block itself from storage
-                string sql = string.Format("DELETE FROM blocks where `blockNum` = \"{0}\"", block.blockNum);
-                return executeSQL(sql);
+                string sql = "DELETE FROM blocks where `blockNum` = ?";
+                return executeSQL(sql, block.blockNum);
             }
 
             // Removes a transaction from the storage database
             public static bool removeTransaction(string txid)
             {
-                string sql = string.Format("DELETE FROM transactions where `id` = \"{0}\"", txid);             
-                return executeSQL(sql);
+                string sql = "DELETE FROM transactions where `id` = ?";             
+                return executeSQL(sql, txid);
             }
 
             // Remove all previous blocks and corresponding transactions outside the redacted window
@@ -344,8 +344,8 @@ namespace DLT
 
                 Logging.info(string.Format("Redacting storage below block #{0}", redactedWindow));
 
-                string sql = string.Format("select * from blocks where `blocknum` < {0}", redactedWindow);
-                var _storage_blocks = sqlConnection.Query<_storage_Block>(sql).ToArray();
+                string sql = "select * from blocks where `blocknum` < ?";
+                var _storage_blocks = sqlConnection.Query<_storage_Block>(sql, redactedWindow).ToArray();
 
                 if (_storage_blocks == null)
                     return false;
@@ -371,45 +371,27 @@ namespace DLT
                     }
 
                     // Remove the block as well
-                    sql = string.Format("DELETE FROM blocks where `blockNum` = \"{0}\"", blk.blockNum);
-                    executeSQL(sql);
+                    sql = "DELETE FROM blocks where `blockNum` = ?";
+                    executeSQL(sql, blk.blockNum);
                 }
 
                 return true;
             }
 
             // Escape and execute an sql command
-            private static bool executeSQL(string sql)
-            {
-                // TODO: secure any potential injections here
-                try
-                {
-                    sqlConnection.Execute(sql);
-                }
-                catch (Exception e)
-                {
-                    Logging.info(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
-                    return false;
-                }
-                return true;
-            }
-
-            // Execute a prepared SQL query
             private static bool executeSQL(string sql, params object[] sqlParameters)
             {
-                SQLiteCommand sqlCommand = sqlConnection.CreateCommand(sql, sqlParameters);
                 try
                 {
-                    sqlCommand.ExecuteNonQuery();
+                    sqlConnection.Execute(sql, sqlParameters);
                 }
                 catch (Exception e)
                 {
-                    Logging.info(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
                     return false;
                 }
                 return true;
             }
-
         }
         /**/
     }
