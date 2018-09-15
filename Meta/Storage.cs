@@ -377,8 +377,25 @@ namespace DLT
                 {
                     sqlConnection.Execute(sql);
                 }
-                catch(Exception)
+                catch (Exception e)
                 {
+                    Logging.info(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    return false;
+                }
+                return true;
+            }
+
+            // Execute a prepared SQL query
+            private static bool executeSQL(string sql, params object[] sqlParameters)
+            {
+                SQLiteCommand sqlCommand = sqlConnection.CreateCommand(sql, sqlParameters);
+                try
+                {
+                    sqlCommand.ExecuteNonQuery();
+                }
+                catch (Exception e)
+                {
+                    Logging.info(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
                     return false;
                 }
                 return true;

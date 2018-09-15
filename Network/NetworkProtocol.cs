@@ -524,20 +524,20 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.updateTransaction:
+                        /*case ProtocolMessageCode.updateTransaction:
                             {
                                 Transaction transaction = new Transaction(data);         
                                 TransactionPool.updateTransaction(transaction);
                             }
-                            break;
+                            break;*/
 
                         case ProtocolMessageCode.transactionData:
                             {
                                 Transaction transaction = new Transaction(data);
-                                if(!TransactionPool.updateTransaction(transaction))
-                                {
+                                /*if(!TransactionPool.updateTransaction(transaction))
+                                {*/
                                     TransactionPool.addTransaction(transaction);
-                                }
+                                //}
                             }
                             break;
                         case ProtocolMessageCode.bye:
