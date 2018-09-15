@@ -133,8 +133,8 @@ namespace DLT
                 ulong numSkippedBlocks = 5;
                 if (Config.recoverFromFile)
                 {
-                    // Full recovery from file goes up to the latest block
-                    numSkippedBlocks = 0;
+                    // Full recovery from file goes up to the second latest block
+                    numSkippedBlocks = 1;
                 }
 
                 Node.blockSync.onHelloDataReceived((ulong)blk.blockNum - numSkippedBlocks, blk.blockChecksum, blk.walletStateChecksum, 1);

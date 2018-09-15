@@ -394,6 +394,7 @@ namespace DLT
         private void applyAcceptedBlock()
         {
             TransactionPool.applyTransactionsFromBlock(localNewBlock);
+
             int blockConsensus = localNewBlock.signatures.Count;
             int prevBlockConsensus = Node.blockChain.getBlockSignaturesReverse(0);
             if (prevBlockConsensus != blockConsensus)
@@ -407,6 +408,7 @@ namespace DLT
             }
             // Apply transaction fees
             applyTransactionFeeRewards(localNewBlock);
+
             // Distribute staking rewards
             distributeStakingRewards();
 
@@ -617,8 +619,8 @@ namespace DLT
                 ulong total_transactions = 0;
                 IxiNumber total_amount = 0;
 
-                Transaction[] poolTransactions = TransactionPool.getUnappliedTransactions();
-                foreach (var transaction in poolTransactions)
+                Transaction[] pool_transactions = TransactionPool.getUnappliedTransactions();
+                foreach (var transaction in pool_transactions)
                 {
                     //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);
                     // TODO: add an if check if adding the transaction failed ?
@@ -633,6 +635,17 @@ namespace DLT
                     total_amount += transaction.amount;
                     total_transactions++;
                 }
+
+                // Apply staking transactions to block
+                List<Transaction> staking_transactions = generateStakingTransactions();
+                foreach (Transaction transaction in staking_transactions)
+                {
+                    localNewBlock.addTransaction(transaction);
+                    total_amount += transaction.amount;
+                    total_transactions++;
+                }
+                staking_transactions.Clear();
+
                 Console.WriteLine("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount);
 
                 // Calculate mining difficulty
@@ -705,22 +718,21 @@ namespace DLT
             return sigFreezeChecksum;
         }
 
-
-        // Distribute the staking rewards according to the 5th last block signatures
-        public bool distributeStakingRewards()
+        // Generate all the staking transactions for this block
+        private List<Transaction> generateStakingTransactions()
         {
-
+            List<Transaction> transactions = new List<Transaction>();
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {
-                return false;
+                return transactions;
             }
 
             // Last block num - 4 gets us the 5th last block
             Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
-            if(targetBlock == null)
+            if (targetBlock == null)
             {
-                return false;
+                return transactions;
             }
 
             IxiNumber totalIxis = Node.walletState.calculateTotalSupply();
@@ -734,10 +746,6 @@ namespace DLT
 
             // Calculate the amount of new IXIs to be minted
             IxiNumber newIxis = totalIxis * inflationPA / new IxiNumber("100000000");
-
-
-
-
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
             // Retrieve the list of signature wallets
@@ -745,7 +753,6 @@ namespace DLT
 
             IxiNumber totalIxisStaked = new IxiNumber(0);
             int stakers = signatureWallets.Count;
-
             BigInteger[] stakes = new BigInteger[signatureWallets.Count];
             BigInteger[] awards = new BigInteger[signatureWallets.Count];
             BigInteger[] awardRemainders = new BigInteger[signatureWallets.Count];
@@ -769,25 +776,26 @@ namespace DLT
                 awards[i] = p;
                 totalAwarded += p;
             }
-            
+
             // Third pass, distribute remainders, if any
             // This essentially "rounds up" the awards for the stakers closest to the next whole amount,
             // until we bring the award difference down to zero.
             BigInteger diffAward = newIxis.getAmount() - totalAwarded;
-            if(diffAward > 0)
+            if (diffAward > 0)
             {
                 int[] descRemaindersIndexes = awardRemainders
                     .Select((v, pos) => new KeyValuePair<BigInteger, int>(v, pos))
                     .OrderByDescending(x => x.Key)
                     .Select(x => x.Value).ToArray();
                 int currRemainderAward = 0;
-                while(diffAward > 0)
+                while (diffAward > 0)
                 {
                     awards[descRemaindersIndexes[currRemainderAward]] += 1;
                     currRemainderAward += 1;
                     diffAward -= 1;
                 }
             }
+
             for (int i = 0; i < stakes.Length; i++)
             {
                 IxiNumber award = new IxiNumber(awards[i]);
@@ -795,7 +803,6 @@ namespace DLT
                 {
                     string wallet_addr = signatureWallets[i];
                     Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
-
 
                     Transaction tx = new Transaction();
                     tx.type = (int)Transaction.Type.StakingReward;
@@ -811,17 +818,37 @@ namespace DLT
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = "Stake";
 
-
-                    if (!TransactionPool.addTransaction(tx, true))
-                    {
-                        Logging.warn("An error occured while trying to add staking transaction");
-                    }
+                    transactions.Add(tx);
                 }
 
             }
             Console.WriteLine("------");
             Console.ResetColor();
 
+
+            return transactions;
+        }
+
+
+        // Distribute the staking rewards according to the 5th last block signatures
+        public bool distributeStakingRewards()
+        {
+
+            // Prevent distribution if we don't have 10 fully generated blocks yet
+            if (Node.blockChain.getLastBlockNum() < 10)
+            {
+                return false;
+            }
+
+            List<Transaction> transactions = generateStakingTransactions();      
+            foreach(Transaction transaction in transactions)
+            {
+                if(!TransactionPool.addTransaction(transaction, true))
+                {
+                    Logging.warn("An error occured while trying to add staking transaction");
+                }
+            }
+            
             return true;
         }
 
