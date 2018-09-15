@@ -129,7 +129,15 @@ namespace DLT
 
                 Logging.info(string.Format("Storage blockchain goes up to block #{0}", blk.blockNum));
 
-                Node.blockSync.onHelloDataReceived((ulong)blk.blockNum, blk.blockChecksum, blk.walletStateChecksum, 1);
+                // Synchronize to last block num - 5 to guarantee correct sigfreeze
+                ulong numSkippedBlocks = 5;
+                if (Config.recoverFromFile)
+                {
+                    // Full recovery from file goes up to the latest block
+                    numSkippedBlocks = 0;
+                }
+
+                Node.blockSync.onHelloDataReceived((ulong)blk.blockNum - numSkippedBlocks, blk.blockChecksum, blk.walletStateChecksum, 1);
 
                 return true;
             }
