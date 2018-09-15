@@ -275,8 +275,8 @@ namespace DLT
                     b.blockNum, b.blockChecksum, checksum));
                 return BlockVerifyStatus.Invalid;
             }
-            // verify signatureFreezeChecksum
-            if(b.signatureFreezeChecksum.Length > 3)
+            // verify signatureFreezeChecksum; sigFreeze should actually be checked after consensus on this block has been reached
+            if (b.signatureFreezeChecksum.Length > 3)
             {
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 if(targetBlock == null)
@@ -291,7 +291,7 @@ namespace DLT
                         b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum, b.blockNum - 5));
                     ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
                     ProtocolMessage.broadcastGetBlock(b.blockNum);
-                    return BlockVerifyStatus.Indeterminate;
+                    return BlockVerifyStatus.Invalid;
                 }
             }
             // TODO: verify that walletstate ends up on the same checksum as block promises

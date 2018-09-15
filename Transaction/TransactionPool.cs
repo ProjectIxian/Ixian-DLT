@@ -46,9 +46,7 @@ namespace DLT
         {
         }
 
-        // Adds a non-verified transaction to the memory pool
-        // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction, bool no_storage_no_broadcast = false)
+        public static bool verifyTransaction(Transaction transaction)
         {
             ulong blocknum = Node.blockChain.getLastBlockNum();
             if (blocknum < 1)
@@ -57,6 +55,7 @@ namespace DLT
                 {
                     // Adding GENESIS transaction
                     Logging.info("Received GENESIS transaction.");
+                    return true;
                 }
             }
             else
@@ -73,7 +72,7 @@ namespace DLT
 
             // Calculate the transaction checksum and compare it
             string checksum = Transaction.calculateChecksum(transaction);
-            if(checksum.Equals(transaction.checksum) == false)
+            if (checksum.Equals(transaction.checksum) == false)
             {
                 Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
                 return false;
@@ -93,13 +92,14 @@ namespace DLT
 
             // Prevent transaction spamming
             // Commented due to implementation of 'pending' transactions for S2 as per whitepaper
-            /*if(transaction.amount == 0)
+            // Uncommented, we can use a different tx type for pending transactions
+            if(transaction.amount == 0)
             {
                 return false;
-            }*/
+            }
 
             // Prevent sending to the sender's address
-            if (transaction.from.Equals(transaction.to,StringComparison.Ordinal))
+            if (transaction.from.Equals(transaction.to, StringComparison.Ordinal))
             {
                 Logging.warn(string.Format("Invalid TO address for transaction id: {0}", transaction.id));
                 return false;
@@ -123,7 +123,7 @@ namespace DLT
 
                 }
                 // Special case for Staking Reward transaction
-                else if(transaction.type == (int)Transaction.Type.StakingReward)
+                else if (transaction.type == (int)Transaction.Type.StakingReward)
                 {
 
                 }
@@ -131,9 +131,10 @@ namespace DLT
                 else if (transaction.type == (int)Transaction.Type.Genesis)
                 {
                     // Ignore if it's not in the genesis block
-                    if(blocknum > 1)
+                    if (blocknum > 1)
                     {
                         Logging.warn(String.Format("Genesis transaction on block #{0} ignored. TXid: {1}.", blocknum, transaction.id));
+                        return false;
                     }
                 }
                 else
@@ -166,22 +167,35 @@ namespace DLT
                     Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
                     return false;
                 }
-                
-                Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
-                transactions.Add(transaction);
+            }
+            return true;
+        }
 
-                // Storage the transaction in the database
-                if(no_storage_no_broadcast == false)
-                    Meta.Storage.insertTransaction(transaction);
+        // Adds a non-applied transaction to the memory pool
+        // Returns true if the transaction is added to the pool, false otherwise
+        public static bool addTransaction(Transaction transaction, bool no_storage_no_broadcast = false)
+        {
+            if (!verifyTransaction(transaction))
+            {
+                return false;
             }
 
-            // TODO quick and dirty fix proposed by C, seems to reduce network "spam" in some situations
+            Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
+            transactions.Add(transaction);
+
+            // Storage the transaction in the database
+            if (no_storage_no_broadcast == false)
+                Meta.Storage.insertTransaction(transaction);
+
+            Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
+
             if (Node.blockSync.synchronizing == true)
                 return true;
 
             // Broadcast this transaction to the network
             if (no_storage_no_broadcast == false)
                 ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
+
 
             return true;
         }
@@ -245,30 +259,14 @@ namespace DLT
 
         // This updates a pre-existing transaction
         // Returns true if the transaction has been updated, false otherwise
+        // TODO TODO TODO we'll run into problems with this because of the new txid, needs to be done differently, commenting this function out for now
+        /*
         public static bool updateTransaction(Transaction transaction)
         {
             Logging.info(String.Format("Received transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
 
-            // Calculate the transaction checksum and compare it
-            string checksum = Transaction.calculateChecksum(transaction);
-            if (checksum.Equals(transaction.checksum) == false)
+            if (!verifyTransaction(transaction))
             {
-                Logging.warn(string.Format("Invalid checksum for updated transaction id: {0}", transaction.id));
-                return false;
-            }
-
-            // Prevent sending to the sender's address
-            if (transaction.from.Equals(transaction.to, StringComparison.Ordinal))
-            {
-                Logging.warn(string.Format("Invalid TO address for updated transaction id: {0}", transaction.id));
-                return false;
-            }
-
-            // Verify the signature
-            if (transaction.verifySignature() == false)
-            {
-                // Transaction signature is invalid
-                Logging.warn(string.Format("Invalid signature for updated transaction id: {0}", transaction.id));
                 return false;
             }
 
@@ -285,6 +283,7 @@ namespace DLT
                         {
                             tx.amount = transaction.amount;
                             tx.data = transaction.data;
+                            tx.nonce = transaction.nonce
                             tx.checksum = transaction.checksum;
 
                             // Broadcast this transaction update to the network
@@ -296,7 +295,8 @@ namespace DLT
                             Logging.info(String.Format("Updated transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
 
                             return true;
-                        }else
+                        }
+                        else
                         {
                             Logging.info(String.Format("Transaction was already applied, not updating {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
                         }
@@ -306,7 +306,7 @@ namespace DLT
             }
 
             return false;
-        }
+        }*/
 
         // Verify if a PoW transaction is valid
         public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum)
@@ -365,6 +365,7 @@ namespace DLT
 
                     // Maintain a list of failed transactions to remove them from the TxPool in one go
                     List<Transaction> failed_transactions = new List<Transaction>();
+                    List<Transaction> already_applied_transactions = new List<Transaction>();
 
                     foreach (string txid in block.transactions)
                     {
@@ -383,7 +384,9 @@ namespace DLT
 
                         // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
                         if (tx.applied > 0)
-                        {                            
+                        {
+                            // remove transaction from block as it has already been applied
+                            already_applied_transactions.Add(tx);
                             continue;
                         }
 
@@ -420,13 +423,23 @@ namespace DLT
                     // Clear the solutions dictionary
                     blockSolutionsDictionary.Clear();
 
-                    // Remove all failed transactions from the TxPool
-                    foreach(Transaction tx in failed_transactions)
+                    // Remove all failed transactions from the TxPool and block
+                    foreach (Transaction tx in failed_transactions)
                     {
+                        Logging.info(String.Format("Removing failed transaction #{0} from pool and block.", tx.id));
                         // Remove from TxPool
                         transactions.Remove(tx);
+                        block.transactions.Remove(tx.id);
                     }
                     failed_transactions.Clear();
+
+                    // Remove all already applied transactions from the block
+                    foreach (Transaction tx in already_applied_transactions)
+                    {
+                        Logging.info(String.Format("Removing already applied transaction #{0} from block.", tx.id));
+                        block.transactions.Remove(tx.id);
+                    }
+                    already_applied_transactions.Clear();
 
                     // Reset the internal nonce
                     internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
@@ -461,8 +474,10 @@ namespace DLT
                     // Remove all failed transactions from the TxPool
                     foreach (Transaction tx in failed_staking_transactions)
                     {
+                        Logging.info(String.Format("Removing failed staking transaction #{0} from pool and block.", tx.id));
                         // Remove from TxPool
                         transactions.Remove(tx);
+                        block.transactions.Remove(tx.id);
                     }
                 }
                 failed_staking_transactions.Clear();
