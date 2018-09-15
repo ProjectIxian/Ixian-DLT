@@ -358,6 +358,12 @@ namespace DLT
             {
                 foreach (string txid in b.transactions)
                 {
+                    // Skip applying on staking txids
+                    if (txid.StartsWith("stk"))
+                    {
+                        continue;
+                    }
+
                     Transaction tx = getTransaction(txid);
                     if (tx == null)
                     {
@@ -393,6 +399,12 @@ namespace DLT
 
                     foreach (string txid in block.transactions)
                     {
+                        // Skip staking txids
+                        if (txid.StartsWith("stk"))
+                        {
+                            continue;
+                        }
+
                         Transaction tx = getTransaction(txid);
                         if (tx == null)
                         {
