@@ -206,8 +206,8 @@ namespace DLT
             public static Block getBlock(ulong blocknum)
             {
                 Block block = null;
-                string sql = string.Format("select * from blocks where `blocknum` = {0} LIMIT 1", blocknum); // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
-                var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
+                string sql = "select * from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
+                var _storage_block = sqlConnection.Query<_storage_Block>(sql, blocknum).ToArray();
 
                 if(_storage_block == null)
                     return block;

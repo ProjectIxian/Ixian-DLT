@@ -105,11 +105,47 @@ namespace DLT
         public bool removeSignaturesWithoutPlEntry(Block b)
         {
             List<string> sigs = getSignaturesWithoutPlEntry(b);
-            for(int i = 0; i < sigs.Count; i++)
+            for (int i = 0; i < sigs.Count; i++)
             {
                 b.signatures.Remove(sigs[i]);
             }
-            if(sigs.Count > 0)
+            if (sigs.Count > 0)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public List<string> getSignaturesWithLowBalance(Block b)
+        {
+            List<string> sigs = new List<string>();
+
+            for (int i = 0; i < b.signatures.Count; i++)
+            {
+                string[] parts = b.signatures[i].Split(Block.splitter, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 2)
+                {
+                    sigs.Add(b.signatures[i]);
+                    continue;
+                }
+                //Logging.info(String.Format("Searching for {0}", parts[1]));
+                if(Node.walletState.getWalletBalance((new Address(parts[1])).ToString()) < Config.minimumMasterNodeFunds)
+                {
+                    sigs.Add(b.signatures[i]);
+                    continue;
+                }
+            }
+            return sigs;
+        }
+
+        public bool removeSignaturesWithLowBalance(Block b)
+        {
+            List<string> sigs = getSignaturesWithLowBalance(b);
+            for (int i = 0; i < sigs.Count; i++)
+            {
+                b.signatures.Remove(sigs[i]);
+            }
+            if (sigs.Count > 0)
             {
                 return true;
             }
@@ -150,14 +186,6 @@ namespace DLT
                     return false;
                 }
             }
-            else
-            {
-                if (removeSignaturesWithoutPlEntry(b))
-                {
-                    Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
-                    // TODO: Blacklisting point
-                }
-            }
             return true;
         }
 
@@ -174,6 +202,16 @@ namespace DLT
             if(!handleSigFreezedBlock(b, socket))
             {
                 return;
+            }
+            if (removeSignaturesWithoutPlEntry(b))
+            {
+                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
+                // TODO: Blacklisting point
+            }
+            if (removeSignaturesWithLowBalance(b))
+            {
+                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, b.blockChecksum));
+                // TODO: Blacklisting point
             }
             // TODO TODO TODO verify sigs against WS as well?
             if (b.signatures.Count == 0)
