@@ -159,12 +159,7 @@ namespace DLT.Meta
             {
                 if(Node.blockProcessor.operating == true)
                 {
-                    Console.WriteLine("Resuming client connections.");
-
-                    // Connect to the rest of the clients
-                    NetworkClientManager.resumeConnections();
-
-                    //Console.WriteLine("Starting Network Server now.");
+                    Console.WriteLine("Starting Network Server now.");
 
                     // Start the node server
                     NetworkServer.beginNetworkOperations();

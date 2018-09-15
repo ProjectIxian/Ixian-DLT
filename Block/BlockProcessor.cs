@@ -409,6 +409,10 @@ namespace DLT
             applyTransactionFeeRewards(localNewBlock);
             // Distribute staking rewards
             distributeStakingRewards();
+
+            // Save masternodes
+            // TODO: find a better place for this
+            Storage.savePresenceFile();
         }
 
         public void applyTransactionFeeRewards(Block block)

@@ -22,18 +22,35 @@ namespace DLT
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
 
+        private static List<string> networkMasterNodes = new List<string>();
+
         // Starts the Network Client Manager. First it connects to one of the seed nodes in order to fetch the Presence List.
         // Afterwards, it starts the reconnect and keepalive threads
         public static void start()
         {
             networkClients = new List<NetworkClient>();
 
-            // Connect to a random seed node first
+            List<string> pl_masternodes = Storage.readPresenceFile();
+            foreach(string addr in pl_masternodes)
+            {
+                if (networkMasterNodes.Contains(addr) == false)
+                    networkMasterNodes.Add(addr);
+            }
+            
+
+            // Now add the seed nodes to the list
+            foreach(string addr in CoreNetworkUtils.seedNodes)
+            {
+                if(networkMasterNodes.Contains(addr) == false)
+                    networkMasterNodes.Add(addr);
+            }
+
+            // Connect to a random node first
             Random rnd = new Random();
             bool firstSeedConnected = false;
             while (firstSeedConnected == false)
             {
-                firstSeedConnected = connectTo(CoreNetworkUtils.seedNodes[rnd.Next(CoreNetworkUtils.seedNodes.Length)]);
+                firstSeedConnected = connectTo(networkMasterNodes[rnd.Next(networkMasterNodes.Count)]);
             }
 
             // Start the reconnect thread
@@ -46,25 +63,6 @@ namespace DLT
             keepAliveThread = new Thread(keepAlive);
             keepAliveThread.Start();
 
-        }
-
-        // Resume the initial connection handling
-        public static void resumeConnections()
-        {
-            Thread th = new Thread(() =>
-            {
-                // Create clients and connect to various nodes
-                for (int i = 0; i < CoreNetworkUtils.seedNodes.Length; i++)
-                {
-                    // Connect client immediately
-                    connectTo(CoreNetworkUtils.seedNodes[i]);
-
-                    // Wait before connecting to another client
-                    Thread.Sleep(2000);
-                }
-                Thread.Yield();
-            });
-            th.Start();
         }
 
         public static void stop()
