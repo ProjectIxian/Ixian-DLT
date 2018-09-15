@@ -347,8 +347,32 @@ namespace DLT
             return false;
         }
 
+        // TODO TODO TODO This is a very dangerous function, replace as soon as possible
+        public static bool setAppliedFlagToTransactionsFromBlock(Block b)
+        {
+            if (b == null)
+            {
+                return true;
+            }
+            lock (transactions)
+            {
+                foreach (string txid in b.transactions)
+                {
+                    Transaction tx = getTransaction(txid);
+                    if (tx == null)
+                    {
+                        Logging.error(String.Format("Attempted to set applied to transaction from block #{0} ({1}), but transaction {{ {2} }} was missing.",
+                            b.blockNum, b.blockChecksum, txid));
+                        return false;
+                    }
+                    tx.applied = b.blockNum;
+                }
+            }
+            return true;
+        }
+
         // This applies all the transactions from a block to the actual walletstate.
-        // It removes the corresponding transactions as well from the pool.
+        // It removes the failed transactions as well from the pool and block.
         public static bool applyTransactionsFromBlock(Block block)
         {
             if (block == null)

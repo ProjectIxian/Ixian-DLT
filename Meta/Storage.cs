@@ -160,35 +160,41 @@ namespace DLT
                 {
                     signatures = string.Format("{0}||{1}", signatures, sig);
                 }
-                
-                string sql = string.Format(
+
+                bool result = false;
+                if (getBlock(block.blockNum) == null)
+                {
+                    string sql = string.Format(
                     "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`) VALUES ({0},\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\",\"{8}\");",
                     block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, block.difficulty, block.powField, transactions, signatures);
-                bool result = executeSQL(sql);
-                if(result == false)
+                    result = executeSQL(sql);
+                }else
                 {
                     // Likely already have the block stored, update the old entry
-                    sql = string.Format("UPDATE `blocks` SET `blockChecksum` = \"{0}\", `lastBlockChecksum` = \"{1}\", `walletStateChecksum` = \"{2}\", `sigFreezeChecksum` = \"{3}\", `difficulty` = \"{4}\", `powField` = \"{5}\", `transactions` = \"{6}\", `signatures` = \"{7}\" WHERE `blockNum` =  {8}",
+                    string sql = string.Format("UPDATE `blocks` SET `blockChecksum` = \"{0}\", `lastBlockChecksum` = \"{1}\", `walletStateChecksum` = \"{2}\", `sigFreezeChecksum` = \"{3}\", `difficulty` = \"{4}\", `powField` = \"{5}\", `transactions` = \"{6}\", `signatures` = \"{7}\" WHERE `blockNum` =  {8}",
                         block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, block.difficulty, block.powField, transactions, signatures, block.blockNum);
                     //Console.WriteLine("SQL: {0}", sql);
-                    executeSQL(sql);
+                    result = executeSQL(sql);
                 }
 
 
-                return true;
+                return result;
             }
 
             public static bool insertTransaction(Transaction transaction)
             {
-                string sql = string.Format("INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\", {7}, \"{8}\",\"{9}\", \"{10}\", {11});",
-                    transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
-                bool result = executeSQL(sql);
-                if (result == false)
+                bool result = false;
+                if (getTransaction(transaction.id) == null)
                 {
+                    string sql = string.Format("INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\", {7}, \"{8}\",\"{9}\", \"{10}\", {11});",
+                        transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
+                    result = executeSQL(sql);
+                }else
+                { 
                     // Likely already have the tx stored, update the old entry
-                    sql = string.Format("UPDATE `transactions` SET `type` = {1},`amount` = \"{2}\" ,`fee` = \"{3}\",`to` = \"{4}\",`from` = \"{5}\",`data` = \"{6}\", `nonce` = {7}, `timestamp` = \"{8}\",`checksum` = \"{9}\",`signature` = \"{10}\", `applied` = {11} WHERE `id` = \"{0}\"",
+                    string sql = string.Format("UPDATE `transactions` SET `type` = {1},`amount` = \"{2}\" ,`fee` = \"{3}\",`to` = \"{4}\",`from` = \"{5}\",`data` = \"{6}\", `nonce` = {7}, `timestamp` = \"{8}\",`checksum` = \"{9}\",`signature` = \"{10}\", `applied` = {11} WHERE `id` = \"{0}\"",
     transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
-                    return executeSQL(sql);
+                    result = executeSQL(sql);
                 }
 
                 return result;

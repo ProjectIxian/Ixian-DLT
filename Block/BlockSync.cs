@@ -148,7 +148,7 @@ namespace DLT
                             Node.blockProcessor.distributeStakingRewards();
                         }
                     }
-
+                    TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
                     Node.blockChain.appendBlock(b);
                     // if last block doesn't have enough sigs, set as local block, get more sigs
                     if (Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).signatures.Count < Node.blockChain.getRequiredConsensus())

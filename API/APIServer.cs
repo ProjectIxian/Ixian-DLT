@@ -472,10 +472,11 @@ namespace DLTNode
                 int count = 0;
                 foreach (Transaction t in transactions)
                 {
-                    formattedTransactions[count] = new string[3];
+                    formattedTransactions[count] = new string[4];
                     formattedTransactions[count][0] = t.id;
                     formattedTransactions[count][1] = string.Format("{0}", t.amount);
                     formattedTransactions[count][2] = t.timeStamp;
+                    formattedTransactions[count][3] = t.applied.ToString();
 
                     count++;
                 }
