@@ -137,16 +137,22 @@ namespace DLT
                 // housekeeping tasks
                 while (continueRunning)
                 {
-                    // Use a blocking mechanism
-                    try
+                    if (connectedClients.Count < Config.maximumServerClients)
                     {
-                        Socket handlerSocket = listener.AcceptSocket();
-                        acceptConnection(handlerSocket);
+                        // Use a blocking mechanism
+                        try
+                        {
+                            Socket handlerSocket = listener.AcceptSocket();
+                            acceptConnection(handlerSocket);
+                        }
+                        catch (SocketException)
+                        {
+                            // Could be an interupt request
+                        }
                     }
-                    catch(SocketException)
-                    {
-                        // Could be an interupt request
-                    }
+
+                    // Sleep to prevent cpu usage
+                    Thread.Sleep(100);
 
                 }
                 Logging.info("Server listener thread ended.");
@@ -333,9 +339,19 @@ namespace DLT
             //private static void doAcceptConnection(IAsyncResult ar)
             private static void acceptConnection(Socket clientSocket)
             {
-                //Socket clientSocket = listener.EndAcceptSocket(ar);
                 IPEndPoint clientEndpoint = (IPEndPoint)clientSocket.RemoteEndPoint;
-                Logging.info(String.Format("Client connection accepted: {0}", clientEndpoint.ToString()));
+
+                //Socket clientSocket = listener.EndAcceptSocket(ar);
+                if (connectedClients.Count > Config.maximumServerClients)
+                {
+                    Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
+                        clientEndpoint.Address.ToString(), clientEndpoint.Port));
+                    clientSocket.Disconnect(true);
+                    clientSocket.Shutdown(SocketShutdown.Both);
+                    return;
+                }
+
+                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count, Config.maximumServerClients));
                 lock (connectedClients)
                 {
                     var existing_clients = connectedClients.Where(re => re.remoteIP.Address == clientEndpoint.Address);
