@@ -370,11 +370,20 @@ namespace DLTNode
                 return true;
             }
 
-            if (methodName.Equals("test1", StringComparison.OrdinalIgnoreCase))
+            if (methodName.Equals("stress", StringComparison.OrdinalIgnoreCase))
             {
                 // Used for performing various tests.
-                
-                string responseString = JsonConvert.SerializeObject("Test 1 complete");
+                StressTest.start();
+
+                string responseString = JsonConvert.SerializeObject("Stress test initiated");
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
+            if (methodName.Equals("txpool", StringComparison.OrdinalIgnoreCase))
+            {
+                // Used for performing various tests.
+                string responseString = JsonConvert.SerializeObject(TransactionPool.getAllTransactions());
                 sendResponse(context.Response, responseString);
                 return true;
             }
@@ -392,6 +401,7 @@ namespace DLTNode
                 sendResponse(context.Response, responseString);
                 return true;
             }
+
 
 
             if (methodName.Equals("mywallet", StringComparison.OrdinalIgnoreCase))
