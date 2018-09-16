@@ -379,7 +379,7 @@ namespace DLT
 
         // This applies all the transactions from a block to the actual walletstate.
         // It removes the failed transactions as well from the pool and block.
-        public static bool applyTransactionsFromBlock(Block block)
+        public static bool applyTransactionsFromBlock(Block block, bool ws_snapshot = false)
         {
             if (block == null)
             {
@@ -440,20 +440,20 @@ namespace DLT
                         }
 
                         // Special case for Genesis transactions
-                        if (applyGenesisTransaction(tx, block, failed_transactions))
+                        if (applyGenesisTransaction(tx, block, failed_transactions, ws_snapshot))
                         {
                             continue;
                         }
 
                         // If we reached this point, it means this is a normal transaction
-                        applyNormalTransaction(tx, block, failed_transactions);
+                        applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
 
                     }
 
                     // Finally, Check if we have any miners to reward
                     if (blockSolutionsDictionary.Count > 0)
                     {
-                        rewardMiners(blockSolutionsDictionary);
+                        rewardMiners(blockSolutionsDictionary, ws_snapshot);
                     }
 
                     // Clear the solutions dictionary
@@ -484,7 +484,7 @@ namespace DLT
                     already_applied_transactions.Clear();
 
                     // Reset the internal nonce
-                    internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
+                    internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
                 }
 
 
@@ -504,7 +504,7 @@ namespace DLT
                         continue;
 
                     // Special case for Staking Reward transaction
-                    if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers))
+                    if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
                     {
                         Console.WriteLine("!!! APPLIED STAKE");
                         continue;
@@ -535,6 +535,7 @@ namespace DLT
             catch(Exception e)
             {
                 Logging.error(string.Format("Error applying transactions from block #{0}. Message: {1}", block.blockNum, e.Message));
+                return false;
             }
 
             return true;
@@ -568,7 +569,7 @@ namespace DLT
 
         // Checks if a transaction is a genesis transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
-        public static bool applyGenesisTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
+        public static bool applyGenesisTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
             if (tx.type != (int)Transaction.Type.Genesis)
             {
@@ -585,7 +586,7 @@ namespace DLT
             }
 
             // Apply the amount
-            Node.walletState.setWalletBalance(tx.to, tx.amount);
+            Node.walletState.setWalletBalance(tx.to, tx.amount, ws_snapshot);
             tx.applied = block.blockNum;
 
             return true;
@@ -593,7 +594,7 @@ namespace DLT
 
         // Checks if a transaction is a staking transaction and applies it.
         // Returns true if it's a Staking transaction, otherwise false
-        public static bool applyStakingTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, List<string> blockStakers)
+        public static bool applyStakingTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, List<string> blockStakers, bool ws_snapshot = false)
         {
             if (tx.type != (int)Transaction.Type.StakingReward)
             {
@@ -618,7 +619,7 @@ namespace DLT
                 return true;
             }
 
-            Wallet staking_wallet = Node.walletState.getWallet(tx.to);
+            Wallet staking_wallet = Node.walletState.getWallet(tx.to, ws_snapshot);
             IxiNumber staking_balance_before = staking_wallet.balance;
 
             IxiNumber tx_amount = tx.amount;
@@ -664,7 +665,7 @@ namespace DLT
             // Deposit the amount
             IxiNumber staking_balance_after = staking_balance_before + tx_amount;
 
-            Node.walletState.setWalletBalance(tx.to, staking_balance_after, 0, staking_wallet.nonce);
+            Node.walletState.setWalletBalance(tx.to, staking_balance_after, ws_snapshot, staking_wallet.nonce);
             tx.applied = block.blockNum;
 
             blockStakers.Add(tx.to);
@@ -673,7 +674,7 @@ namespace DLT
         }
 
         // Applies a normal transaction
-        public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
+        public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
             // Calculate the transaction amount without fee
             IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
@@ -688,8 +689,8 @@ namespace DLT
                 return false;
             }
 
-            Wallet source_wallet = Node.walletState.getWallet(tx.from);
-            Wallet dest_wallet = Node.walletState.getWallet(tx.to);
+            Wallet source_wallet = Node.walletState.getWallet(tx.from, ws_snapshot);
+            Wallet dest_wallet = Node.walletState.getWallet(tx.to, ws_snapshot);
 
             IxiNumber source_balance_before = source_wallet.balance;
             IxiNumber dest_balance_before = dest_wallet.balance;
@@ -719,15 +720,15 @@ namespace DLT
             IxiNumber dest_balance_after = dest_balance_before + tx.amount;
 
             // Update the walletstate
-            Node.walletState.setWalletBalance(tx.from, source_balance_after, 0, source_wallet.nonce);
-            Node.walletState.setWalletBalance(tx.to, dest_balance_after, 0, dest_wallet.nonce);
+            Node.walletState.setWalletBalance(tx.from, source_balance_after, ws_snapshot, source_wallet.nonce);
+            Node.walletState.setWalletBalance(tx.to, dest_balance_after, ws_snapshot, dest_wallet.nonce);
             tx.applied = block.blockNum;
 
             return true;
         }
 
         // Go through a dictionary of block numbers and respective miners and reward them
-        public static void rewardMiners(IDictionary<ulong, List<string>> blockSolutionsDictionary)
+        public static void rewardMiners(IDictionary<ulong, List<string>> blockSolutionsDictionary, bool ws_snapshot = false)
         {
             for (int i = 0; i < blockSolutionsDictionary.Count; i++)
             {
@@ -759,10 +760,10 @@ namespace DLT
                 {
                     // TODO add another address checksum here, just in case
                     // Update the wallet state
-                    Wallet miner_wallet = Node.walletState.getWallet(miner);
+                    Wallet miner_wallet = Node.walletState.getWallet(miner, ws_snapshot);
                     IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
-                    Node.walletState.setWalletBalance(miner, miner_balance_after, 0, miner_wallet.nonce);
+                    Node.walletState.setWalletBalance(miner, miner_balance_after, ws_snapshot, miner_wallet.nonce);
 
                     checksum_source += miner;
                 }

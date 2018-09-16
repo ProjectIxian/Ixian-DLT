@@ -14,8 +14,8 @@ namespace DLT
         private readonly object stateLock = new object();
         private readonly Dictionary<string, Wallet> walletState = new Dictionary<string, Wallet>(); // The entire wallet list
         private string cachedChecksum = "";
-        private List<Dictionary<string, Wallet>> wsDeltas = new List<Dictionary<string, Wallet>>();
-        private readonly List<string> cachedDeltaChecksums = new List<string>();
+        private Dictionary<string, Wallet> wsDelta = null;
+        private string cachedDeltaChecksum = "";
 
         /* Size:
          * 10_000 wallets: ~510 KB
@@ -27,8 +27,8 @@ namespace DLT
          * 
          */
 
-        public int numSnapshots { get => wsDeltas.Count; }
         public int numWallets { get => walletState.Count; }
+        public bool hasSnapshot { get => wsDelta != null; }
 
         public WalletState()
         {
@@ -49,8 +49,8 @@ namespace DLT
         {
             walletState = new Dictionary<string, Wallet>(oldWS.walletState);
             cachedChecksum = oldWS.cachedChecksum;
-            wsDeltas = new List<Dictionary<string, Wallet>>(oldWS.wsDeltas);
-            cachedDeltaChecksums = new List<string>(oldWS.cachedDeltaChecksums);
+            wsDelta = new Dictionary<string, Wallet>(oldWS.wsDelta);
+            cachedDeltaChecksum = oldWS.cachedDeltaChecksum;
         }
 
         public void clear()
@@ -60,9 +60,24 @@ namespace DLT
             {
                 walletState.Clear();
                 cachedChecksum = "";
-                wsDeltas.Clear();
-                cachedDeltaChecksums.Clear();
+                wsDelta = null;
+                cachedDeltaChecksum = "";
 
+            }
+        }
+
+        public bool snapshot()
+        {
+            lock (stateLock)
+            {
+                if (wsDelta != null)
+                {
+                    Logging.warn("Unable to create WalletState snapshot, because a snapshot already exists.");
+                    return false;
+                }
+                Logging.info("Creating a WalletState snapshot.");
+                wsDelta = new Dictionary<string, Wallet>();
+                return true;
             }
         }
 
@@ -70,113 +85,106 @@ namespace DLT
         {
             lock (stateLock)
             {
-                Logging.info(String.Format("Reverting {0} WalletState snapshots.", wsDeltas.Count));
-                wsDeltas.Clear();
-                cachedDeltaChecksums.Clear();
+                if (wsDelta != null)
+                {
+                    Logging.info(String.Format("Reverting WalletState snapshot ({0} wallets).", wsDelta.Count));
+                    wsDelta = null;
+                    cachedDeltaChecksum = "";
+                }
             }
         }
 
         public void commit()
         {
-            lock(stateLock)
+            lock (stateLock)
             {
-                while (wsDeltas.Count > 0)
+                if (wsDelta != null)
                 {
-                    Logging.info(String.Format("Committting WalletState snapshot ({0} remain). Wallets in snapshot: {1}", 
-                        wsDeltas.Count, wsDeltas[0].Count));
-                    foreach (var wallet in wsDeltas[0])
+                    Logging.info(String.Format("Committing WalletState snapshot. Wallets in snapshot: {0}.", wsDelta.Count));
+                    foreach (var wallet in wsDelta)
                     {
                         walletState.AddOrReplace(wallet.Key, wallet.Value);
                     }
-                    wsDeltas.RemoveAt(0);
+                    wsDelta = null;
+                    cachedDeltaChecksum = "";
                 }
-                cachedDeltaChecksums.Clear();
-                cachedChecksum = "";
             }
         }
 
-        public IxiNumber getWalletBalance(string id, int snapshot = 0)
+        public IxiNumber getWalletBalance(string id, bool snapshot = false)
         {
             return getWallet(id, snapshot).balance;
         }
 
-        private int translateSnapshotNum(int snapshot)
-        {
-            if (Math.Abs(snapshot) > numSnapshots)
-            {
-                return numSnapshots;
-            }
-            if (snapshot < 0)
-            {
-                return (numSnapshots + snapshot + 1);
-            }
-            return snapshot;
-        }
 
-        public Wallet getWallet(string id, int snapshot = 0)
+
+        public Wallet getWallet(string id, bool snapshot = false)
         {
             lock (stateLock)
             {
-                snapshot = translateSnapshotNum(snapshot);
                 Wallet candidateWallet = new Wallet(id, (ulong)0);
                 if (walletState.ContainsKey(id))
                 {
                     candidateWallet = walletState[id];
                 }
-                for (int i = snapshot-1; i >= 0; i--)
+                if (snapshot)
                 {
-                    if (wsDeltas[i].ContainsKey(id))
+                    if (wsDelta != null && wsDelta.ContainsKey(id))
                     {
-                        candidateWallet = wsDeltas[i][id];
-                        break;
+                        candidateWallet = wsDelta[id];
                     }
                 }
                 return candidateWallet;
             }
         }
 
-        // Sets the wallet balance for a specified wallet
-        public void setWalletBalance(string id, IxiNumber balance, int snapshot = 0, ulong nonce = 0)
-        {
-            lock(stateLock)
-            {
-                snapshot = translateSnapshotNum(snapshot);
 
+        // Sets the wallet balance for a specified wallet
+        public void setWalletBalance(string id, IxiNumber balance, bool snapshot = false, ulong nonce = 0)
+        {
+            lock (stateLock)
+            {
                 Wallet wallet = new Wallet(id, balance);
 
                 // Apply nonce if needed
                 if (nonce > 0)
                     wallet.nonce = nonce;
 
-                if(snapshot == 0)
+                if (snapshot == false)
                 {
                     walletState.AddOrReplace(id, wallet);
                     cachedChecksum = "";
-                } else
+                }
+                else
                 {
-                    wsDeltas[snapshot].AddOrReplace(id, wallet);
-                    cachedDeltaChecksums[snapshot] = "";
+                    if (wsDelta == null)
+                    {
+                        Logging.warn(String.Format("Attempted to apply wallet state to the snapshot, but it does not exist."));
+                        return;
+                    }
+                    wsDelta.AddOrReplace(id, wallet);
+                    cachedDeltaChecksum = "";
                 }
             }
         }
 
-        public string calculateWalletStateChecksum(int snapshot = 0)
+        public string calculateWalletStateChecksum(bool snapshot = false)
         {
             lock (stateLock)
             {
-                snapshot = translateSnapshotNum(snapshot);
-                if(snapshot == 0 && cachedChecksum != "")
+                if (snapshot == false && cachedChecksum != "")
                 {
                     return cachedChecksum;
-                } else if(snapshot > 0 && cachedDeltaChecksums[snapshot-1] != "")
+                }
+                else if (snapshot == true && cachedDeltaChecksum != "")
                 {
-                    return cachedDeltaChecksums[snapshot - 1];
+                    return cachedDeltaChecksum;
                 }
                 // TODO: This could get unwieldy above ~100M wallet addresses. We have to implement sharding by then.
                 SortedSet<string> eligible_addresses = new SortedSet<string>(walletState.Keys);
-                for (int i = 0; i < snapshot - 1; i++)
+                if (snapshot == true)
                 {
-                    foreach (string addr in wsDeltas[i].Keys)
+                    foreach (string addr in wsDelta.Keys)
                     {
                         eligible_addresses.Add(addr);
                     }
@@ -184,17 +192,18 @@ namespace DLT
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
                 // Note: addresses are fixed size
                 string checksum = Crypto.sha256("IXIAN-DLT");
-                foreach(string addr in eligible_addresses)
+                foreach (string addr in eligible_addresses)
                 {
                     string wallet_checksum = getWallet(addr, snapshot).calculateChecksum();
                     checksum = Crypto.sha256(checksum + wallet_checksum);
                 }
-                if(snapshot == 0)
+                if (snapshot == false)
                 {
                     cachedChecksum = checksum;
-                } else
+                }
+                else
                 {
-                    cachedDeltaChecksums[snapshot - 1] = checksum;
+                    cachedDeltaChecksum = checksum;
                 }
                 return checksum;
             }
@@ -226,14 +235,15 @@ namespace DLT
 
         public void setWalletChunk(Wallet[] wallets)
         {
-            lock(stateLock)
+            lock (stateLock)
             {
-                if(numSnapshots>0)
+                if (wsDelta != null)
                 {
+                    // TODO: need to return an error to the caller, otherwise sync process might simply hang
                     Logging.error("Attempted to apply a WalletState chunk, but snapshots exist!");
                     return;
                 }
-                foreach(Wallet w in wallets)
+                foreach (Wallet w in wallets)
                 {
                     walletState.AddOrReplace(w.id, w);
                 }

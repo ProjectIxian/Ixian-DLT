@@ -239,13 +239,17 @@ namespace DLT
             }
         }
 
-        public BlockVerifyStatus verifyBlock(Block b)
+        public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false)
         {
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
             if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the block
             {
-                ProtocolMessage.broadcastGetBlock(b.blockNum - 1);
+                // Don't request block 0
+                if (b.blockNum - 1 > 0)
+                {
+                    ProtocolMessage.broadcastGetBlock(b.blockNum - 1);
+                }
                 return BlockVerifyStatus.Indeterminate;
             }else if (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum) // block found but checksum doesn't match
             {
@@ -327,6 +331,7 @@ namespace DLT
                 if(targetBlock == null)
                 {
                     ProtocolMessage.broadcastGetBlock(b.blockNum-5);
+                    Logging.warn(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
                     return BlockVerifyStatus.Indeterminate;
                 }
                 string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
@@ -339,6 +344,30 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
             }
+
+            // Note: This part depends on no one else messing with WS while it runs.
+            // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
+            // the generate thread is paused, so we need to lock
+            // Note: This function is also called from BlockSync, which uses it to determine if the blocks it is syncing
+            // from neighbors are OK.  However, BlockSync applies blocks before the current WS, so sometimes it doesn't
+            // want to check WS checksums
+            string ws_checksum = "";
+            if (ignore_walletstate == false)
+            {
+                lock (localBlockLock)
+                {
+                    Node.walletState.snapshot();
+                    applyAcceptedBlock(b, true);
+                    ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                    Node.walletState.revert();
+                }
+                if (ws_checksum != b.walletStateChecksum)
+                {
+                    Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum!", b.blockNum));
+                    return BlockVerifyStatus.Invalid;
+                }
+            }
+
             // Verify signatures
             if (!b.verifySignatures())
             {
@@ -426,6 +455,7 @@ namespace DLT
                     // can no longer be reached according to this number - I don't have a clean answer yet - MZ
                     if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
                     {
+                        /*
                         // accept this block, apply its transactions, recalc consensus, etc
                         if (applyAcceptedBlock() == true)
                         {
@@ -437,7 +467,13 @@ namespace DLT
                         else
                         {
                             requestBlockAgain = true;
-                        }
+                        }*/
+                        // accept this block, apply its transactions, recalc consensus, etc
+                        applyAcceptedBlock(localNewBlock);
+                        Node.blockChain.appendBlock(localNewBlock);
+                        Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
+                        localNewBlock.logBlockDetails();
+                        localNewBlock = null;
                     }
                 }
             }
@@ -460,48 +496,39 @@ namespace DLT
 
         // Applies the block
         // Returns false if walletstate is not correct
-        private bool applyAcceptedBlock()
+        private bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
         {
-            // TODO: verify that walletstate ends up on the same checksum as block promises
-            lock (Node.walletState)
-            {
-                // Store a copy of the walletstate
-                WalletState tempState = new WalletState(Node.walletState);
-
-                // Apply transactions from block
-                TransactionPool.applyTransactionsFromBlock(localNewBlock);
-
-                // Apply transaction fees
-                applyTransactionFeeRewards(localNewBlock);
-
-                // Distribute staking rewards
-                distributeStakingRewards();
-
-                string tempStateChecksum = tempState.calculateWalletStateChecksum();
-                if (localNewBlock.walletStateChecksum.Equals(tempStateChecksum) == false)
+            /*    // TODO: verify that walletstate ends up on the same checksum as block promises
+                lock (Node.walletState)
                 {
-                    Logging.warn(String.Format("Block WS checksum {0} doesn't match WS after applying {1}. Reverted.",
-                        localNewBlock.walletStateChecksum, tempStateChecksum));
+                    // Store a copy of the walletstate
+                    WalletState tempState = new WalletState(Node.walletState);
 
-                    // Revert the current walletstate
-                    Node.walletState = new WalletState(tempState);
+                    // Apply transactions from block
+                    TransactionPool.applyTransactionsFromBlock(localNewBlock);
 
-                    return false;
-                }
-            
-            }
+                    // Apply transaction fees
+                    applyTransactionFeeRewards(localNewBlock);
 
-            int blockConsensus = localNewBlock.signatures.Count;
-            int prevBlockConsensus = Node.blockChain.getBlockSignaturesReverse(0);
-            if (prevBlockConsensus != blockConsensus)
-            {
-                int deltaSigs = blockConsensus - prevBlockConsensus;
-                Logging.info(String.Format("Consensus changed from {0} to {1} ({2}{3})",
-                    prevBlockConsensus,
-                    blockConsensus,
-                    deltaSigs < 0 ? "" : "+",
-                    deltaSigs));
-            }
+                    // Distribute staking rewards
+                    distributeStakingRewards();
+
+                    string tempStateChecksum = tempState.calculateWalletStateChecksum();
+                    if (localNewBlock.walletStateChecksum.Equals(tempStateChecksum) == false)
+                    {
+                        Logging.warn(String.Format("Block WS checksum {0} doesn't match WS after applying {1}. Reverted.",
+                            localNewBlock.walletStateChecksum, tempStateChecksum));
+
+                        // Revert the current walletstate
+                        Node.walletState = new WalletState(tempState);
+
+                        return false;
+                    }
+
+                }*/
+
+            TransactionPool.applyTransactionsFromBlock(b, ws_snapshot);
+            applyTransactionFeeRewards(b, ws_snapshot);
 
             // Save masternodes
             // TODO: find a better place for this
@@ -510,19 +537,19 @@ namespace DLT
             return true;
         }
 
-        public void applyTransactionFeeRewards(Block block)
+        public void applyTransactionFeeRewards(Block b, bool ws_snapshot = false)
         {
             string sigfreezechecksum = "0";
             lock (localBlockLock)
             {
                 // Should never happen
-                if (block == null)
+                if (b == null)
                 {
-                    Logging.warn("Applying fee rewards: local block is null.");
+                    Logging.warn("Applying fee rewards: block is null.");
                     return;
                 }
 
-                sigfreezechecksum = block.signatureFreezeChecksum;
+                sigfreezechecksum = b.signatureFreezeChecksum;
             }
             if (sigfreezechecksum.Length < 3)
             {
@@ -540,7 +567,7 @@ namespace DLT
 
             if (sigfreezechecksum.Equals(targetSigFreezeChecksum, StringComparison.Ordinal) == false)
             {
-                Logging.info(string.Format("Signature freeze mismatch for block {0}. Current block height: {1}", targetBlock.blockNum, localNewBlock.blockNum));
+                Logging.info(string.Format("Signature freeze mismatch for block {0}. Current block height: {1}", targetBlock.blockNum, b.blockNum));
                 // TODO: fetch the block again or re-sync
                 return;
             }
@@ -580,10 +607,10 @@ namespace DLT
             IxiNumber foundationAward = tFeeAmount * Config.foundationFeePercent / 100;
 
             // Award foundation fee
-            Wallet foundation_wallet = Node.walletState.getWallet(Config.foundationAddress);
+            Wallet foundation_wallet = Node.walletState.getWallet(Config.foundationAddress, ws_snapshot);
             IxiNumber foundation_balance_before = foundation_wallet.balance;
             IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
-            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, 0, foundation_wallet.nonce);
+            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot, foundation_wallet.nonce);
             Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
             // Subtract the foundation award from total fee amount
@@ -606,7 +633,7 @@ namespace DLT
             if (remainder > (long) 0)
             {
                 foundation_balance_after = foundation_balance_after + remainder;
-                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, 0, foundation_wallet.nonce);
+                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot, foundation_wallet.nonce);
                 Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
             }
 
@@ -626,10 +653,10 @@ namespace DLT
                 Address addr = new Address(pubkey);
 
                 // Update the walletstate and deposit the award
-                Wallet signer_wallet = Node.walletState.getWallet(addr.ToString());
+                Wallet signer_wallet = Node.walletState.getWallet(addr.ToString(), ws_snapshot);
                 IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
-                Node.walletState.setWalletBalance(addr.ToString(), balance_after, 0, signer_wallet.nonce);
+                Node.walletState.setWalletBalance(addr.ToString(), balance_after, ws_snapshot, signer_wallet.nonce);
 
                 Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
             }
@@ -744,8 +771,14 @@ namespace DLT
                 // Calculate mining difficulty
                 localNewBlock.difficulty = calculateDifficulty();
 
+                // Simulate applying a block to see what the walletstate would look like
+                Node.walletState.snapshot();
+                applyAcceptedBlock(localNewBlock, true);
+                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
+                Node.walletState.revert();
+
                 // Calculate the block checksums and sign it
-                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
+                //localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
                 localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();
                 localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.applySignature();

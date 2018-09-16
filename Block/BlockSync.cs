@@ -126,8 +126,22 @@ namespace DLT
                     }
                     Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
                         b.blockNum, syncTargetBlockNum - Node.blockChain.getLastBlockNum()));
-                    BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b);
-                    if(b_status == BlockVerifyStatus.Indeterminate)
+
+                    // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
+                    // verify with a parameter to ignore WS tests, but do all the others
+                    BlockVerifyStatus b_status = BlockVerifyStatus.Invalid;
+                    if (b.blockNum >= wsConfirmedBlockNumber)
+                    {
+                        b_status = Node.blockProcessor.verifyBlock(b);
+                    }
+                    else
+                    {
+                        // blocks earlier than wsConfirmedBlockNumber shouldn't check their transactions, since they are already included
+                        // in the WS as of wsConfirmedBlockNumber
+                        b_status = Node.blockProcessor.verifyBlock(b, true);
+                    }
+
+                    if (b_status == BlockVerifyStatus.Indeterminate)
                     {
                         Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
                         return;
@@ -245,8 +259,8 @@ namespace DLT
             }
             if(pendingWsChunks.Count > 0)
             {
-                Logging.info("Unable to outgoing sync, because another outgoing sync is still in progress.");
-                return false;
+                  Logging.info("Unable to outgoing sync, because another outgoing sync is still in progress.");
+                  return false;
             }
             lock (pendingWsChunks)
             {
