@@ -197,7 +197,7 @@ namespace DLT
                 {
                     // Likely already have the tx stored, update the old entry
                     string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `applied` = ? WHERE `id` = ?";
-                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.applied);
+                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied, transaction.id);
                 }
 
                 return result;
@@ -205,11 +205,23 @@ namespace DLT
 
             public static Block getBlock(ulong blocknum)
             {
+                if(blocknum < 0)
+                {
+                    return null;
+                }
                 Block block = null;
                 string sql = "select * from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
-                var _storage_block = sqlConnection.Query<_storage_Block>(sql, blocknum).ToArray();
+                _storage_Block[] _storage_block = null;
+                try
+                {
+                    _storage_block = sqlConnection.Query<_storage_Block>(sql, (long)blocknum).ToArray();
+                }catch(Exception e)
+                {
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    return null;
+                }
 
-                if(_storage_block == null)
+                if (_storage_block == null)
                     return block;
                 
                 if (_storage_block.Length < 1)
@@ -268,7 +280,16 @@ namespace DLT
                 Transaction transaction = null;
 
                 string sql = "select * from transactions where `id` = ?";
-                var _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid).ToArray();
+                _storage_Transaction[] _storage_tx = null;
+                try
+                {
+                    _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid).ToArray();
+                }
+                catch (Exception e)
+                {
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    return null;
+                }
 
                 if (_storage_tx == null)
                     return transaction;
@@ -345,7 +366,16 @@ namespace DLT
                 Logging.info(string.Format("Redacting storage below block #{0}", redactedWindow));
 
                 string sql = "select * from blocks where `blocknum` < ?";
-                var _storage_blocks = sqlConnection.Query<_storage_Block>(sql, redactedWindow).ToArray();
+                _storage_Block[] _storage_blocks = null;
+                try
+                {
+                    _storage_blocks = sqlConnection.Query<_storage_Block>(sql, (long)redactedWindow).ToArray();
+                }
+                catch (Exception e)
+                {
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    return false;
+                }
 
                 if (_storage_blocks == null)
                     return false;
