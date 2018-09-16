@@ -403,6 +403,7 @@ namespace DLT
                 Transaction t = t = TransactionPool.getTransaction(transactions[i]);
                 if (t == null)
                 {
+                    Logging.error(string.Format("nulltx: {0}", transactions[i]));
                     continue;
                 }
                 txList.Add(t);
@@ -419,6 +420,7 @@ namespace DLT
                 Transaction t = TransactionPool.getTransaction(transactions[i]);
                 if (t == null)
                 {
+                    Logging.error(string.Format("nulltx: {0}", transactions[i]));
                     continue;
                 }
 
@@ -449,8 +451,9 @@ namespace DLT
             {
                 Transaction t = TransactionPool.getTransaction(transactions[i]);
                 if (t == null)
-                    Logging.warn(string.Format("nulltx: {0}", transactions[i]));
-                val.add(t.amount);
+                    Logging.error(string.Format("nulltx: {0}", transactions[i]));
+                else
+                    val.add(t.amount);
             }
             return val;
         }

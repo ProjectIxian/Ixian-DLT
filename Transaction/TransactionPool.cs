@@ -464,7 +464,13 @@ namespace DLT
                     {
                         Logging.info(String.Format("Removing failed transaction #{0} from pool and block.", tx.id));
                         // Remove from TxPool
-                        transactions.Remove(tx);
+                        if(tx.applied == 0)
+                        {
+                            transactions.Remove(tx);
+                        }else
+                        {
+                            Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
+                        }
                         block.transactions.Remove(tx.id);
                     }
                     failed_transactions.Clear();
@@ -511,8 +517,14 @@ namespace DLT
                     foreach (Transaction tx in failed_staking_transactions)
                     {
                         Logging.info(String.Format("Removing failed staking transaction #{0} from pool and block.", tx.id));
-                        // Remove from TxPool
-                        transactions.Remove(tx);
+                        if (tx.applied == 0)
+                        {
+                            // Remove from TxPool
+                            transactions.Remove(tx);
+                        }else
+                        {
+                            Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
+                        }
                         block.transactions.Remove(tx.id);
                     }
                 }
@@ -601,6 +613,7 @@ namespace DLT
             // If there's another staking transaction for the staker in this block, ignore
             if (valid == false)
             {
+                Logging.error(String.Format("There's a duplicate staker transaction {0}.", tx.id));
                 failed_transactions.Add(tx);
                 return true;
             }
