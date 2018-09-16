@@ -158,8 +158,13 @@ namespace DLT
         {
             // TODO: this assumes the transaction is properly validated as it's already in the Transaction Pool
             // Could add an additional layer of checks here, just as in the TransactionPool - to avoid tampering
-
-            transactions.Add(transaction.id);
+            if (transactions.Find(x => x == transaction.id) == null)
+            {
+                transactions.Add(transaction.id);
+            }else
+            {
+                Logging.warn(String.Format("Tried to add a duplicate transaction {0} to block {1}.", transaction.id, blockNum));
+            }
 
             return true;
         }
