@@ -44,6 +44,15 @@ namespace DLT
             }
         }
 
+        // Construct the walletstate from and older one
+        public WalletState(WalletState oldWS)
+        {
+            walletState = new Dictionary<string, Wallet>(oldWS.walletState);
+            cachedChecksum = oldWS.cachedChecksum;
+            wsDeltas = new List<Dictionary<string, Wallet>>(oldWS.wsDeltas);
+            cachedDeltaChecksums = new List<string>(oldWS.cachedDeltaChecksums);
+        }
+
         public void clear()
         {
             Logging.info("Clearing wallet state!!");

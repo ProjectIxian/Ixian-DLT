@@ -367,7 +367,9 @@ namespace DLT.Meta
             {
                 ulong blockNum = Node.blockChain.getLastBlockNum() - (ulong)i;
                 Block block = Node.blockChain.getBlock(blockNum);
-                Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlockSignaturesReverse(i), block.blockChecksum, block.walletStateChecksum));
+
+                if(block != null)
+                    Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlockSignaturesReverse(i), block.blockChecksum, block.walletStateChecksum));
             }
             Logging.trace(String.Format(" -> Block processor is operating: {0}.", Node.blockProcessor.operating));
             Logging.trace(String.Format(" -> Block processor is synchronizing: {0}.", Node.blockSync.synchronizing));

@@ -593,8 +593,10 @@ namespace DLT
                                 if(Node.blockSync.startOutgoingWSSync() == false)
                                 {
                                     Logging.warn(String.Format("Unable to start synchronizing with neighbor {0}",
-                                        endpoint.presence.addresses[0]));
+                                        endpoint.presence.addresses[0].address));
+                                    return;
                                 }
+
                                 // Request the latest walletstate header
                                 using (MemoryStream m = new MemoryStream())
                                 {

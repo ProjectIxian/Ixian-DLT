@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Numerics;
+using System.Threading;
 
 namespace DLT
 {
@@ -338,7 +339,6 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
             }
-            // TODO: verify that walletstate ends up on the same checksum as block promises
             // Verify signatures
             if (!b.verifySignatures())
             {
@@ -415,6 +415,8 @@ namespace DLT
 
         private void verifyBlockAcceptance()
         {
+            bool requestBlockAgain = false;
+
             lock (localBlockLock)
             {
                 if (localNewBlock == null) return;
@@ -425,19 +427,69 @@ namespace DLT
                     if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
                     {
                         // accept this block, apply its transactions, recalc consensus, etc
-                        applyAcceptedBlock();
-                        Node.blockChain.appendBlock(localNewBlock);
-                        Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
-                        localNewBlock.logBlockDetails();
-                        localNewBlock = null;
+                        if (applyAcceptedBlock() == true)
+                        {
+                            Node.blockChain.appendBlock(localNewBlock);
+                            Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
+                            localNewBlock.logBlockDetails();
+                            localNewBlock = null;
+                        }
+                        else
+                        {
+                            requestBlockAgain = true;
+                        }
                     }
                 }
             }
+
+            // Check if we should request the block again
+            if (requestBlockAgain)
+            {
+                // Show a notification
+                Console.ForegroundColor = ConsoleColor.Red;
+                Logging.error(string.Format("Requesting block {0} again due to previous mismatch.", localNewBlock.blockNum));
+                Console.ResetColor();
+                // Sleep a bit to prevent spam
+                Thread.Sleep(5000);
+                // Request the block again
+                ProtocolMessage.broadcastGetBlock(localNewBlock.blockNum);
+            }
+            return;
+
         }
 
-        private void applyAcceptedBlock()
+        // Applies the block
+        // Returns false if walletstate is not correct
+        private bool applyAcceptedBlock()
         {
-            TransactionPool.applyTransactionsFromBlock(localNewBlock);
+            // TODO: verify that walletstate ends up on the same checksum as block promises
+            lock (Node.walletState)
+            {
+                // Store a copy of the walletstate
+                WalletState tempState = new WalletState(Node.walletState);
+
+                // Apply transactions from block
+                TransactionPool.applyTransactionsFromBlock(localNewBlock);
+
+                // Apply transaction fees
+                applyTransactionFeeRewards(localNewBlock);
+
+                // Distribute staking rewards
+                distributeStakingRewards();
+
+                string tempStateChecksum = tempState.calculateWalletStateChecksum();
+                if (localNewBlock.walletStateChecksum.Equals(tempStateChecksum) == false)
+                {
+                    Logging.warn(String.Format("Block WS checksum {0} doesn't match WS after applying {1}. Reverted.",
+                        localNewBlock.walletStateChecksum, tempStateChecksum));
+
+                    // Revert the current walletstate
+                    Node.walletState = new WalletState(tempState);
+
+                    return false;
+                }
+            
+            }
 
             int blockConsensus = localNewBlock.signatures.Count;
             int prevBlockConsensus = Node.blockChain.getBlockSignaturesReverse(0);
@@ -450,15 +502,12 @@ namespace DLT
                     deltaSigs < 0 ? "" : "+",
                     deltaSigs));
             }
-            // Apply transaction fees
-            applyTransactionFeeRewards(localNewBlock);
-
-            // Distribute staking rewards
-            distributeStakingRewards();
 
             // Save masternodes
             // TODO: find a better place for this
             Storage.savePresenceFile();
+
+            return true;
         }
 
         public void applyTransactionFeeRewards(Block block)

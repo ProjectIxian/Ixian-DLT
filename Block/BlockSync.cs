@@ -90,9 +90,13 @@ namespace DLT
                         ProtocolMessage.syncCompleteNeighbor(syncNeighbor);
                     } else
                     {
+                        Console.ForegroundColor = ConsoleColor.Red;
                         Logging.warn(String.Format("Wallet state is not correct (block = {0}, WS = {1}).",
-                            b.walletStateChecksum.Substring(4), ws_checksum.Substring(4)));
+                            b.walletStateChecksum, ws_checksum));
+                        Console.ResetColor();
+
                         //TODO : restart sync with another neighbor
+                        syncTargetBlockNum = 0;
                     }
                 }
             } else // wsSyncStartBlock == 0
@@ -150,7 +154,7 @@ namespace DLT
                     }
                    // else
                     {
-                        Node.blockProcessor.storeStakingRewards();
+         //               Node.blockProcessor.storeStakingRewards();
                     }
                     TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
                     Node.blockChain.appendBlock(b);
