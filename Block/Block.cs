@@ -448,6 +448,8 @@ namespace DLT
             for(int i = 0; i < transactions.Count; i++)
             {
                 Transaction t = TransactionPool.getTransaction(transactions[i]);
+                if (t == null)
+                    Logging.warn(string.Format("nulltx: {0}", transactions[i]));
                 val.add(t.amount);
             }
             return val;

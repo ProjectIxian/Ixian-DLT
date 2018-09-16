@@ -858,7 +858,7 @@ namespace DLT
                     string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
                     tx.data = data;
                     tx.timeStamp = Clock.getTimestamp(DateTime.Now);
-                    tx.id = "stk" + tx.generateID(); // Staking-specific txid
+                    tx.id = "stk-" + targetBlock.blockNum + "-" + tx.generateID(); // Staking-specific txid
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = "Stake";
 
@@ -894,6 +894,23 @@ namespace DLT
             }
             
             return true;
+        }
+
+        public void storeStakingRewards()
+        {
+            // Prevent distribution if we don't have 10 fully generated blocks yet
+            if (Node.blockChain.getLastBlockNum() < 10)
+            {
+                return;
+            }
+
+            List<Transaction> transactions = generateStakingTransactions();
+            foreach (Transaction transaction in transactions)
+            {
+                Meta.Storage.insertTransaction(transaction);
+            }
+
+
         }
 
 
