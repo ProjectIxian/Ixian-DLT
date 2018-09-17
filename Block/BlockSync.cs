@@ -163,7 +163,7 @@ namespace DLT
                             // Apply transaction fees
                             Node.blockProcessor.applyTransactionFeeRewards(b);
                             // Apply staking rewards
-                            Node.blockProcessor.distributeStakingRewards();
+                            Node.blockProcessor.distributeStakingRewards(b);
                         }
                     }
                    // else
@@ -192,6 +192,7 @@ namespace DLT
                 // if we reach here, we are synchronized
                 synchronizing = false;
                 syncTargetBlockNum = 0;
+
                 Node.blockProcessor.firstBlockAfterSync = true;
                 Node.blockProcessor.resumeOperation();
             }

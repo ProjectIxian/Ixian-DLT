@@ -402,6 +402,12 @@ namespace DLT
                         // Skip staking txids
                         if (txid.StartsWith("stk"))
                         {
+                            Transaction stx = getTransaction(txid);
+                            if(stx == null)
+                            {
+
+                                Logging.info("Missing staking transaction");
+                            }
                             continue;
                         }
 
@@ -503,10 +509,16 @@ namespace DLT
                     if (tx.applied > 0)
                         continue;
 
+                    string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
+                    ulong txbnum = Convert.ToUInt64(split_str[1]);
+
+                    if (txbnum != block.blockNum - 6)
+                        continue;
+
                     // Special case for Staking Reward transaction
                     if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
                     {
-                        Console.WriteLine("!!! APPLIED STAKE");
+                        Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
                         continue;
                     }
                 }

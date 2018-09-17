@@ -532,8 +532,14 @@ namespace DLT
                 }
             }
 
+            // Apply transactions from block
             TransactionPool.applyTransactionsFromBlock(b, ws_snapshot);
+
+            // Apply transaction fees
             applyTransactionFeeRewards(b, ws_snapshot);
+
+            // Distribute staking rewards
+            distributeStakingRewards(b, ws_snapshot);
 
             // Save masternodes
             // TODO: find a better place for this
@@ -963,9 +969,10 @@ namespace DLT
 
 
         // Distribute the staking rewards according to the 5th last block signatures
-        public bool distributeStakingRewards()
+        public bool distributeStakingRewards(Block b, bool ws_snapshot = false)
         {
-
+            if (ws_snapshot)
+                return true;
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {
