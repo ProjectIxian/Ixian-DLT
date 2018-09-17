@@ -402,11 +402,12 @@ namespace DLT
                         // Skip staking txids
                         if (txid.StartsWith("stk"))
                         {
-                            Transaction stx = getTransaction(txid);
-                            if(stx == null)
+                            if (Node.blockSync.synchronizing)
                             {
-
-                                Logging.info("Missing staking transaction");
+                                if (getTransaction(txid) == null)
+                                {
+                                    Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
+                                }
                             }
                             continue;
                         }
@@ -516,6 +517,11 @@ namespace DLT
                         continue;
 
                     // Special case for Staking Reward transaction
+                    // Do not apply them if we are synchronizing
+                    // TODO: note that this can backfire when recovering completely from a file
+                    if (Node.blockSync.synchronizing)
+                        continue;
+
                     if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
                     {
                         Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);

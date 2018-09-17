@@ -534,10 +534,34 @@ namespace DLT
                         case ProtocolMessageCode.transactionData:
                             {
                                 Transaction transaction = new Transaction(data);
-                                /*if(!TransactionPool.updateTransaction(transaction))
-                                {*/
-                                    TransactionPool.addTransaction(transaction);
-                                //}
+                                if (transaction == null)
+                                    return;
+
+                                //
+                                if (Node.blockSync.synchronizing)
+                                {
+                                    if (transaction.type == (int)Transaction.Type.StakingReward)
+                                    {
+                                        string[] split = transaction.data.Split(new string[] { "||" }, StringSplitOptions.None);
+                                        if (split.Length > 1)
+                                        {
+
+                                            string blocknum = split[1];
+
+                                            transaction.id = "stk-" + blocknum + "-" + transaction.id;
+                                        }
+                                    }
+
+                                    Logging.info(string.Format("Received network staking transaction: {0}", transaction.id));
+                                }
+                                else if (transaction.type == (int)Transaction.Type.StakingReward)
+                                {
+                                    // Skip received staking transactions if we're not synchronizing
+                                    return;
+                                }
+
+                                // Add the transaction to the pool
+                                TransactionPool.addTransaction(transaction);                               
                             }
                             break;
                         case ProtocolMessageCode.bye:

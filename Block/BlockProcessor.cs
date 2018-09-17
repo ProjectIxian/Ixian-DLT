@@ -263,10 +263,11 @@ namespace DLT
             Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
             foreach (string txid in b.transactions)
             {
-                // Skip fetching staking txids
+                // Skip fetching staking txids if we're not synchronizing
                 if(txid.StartsWith("stk"))
                 {
-                    continue;
+                    if(Node.blockSync.synchronizing == false)
+                        continue;
                 }
 
                 Transaction t = TransactionPool.getTransaction(txid);
@@ -532,14 +533,14 @@ namespace DLT
                 }
             }
 
+            // Distribute staking rewards first
+            distributeStakingRewards(b, ws_snapshot);
+
             // Apply transactions from block
             TransactionPool.applyTransactionsFromBlock(b, ws_snapshot);
 
             // Apply transaction fees
             applyTransactionFeeRewards(b, ws_snapshot);
-
-            // Distribute staking rewards
-            distributeStakingRewards(b, ws_snapshot);
 
             // Save masternodes
             // TODO: find a better place for this
@@ -768,8 +769,9 @@ namespace DLT
                     total_transactions++;
                 }
 
-                // Apply staking transactions to block
-                List<Transaction> staking_transactions = generateStakingTransactions();
+                // Apply staking transactions to block. 
+                // Generate the staking transactions with the blockgen flag, as we are the current block generator
+                List<Transaction> staking_transactions = generateStakingTransactions(true);
                 foreach (Transaction transaction in staking_transactions)
                 {
                     localNewBlock.addTransaction(transaction);
@@ -857,7 +859,7 @@ namespace DLT
         }
 
         // Generate all the staking transactions for this block
-        private List<Transaction> generateStakingTransactions()
+        private List<Transaction> generateStakingTransactions(bool blockgen = false)
         {
             List<Transaction> transactions = new List<Transaction>();
             // Prevent distribution if we don't have 10 fully generated blocks yet
@@ -867,6 +869,14 @@ namespace DLT
             }
 
             // Last block num - 4 gets us the 5th last block
+            ulong targetBlockNum = Node.blockChain.getLastBlockNum() - 4;
+
+            // Check if this is called from the block generator and if so, use the localNewBlock
+            if (blockgen == true)
+            {
+                targetBlockNum = localNewBlock.blockNum - 4;
+            }
+
             Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
             if (targetBlock == null)
             {
