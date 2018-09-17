@@ -324,13 +324,13 @@ namespace DLT
                     b.blockNum, b.blockChecksum, checksum));
                 return BlockVerifyStatus.Invalid;
             }
-            // verify signatureFreezeChecksum; sigFreeze should actually be checked after consensus on this block has been reached
+            // verify signatureFreezeChecksum; TODO TODO TODO sigFreeze should actually be checked after consensus on this block has been reached
             if (b.signatureFreezeChecksum.Length > 3)
             {
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 if(targetBlock == null)
                 {
-                    ProtocolMessage.broadcastGetBlock(b.blockNum-5);
+                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
                     Logging.warn(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
                     return BlockVerifyStatus.Indeterminate;
                 }
@@ -558,8 +558,9 @@ namespace DLT
             }
 
             // Obtain the 5th last block, aka target block
-            // Last block num - 4 gets us the 5th last block
-            Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+            Block targetBlock = null;
+
+            targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
             if (targetBlock == null)
                 return;
 
