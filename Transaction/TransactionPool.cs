@@ -427,7 +427,7 @@ namespace DLT
                         }
 
                         // Special case for PoWSolution transactions
-                        if (applyPowTransaction(tx, block, blockSolutionsDictionary))
+                        if (applyPowTransaction(tx, block, blockSolutionsDictionary, ws_snapshot))
                         {
                             continue;
                         }
@@ -543,7 +543,7 @@ namespace DLT
 
         // Checks if a transaction is a pow transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
-        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<string>> blockSolutionsDictionary)
+        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<string>> blockSolutionsDictionary, bool ws_snapshot = false)
         {
             if (tx.type != (int)Transaction.Type.PoWSolution)
             {
@@ -551,7 +551,10 @@ namespace DLT
             }
 
             // Update the block's applied field
-            tx.applied = block.blockNum;
+            if (!ws_snapshot)
+            {
+                tx.applied = block.blockNum;
+            }
 
             // Verify if the solution is correct
             if (verifyPoWTransaction(tx, out ulong powBlockNum) == true)
@@ -587,7 +590,10 @@ namespace DLT
 
             // Apply the amount
             Node.walletState.setWalletBalance(tx.to, tx.amount, ws_snapshot);
-            tx.applied = block.blockNum;
+            if (!ws_snapshot)
+            {
+                tx.applied = block.blockNum;
+            }
 
             return true;
         }
@@ -666,7 +672,10 @@ namespace DLT
             IxiNumber staking_balance_after = staking_balance_before + tx_amount;
 
             Node.walletState.setWalletBalance(tx.to, staking_balance_after, ws_snapshot, staking_wallet.nonce);
-            tx.applied = block.blockNum;
+            if (!ws_snapshot)
+            {
+                tx.applied = block.blockNum;
+            }
 
             blockStakers.Add(tx.to);
 
@@ -722,7 +731,10 @@ namespace DLT
             // Update the walletstate
             Node.walletState.setWalletBalance(tx.from, source_balance_after, ws_snapshot, source_wallet.nonce);
             Node.walletState.setWalletBalance(tx.to, dest_balance_after, ws_snapshot, dest_wallet.nonce);
-            tx.applied = block.blockNum;
+            if (!ws_snapshot)
+            {
+                tx.applied = block.blockNum;
+            }
 
             return true;
         }

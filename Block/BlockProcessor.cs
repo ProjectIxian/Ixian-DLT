@@ -363,7 +363,7 @@ namespace DLT
                 }
                 if (ws_checksum != b.walletStateChecksum)
                 {
-                    Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum!", b.blockNum));
+                    Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
                     return BlockVerifyStatus.Invalid;
                 }
             }
