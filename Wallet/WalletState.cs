@@ -168,6 +168,22 @@ namespace DLT
             }
         }
 
+        public void setWalletNonce(string id, ulong nonce, bool snapshot = false)
+        {
+            lock (stateLock)
+            {
+                Wallet wallet = getWallet(id, snapshot);
+
+                if(wallet == null)
+                {
+                    Logging.warn(String.Format("Attempted to set nonce {0} for wallet {1} that does not exist.", nonce, id));
+                    return;
+                }
+
+                setWalletBalance(id, wallet.balance, snapshot, nonce);
+            }
+        }
+
         public string calculateWalletStateChecksum(bool snapshot = false)
         {
             lock (stateLock)

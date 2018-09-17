@@ -723,7 +723,8 @@ namespace DLT
             }
 
             // Increase the source wallet nonce to match the transaction nonce
-            source_wallet.nonce = tx.nonce;
+            //source_wallet.nonce = tx.nonce;
+            Node.walletState.setWalletNonce(source_wallet.id, tx.nonce, ws_snapshot);
 
             // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
             IxiNumber dest_balance_after = dest_balance_before + tx.amount;

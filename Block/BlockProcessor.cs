@@ -324,26 +324,6 @@ namespace DLT
                     b.blockNum, b.blockChecksum, checksum));
                 return BlockVerifyStatus.Invalid;
             }
-            // verify signatureFreezeChecksum; TODO TODO TODO sigFreeze should actually be checked after consensus on this block has been reached
-            if (b.signatureFreezeChecksum.Length > 3)
-            {
-                Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
-                if(targetBlock == null)
-                {
-                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
-                    Logging.warn(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
-                    return BlockVerifyStatus.Indeterminate;
-                }
-                string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
-                if (b.signatureFreezeChecksum != sigFreezeChecksum)
-                {
-                    Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting blocks #{3} and #{4}",
-                        b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum, b.blockNum - 5));
-                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
-                    ProtocolMessage.broadcastGetBlock(b.blockNum);
-                    return BlockVerifyStatus.Invalid;
-                }
-            }
 
             // Note: This part depends on no one else messing with WS while it runs.
             // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
@@ -526,6 +506,31 @@ namespace DLT
                     }
 
                 }*/
+
+
+            // verify signatureFreezeChecksum;
+            if (ws_snapshot == false)
+            {
+                if (b.signatureFreezeChecksum.Length > 3)
+                {
+                    Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
+                    if (targetBlock == null)
+                    {
+                        // this shouldn't be possible
+                        ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                        Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
+                        return false;
+                    }
+                    string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+                    if (b.signatureFreezeChecksum != sigFreezeChecksum)
+                    {
+                        Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
+                            b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum - 5));
+                        ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                        return false;
+                    }
+                }
+            }
 
             TransactionPool.applyTransactionsFromBlock(b, ws_snapshot);
             applyTransactionFeeRewards(b, ws_snapshot);
