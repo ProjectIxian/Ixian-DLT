@@ -150,6 +150,12 @@ namespace DLT
             return false;
         }
 
+        // Returns the local mapped IP
+        public string getMappedIP()
+        {
+            return string.Format("{0}", mappedLocalIP);
+        }
+
         public void RemoveMapping()
         {
             if (routerDevice != null)
