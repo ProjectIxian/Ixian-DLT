@@ -114,60 +114,65 @@ namespace DLT
                 {
                     if (tx.equals(transaction) == true)
                         return false;
-                }
 
-                // Special case for PoWSolution transactions
-                if (transaction.type == (int)Transaction.Type.PoWSolution)
-                {
-                    // TODO: pre-validate the transaction in such a way it doesn't affect performance
-
-                }
-                // Special case for Staking Reward transaction
-                else if (transaction.type == (int)Transaction.Type.StakingReward)
-                {
-
-                }
-                // Special case for Genesis transaction
-                else if (transaction.type == (int)Transaction.Type.Genesis)
-                {
-                    // Ignore if it's not in the genesis block
-                    if (blocknum > 1)
-                    {
-                        Logging.warn(String.Format("Genesis transaction on block #{0} ignored. TXid: {1}.", blocknum, transaction.id));
+                    // Additional pass for dynamic-generated transactions
+                    if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
                         return false;
-                    }
                 }
-                else
+            }
+
+            // Special case for PoWSolution transactions
+            if (transaction.type == (int)Transaction.Type.PoWSolution)
+            {
+                // TODO: pre-validate the transaction in such a way it doesn't affect performance
+
+            }
+            // Special case for Staking Reward transaction
+            else if (transaction.type == (int)Transaction.Type.StakingReward)
+            {
+
+            }
+            // Special case for Genesis transaction
+            else if (transaction.type == (int)Transaction.Type.Genesis)
+            {
+                // Ignore if it's not in the genesis block
+                if (blocknum > 1)
                 {
-                    // Verify if the transaction contains the minimum fee
-                    if (transaction.fee < Config.transactionPrice)
-                    {
-                        // Prevent transactions that can't pay the minimum fee
-                        Logging.warn(String.Format("Transaction fee does not cover minimum fee for {{ {0} }}.", transaction.id));
-                        return false;
-                    }
-
-                    // Verify the transaction against the wallet state
-                    // If the balance after the transaction is negative, do not add it.
-                    IxiNumber fromBalance = Node.walletState.getWalletBalance(transaction.from);
-                    IxiNumber finalFromBalance = fromBalance - transaction.amount - transaction.fee;
-
-                    if (finalFromBalance < (long)0)
-                    {
-                        // Prevent overspending
-                        Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));
-                        return false;
-                    }
-                }
-
-                // Finally, verify the signature
-                if (transaction.verifySignature() == false)
-                {
-                    // Transaction signature is invalid
-                    Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
+                    Logging.warn(String.Format("Genesis transaction on block #{0} ignored. TXid: {1}.", blocknum, transaction.id));
                     return false;
                 }
             }
+            else
+            {
+                // Verify if the transaction contains the minimum fee
+                if (transaction.fee < Config.transactionPrice)
+                {
+                    // Prevent transactions that can't pay the minimum fee
+                    Logging.warn(String.Format("Transaction fee does not cover minimum fee for {{ {0} }}.", transaction.id));
+                    return false;
+                }
+
+                // Verify the transaction against the wallet state
+                // If the balance after the transaction is negative, do not add it.
+                IxiNumber fromBalance = Node.walletState.getWalletBalance(transaction.from);
+                IxiNumber finalFromBalance = fromBalance - transaction.amount - transaction.fee;
+
+                if (finalFromBalance < (long)0)
+                {
+                    // Prevent overspending
+                    Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));
+                    return false;
+                }
+            }
+
+            // Finally, verify the signature
+            if (transaction.verifySignature() == false)
+            {
+                // Transaction signature is invalid
+                Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
+                return false;
+            }
+
             return true;
         }
 
@@ -181,8 +186,12 @@ namespace DLT
             }
 
             Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
-            transactions.Add(transaction);
 
+            // Lock transactions to prevent threading bugs
+            lock (transactions)
+            {
+                transactions.Add(transaction);
+            }
             // Storage the transaction in the database
           //  if (no_storage_no_broadcast == false)
                 Meta.Storage.insertTransaction(transaction);
@@ -519,7 +528,7 @@ namespace DLT
                     // Special case for Staking Reward transaction
                     // Do not apply them if we are synchronizing
                     // TODO: note that this can backfire when recovering completely from a file
-                    if (Node.blockSync.synchronizing)
+                    if (Node.blockSync.synchronizing && Config.recoverFromFile == false)
                         continue;
 
                     if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
