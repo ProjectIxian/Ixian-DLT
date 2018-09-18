@@ -137,6 +137,7 @@ namespace DLT
                             writer.Write(w.id);
                             writer.Write(w.balance.ToString());
                             writer.Write(w.data);
+                            writer.Write(w.nonce);
                         }
                         //
                         endpoint.clientSocket.Send(ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.walletStateChunk, m.ToArray()));
@@ -580,9 +581,8 @@ namespace DLT
 
                                             transaction.id = "stk-" + blocknum + "-" + transaction.id;
                                         }
+                                        Logging.info(string.Format("Received network staking transaction: {0}", transaction.id));
                                     }
-
-                                    Logging.info(string.Format("Received network staking transaction: {0}", transaction.id));
                                 }
                                 else if (transaction.type == (int)Transaction.Type.StakingReward)
                                 {
@@ -644,7 +644,7 @@ namespace DLT
 
                         case ProtocolMessageCode.syncWalletState:
                             {
-                                if(Node.blockSync.startOutgoingWSSync() == false)
+                                if(Node.blockSync.startOutgoingWSSync(endpoint) == false)
                                 {
                                     Logging.warn(String.Format("Unable to start synchronizing with neighbor {0}",
                                         endpoint.presence.addresses[0].address));
@@ -732,8 +732,10 @@ namespace DLT
                                             string w_id = reader.ReadString();
                                             IxiNumber w_balance = new IxiNumber(reader.ReadString());
                                             string w_data = reader.ReadString();
+                                            ulong w_nonce = reader.ReadUInt64();
                                             wallets[i] = new Wallet(w_id, w_balance);
                                             wallets[i].data = w_data;
+                                            wallets[i].nonce = w_nonce;
                                         }
                                         WsChunk c = new WsChunk
                                         {

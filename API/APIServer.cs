@@ -431,9 +431,10 @@ namespace DLTNode
                 int count = 0;
                 foreach (Wallet w in wallets)
                 {
-                    walletStates[count] = new string[2];
+                    walletStates[count] = new string[3];
                     walletStates[count][0] = w.id;
                     walletStates[count][1] = w.balance.ToString();
+                    walletStates[count][2] = w.nonce.ToString();
                     count++;
                 }
 
