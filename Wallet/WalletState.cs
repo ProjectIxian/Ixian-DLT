@@ -107,6 +107,7 @@ namespace DLT
                     }
                     wsDelta = null;
                     cachedDeltaChecksum = "";
+                    cachedChecksum = "";
                 }
             }
         }
@@ -267,6 +268,8 @@ namespace DLT
                 {
                     walletState.AddOrReplace(w.id, w);
                 }
+                cachedChecksum = "";
+                cachedDeltaChecksum = "";
             }
         }
 

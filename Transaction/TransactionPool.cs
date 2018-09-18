@@ -409,12 +409,14 @@ namespace DLT
 
                     foreach (string txid in block.transactions)
                     {
+                        Transaction tx = getTransaction(txid);
+
                         // Skip staking txids
                         if (txid.StartsWith("stk"))
                         {
                             if (Node.blockSync.synchronizing)
                             {
-                                if (getTransaction(txid) == null)
+                                if (tx == null)
                                 {
                                     Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
                                 }
@@ -422,7 +424,6 @@ namespace DLT
                             continue;
                         }
 
-                        Transaction tx = getTransaction(txid);
                         if (tx == null)
                         {
                             Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",

@@ -874,10 +874,10 @@ namespace DLT
             // Check if this is called from the block generator and if so, use the localNewBlock
             if (blockgen == true)
             {
-                targetBlockNum = localNewBlock.blockNum - 4;
+                targetBlockNum = localNewBlock.blockNum - 5;
             }
 
-            Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+            Block targetBlock = Node.blockChain.getBlock(targetBlockNum);
             if (targetBlock == null)
             {
                 return transactions;
