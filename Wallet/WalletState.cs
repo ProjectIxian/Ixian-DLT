@@ -159,6 +159,7 @@ namespace DLT
                 {
                     walletState.AddOrReplace(id, wallet);
                     cachedChecksum = "";
+                    cachedDeltaChecksum = "";
                 }
                 else
                 {
