@@ -15,7 +15,7 @@ namespace DLTNode
     {
         public static TcpClient tcpClient = null;
 
-        static string hostname = "192.168.1.101";
+        static string hostname = "192.168.1.102";
         static int port = 10515;
 
         public static void start()
@@ -139,6 +139,9 @@ namespace DLTNode
                            // Send the public node address
                            string address = Node.walletStorage.address;
                            writer.Write(address);
+
+                           // Send the testnet designator
+                           writer.Write(Config.isTestNet);
 
                            // Send the node type
                            char node_type = 'M'; // This is a Master node

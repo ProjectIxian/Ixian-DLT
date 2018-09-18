@@ -45,7 +45,10 @@ namespace DLT
         public bool start()
         {
             if(Config.disableMiner)
-                return true;
+                return false;
+
+            Logging.warn("Mining is disabled in this version.");
+            return false;
 
             shouldStop = false;
             Thread miner_thread = new Thread(threadLoop);

@@ -189,9 +189,15 @@ namespace DLT
                         string address = Node.walletStorage.address;
                         writer.Write(address);
 
+                        // Send the testnet designator
+                        writer.Write(Config.isTestNet);
+
                         // Send the node type
                         char node_type = 'M'; // This is a Master node
                         writer.Write(node_type);
+
+                        // Send the version
+                        writer.Write(Config.version);
 
                         // Send the node device id
                         writer.Write(Config.device_id);

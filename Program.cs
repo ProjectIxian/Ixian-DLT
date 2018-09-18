@@ -20,7 +20,7 @@ namespace DLTNode
 
         static void Main(string[] args)
         {
-            Logging.info(string.Format("IXIAN DLT Node {0} started", Config.dltVersion));
+            Logging.info(string.Format("IXIAN DLT Node {0} started", Config.version));
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
             /*if(runTests(args) == false)

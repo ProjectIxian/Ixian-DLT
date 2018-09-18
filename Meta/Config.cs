@@ -27,8 +27,10 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string dltVersion = "0.2.0";
-            public static readonly int nodeVersion = 4; // Node protocol version
+            public static readonly string version = "dlt-0.2.0"; // DLT Node version
+            public static readonly bool isTestNet = true; // Testnet designator
+
+            public static readonly int nodeVersion = 4; // Ixian protocol version
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
             public static readonly int keepAliveInterval = 45; // Number of seconds to wait until next keepalive ping

@@ -308,9 +308,29 @@ namespace DLT
                                     try
                                     {
                                         string addr = reader.ReadString();
+                                        bool test_net = reader.ReadBoolean();
                                         char node_type = reader.ReadChar();
+                                        string node_version = reader.ReadString();
                                         string device_id = reader.ReadString();
                                         string pubkey = reader.ReadString();
+
+
+                                        // Check the testnet designator and disconnect on mismatch
+                                        if(test_net != Config.isTestNet)
+                                        {
+                                            using (MemoryStream m2 = new MemoryStream())
+                                            {
+                                                using (BinaryWriter writer = new BinaryWriter(m2))
+                                                {
+                                                    writer.Write(string.Format("Incorrect testnet designator: {0}. Should be {1}", test_net, Config.isTestNet));
+                                                    Logging.info(string.Format("Rejected master node {0} due to incorrect testnet designator: {1}", hostname, test_net));
+                                                    socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
+                                                    socket.Disconnect(true);
+                                                    return;
+                                                }
+                                            }
+                                        }
+
 
                                         // Read the metadata and provide backward compatibility with older nodes
                                         string meta = " ";
@@ -325,7 +345,7 @@ namespace DLT
                                         //Console.WriteLine("Received Address: {0} of type {1}", addr, node_type);
 
                                         // Store the presence address for this remote endpoint
-                                        endpoint.presenceAddress = new PresenceAddress(device_id, hostname, node_type);
+                                        endpoint.presenceAddress = new PresenceAddress(device_id, hostname, node_type, node_version);
 
                                         // Create a temporary presence with the client's address and device id
                                         Presence presence = new Presence(addr, pubkey, meta, endpoint.presenceAddress);
@@ -360,8 +380,18 @@ namespace DLT
                                     }
                                     catch(Exception e)
                                     {
-                                        // TODO TODO TODO Probably send an error to the node
-                                        Logging.info(string.Format("Older node connected. Please update node. {0}", e.ToString()));
+                                        // Disconnect the node in case of any reading errors
+                                        Logging.info(string.Format("Older node connected. {0}", e.ToString()));
+                                        using (MemoryStream m2 = new MemoryStream())
+                                        {
+                                            using (BinaryWriter writer = new BinaryWriter(m2))
+                                            {
+                                                writer.Write(string.Format("Please update your Ixian node to connect."));
+                                                socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
+                                                socket.Disconnect(true);
+                                                return;
+                                            }
+                                        }
                                     }
 
                                 }

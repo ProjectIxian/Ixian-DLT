@@ -125,7 +125,8 @@ namespace DLT
             if (transaction.type == (int)Transaction.Type.PoWSolution)
             {
                 // TODO: pre-validate the transaction in such a way it doesn't affect performance
-
+                Logging.warn("Denied mining transaction before mining is enabled.");
+                return false;
             }
             // Special case for Staking Reward transaction
             else if (transaction.type == (int)Transaction.Type.StakingReward)
@@ -576,6 +577,9 @@ namespace DLT
             {
                 return false;
             }
+
+            Logging.warn("Trying to apply PoW transaction before mining is enabled.");
+            return false;
 
             // Update the block's applied field
             if (!ws_snapshot)
