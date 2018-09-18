@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DLT
@@ -21,8 +22,12 @@ namespace DLT
         public bool synchronizing { get; private set; }
         List<Block> pendingBlocks = new List<Block>();
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
+
+        List<List<WsChunk>> sendingWsChunks = new List<List<WsChunk>>();
+
         ulong syncTargetBlockNum;
         int maxBlockRequests = 10;
+        bool receivedAllMissingBlocks = false;
 
         ulong wsSyncStartBlock;
         ulong wsConfirmedBlockNumber;
@@ -32,6 +37,7 @@ namespace DLT
         public BlockSync()
         {
             synchronizing = false;
+            receivedAllMissingBlocks = false;
         }
 
         public void onUpdate()
@@ -42,11 +48,79 @@ namespace DLT
                 // we haven't connected to any clients yet
                 return;
             }
-            Logging.info(String.Format("Sync running: {0} blocks, {1} walletstate chunks.",
+
+            Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
                 pendingBlocks.Count, pendingWsChunks.Count));
 
-            requestMissingBlocks(); // TODO: this is a bad hack that just spams the network in the end
+            // Request missing blocks if needed
+            if (receivedAllMissingBlocks == false)
+            {
+                if (requestMissingBlocks()) // TODO: this is a bad hack that just spams the network in the end
+                {
+                    // If blocks were requested, wait for next iteration
+                    return;
+                }
+            }
+            
+            // Perform the wallet state synchronization
+            performWalletStateSync();
 
+            // if we reach here, we can proceed with rolling forward the chain until we reach syncTargetBlockNum
+            rollForward();
+        }
+
+        private bool requestMissingBlocks()
+        {
+            if (syncTargetBlockNum == 0)
+            {
+                return false;
+            }
+
+            ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow + 1;
+            ulong lastBlock = syncTargetBlockNum;
+            List<ulong> missingBlocks = new List<ulong>(
+            Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
+
+            int count = 0;
+            lock (pendingBlocks)
+            {
+                foreach (Block b in pendingBlocks)
+                {
+                    missingBlocks.RemoveAll(x => x == b.blockNum);
+                }
+
+                // whatever is left in missingBlocks is what we need to request
+                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
+                if(missingBlocks.Count() == 0)
+                {
+                    receivedAllMissingBlocks = true;
+                    return false;
+                }
+
+                foreach (ulong blockNum in missingBlocks)
+                {
+                    // First check if the missing block can be found in storage
+                    Block block = Node.blockChain.getBlock(blockNum);
+                    if (block != null)
+                    {
+                        Node.blockSync.onBlockReceived(block);
+                        continue;
+                    }
+
+                    // Didn't find the block in storage, request it from the network
+                    ProtocolMessage.broadcastGetBlock(blockNum);
+                    count++;
+                    if (count >= maxBlockRequests) break;
+                }
+            }
+            if (count > 0)
+                return true;
+            return false;
+        }
+
+        private void performWalletStateSync()
+        {
+            Console.WriteLine("WS SYNC from block: {0}", wsSyncStartBlock);
             if (wsSyncStartBlock > 0)
             {
                 Logging.info(String.Format("We are synchronizing from block #{0}.", wsSyncStartBlock));
@@ -67,7 +141,8 @@ namespace DLT
                             pendingWsChunks.Clear();
                         }
                     }
-                } else // misingWsChunks.Count > 0
+                }
+                else // misingWsChunks.Count > 0
                 {
                     return;
                 }
@@ -81,6 +156,9 @@ namespace DLT
                         ProtocolMessage.broadcastGetBlock(wsSyncStartBlock);
                         return;
                     }
+
+                    //Node.walletState.setWalletNonce("d9376b9f8f3e9683155f3d0dc868d0d56b5ad9b912ce9c1bb6fc03988ee4479716ed", 1);
+
                     string ws_checksum = Node.walletState.calculateWalletStateChecksum();
                     if (ws_checksum == b.walletStateChecksum)
                     {
@@ -88,23 +166,29 @@ namespace DLT
                         wsConfirmedBlockNumber = wsSyncStartBlock;
                         wsSyncStartBlock = 0;
                         ProtocolMessage.syncCompleteNeighbor(syncNeighbor);
-                    } else
+                    }
+                    else
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Logging.warn(String.Format("Wallet state is not correct (block = {0}, WS = {1}).",
+                        Logging.warn(String.Format("Wallet state is not correct (blockWS = {0}, actualWS = {1}).",
                             b.walletStateChecksum, ws_checksum));
                         Console.ResetColor();
 
                         //TODO : restart sync with another neighbor
-                        syncTargetBlockNum = 0;
+                        //syncTargetBlockNum = 0;
                     }
                 }
-            } else // wsSyncStartBlock == 0
+            }
+            else // wsSyncStartBlock == 0
             {
                 Logging.info("WalletState is already synchronized. Skipping.");
             }
-            // if we reach here, we can proceed with rolling forward the chain until we reach syncTargetBlockNum
-            lock (pendingBlocks) {
+        }
+
+        private void rollForward()
+        {
+            lock (pendingBlocks)
+            {
                 ulong lowestBlockNum = 1;
                 if (Node.blockChain.redactedWindowSize < syncTargetBlockNum)
                 {
@@ -113,12 +197,12 @@ namespace DLT
                 while (Node.blockChain.getLastBlockNum() < syncTargetBlockNum)
                 {
                     ulong next_to_apply = Node.blockChain.getLastBlockNum() + 1;
-                    if(next_to_apply < lowestBlockNum)
+                    if (next_to_apply < lowestBlockNum)
                     {
                         next_to_apply = lowestBlockNum;
                     }
                     Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
-                    if(b==null)
+                    if (b == null)
                     {
                         Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
                         ProtocolMessage.broadcastGetBlock(next_to_apply);
@@ -146,7 +230,7 @@ namespace DLT
                         Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
                         return;
                     }
-                    if(b_status == BlockVerifyStatus.Invalid)
+                    if (b_status == BlockVerifyStatus.Invalid)
                     {
                         Logging.info(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
@@ -163,12 +247,12 @@ namespace DLT
                             // Apply transaction fees
                             Node.blockProcessor.applyTransactionFeeRewards(b);
                             // Apply staking rewards
-                            Node.blockProcessor.distributeStakingRewards(b);
+                            //                            Node.blockProcessor.distributeStakingRewards(b);
                         }
                     }
-                   // else
+                    // else
                     {
-         //               Node.blockProcessor.storeStakingRewards();
+                        //               Node.blockProcessor.storeStakingRewards();
                     }
                     TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
                     Node.blockChain.appendBlock(b);
@@ -196,45 +280,8 @@ namespace DLT
                 Node.blockProcessor.firstBlockAfterSync = true;
                 Node.blockProcessor.resumeOperation();
             }
-
         }
 
-        private void requestMissingBlocks()
-        {
-            if (syncTargetBlockNum == 0)
-            {
-                return;
-            }
-            lock (pendingBlocks)
-            {
-                ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow + 1;
-                ulong lastBlock = syncTargetBlockNum;
-                List<ulong> missingBlocks = new List<ulong>(
-                    Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
-                foreach (Block b in pendingBlocks)
-                {
-                    missingBlocks.RemoveAll(x => x == b.blockNum);
-                }
-                // whatever is left in missingBlocks is what we need to request
-                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
-                int count = 0;
-                foreach (ulong blockNum in missingBlocks)
-                {
-                    // First check if the missing block can be found in storage
-                    Block block = Node.blockChain.getBlock(blockNum);
-                    if (block != null)
-                    {
-                        Node.blockSync.onBlockReceived(block);
-                        continue;
-                    }
-
-                    // Didn't find the block in storage, request it from the network
-                    ProtocolMessage.broadcastGetBlock(blockNum);
-                    count++;
-                    if (count >= maxBlockRequests) break;
-                }
-            }
-        }
 
         private void requestWalletChunks()
         {
@@ -251,21 +298,30 @@ namespace DLT
             }
         }
 
-        public bool startOutgoingWSSync()
+        // Called when receiving a walletstate synchronization request
+        public bool startOutgoingWSSync(RemoteEndpoint endpoint)
         {
-            if(synchronizing)
+            if(synchronizing == true)
             {
-                Logging.info("Unable to outgoing sync until own sync is complete.");
+                Logging.info("Unable to perform outgoing walletstate sync until own blocksync is complete.");
                 return false;
             }
-            if(pendingWsChunks.Count > 0)
-            {
-                  Logging.info("Unable to outgoing sync, because another outgoing sync is still in progress.");
-                  return false;
-            }
+
+            pendingWsChunks.Clear();
+
+            /*   if(pendingWsChunks.Count > 0)
+               {
+                     Logging.info("Unable to perform outgoing walletstate sync, because another outgoing sync is still in progress.");
+                     return false;
+               }
+               */
+
             lock (pendingWsChunks)
             {
+              //  List<WsChunk> sendingWs = sendingWsChunks.Find()
+
                 pendingWsChunks.AddRange(Node.walletState.getWalletStateChunks(Config.walletStateChunkSplit));
+                //sendingWsChunks.Add();
             }
             Logging.info("Started outgoing WalletState Sync.");
             return true;
@@ -363,6 +419,8 @@ namespace DLT
             synchronizing = true;
             // select sync partner for walletstate
             wsSyncStartBlock = 0;
+            receivedAllMissingBlocks = false;
+
             HashSet<string> all_neighbors = new HashSet<string>(NetworkClientManager.getConnectedClients().Concat(NetworkServer.getConnectedClients()));
             if (all_neighbors.Count < 1)
             {
@@ -371,7 +429,9 @@ namespace DLT
             }
             Random r = new Random();
             syncNeighbor = all_neighbors.ElementAt(r.Next(all_neighbors.Count));
-            Logging.info(String.Format("Starting node synchronization. Neighbor {0} chosen.", syncNeighbor));           
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Logging.info(String.Format("Starting node synchronization from {0}", syncNeighbor));
+            Console.ResetColor();
             ProtocolMessage.syncWalletStateNeighbor(syncNeighbor);
         }
 
@@ -400,6 +460,7 @@ namespace DLT
 
         public void onHelloDataReceived(ulong block_height, string block_checksum, string walletstate_checksum, int consensus)
         {
+            Logging.info("SYNC HEADER DATA");
             Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));
             Logging.info(string.Format("\t|- Block Checksum:\t\t{0}", block_checksum));
             Logging.info(string.Format("\t|- WalletState checksum:\t{0}", walletstate_checksum));
