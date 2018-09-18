@@ -125,13 +125,17 @@ namespace DLT
                 Wallet candidateWallet = new Wallet(id, (ulong)0);
                 if (walletState.ContainsKey(id))
                 {
-                    candidateWallet = walletState[id];
+                    candidateWallet.data = walletState[id].data;
+                    candidateWallet.balance = walletState[id].balance;
+                    candidateWallet.nonce = walletState[id].nonce;
                 }
                 if (snapshot)
                 {
                     if (wsDelta != null && wsDelta.ContainsKey(id))
                     {
-                        candidateWallet = wsDelta[id];
+                        candidateWallet.data = wsDelta[id].data;
+                        candidateWallet.balance = wsDelta[id].balance;
+                        candidateWallet.nonce = wsDelta[id].nonce;
                     }
                 }
                 return candidateWallet;
