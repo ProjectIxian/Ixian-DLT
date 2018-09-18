@@ -409,20 +409,20 @@ namespace DLT
 
                     foreach (string txid in block.transactions)
                     {
-                        Transaction tx = getTransaction(txid);
-
                         // Skip staking txids
                         if (txid.StartsWith("stk"))
                         {
                             if (Node.blockSync.synchronizing)
                             {
-                                if (tx == null)
+                                if (getTransaction(txid) == null)
                                 {
                                     Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
                                 }
                             }
                             continue;
                         }
+
+                        Transaction tx = getTransaction(txid);
 
                         if (tx == null)
                         {
