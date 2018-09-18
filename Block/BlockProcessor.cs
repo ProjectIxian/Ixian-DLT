@@ -355,6 +355,16 @@ namespace DLT
                 Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
                 return BlockVerifyStatus.Invalid;
             }
+
+            // Verify sigfreeze
+            if (b.signatures.Count() >= Node.blockChain.getRequiredConsensus())
+            {
+                if(!verifySignatureFreezeChecksum(b))
+                {
+                    return BlockVerifyStatus.Indeterminate;
+                }
+            }
+
             // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic
             //  Note: This will need a change in the Network code to tag incoming blocks with sender info.
             return BlockVerifyStatus.Valid;
@@ -475,64 +485,43 @@ namespace DLT
 
         }
 
+        private bool verifySignatureFreezeChecksum(Block b)
+        {
+            if (b.signatureFreezeChecksum.Length > 3)
+            {
+                Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
+                if (targetBlock == null)
+                {
+                    // this shouldn't be possible
+                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                    Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
+                    return false;
+                }
+                string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+                if (b.signatureFreezeChecksum != sigFreezeChecksum)
+                {
+                    Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
+                        b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum - 5));
+                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                    return false;
+                }
+            }
+            else if (b.blockNum > 5)
+            {
+                Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
+                Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
+                    b.blockNum, targetBlock.calculateSignatureChecksum(), b.blockNum - 5));
+                ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                return false;
+            }
+
+            return true;
+        }
+
         // Applies the block
         // Returns false if walletstate is not correct
         private bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
         {
-            /*    // TODO: verify that walletstate ends up on the same checksum as block promises
-                lock (Node.walletState)
-                {
-                    // Store a copy of the walletstate
-                    WalletState tempState = new WalletState(Node.walletState);
-
-                    // Apply transactions from block
-                    TransactionPool.applyTransactionsFromBlock(localNewBlock);
-
-                    // Apply transaction fees
-                    applyTransactionFeeRewards(localNewBlock);
-
-                    // Distribute staking rewards
-                    distributeStakingRewards();
-
-                    string tempStateChecksum = tempState.calculateWalletStateChecksum();
-                    if (localNewBlock.walletStateChecksum.Equals(tempStateChecksum) == false)
-                    {
-                        Logging.warn(String.Format("Block WS checksum {0} doesn't match WS after applying {1}. Reverted.",
-                            localNewBlock.walletStateChecksum, tempStateChecksum));
-
-                        // Revert the current walletstate
-                        Node.walletState = new WalletState(tempState);
-
-                        return false;
-                    }
-
-                }*/
-
-
-            // verify signatureFreezeChecksum;
-            if (ws_snapshot == false)
-            {
-                if (b.signatureFreezeChecksum.Length > 3)
-                {
-                    Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
-                    if (targetBlock == null)
-                    {
-                        // this shouldn't be possible
-                        ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
-                        Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
-                        return false;
-                    }
-                    string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
-                    if (b.signatureFreezeChecksum != sigFreezeChecksum)
-                    {
-                        Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
-                            b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum - 5));
-                        ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
-                        return false;
-                    }
-                }
-            }
-
             // Distribute staking rewards first
             distributeStakingRewards(b, ws_snapshot);
 
@@ -563,6 +552,13 @@ namespace DLT
 
                 sigfreezechecksum = b.signatureFreezeChecksum;
             }
+
+            // Ignore blocks before #5
+            if (b.blockNum < 5)
+            {
+                return;
+            }
+
             if (sigfreezechecksum.Length < 3)
             {
                 Logging.info("Current block does not have sigfreeze checksum.");
