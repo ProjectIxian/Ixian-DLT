@@ -114,7 +114,6 @@ namespace DLT
                 {
                     if (tx.equals(transaction) == true)
                         return false;
-
                     // Additional pass for dynamic-generated transactions
                     if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
                         return false;
@@ -186,11 +185,21 @@ namespace DLT
                 return false;
             }
 
-            Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
+            //Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
 
             // Lock transactions to prevent threading bugs
             lock (transactions)
             {
+                // Search for dups again
+                foreach (Transaction tx in transactions)
+                {
+                    if (tx.equals(transaction) == true)
+                        return false;
+                    if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
+                        return false;
+                }
+
+
                 transactions.Add(transaction);
 
                 // Sort the transactions by nonce ascending
@@ -200,7 +209,7 @@ namespace DLT
 
             // Storage the transaction in the database
             //  if (no_storage_no_broadcast == false)
-            Meta.Storage.insertTransaction(transaction);
+            //Meta.Storage.insertTransaction(transaction);
 
             Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
 
