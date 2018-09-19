@@ -209,7 +209,7 @@ namespace DLT
 
             // Storage the transaction in the database
             //  if (no_storage_no_broadcast == false)
-            //Meta.Storage.insertTransaction(transaction);
+            Meta.Storage.insertTransaction(transaction);
 
             Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
 
