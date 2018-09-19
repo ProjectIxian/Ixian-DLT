@@ -302,7 +302,7 @@ namespace DLT
             }
 
             // Verify sigfreeze
-            if (b.signatures.Count() >= Node.blockChain.getRequiredConsensus())
+            if (b.blockNum <= Node.blockChain.getLastBlockNum() || b.signatures.Count() >= Node.blockChain.getRequiredConsensus())
             {
                 if (!verifySignatureFreezeChecksum(b))
                 {
