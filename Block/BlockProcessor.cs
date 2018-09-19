@@ -187,6 +187,7 @@ namespace DLT
                 }
                 if (sigFreezeChecksum == b.calculateSignatureChecksum())
                 {
+                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, b.blockChecksum));
                     // this is likely the correct block, update and broadcast to others
                     Node.blockChain.refreshSignatures(b, true);
                     ProtocolMessage.broadcastNewBlock(targetBlock, socket);
@@ -194,8 +195,8 @@ namespace DLT
                 }
                 else
                 {
-                    ProtocolMessage.broadcastGetBlock(b.blockNum, socket);
                     Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, b.blockChecksum));
+                    ProtocolMessage.broadcastGetBlock(b.blockNum, socket);
                     return false;
                 }
             }
@@ -205,7 +206,7 @@ namespace DLT
         public void onBlockReceived(Block b, Socket socket = null)
         {
             if (operating == false) return;
-            Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
+            Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, b.blockChecksum, b.getUniqueSignatureCount()));
 
             // if historic block, only the sigs should be updated if not older than 5 blocks in history
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
