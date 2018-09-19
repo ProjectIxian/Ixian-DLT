@@ -192,10 +192,15 @@ namespace DLT
             lock (transactions)
             {
                 transactions.Add(transaction);
+
+                // Sort the transactions by nonce ascending
+                // TODO: this will be replaced when the new nonce mechanism is implemented
+                transactions.Sort((x, y) => x.nonce.CompareTo(y.nonce));
             }
+
             // Storage the transaction in the database
-          //  if (no_storage_no_broadcast == false)
-                Meta.Storage.insertTransaction(transaction);
+            //  if (no_storage_no_broadcast == false)
+            Meta.Storage.insertTransaction(transaction);
 
             Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
 
@@ -566,7 +571,7 @@ namespace DLT
                 Logging.error(string.Format("Error applying transactions from block #{0}. Message: {1}", block.blockNum, e.Message));
                 return false;
             }
-
+            
             return true;
         }
 

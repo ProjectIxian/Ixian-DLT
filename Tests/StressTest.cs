@@ -21,11 +21,13 @@ namespace DLTNode
         public static void start()
         {
             // Run protocol spam
-            startProtocolTest();
+            //  startProtocolTest();
 
             // Run the spam connect test
-            startSpamConnectTest();
+            //  startSpamConnectTest();
 
+            // Run transaction spam test
+            startTxSpamTest();
         }
 
         private static bool connect()
@@ -182,6 +184,29 @@ namespace DLTNode
 
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Ending spam connect test");
+            Console.ResetColor();
+        }
+
+        public static void startTxSpamTest()
+        {
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Logging.info("Starting tx spam test");
+
+            ulong nonce = 1;
+            for(int i = 0; i < 100; i++)
+            {
+                IxiNumber amount = new IxiNumber("0.01");
+                IxiNumber fee = Config.transactionPrice;
+                string to = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481";
+                string from = Node.walletStorage.getWalletAddress();
+                Transaction transaction = new Transaction(amount, fee, to, from, nonce);
+                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
+
+                nonce++;
+            }
+
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Logging.info("Ending tx spam test");
             Console.ResetColor();
         }
 

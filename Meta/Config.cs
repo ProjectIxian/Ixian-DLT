@@ -73,6 +73,8 @@ namespace DLT
                 Logging.log(LogSeverity.info, "Reading config...");
                 var cmd_parser = new FluentCommandLineParser();
 
+                bool start_clean = false; // Flag to determine if node should delete cache+logs
+
                 // Read the parameters from the command line and overwrite values if necessary
                 string new_value = "";
                 cmd_parser.Setup<string>('v').Callback(value => new_value = value).Required();
@@ -86,6 +88,8 @@ namespace DLT
                 // Check for recovery parameter
                 cmd_parser.Setup<bool>('r', "recover").Callback(value => recoverFromFile = value).Required();
 
+                // Check for clean parameter
+                cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = value).Required();
 
                 cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
@@ -106,6 +110,11 @@ namespace DLT
                 Logging.log(LogSeverity.info, String.Format("Server Port: {0}", serverPort));
                 Logging.log(LogSeverity.info, String.Format("API Port: {0}", apiPort));
                 Logging.log(LogSeverity.info, String.Format("Wallet File: {0}", walletFile));
+
+                if(start_clean)
+                {
+                    Node.cleanCacheandLogs();
+                }
 
             }
 

@@ -1,6 +1,7 @@
 ﻿using DLT.Network;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -387,6 +388,25 @@ namespace DLT.Meta
             }
 
             return false;
+        }
+
+        // Cleans the storage cache and logs
+        public static bool cleanCacheandLogs()
+        {
+            if(File.Exists(Storage.filename))
+            {
+                File.Delete(Storage.filename);
+            }
+
+            if(File.Exists(Storage.presenceFilename))
+            {
+                File.Delete(Storage.presenceFilename);
+            }
+
+            Logging.clear();
+
+            Console.WriteLine("Cleaned cache and logs.");
+            return true;
         }
     }
 }
