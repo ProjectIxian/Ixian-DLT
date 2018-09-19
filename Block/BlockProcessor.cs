@@ -153,17 +153,30 @@ namespace DLT
             return false;
         }
 
-        // Checks if the block has been sigFreezed and if all the hashes match and if removes sigs without a PL entry, returns false if the block should be discarded
+        // Checks if the block has been sigFreezed and if all the hashes match, returns false if the block should be discarded
         public bool handleSigFreezedBlock(Block b, Socket socket = null)
         {
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
+            string sigFreezeChecksum = null;
+            lock (localBlockLock)
+            {
+                if (sigFreezingBlock == null && localNewBlock != null && localNewBlock.blockNum == b.blockNum + 5)
+                {
+                    sigFreezingBlock = localNewBlock;
+                }
+            }
             if (sigFreezingBlock != null)
             {
+                lock (localBlockLock)
+                {
+                    sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
+                }
                 // this block already has a sigfreeze, don't tamper with the signatures
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum);
-                if (targetBlock != null && sigFreezingBlock.signatureFreezeChecksum == targetBlock.calculateSignatureChecksum())
+                if (targetBlock != null && sigFreezeChecksum == targetBlock.calculateSignatureChecksum())
                 {
-                    if (b.calculateSignatureChecksum() != sigFreezingBlock.signatureFreezeChecksum)
+                    // we already have the correct block
+                    if (b.calculateSignatureChecksum() != sigFreezeChecksum)
                     {
                         // we already have the correct block but the sender does not, broadcast our block
                         //ProtocolMessage.broadcastNewBlock(targetBlock);
@@ -172,11 +185,10 @@ namespace DLT
                     }
                     return false;
                 }
-                if (sigFreezingBlock.signatureFreezeChecksum == b.calculateSignatureChecksum())
+                if (sigFreezeChecksum == b.calculateSignatureChecksum())
                 {
                     // this is likely the correct block, update and broadcast to others
-                    targetBlock.signatures = b.signatures; // TODO TODO TODO, needs to be updated in storage as well
-                    Meta.Storage.insertBlock(targetBlock);
+                    Node.blockChain.refreshSignatures(b, true);
                     ProtocolMessage.broadcastNewBlock(targetBlock, socket);
                     return false;
                 }
@@ -194,14 +206,37 @@ namespace DLT
         {
             if (operating == false) return;
             Logging.info(String.Format("Received block #{0} ({1} sigs) from the network.", b.blockNum, b.getUniqueSignatureCount()));
+
+            // if historic block, only the sigs should be updated if not older than 5 blocks in history
+            if (b.blockNum <= Node.blockChain.getLastBlockNum())
+            {
+                if (b.blockNum >= Node.blockChain.getLastBlockNum() - 5)
+                {
+                    Logging.info(String.Format("Already processed block #{0}, doing basic verification and collecting only sigs if relevant!", b.blockNum));
+                    Block localBlock = Node.blockChain.getBlock(b.blockNum);
+                    if (b.blockChecksum == localBlock.blockChecksum && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
+                    {
+                        if (handleSigFreezedBlock(b, socket))
+                        {
+                            removeSignaturesWithoutPlEntry(b);
+                            removeSignaturesWithLowBalance(b);
+                            b.applySignature();
+                            if (Node.blockChain.refreshSignatures(b))
+                            {
+                                // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                                Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                                ProtocolMessage.broadcastNewBlock(updatedBlock);
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
             if (verifyBlock(b) != BlockVerifyStatus.Valid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
-                return;
-            }
-            if(!handleSigFreezedBlock(b, socket))
-            {
                 return;
             }
             if (removeSignaturesWithoutPlEntry(b))
@@ -227,19 +262,10 @@ namespace DLT
                 {
                     onBlockReceived_currentBlock(b);
                 }
-                else
-                {
-                    if (Node.blockChain.refreshSignatures(b))
-                    {
-                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                        ProtocolMessage.broadcastNewBlock(updatedBlock);
-                    }
-                }
             }
         }
 
-        public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false)
+        public BlockVerifyStatus verifyBlockBasic(Block b)
         {
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
@@ -251,28 +277,68 @@ namespace DLT
                     ProtocolMessage.broadcastGetBlock(b.blockNum - 1);
                 }
                 return BlockVerifyStatus.Indeterminate;
-            }else if (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum) // block found but checksum doesn't match
+            }
+            else if (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum) // block found but checksum doesn't match
             {
                 Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
                 // TODO Blacklisting point?
                 return BlockVerifyStatus.Invalid;
             }
+
+            // Verify checksums
+            string checksum = b.calculateChecksum();
+            if (b.blockChecksum != checksum)
+            {
+                Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
+                    b.blockNum, b.blockChecksum, checksum));
+                return BlockVerifyStatus.Invalid;
+            }
+
+            // Verify signatures
+            if (!b.verifySignatures())
+            {
+                Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
+                return BlockVerifyStatus.Invalid;
+            }
+
+            // Verify sigfreeze
+            if (b.signatures.Count() >= Node.blockChain.getRequiredConsensus())
+            {
+                if (!verifySignatureFreezeChecksum(b))
+                {
+                    return BlockVerifyStatus.Indeterminate;
+                }
+            }
+
+            // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic
+            //  Note: This will need a change in the Network code to tag incoming blocks with sender info.
+            return BlockVerifyStatus.Valid;
+        }
+
+        public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false)
+        {
+            BlockVerifyStatus basicVerification = verifyBlockBasic(b);
+            if(basicVerification != BlockVerifyStatus.Valid)
+            {
+                return basicVerification;
+            }
+
             // Check all transactions in the block against our TXpool, make sure all is legal
-            // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Intederminate
+            // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Indeterminate
             bool hasAllTransactions = true;
             Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
             foreach (string txid in b.transactions)
             {
                 // Skip fetching staking txids if we're not synchronizing
-                if(txid.StartsWith("stk"))
+                if (txid.StartsWith("stk"))
                 {
-                    if(Node.blockSync.synchronizing == false)
+                    if (Node.blockSync.synchronizing == false)
                         continue;
                 }
 
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
-                {                  
+                {
                     Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
                     ProtocolMessage.broadcastGetTransaction(txid);
                     hasAllTransactions = false;
@@ -300,6 +366,13 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
             }
+            //
+            if (!hasAllTransactions)
+            {
+                Logging.info(String.Format("Block #{0} is missing some transactions, which have been requested from the network.", b.blockNum));
+                return BlockVerifyStatus.Indeterminate;
+            }
+
             // overspending
             foreach (string addr in minusBalances.Keys)
             {
@@ -311,20 +384,6 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
             }
-            //
-            if (!hasAllTransactions)
-            {
-                Logging.info(String.Format("Block #{0} is missing some transactions, which have been requested from the network.", b.blockNum));
-                return BlockVerifyStatus.Indeterminate;
-            }
-            // Verify checksums
-            string checksum = b.calculateChecksum();
-            if (b.blockChecksum != checksum)
-            {
-                Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
-                    b.blockNum, b.blockChecksum, checksum));
-                return BlockVerifyStatus.Invalid;
-            }
 
             // Note: This part depends on no one else messing with WS while it runs.
             // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
@@ -335,35 +394,31 @@ namespace DLT
             string ws_checksum = "";
             if (ignore_walletstate == false)
             {
-                lock (localBlockLock)
+                // ignore wallet state check if it isn't the current block
+                if (b.blockNum < Node.blockChain.getLastBlockNum())
                 {
-                    Node.walletState.snapshot();
-                    applyAcceptedBlock(b, true);
-                    ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
-                    Node.walletState.revert();
+                    Logging.warn(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
                 }
-                if (ws_checksum != b.walletStateChecksum)
+                else
                 {
-                    Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
-                    return BlockVerifyStatus.Invalid;
+                    lock (localBlockLock)
+                    {
+                        Node.walletState.snapshot();
+                        applyAcceptedBlock(b, true);
+                        ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                        Node.walletState.revert();
+                    }
+                    if (ws_checksum != b.walletStateChecksum)
+                    {
+                        Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
+                        return BlockVerifyStatus.Invalid;
+                    }
                 }
             }
 
-            // Verify signatures
-            if (!b.verifySignatures())
-            {
-                Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
-                return BlockVerifyStatus.Invalid;
-            }
 
-            // Verify sigfreeze
-            if (b.signatures.Count() >= Node.blockChain.getRequiredConsensus())
-            {
-                if(!verifySignatureFreezeChecksum(b))
-                {
-                    return BlockVerifyStatus.Indeterminate;
-                }
-            }
+
+
 
             // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic
             //  Note: This will need a change in the Network code to tag incoming blocks with sender info.
@@ -855,7 +910,7 @@ namespace DLT
         }
 
         // Generate all the staking transactions for this block
-        private List<Transaction> generateStakingTransactions(bool blockgen = false)
+        private List<Transaction> generateStakingTransactions(bool blockgen = false, bool ws_snapshot = false)
         {
             List<Transaction> transactions = new List<Transaction>();
             // Prevent distribution if we don't have 10 fully generated blocks yet
@@ -904,7 +959,7 @@ namespace DLT
             int idx = 0;
             foreach (string wallet_addr in signatureWallets)
             {
-                Wallet wallet = Node.walletState.getWallet(wallet_addr);
+                Wallet wallet = Node.walletState.getWallet(wallet_addr, ws_snapshot);
                 totalIxisStaked += wallet.balance;
                 stakes[idx] = wallet.balance.getAmount();
                 idx += 1;
@@ -977,20 +1032,21 @@ namespace DLT
         // Distribute the staking rewards according to the 5th last block signatures
         public bool distributeStakingRewards(Block b, bool ws_snapshot = false)
         {
-            if (ws_snapshot)
-                return true;
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {
                 return false;
             }
 
-            List<Transaction> transactions = generateStakingTransactions();      
-            foreach(Transaction transaction in transactions)
+            List<Transaction> transactions = generateStakingTransactions(false, ws_snapshot);
+            if (ws_snapshot == false)
             {
-                if(!TransactionPool.addTransaction(transaction, true))
+                foreach (Transaction transaction in transactions)
                 {
-                    Logging.warn("An error occured while trying to add staking transaction");
+                    if (!TransactionPool.addTransaction(transaction, true))
+                    {
+                        Logging.warn("An error occured while trying to add staking transaction");
+                    }
                 }
             }
             

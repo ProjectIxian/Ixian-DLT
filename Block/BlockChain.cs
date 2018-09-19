@@ -148,7 +148,7 @@ namespace DLT
             }
         }
 
-        public bool refreshSignatures(Block b)
+        public bool refreshSignatures(Block b, bool forceRefresh = false)
         {
             // we refuse to change sig numbers older than 5 blocks
             ulong sigLockHeight = getLastBlockNum() > 5 ? getLastBlockNum() - 5 : 1;
@@ -161,10 +161,19 @@ namespace DLT
                 int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum == b.blockChecksum);
                 if (idx > 0)
                 {
+                    string beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     int beforeSigs = blocks[idx].signatures.Count;
-                    blocks[idx].addSignaturesFrom(b);
+                    if (forceRefresh)
+                    {
+                        blocks[idx].signatures = b.signatures;
+                    }
+                    else
+                    {
+                        blocks[idx].addSignaturesFrom(b);
+                    }
+                    string afterSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     int afterSigs = blocks[idx].signatures.Count;
-                    if (beforeSigs != afterSigs)
+                    if (beforeSigsChecksum != afterSigsChecksum)
                     {
                         // TODO: optimize this
                         Storage.insertBlock(blocks[idx]); // Update the block
