@@ -150,11 +150,14 @@ namespace DLT
 
         public bool refreshSignatures(Block b, bool forceRefresh = false)
         {
-            // we refuse to change sig numbers older than 5 blocks
-            ulong sigLockHeight = getLastBlockNum() > 5 ? getLastBlockNum() - 5 : 1;
-            if(b.blockNum <= sigLockHeight)
+            if (!forceRefresh)
             {
-                return false;
+                // we refuse to change sig numbers older than 4 blocks
+                ulong sigLockHeight = getLastBlockNum() > 5 ? getLastBlockNum() - 3 : 1;
+                if (b.blockNum <= sigLockHeight)
+                {
+                    return false;
+                }
             }
             lock (blocks)
             {

@@ -269,7 +269,8 @@ namespace DLT
                     block.transactions.Add(s1);
                 }
 
-                Console.WriteLine("Read block #{0} from storage.", block.blockNum);
+                Logging.info(String.Format("Read block #{0} from storage.", block.blockNum));
+
                 return block;
             }
 
