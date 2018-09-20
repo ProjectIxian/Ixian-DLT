@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -70,6 +71,36 @@ namespace DLT
                 return false;
             }
 
+            // Run through existing transactions in the pool and verify for double-spending / invalid states
+            // Note that we lock the transaction for the entire duration of the checks, which might pose performance issues
+            // Todo: find a better way to handle this without running into threading bugs
+            lock (transactions)
+            {
+                foreach (Transaction tx in transactions)
+                {
+                    if (tx.equals(transaction) == true)
+                        return false;
+                    // Additional pass for dynamic-generated transactions
+                    if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
+                        return false;
+                }
+            }
+
+            // Prevent transaction spamming
+            // Commented due to implementation of 'pending' transactions for S2 as per whitepaper
+            // Uncommented, we can use a different tx type for pending transactions
+            if (transaction.amount == 0)
+            {
+                return false;
+            }
+
+            // Prevent sending to the sender's address
+            if (transaction.from.Equals(transaction.to, StringComparison.Ordinal))
+            {
+                Logging.warn(string.Format("Invalid TO address for transaction id: {0}", transaction.id));
+                return false;
+            }
+
             // Calculate the transaction checksum and compare it
             string checksum = Transaction.calculateChecksum(transaction);
             if (checksum.Equals(transaction.checksum) == false)
@@ -90,35 +121,6 @@ namespace DLT
                 return false;
             }
 
-            // Prevent transaction spamming
-            // Commented due to implementation of 'pending' transactions for S2 as per whitepaper
-            // Uncommented, we can use a different tx type for pending transactions
-            if(transaction.amount == 0)
-            {
-                return false;
-            }
-
-            // Prevent sending to the sender's address
-            if (transaction.from.Equals(transaction.to, StringComparison.Ordinal))
-            {
-                Logging.warn(string.Format("Invalid TO address for transaction id: {0}", transaction.id));
-                return false;
-            }
-
-            // Run through existing transactions in the pool and verify for double-spending / invalid states
-            // Note that we lock the transaction for the entire duration of the checks, which might pose performance issues
-            // Todo: find a better way to handle this without running into threading bugs
-            lock (transactions)
-            {
-                foreach (Transaction tx in transactions)
-                {
-                    if (tx.equals(transaction) == true)
-                        return false;
-                    // Additional pass for dynamic-generated transactions
-                    if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
-                        return false;
-                }
-            }
 
             // Special case for PoWSolution transactions
             if (transaction.type == (int)Transaction.Type.PoWSolution)
@@ -178,7 +180,7 @@ namespace DLT
 
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction, bool no_storage_no_broadcast = false)
+        public static bool addTransaction(Transaction transaction, bool no_storage_no_broadcast = false, Socket skipSocket = null)
         {
             if (!verifyTransaction(transaction))
             {
@@ -199,7 +201,6 @@ namespace DLT
                         return false;
                 }
 
-
                 transactions.Add(transaction);
 
                 // Sort the transactions by nonce ascending
@@ -219,7 +220,7 @@ namespace DLT
 
             // Broadcast this transaction to the network
             if (no_storage_no_broadcast == false)
-                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
+                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes(), skipSocket);
 
 
             return true;

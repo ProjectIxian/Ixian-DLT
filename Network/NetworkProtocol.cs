@@ -371,7 +371,7 @@ namespace DLT
                                                     }
                                                 }
                                             }
-                                            
+                                           
                                             // Limit to one IP per masternode
                                             string[] hostname_split = hostname.Split(':');
                                             if (PresenceList.containsIP(hostname_split[0], 'M'))
@@ -568,7 +568,9 @@ namespace DLT
                         case ProtocolMessageCode.newTransaction:
                             {
                                 Transaction transaction = new Transaction(data);
-                                TransactionPool.addTransaction(transaction);
+                                if (transaction == null)
+                                    return;
+                                TransactionPool.addTransaction(transaction, false, socket);
                             }
                             break;
 
@@ -608,7 +610,7 @@ namespace DLT
                                 }
 
                                 // Add the transaction to the pool
-                                TransactionPool.addTransaction(transaction);                               
+                                TransactionPool.addTransaction(transaction, false, socket);                               
                             }
                             break;
                         case ProtocolMessageCode.bye:
