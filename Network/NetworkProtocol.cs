@@ -388,7 +388,7 @@ namespace DLT
                                                     }
                                                 }
                                             }
-
+                                            
                                         }
 
 
@@ -631,6 +631,7 @@ namespace DLT
                             {
                                 Block block = new Block(data);
                                 //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
+                                Node.blockSync.onBlockReceived(block);
                                 Node.blockProcessor.onBlockReceived(block);
                             }
                             break;
