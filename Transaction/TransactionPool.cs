@@ -524,40 +524,40 @@ namespace DLT
 
                 // TODO: move this to a seperate function. Left here for now for dev purposes
                 // Apply any staking transactions in the pool at this moment
-                Transaction[] staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
-                if (staking_txs == null)
-                    return true;
-
-                // Maintain a list of stakers
-                List<string> blockStakers = new List<string>();
-                List<Transaction> failed_staking_transactions = new List<Transaction>();
-
-                foreach (Transaction tx in staking_txs)
-                {
-                    if (tx.applied > 0)
-                        continue;
-
-                    string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
-                    ulong txbnum = Convert.ToUInt64(split_str[1]);
-
-                    if (txbnum != block.blockNum - 6)
-                        continue;
-
-                    // Special case for Staking Reward transaction
-                    // Do not apply them if we are synchronizing
-                    // TODO: note that this can backfire when recovering completely from a file
-                    if (Node.blockSync.synchronizing && Config.recoverFromFile == false)
-                        continue;
-
-                    if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
-                    {
-                        Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
-                        continue;
-                    }
-                }
-
                 lock (transactions)
                 {
+                    Transaction[] staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
+                    if (staking_txs == null)
+                        return true;
+
+                    // Maintain a list of stakers
+                    List<string> blockStakers = new List<string>();
+                    List<Transaction> failed_staking_transactions = new List<Transaction>();
+
+                    foreach (Transaction tx in staking_txs)
+                    {
+                        if (tx.applied > 0)
+                            continue;
+
+                        string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
+                        ulong txbnum = Convert.ToUInt64(split_str[1]);
+
+                        if (txbnum != block.blockNum - 6)
+                            continue;
+
+                        // Special case for Staking Reward transaction
+                        // Do not apply them if we are synchronizing
+                        // TODO: note that this can backfire when recovering completely from a file
+                        if (Node.blockSync.synchronizing && Config.recoverFromFile == false)
+                            continue;
+
+                        if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
+                        {
+                            Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
+                            continue;
+                        }
+                    }
+
                     // Remove all failed transactions from the TxPool
                     foreach (Transaction tx in failed_staking_transactions)
                     {
@@ -573,9 +573,6 @@ namespace DLT
                         block.transactions.Remove(tx.id);
                     }
                 }
-                failed_staking_transactions.Clear();
-
-
             }
             catch(Exception e)
             {

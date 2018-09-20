@@ -492,6 +492,7 @@ namespace DLT
         private void verifyBlockAcceptance()
         {
             bool requestBlockAgain = false;
+            ulong requestBlockNum = 0;
 
             lock (localBlockLock)
             {
@@ -519,6 +520,7 @@ namespace DLT
                         {
                             Logging.info(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
                             localNewBlock.logBlockDetails();
+                            requestBlockNum = localNewBlock.blockNum;
                             localNewBlock = null;
                             requestBlockAgain = true;
                         }
@@ -527,16 +529,16 @@ namespace DLT
             }
 
             // Check if we should request the block again
-            if (requestBlockAgain)
+            if (requestBlockAgain && requestBlockNum > 0)
             {
                 // Show a notification
                 Console.ForegroundColor = ConsoleColor.Red;
-                Logging.error(string.Format("Requesting block {0} again due to previous mismatch.", localNewBlock.blockNum));
+                Logging.error(string.Format("Requesting block {0} again due to previous mismatch.", requestBlockNum));
                 Console.ResetColor();
                 // Sleep a bit to prevent spam
                 Thread.Sleep(5000);
                 // Request the block again
-                ProtocolMessage.broadcastGetBlock(localNewBlock.blockNum);
+                ProtocolMessage.broadcastGetBlock(requestBlockNum);
             }
             return;
 
@@ -864,8 +866,16 @@ namespace DLT
         // Calculate the current mining difficulty
         public ulong calculateDifficulty()
         {
+            ulong local_blocknum = 0;
             ulong current_difficulty = 14;
-            if (localNewBlock.blockNum > 1)
+            lock (localBlockLock)
+            {
+                if (localNewBlock != null)
+                {
+                    local_blocknum = localNewBlock.blockNum;
+                } 
+            }
+            if (local_blocknum > 1)
             {
                 Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
                 if (previous_block != null)
