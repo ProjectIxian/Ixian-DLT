@@ -278,19 +278,21 @@ namespace DLT
         public IxiNumber calculateTotalSupply()
         {
             IxiNumber total = new IxiNumber();
-            try
+            lock (stateLock)
             {
-                foreach (var item in walletState)
+                try
                 {
-                    Wallet wal = (Wallet)item.Value;
-                    total = total + wal.balance;
+                    foreach (var item in walletState)
+                    {
+                        Wallet wal = (Wallet)item.Value;
+                        total = total + wal.balance;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logging.error(string.Format("Exception calculating total supply: {0}", e.Message));
                 }
             }
-            catch(Exception e)
-            {
-                Logging.error(string.Format("Exception calculating total supply: {0}", e.Message));
-            }
-
             return total;
         }
 
