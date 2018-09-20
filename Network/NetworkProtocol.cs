@@ -372,6 +372,24 @@ namespace DLT
                                                     }
                                                 }
                                             }
+
+                                            // Limit to one IP per masternode
+                                            string[] hostname_split = hostname.Split(':');
+                                            if (PresenceList.containsIP(hostname_split[0], 'M'))
+                                            {
+                                                using (MemoryStream m2 = new MemoryStream())
+                                                {
+                                                    using (BinaryWriter writer = new BinaryWriter(m2))
+                                                    {
+                                                        writer.Write(string.Format("This IP address ( {0} ) already has a masternode connected.", hostname_split[0]));
+                                                        Logging.info(string.Format("Rejected master node {0} due to duplicate IP address", hostname));
+                                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
+                                                        socket.Disconnect(true);
+                                                        return;
+                                                    }
+                                                }
+                                            }
+
                                         }
 
 
@@ -602,7 +620,7 @@ namespace DLT
                                     {
                                         // Retrieve the message
                                         string message = reader.ReadString();
-                                        Logging.warn(string.Format("Disconnected with message: {0}", message));
+                                        Logging.error(string.Format("Disconnected with message: {0}", message));
                                     }
                                 }
                             }
