@@ -374,18 +374,6 @@ namespace DLT
                 return BlockVerifyStatus.Indeterminate;
             }
 
-            // overspending
-            foreach (string addr in minusBalances.Keys)
-            {
-                IxiNumber initial_balance = Node.walletState.getWalletBalance(addr);
-                if (initial_balance < minusBalances[addr])
-                {
-                    Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
-                        addr, initial_balance, minusBalances[addr]));
-                    return BlockVerifyStatus.Invalid;
-                }
-            }
-
             // Note: This part depends on no one else messing with WS while it runs.
             // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
             // the generate thread is paused, so we need to lock
@@ -395,6 +383,18 @@ namespace DLT
             string ws_checksum = "";
             if (ignore_walletstate == false)
             {
+                // overspending
+                foreach (string addr in minusBalances.Keys)
+                {
+                    IxiNumber initial_balance = Node.walletState.getWalletBalance(addr);
+                    if (initial_balance < minusBalances[addr])
+                    {
+                        Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
+                            addr, initial_balance, minusBalances[addr]));
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }
+
                 // ignore wallet state check if it isn't the current block
                 if (b.blockNum < Node.blockChain.getLastBlockNum())
                 {
