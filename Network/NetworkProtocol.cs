@@ -87,8 +87,7 @@ namespace DLT
                     return;
                 }
 
-                NetworkClientManager.broadcastData(code, data, skipSocket);
-                NetworkServer.broadcastData(code, data, skipSocket);
+                NetworkQueue.broadcastProtocolMessage(code, data, skipSocket);
             }
 
             public static void syncWalletStateNeighbor(string neighbor)
@@ -372,7 +371,7 @@ namespace DLT
                                                     }
                                                 }
                                             }
-
+                                            
                                             // Limit to one IP per masternode
                                             string[] hostname_split = hostname.Split(':');
                                             if (PresenceList.containsIP(hostname_split[0], 'M'))

@@ -104,6 +104,10 @@ namespace DLT.Meta
             blockProcessor = new BlockProcessor();
             blockSync = new BlockSync();
 
+            // Start the network queue
+            NetworkQueue.start();
+
+            // Distribute genesis funds
             IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
 
             // Check if this is a genesis node
@@ -193,6 +197,9 @@ namespace DLT.Meta
                 miner.stop();
             }
 
+            // Stop the network queue
+            NetworkQueue.stop();
+
             // Stop all network clients
             NetworkClientManager.stop();
             
@@ -219,6 +226,9 @@ namespace DLT.Meta
             blockChain = new BlockChain();
             walletState.clear();
             TransactionPool.clear();
+
+            NetworkQueue.stop();
+            NetworkQueue.start();
 
             // Finally, reconnect to the network
             reconnect();

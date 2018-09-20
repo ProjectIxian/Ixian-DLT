@@ -89,6 +89,7 @@
     <Compile Include="Miner\Miner.cs" />
     <Compile Include="Network\NetworkClient.cs" />
     <Compile Include="Network\NetworkClientManager.cs" />
+    <Compile Include="Network\NetworkQueue.cs" />
     <Compile Include="Network\NetworkServer.cs" />
     <Compile Include="Network\NetworkProtocol.cs" />
     <Compile Include="Network\NetworkUtils.cs" />
