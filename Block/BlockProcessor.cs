@@ -303,7 +303,7 @@ namespace DLT
             }
 
             // Verify sigfreeze
-            if (b.blockNum <= Node.blockChain.getLastBlockNum() || b.signatures.Count() >= Node.blockChain.getRequiredConsensus())
+            if (b.blockNum <= Node.blockChain.getLastBlockNum())
             {
                 if (!verifySignatureFreezeChecksum(b))
                 {
@@ -502,9 +502,13 @@ namespace DLT
                     // can no longer be reached according to this number - I don't have a clean answer yet - MZ
                     if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
                     {
-                        /*
+                        if(!verifySignatureFreezeChecksum(localNewBlock))
+                        {
+                            Logging.info(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
+                            return;
+                        }
                         // accept this block, apply its transactions, recalc consensus, etc
-                        if (applyAcceptedBlock() == true)
+                        if (applyAcceptedBlock(localNewBlock) == true)
                         {
                             Node.blockChain.appendBlock(localNewBlock);
                             Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
@@ -513,14 +517,11 @@ namespace DLT
                         }
                         else
                         {
+                            Logging.info(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
+                            localNewBlock.logBlockDetails();
+                            localNewBlock = null;
                             requestBlockAgain = true;
-                        }*/
-                        // accept this block, apply its transactions, recalc consensus, etc
-                        applyAcceptedBlock(localNewBlock);
-                        Node.blockChain.appendBlock(localNewBlock);
-                        Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
-                        localNewBlock.logBlockDetails();
-                        localNewBlock = null;
+                        }
                     }
                 }
             }
@@ -582,7 +583,10 @@ namespace DLT
             distributeStakingRewards(b, ws_snapshot);
 
             // Apply transactions from block
-            TransactionPool.applyTransactionsFromBlock(b, ws_snapshot);
+            if(!TransactionPool.applyTransactionsFromBlock(b, ws_snapshot))
+            {
+                return false;
+            }
 
             // Apply transaction fees
             applyTransactionFeeRewards(b, ws_snapshot);
