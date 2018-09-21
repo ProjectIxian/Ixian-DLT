@@ -54,7 +54,7 @@ namespace DLT
             // check if it is time to generate a new block
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
             //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
-            if ((Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval) || Node.forceNextBlock)
+            if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval)) || Node.forceNextBlock)
             {
                 if (Node.forceNextBlock)
                 {
@@ -398,7 +398,16 @@ namespace DLT
                 // ignore wallet state check if it isn't the current block
                 if (b.blockNum < Node.blockChain.getLastBlockNum())
                 {
-                    Logging.warn(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
+                    Logging.info(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
+                }else if(b.blockNum == Node.blockChain.getLastBlockNum())
+                {
+                    ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                    // this should always be the same anyway, but just in case
+                    if (b.walletStateChecksum != ws_checksum)
+                    {
+                        Logging.error(String.Format("Incorrect current wallet state checksum for the last block #{0} Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
+                        return BlockVerifyStatus.Invalid;
+                    }
                 }
                 else
                 {
@@ -746,6 +755,7 @@ namespace DLT
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine("GENERATING NEW BLOCK");
                 Console.ResetColor();
+                // TODO this section should probably be moved to verifyBlockAcceptance
                 if (localNewBlock != null)
                 {
                     Node.debugDumpState();
@@ -829,7 +839,7 @@ namespace DLT
 
                 // Apply staking transactions to block. 
                 // Generate the staking transactions with the blockgen flag, as we are the current block generator
-                List<Transaction> staking_transactions = generateStakingTransactions(true);
+                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 5);
                 foreach (Transaction transaction in staking_transactions)
                 {
                     localNewBlock.addTransaction(transaction);
@@ -925,22 +935,13 @@ namespace DLT
         }
 
         // Generate all the staking transactions for this block
-        private List<Transaction> generateStakingTransactions(bool blockgen = false, bool ws_snapshot = false)
+        private List<Transaction> generateStakingTransactions(ulong targetBlockNum, bool ws_snapshot = false)
         {
             List<Transaction> transactions = new List<Transaction>();
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {
                 return transactions;
-            }
-
-            // Last block num - 4 gets us the 5th last block
-            ulong targetBlockNum = Node.blockChain.getLastBlockNum() - 4;
-
-            // Check if this is called from the block generator and if so, use the localNewBlock
-            if (blockgen == true)
-            {
-                targetBlockNum = localNewBlock.blockNum - 5;
             }
 
             Block targetBlock = Node.blockChain.getBlock(targetBlockNum);
@@ -1053,7 +1054,7 @@ namespace DLT
                 return false;
             }
 
-            List<Transaction> transactions = generateStakingTransactions(false, ws_snapshot);
+            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 5, ws_snapshot);
             if (ws_snapshot == false)
             {
                 foreach (Transaction transaction in transactions)
@@ -1068,7 +1069,7 @@ namespace DLT
             return true;
         }
 
-        public void storeStakingRewards()
+        public void storeStakingRewards(Block b)
         {
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
@@ -1076,7 +1077,7 @@ namespace DLT
                 return;
             }
 
-            List<Transaction> transactions = generateStakingTransactions();
+            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 5);
             foreach (Transaction transaction in transactions)
             {
                 Meta.Storage.insertTransaction(transaction);
