@@ -522,13 +522,12 @@ namespace DLT
 
                     // Reset the internal nonce
                     internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
-                }
+                
 
 
                 // TODO: move this to a seperate function. Left here for now for dev purposes
                 // Apply any staking transactions in the pool at this moment
-                lock (transactions)
-                {
+
                     Transaction[] staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
                     if (staking_txs == null)
                         return true;
