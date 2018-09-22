@@ -524,6 +524,13 @@ namespace DLT
                             Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
                             localNewBlock.logBlockDetails();
                             localNewBlock = null;
+
+                            // Reset transaction limits
+                            TransactionPool.resetSocketTransactionLimits();
+
+                            // Save masternodes
+                            // TODO: find a better place for this
+                            Storage.savePresenceFile();
                         }
                         else
                         {
@@ -601,10 +608,6 @@ namespace DLT
 
             // Apply transaction fees
             applyTransactionFeeRewards(b, ws_snapshot);
-
-            // Save masternodes
-            // TODO: find a better place for this
-            Storage.savePresenceFile();
 
             return true;
         }

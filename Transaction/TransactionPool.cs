@@ -944,6 +944,46 @@ namespace DLT
             }
         }
 
+        // TODO: transaction throttling code. Need to redesign this.
+        static Dictionary<Socket, int> socketTransactionsPerBlock = new Dictionary<Socket, int>();
+        // Resets the socket transaction limits
+        public static void resetSocketTransactionLimits()
+        {
+            lock (socketTransactionsPerBlock)
+            {
+
+                socketTransactionsPerBlock.Clear();
+            }
+        }
+
+        // Returns true if throttled, false otherwise
+        public static bool checkSocketTransactionLimits(Socket socket)
+        {
+            if (Node.blockSync.synchronizing == false)
+            {
+                lock (socketTransactionsPerBlock)
+                {
+                    if (socketTransactionsPerBlock.ContainsKey(socket))
+                    {
+                        if (socketTransactionsPerBlock[socket] > Config.nodeNewTransactionsLimit)
+                        {
+                            Logging.info(string.Format("Throttled transaction. Limited to {0} / block", socketTransactionsPerBlock[socket]));
+                            return true;
+                        }
+                        else
+                        {
+                            socketTransactionsPerBlock[socket] = socketTransactionsPerBlock[socket] + 1;
+                        }
+                    }
+                    else
+                    {
+                        socketTransactionsPerBlock[socket] = 1;
+                    }
+                }
+            }
+            return false;
+        }
+
 
     }
 }

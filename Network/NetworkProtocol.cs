@@ -14,6 +14,9 @@ namespace DLT
         public class ProtocolMessage
         {
 
+
+
+
             // Prepare a network protocol message. Works for both client-side and server-side
             public static byte[] prepareProtocolMessage(ProtocolMessageCode code, byte[] data)
             {
@@ -567,6 +570,12 @@ namespace DLT
 
                         case ProtocolMessageCode.newTransaction:
                             {
+                                if(TransactionPool.checkSocketTransactionLimits(socket) == true)
+                                {
+                                    // Throttled, ignore this transaction
+                                    return;
+                                }
+
                                 Transaction transaction = new Transaction(data);
                                 if (transaction == null)
                                     return;

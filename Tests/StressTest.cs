@@ -192,7 +192,8 @@ namespace DLTNode
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Starting tx spam test");
 
-            ulong nonce = 1;
+            ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
+            
             for(int i = 0; i < 1000; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
