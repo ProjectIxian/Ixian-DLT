@@ -89,8 +89,7 @@ namespace DLT
 
             ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow + 1;
             ulong lastBlock = syncTargetBlockNum;
-            List<ulong> missingBlocks = new List<ulong>(
-            Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
+            List<ulong> missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
 
             int count = 0;
             lock (pendingBlocks)
@@ -485,10 +484,14 @@ namespace DLT
                 }
                 else // idx <= -1
                 {
-                    if (b.blockNum > syncTargetBlockNum)
+                    if (b.blockNum <= wsConfirmedBlockNumber)
                     {
                         // we move the goalpost to make sure we end up in the valid state
                         syncTargetBlockNum = b.blockNum;
+                    }else if(wsConfirmedBlockNumber > 0 && b.blockNum > wsConfirmedBlockNumber)
+                    {
+                        Logging.info(String.Format("Block num is bigger than the WS confirmed block number."));
+                        return;
                     }
                     pendingBlocks.Add(b);
                 }
