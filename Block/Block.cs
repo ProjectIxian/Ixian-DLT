@@ -355,7 +355,7 @@ namespace DLT
                 // Add the address to the list
                 result.Add(address_string);
             }
-
+            result.Sort();
             return result;
         }
 
