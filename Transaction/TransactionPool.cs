@@ -702,7 +702,7 @@ namespace DLT
             }
 
             valid = false;
-            List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+            SortedSet<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
             foreach (string wallet_addr in signatureWallets)
             {
                 if (tx.to.Equals(wallet_addr))
