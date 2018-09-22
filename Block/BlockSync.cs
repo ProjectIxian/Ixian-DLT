@@ -299,10 +299,8 @@ namespace DLT
                         }
                     }
 
-                    TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
-                    Node.blockChain.appendBlock(b);
                     // if last block doesn't have enough sigs, set as local block, get more sigs
-                    if (Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).signatures.Count < Node.blockChain.getRequiredConsensus())
+                    if (b.signatures.Count < Node.blockChain.getRequiredConsensus())
                     {
                         if (next_to_apply == syncTargetBlockNum) // if last block
                         {
@@ -315,6 +313,10 @@ namespace DLT
                             ProtocolMessage.broadcastGetBlock(b.blockNum);
                             return;
                         }
+                    }else
+                    {
+                        TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
+                        Node.blockChain.appendBlock(b);
                     }
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                 }
