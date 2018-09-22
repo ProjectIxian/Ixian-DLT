@@ -967,7 +967,7 @@ namespace DLT
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
             // Retrieve the list of signature wallets
-            SortedSet<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+            List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
 
             IxiNumber totalIxisStaked = new IxiNumber(0);
             int stakers = signatureWallets.Count;
@@ -1019,7 +1019,7 @@ namespace DLT
                 IxiNumber award = new IxiNumber(awards[i]);
                 if (award > (long)0)
                 {
-                    string wallet_addr = signatureWallets.ElementAt(i);
+                    string wallet_addr = signatureWallets[i];
                     Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
                     Transaction tx = new Transaction();

@@ -327,9 +327,9 @@ namespace DLT
         }
 
         // Goes through all signatures and generates the corresponding Ixian wallet addresses
-        public SortedSet<string> getSignaturesWalletAddresses()
+        public List<string> getSignaturesWalletAddresses()
         {
-            SortedSet<string> sorted_result = new SortedSet<string>();
+            List<string> result = new List<string>();
 
             foreach(string merged_signature in signatures)
             {
@@ -353,9 +353,10 @@ namespace DLT
                 // TODO: check if it's it worth it validating the address again here
 
                 // Add the address to the list
-                sorted_result.Add(address_string);
+                result.Add(address_string);
             }
-            return sorted_result;
+            result.Sort();
+            return result;
         }
 
         // Returns the number of unique signatures
