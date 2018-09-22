@@ -839,7 +839,7 @@ namespace DLT
 
                 // Apply staking transactions to block. 
                 // Generate the staking transactions with the blockgen flag, as we are the current block generator
-                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 5);
+                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6);
                 foreach (Transaction transaction in staking_transactions)
                 {
                     localNewBlock.addTransaction(transaction);
@@ -1054,7 +1054,7 @@ namespace DLT
                 return false;
             }
 
-            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 5, ws_snapshot);
+            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, ws_snapshot);
             if (ws_snapshot == false)
             {
                 foreach (Transaction transaction in transactions)
@@ -1077,7 +1077,7 @@ namespace DLT
                 return;
             }
 
-            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 5);
+            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6);
             foreach (Transaction transaction in transactions)
             {
                 Meta.Storage.insertTransaction(transaction);
