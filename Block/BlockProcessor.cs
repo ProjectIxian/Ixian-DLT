@@ -559,6 +559,7 @@ namespace DLT
                     {
                         ProtocolMessage.broadcastNewBlock(localNewBlock);
                         Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
+                        Thread.Sleep(500);
                     }
                 }
                 else
