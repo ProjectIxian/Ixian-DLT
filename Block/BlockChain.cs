@@ -107,7 +107,7 @@ namespace DLT
 
         public int getRequiredConsensus()
         {
-            int blockOffset = 5;
+            int blockOffset = 6;
             if (blocks.Count < blockOffset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-X blocks
             lock (blocks)
             {

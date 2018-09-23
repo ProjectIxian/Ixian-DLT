@@ -222,6 +222,7 @@ namespace DLT
                     {
                         Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
                         ProtocolMessage.broadcastGetBlock(next_to_apply);
+                        Thread.Sleep(500);
                         return;
                     }
 
