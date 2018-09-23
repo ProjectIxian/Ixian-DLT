@@ -61,7 +61,7 @@ namespace DLT
             // Request missing blocks if needed
             if (receivedAllMissingBlocks == false)
             {
-                if (requestMissingBlocks()) // TODO: this is a bad hack that just spams the network in the end
+                if (requestMissingBlocks())
                 {
                     // If blocks were requested, wait for next iteration
                     return;
@@ -230,7 +230,7 @@ namespace DLT
 
                     // Verify if we have all transactions for this block first
                     // While this is also done in verifyBlock(), we do it here to prevent spamming the network due to continuos checks
-                    hasAllTransactions = true;
+                    /*hasAllTransactions = true;
                     foreach (string txid in b.transactions)
                     {
                         Transaction t = TransactionPool.getTransaction(txid);
@@ -249,10 +249,11 @@ namespace DLT
                     // If we don't have all transactions, stop here for now
                     if (hasAllTransactions == false)
                     {
+                        Logging.info(String.Format("Waiting for missing transactions for block #{0}...", b.blockNum));
                         requestedTransactions = true;
                         return;
                     }
-                    requestedTransactions = false;
+                    requestedTransactions = false;*/
 
                     // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
                     // verify with a parameter to ignore WS tests, but do all the others
@@ -267,6 +268,7 @@ namespace DLT
                     
                     if (b_status == BlockVerifyStatus.Indeterminate)
                     {
+                        requestedTransactions = false;
                         Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
                         return;
                     }
@@ -279,7 +281,7 @@ namespace DLT
                     }
 
 
-                    if (syncTargetBlockNum - Node.blockChain.getLastBlockNum() == 1)
+                    if (syncTargetBlockNum - Node.blockChain.getLastBlockNum() <= 1)
                     {
                         lastReceivedBlock = b;
                     }
@@ -295,27 +297,37 @@ namespace DLT
                             Node.blockProcessor.applyTransactionFeeRewards(b);
                             // Apply staking rewards
                             //                            Node.blockProcessor.distributeStakingRewards(b);
+                        }else if(wsConfirmedBlockNumber > 0)
+                        {
+                            Node.blockProcessor.applyAcceptedBlock(b);
                         }
                     }
 
                     // if last block doesn't have enough sigs, set as local block, get more sigs
                     if (b.signatures.Count < Node.blockChain.getRequiredConsensus())
                     {
-                        if (next_to_apply == syncTargetBlockNum) // if last block
+                        if (b.blockNum >= syncTargetBlockNum) // if last block
                         {
+                            Logging.info(String.Format("Block #{0} has less than the required sigs and is the last one, forwarding it to onBlockReceived().", b.blockNum));
                             Node.blockProcessor.onBlockReceived(b);
+                            performWalletStateSync();
                         }
                         else
                         {
-                            Logging.info(String.Format("Block #{0} has less than the required sigs. Discarding and requesting a new one.", b.blockNum));
+                            Logging.info(String.Format("Block #{0} has less than the required sigs and is not the last one. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             ProtocolMessage.broadcastGetBlock(b.blockNum);
                             return;
                         }
                     }else
                     {
-                        TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
-                        Node.blockChain.appendBlock(b);
+                        if (Node.blockProcessor.verifySignatureFreezeChecksum(b))
+                        {
+                            Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
+                            TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
+                            Node.blockChain.appendBlock(b);
+                            performWalletStateSync();
+                        }
                     }
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                 }
@@ -464,14 +476,6 @@ namespace DLT
         public void onBlockReceived(Block b)
         {
             if (synchronizing == false) return;
-            if(b.blockNum >= syncTargetBlockNum)
-            {
-                if (b.signatures.Count < Node.blockChain.getRequiredConsensus())
-                {
-                    Logging.info(String.Format("Block is currently being calculated and does not meet consensus."));
-                    return;
-                }
-            }
             lock (pendingBlocks)
             {
                 int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);

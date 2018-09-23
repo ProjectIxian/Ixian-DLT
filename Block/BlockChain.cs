@@ -197,7 +197,7 @@ namespace DLT
         // Gets the elected node's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
         public string getLastElectedNodePubKey(int offset = 0)
         {
-            Block targetBlock = getBlock(getLastBlockNum()-5);
+            Block targetBlock = getBlock(getLastBlockNum() - 6);
             Block curBlock = getBlock(getLastBlockNum());
             if (targetBlock != null && curBlock != null)
             {

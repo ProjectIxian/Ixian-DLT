@@ -30,6 +30,9 @@ namespace DLT
 
         private static string[] splitter = { "::" };
 
+        private ulong fetchingTxForBlockNum = 0;
+        private ulong fetchingTxTimeout = 0;
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.Now;
@@ -275,7 +278,10 @@ namespace DLT
                 // Don't request block 0
                 if (b.blockNum - 1 > 0)
                 {
-                    ProtocolMessage.broadcastGetBlock(b.blockNum - 1);
+                    for (ulong missingBlock = Node.blockChain.getLastBlockNum() + 1; missingBlock < b.blockNum; missingBlock++)
+                    {
+                        ProtocolMessage.broadcastGetBlock(missingBlock);
+                    }
                 }
                 return BlockVerifyStatus.Indeterminate;
             }
@@ -333,15 +339,19 @@ namespace DLT
                 // Skip fetching staking txids if we're not synchronizing
                 if (txid.StartsWith("stk"))
                 {
-                    if (Node.blockSync.synchronizing == false)
+                    //if (Node.blockSync.synchronizing == false)
                         continue;
                 }
 
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
-                    Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
-                    ProtocolMessage.broadcastGetTransaction(txid);
+                    if (fetchingTxForBlockNum != b.blockNum || fetchingTxTimeout > 150) // TODO TODO TODO hack and optimization, remove for fun with network buffers
+                    {
+                        fetchingTxTimeout = 0;
+                        Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
+                        ProtocolMessage.broadcastGetTransaction(txid); 
+                    }
                     hasAllTransactions = false;
                     continue;
                 }
@@ -370,9 +380,14 @@ namespace DLT
             //
             if (!hasAllTransactions)
             {
+                Thread.Sleep(100); // TODO TODO TODO hack, remove for fun with network buffers
+                fetchingTxForBlockNum = b.blockNum;
+                fetchingTxTimeout++;
                 Logging.info(String.Format("Block #{0} is missing some transactions, which have been requested from the network.", b.blockNum));
                 return BlockVerifyStatus.Indeterminate;
             }
+            fetchingTxForBlockNum = 0;
+            fetchingTxTimeout = 0;
 
             // Note: This part depends on no one else messing with WS while it runs.
             // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
@@ -540,7 +555,18 @@ namespace DLT
                             localNewBlock = null;
                             requestBlockAgain = true;
                         }
+                    }else
+                    {
+                        ProtocolMessage.broadcastNewBlock(localNewBlock);
+                        Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
                     }
+                }
+                else
+                {
+                    Logging.error(String.Format("We have an invalid block #{0} in verifyBlockAcceptance, requesting the block again.", localNewBlock.blockNum));
+                    requestBlockNum = localNewBlock.blockNum;
+                    localNewBlock = null;
+                    requestBlockAgain = true;
                 }
             }
 
@@ -560,7 +586,7 @@ namespace DLT
 
         }
 
-        private bool verifySignatureFreezeChecksum(Block b)
+        public bool verifySignatureFreezeChecksum(Block b)
         {
             if (b.signatureFreezeChecksum.Length > 3)
             {
@@ -595,8 +621,14 @@ namespace DLT
 
         // Applies the block
         // Returns false if walletstate is not correct
-        private bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
+        public bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
         {
+            if(Node.blockChain.getBlock(b.blockNum) != null)
+            {
+                Logging.warn(String.Format("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace));
+                return false;
+            }
+
             // Distribute staking rewards first
             distributeStakingRewards(b, ws_snapshot);
 
@@ -623,12 +655,14 @@ namespace DLT
                     Logging.warn("Applying fee rewards: block is null.");
                     return;
                 }
-
-                sigfreezechecksum = b.signatureFreezeChecksum;
+                if (b.blockNum > 1)
+                {
+                    sigfreezechecksum = Node.blockChain.getBlock(b.blockNum - 1).signatureFreezeChecksum;
+                }
             }
 
-            // Ignore blocks before #5
-            if (b.blockNum < 5)
+            // Ignore blocks before #6
+            if (b.blockNum < 6)
             {
                 return;
             }
@@ -639,10 +673,10 @@ namespace DLT
                 return;
             }
 
-            // Obtain the 5th last block, aka target block
+            // Obtain the 6th last block, aka target block
             Block targetBlock = null;
 
-            targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
+            targetBlock = Node.blockChain.getBlock(b.blockNum - 6);
             if (targetBlock == null)
                 return;
 
