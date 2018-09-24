@@ -32,6 +32,7 @@ namespace DLT
                     {
                         // Protocol sections are code, length, checksum, data
                         // Write each section in binary, in that specific order
+                        writer.Write((byte)'X');
                         writer.Write((int)code);
                         writer.Write(data_length);
                         writer.Write(data_checksum);
@@ -167,16 +168,58 @@ namespace DLT
                 // TODO: optimize this as it's not very efficient
                 var big_buffer = new List<byte>();
 
+                bool message_found = false;
+
+
                 try
                 {
-                    while (socket.Available > 0)
+                    int data_length = 0;
+                    int header_length = 41; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes)
+                    while (message_found == false && socket.Connected)
                     {
                         var current_byte = new Byte[1];
                         var byteCounter = socket.Receive(current_byte, current_byte.Length, SocketFlags.None);
 
                         if (byteCounter.Equals(1))
                         {
-                            big_buffer.Add(current_byte[0]);
+                            if (big_buffer.Count > 0)
+                            {
+                                big_buffer.Add(current_byte[0]);
+                                if (big_buffer.Count == header_length) // 41 is the header length
+                                {
+                                    // we should have the full header, save the data length
+                                    using (MemoryStream m = new MemoryStream(big_buffer.ToArray()))
+                                    {
+                                        using (BinaryReader reader = new BinaryReader(m))
+                                        {
+                                            reader.ReadByte(); // skip start byte
+                                            reader.ReadInt32(); // skip message code
+                                            data_length = reader.ReadInt32(); // finally read data length
+                                            if (data_length <= 0)
+                                            {
+                                                data_length = 0;
+                                                big_buffer.Clear();
+                                            }
+                                        }
+                                    }
+                                }else if (big_buffer.Count == data_length + header_length)
+                                {
+                                    // we have everything that we need, save the last byte and break
+                                    message_found = true;
+                                }
+                            }
+                            else
+                            {
+                                if (current_byte[0] == 'X') // X is the message start byte
+                                {
+                                    big_buffer.Add(current_byte[0]);
+                                }
+                            }
+                        }else
+                        {
+                            // sleep a litte while waiting for bytes
+                            Thread.Sleep(50);
+                            // TODO TODO TODO, should reset the big_buffer if a timeout occurs
                         }
                     }
                 }
@@ -198,12 +241,12 @@ namespace DLT
                         // Check for multi-message packets. One packet can contain multiple network messages.
                         while (reader.BaseStream.Position < reader.BaseStream.Length)
                         {
+                            byte startByte = reader.ReadByte();
+
                             int message_code = reader.ReadInt32();
                             code = (ProtocolMessageCode)message_code;
 
                             int data_length = reader.ReadInt32();
-                            if (data_length < 0)
-                                return;
 
                             // If this is a connected client, filter messages
                             if (endpoint != null)
