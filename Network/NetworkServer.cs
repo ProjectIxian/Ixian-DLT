@@ -336,24 +336,23 @@ namespace DLT
                 return result.ToArray();
             }
 
-            //private static void doAcceptConnection(IAsyncResult ar)
             private static void acceptConnection(Socket clientSocket)
             {
                 IPEndPoint clientEndpoint = (IPEndPoint)clientSocket.RemoteEndPoint;
 
-                //Socket clientSocket = listener.EndAcceptSocket(ar);
-                if (connectedClients.Count > Config.maximumServerClients)
-                {
-                    Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
-                        clientEndpoint.Address.ToString(), clientEndpoint.Port));
-                    clientSocket.Disconnect(true);
-                    clientSocket.Shutdown(SocketShutdown.Both);
-                    return;
-                }
-
-                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count, Config.maximumServerClients));
                 lock (connectedClients)
                 {
+                    if (connectedClients.Count > Config.maximumServerClients)
+                    {
+                        Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
+                            clientEndpoint.Address.ToString(), clientEndpoint.Port));
+                        clientSocket.Disconnect(true);
+                        clientSocket.Shutdown(SocketShutdown.Both);
+                        return;
+                    }
+
+                    Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count, Config.maximumServerClients));
+
                     var existing_clients = connectedClients.Where(re => re.remoteIP.Address == clientEndpoint.Address);
                     if (existing_clients.Count() > 0)
                     {
