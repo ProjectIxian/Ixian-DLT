@@ -206,11 +206,16 @@ namespace DLT
                 {
                     lowestBlockNum = syncTargetBlockNum - Node.blockChain.redactedWindowSize + 1;
                 }
+                if (Node.blockChain.Count > 0)
+                {
+                    pendingBlocks.RemoveAll(x => x.blockNum <= Node.blockChain.getLastBlockNum() - 4);
+                }
 
                 // Loop until we have no more pending blocks
                 // TODO: handle potential edge cases
                 while (pendingBlocks.Count() > 0)
                 {
+
                     ulong next_to_apply = Node.blockChain.getLastBlockNum() + 1;
                     if (next_to_apply < lowestBlockNum)
                     {
@@ -322,7 +327,7 @@ namespace DLT
                         }
                     }else
                     {
-                        if (Node.blockProcessor.verifySignatureFreezeChecksum(b))
+                        if (Node.blockChain.Count < 5 || Node.blockProcessor.verifySignatureFreezeChecksum(b))
                         {
                             Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
                             TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
@@ -336,6 +341,7 @@ namespace DLT
                 // Check if we should start walletstate synchronization now
                 if(lastReceivedBlock != null)
                 {
+                    lastReceivedBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
                     HashSet<string> all_neighbors = new HashSet<string>(NetworkClientManager.getConnectedClients().Concat(NetworkServer.getConnectedClients()));
                     if (all_neighbors.Count < 1)
                     {
