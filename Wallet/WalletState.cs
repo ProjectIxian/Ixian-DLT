@@ -206,9 +206,12 @@ namespace DLT
                 SortedSet<string> eligible_addresses = new SortedSet<string>(walletState.Keys);
                 if (snapshot == true)
                 {
-                    foreach (string addr in wsDelta.Keys)
+                    if (wsDelta != null)
                     {
-                        eligible_addresses.Add(addr);
+                        foreach (string addr in wsDelta.Keys)
+                        {
+                            eligible_addresses.Add(addr);
+                        }
                     }
                 }
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256

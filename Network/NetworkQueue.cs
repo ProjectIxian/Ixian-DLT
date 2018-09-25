@@ -29,6 +29,11 @@ namespace DLT
             private static List<QueueMessage> queueMessages = new List<QueueMessage>();
 
 
+            public static int getQueuedMessageCount()
+            {
+                return queueMessages.Count;
+            }
+
             // Broadcast a protocol message across clients and nodes
             public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {

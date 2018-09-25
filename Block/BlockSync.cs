@@ -426,10 +426,10 @@ namespace DLT
                 int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);
                 if (idx > -1)
                 {
-                    if (pendingBlocks[idx].signatures.Count() < b.signatures.Count())
-                    {
+                    /*if (pendingBlocks[idx].signatures.Count() != b.signatures.Count())
+                    {*/
                         pendingBlocks[idx] = b;
-                    }
+                    //}
                 }
                 else // idx <= -1
                 {

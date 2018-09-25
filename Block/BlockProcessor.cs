@@ -429,8 +429,10 @@ namespace DLT
                     lock (localBlockLock)
                     {
                         Node.walletState.snapshot();
-                        applyAcceptedBlock(b, true);
-                        ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                        if (applyAcceptedBlock(b, true))
+                        {
+                            ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                        }
                         Node.walletState.revert();
                     }
                     if (ws_checksum != b.walletStateChecksum)
@@ -532,20 +534,47 @@ namespace DLT
                             Logging.info(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
                             return;
                         }
+                        if (localNewBlock.blockNum != Node.blockChain.getLastBlockNum() + 1)
+                        {
+                            Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, Node.blockChain.getLastBlockNum() + 1, Environment.StackTrace));
+                            // block has already been applied or ahead, waiting for new blocks
+                            localNewBlock = null;
+                            return;
+                        }
                         // accept this block, apply its transactions, recalc consensus, etc
                         if (applyAcceptedBlock(localNewBlock) == true)
                         {
-                            Node.blockChain.appendBlock(localNewBlock);
-                            Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
-                            localNewBlock.logBlockDetails();
-                            localNewBlock = null;
+                            if (Node.walletState.calculateWalletStateChecksum() != localNewBlock.walletStateChecksum)
+                            {
+                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!.", localNewBlock.blockNum));
+                                rollBackAcceptedBlock(localNewBlock);
+                                if (Node.walletState.calculateWalletStateChecksum() != Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum)
+                                {
+                                    Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
+                                    // TODO TODO TODO maybe do something else instead?
+                                    operating = false;
+                                    Node.stop();
+                                    return;
+                                }
+                                localNewBlock.logBlockDetails();
+                                requestBlockNum = localNewBlock.blockNum;
+                                localNewBlock = null;
+                                requestBlockAgain = true;
+                            }
+                            else
+                            {
+                                Node.blockChain.appendBlock(localNewBlock);
+                                Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
+                                localNewBlock.logBlockDetails();
+                                localNewBlock = null;
 
-                            // Reset transaction limits
-                            TransactionPool.resetSocketTransactionLimits();
+                                // Reset transaction limits
+                                TransactionPool.resetSocketTransactionLimits();
 
-                            // Save masternodes
-                            // TODO: find a better place for this
-                            Storage.savePresenceFile();
+                                // Save masternodes
+                                // TODO: find a better place for this
+                                Storage.savePresenceFile();
+                            }
                         }
                         else
                         {
@@ -643,6 +672,30 @@ namespace DLT
             applyTransactionFeeRewards(b, ws_snapshot);
 
             return true;
+        }
+
+        public bool rollBackAcceptedBlock(Block b, bool ws_snapshot = false)
+        {
+            return false; // TODO TODO TODO partially implemented
+
+            /*for(int i = 0; i < b.transactions.Count; i++)
+            {
+                Transaction t = TransactionPool.getTransaction(b.transactions[i]);
+                if(t == null)
+                {
+                    return false;
+                }
+
+                if (t.applied == b.blockNum)
+                {
+                    TransactionPool.rollBackNormalTransaction(t);
+                    TransactionPool.rollBackPoWTransaction(t);
+                    TransactionPool.rollBackStakingTransaction(t);
+                    TransactionPool.rollBackTransactionFeeReward(t);
+                    t.applied = 0;
+                } // else the tx was either not applied - could be failed, or applied to some previous block
+            }
+            return true; */
         }
 
         public void applyTransactionFeeRewards(Block b, bool ws_snapshot = false)

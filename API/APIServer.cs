@@ -380,30 +380,6 @@ namespace DLTNode
                 return true;
             }
 
-            if (methodName.Equals("txpool", StringComparison.OrdinalIgnoreCase))
-            {
-                // Used for performing various tests.
-                string responseString = JsonConvert.SerializeObject(TransactionPool.getAllTransactions());
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if (methodName.Equals("stats", StringComparison.OrdinalIgnoreCase))
-            {
-                // Show performance counters and statistics
-                string[] statArray = new String[2];
-                statArray[0] = "DLT";
-                statArray[1] = "Active";
-                if (Node.blockSync.synchronizing)
-                    statArray[1] = "Synchronizing";
-
-                string responseString = JsonConvert.SerializeObject(statArray);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-
-
             if (methodName.Equals("mywallet", StringComparison.OrdinalIgnoreCase))
             {
                 // Show own address, balance and blockchain synchronization status
@@ -495,6 +471,54 @@ namespace DLTNode
                 string responseString = JsonConvert.SerializeObject(formattedTransactions);
                 sendResponse(context.Response, responseString);
 
+                return true;
+            }
+
+            if (methodName.Equals("txu", StringComparison.OrdinalIgnoreCase))
+            {
+                // Show a list of unapplied transactions
+                Transaction[] transactions = TransactionPool.getUnappliedTransactions();
+                string[][] formattedTransactions = new string[transactions.Length][];
+                int count = 0;
+                foreach (Transaction t in transactions)
+                {
+                    formattedTransactions[count] = new string[4];
+                    formattedTransactions[count][0] = t.id;
+                    formattedTransactions[count][1] = string.Format("{0}", t.amount);
+                    formattedTransactions[count][2] = t.timeStamp;
+                    formattedTransactions[count][3] = t.applied.ToString();
+
+                    count++;
+                }
+
+                string responseString = JsonConvert.SerializeObject(formattedTransactions);
+                sendResponse(context.Response, responseString);
+
+                return true;
+            }
+
+            if (methodName.Equals("status", StringComparison.OrdinalIgnoreCase))
+            {
+                Dictionary<string, Object> networkArray = new Dictionary<string, Object>();
+
+                networkArray.Add("My IP", context.Request.RemoteEndPoint.Address.ToString());
+                networkArray.Add("Network Queue", NetworkQueue.getQueuedMessageCount().ToString());
+
+                string dltStatus = "Active";
+                if (Node.blockSync.synchronizing)
+                    dltStatus = "Synchronizing";
+                networkArray.Add("DLT Status", dltStatus);
+
+                networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
+                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
+
+                networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
+                networkArray.Add("WS Checksum", Node.walletState.calculateWalletStateChecksum());
+                networkArray.Add("WS Delta Checksum", Node.walletState.calculateWalletStateChecksum(true));
+                networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
+
+                string responseString = JsonConvert.SerializeObject(networkArray);
+                sendResponse(context.Response, responseString);
                 return true;
             }
 

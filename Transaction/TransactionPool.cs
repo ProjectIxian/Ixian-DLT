@@ -450,9 +450,9 @@ namespace DLT
                         }
 
                         // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
-                        if (tx.applied > 0)
+                        if (tx.applied > 0 && tx.applied != block.blockNum)
                         {
-                            // remove transaction from block as it has already been applied
+                            // remove transaction from block as it has already been applied on a different block
                             already_applied_transactions.Add(tx);
                             continue;
                         }
@@ -502,17 +502,29 @@ namespace DLT
                         {
                             Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
                         }
-                        block.transactions.Remove(tx.id);
+                        //block.transactions.Remove(tx.id);
                     }
-                    failed_transactions.Clear();
+                    if (failed_transactions.Count > 0)
+                    {
+                        failed_transactions.Clear();
+                        Logging.error(string.Format("Block #{0} has failed transactions, rejecting the block.", block.blockNum));
+                        return false;
+                    }
 
                     // Remove all already applied transactions from the block
-                    foreach (Transaction tx in already_applied_transactions)
+                    /*foreach (Transaction tx in already_applied_transactions)
                     {
                         Logging.info(String.Format("Removing already applied transaction #{0} from block.", tx.id));
                         block.transactions.Remove(tx.id);
                     }
-                    already_applied_transactions.Clear();
+                    already_applied_transactions.Clear();*/
+
+                    if (already_applied_transactions.Count > 0)
+                    {
+                        already_applied_transactions.Clear();
+                        Logging.error(string.Format("Block #{0} has transactions that were already applied on other blocks, rejecting the block.", block.blockNum));
+                        return false;
+                    }
 
                     // Reset the internal nonce
                     internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
@@ -573,7 +585,13 @@ namespace DLT
                         {
                             Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
                         }
-                        block.transactions.Remove(tx.id);
+                        //block.transactions.Remove(tx.id);
+                    }
+                    if (failed_staking_transactions.Count > 0)
+                    {
+                        failed_staking_transactions.Clear();
+                        Logging.error(string.Format("Block #{0} has failed staking transactions, rejecting the block.", block.blockNum));
+                        return false;
                     }
                 }
             }
@@ -729,6 +747,35 @@ namespace DLT
 
             return true;
         }
+
+        // Rolls back a normal transaction
+        public static bool rollBackNormalTransaction(Transaction tx)
+        {
+            // Calculate the transaction amount without fee
+            IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
+
+            Wallet source_wallet = Node.walletState.getWallet(tx.from);
+            Wallet dest_wallet = Node.walletState.getWallet(tx.to);
+
+            IxiNumber source_balance_before = source_wallet.balance;
+            IxiNumber dest_balance_before = dest_wallet.balance;
+
+            // Withdraw the full amount, including fee
+            IxiNumber source_balance_after = source_balance_before + tx.amount + tx.fee;
+
+            // Increase the source wallet nonce to match the transaction nonce
+            source_wallet.nonce = tx.nonce - 1; // TODO TODO TODO will this work with the new nonce?
+
+            // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
+            IxiNumber dest_balance_after = dest_balance_before - tx.amount;
+
+            // Update the walletstate
+            Node.walletState.setWalletBalance(tx.from, source_balance_after, false, source_wallet.nonce);
+            Node.walletState.setWalletBalance(tx.to, dest_balance_after, false, dest_wallet.nonce);
+
+            return true;
+        }
+
 
         // Applies a normal transaction
         public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
