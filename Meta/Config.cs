@@ -49,7 +49,7 @@ namespace DLT
             public static readonly string foundationAddress = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481"; // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly IxiNumber powReward = new IxiNumber("12.5");
-            public static readonly int nodeNewTransactionsLimit = 99; // Limit the number of new transactions per node per block
+            public static readonly int nodeNewTransactionsLimit = 10000; // Limit the number of new transactions per node per block
 
             private static Config singletonInstance;
             private Config()

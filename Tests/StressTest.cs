@@ -194,7 +194,7 @@ namespace DLTNode
 
             ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
             
-            for(int i = 0; i < 1000; i++)
+            for(int i = 0; i < 5000; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = Config.transactionPrice;
