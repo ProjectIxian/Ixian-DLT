@@ -503,7 +503,7 @@ namespace DLTNode
 
                 networkArray.Add("My IP", context.Request.RemoteEndPoint.Address.ToString());
                 networkArray.Add("Network Queue", NetworkQueue.getQueuedMessageCount().ToString());
-                networkArray.Add("Node Version", Config.nodeVersion);
+                networkArray.Add("Node Version", Config.version);
                 networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
 
                 string dltStatus = "Active";
