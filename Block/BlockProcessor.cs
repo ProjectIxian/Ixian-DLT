@@ -573,7 +573,7 @@ namespace DLT
 
                                 // Save masternodes
                                 // TODO: find a better place for this
-                                Storage.savePresenceFile();
+                                PresenceStorage.savePresenceFile();
                             }
                         }
                         else
