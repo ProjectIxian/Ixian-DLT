@@ -419,7 +419,8 @@ namespace DLT
                                             }
                                            
                                             // Limit to one IP per masternode
-                                            string[] hostname_split = hostname.Split(':');
+                                            // TODO TODO TODO - think about this and do it properly
+                                            /*string[] hostname_split = hostname.Split(':');
                                             if (PresenceList.containsIP(hostname_split[0], 'M'))
                                             {
                                                 using (MemoryStream m2 = new MemoryStream())
@@ -433,7 +434,7 @@ namespace DLT
                                                         return;
                                                     }
                                                 }
-                                            }
+                                            }*/
                                             
                                         }
 

@@ -387,12 +387,6 @@ namespace DLT
             {
                 foreach (string txid in b.transactions)
                 {
-                    // Skip applying on staking txids
-                    if (txid.StartsWith("stk"))
-                    {
-                        continue;
-                    }
-
                     Transaction tx = getTransaction(txid);
                     if (tx == null)
                     {
@@ -431,13 +425,13 @@ namespace DLT
                         // Skip staking txids
                         if (txid.StartsWith("stk"))
                         {
-                            if (Node.blockSync.synchronizing)
+                            /*if (Node.blockSync.synchronizing)
                             {
                                 if (getTransaction(txid) == null)
                                 {
                                     Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
                                 }
-                            }
+                            }*/
                             continue;
                         }
 
@@ -522,13 +516,20 @@ namespace DLT
 
                     // Reset the internal nonce
                     internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
-                
 
 
-                // TODO: move this to a seperate function. Left here for now for dev purposes
-                // Apply any staking transactions in the pool at this moment
 
-                    Transaction[] staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
+                    // TODO: move this to a seperate function. Left here for now for dev purposes
+                    // Apply any staking transactions in the pool at this moment
+                    Transaction[] staking_txs = null;
+                    if (ws_snapshot)
+                    {
+                        staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, ws_snapshot).ToArray();
+                    }
+                    else
+                    {
+                        staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
+                    }
                     if (staking_txs == null)
                         return true;
 

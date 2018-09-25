@@ -339,7 +339,7 @@ namespace DLT
                 // Skip fetching staking txids if we're not synchronizing
                 if (txid.StartsWith("stk"))
                 {
-                    //if (Node.blockSync.synchronizing == false)
+                    if (Node.blockSync.synchronizing == false)
                         continue;
                 }
 
@@ -973,7 +973,7 @@ namespace DLT
         }
 
         // Generate all the staking transactions for this block
-        private List<Transaction> generateStakingTransactions(ulong targetBlockNum, bool ws_snapshot = false)
+        public List<Transaction> generateStakingTransactions(ulong targetBlockNum, bool ws_snapshot = false)
         {
             List<Transaction> transactions = new List<Transaction>();
             // Prevent distribution if we don't have 10 fully generated blocks yet
