@@ -408,10 +408,7 @@ namespace DLT.Meta
                 File.Delete(Storage.filename);
             }
 
-            if(File.Exists(Storage.presenceFilename))
-            {
-                File.Delete(Storage.presenceFilename);
-            }
+            PresenceStorage.deletePresenceFile();
 
             Logging.clear();
 

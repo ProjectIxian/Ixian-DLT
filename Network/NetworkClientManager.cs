@@ -30,14 +30,13 @@ namespace DLT
         {
             networkClients = new List<NetworkClient>();
 
-            List<string> pl_masternodes = Storage.readPresenceFile();
+            List<string> pl_masternodes = PresenceStorage.readPresenceFile();
             foreach(string addr in pl_masternodes)
             {
                 if (networkMasterNodes.Contains(addr) == false)
                     networkMasterNodes.Add(addr);
             }
             
-
             // Now add the seed nodes to the list
             foreach(string addr in CoreNetworkUtils.seedNodes)
             {

@@ -12,7 +12,6 @@ namespace DLT
         public class Storage
         {
             public static string filename = "blockchain.dat";
-            public static string presenceFilename = "presence.dat";
 
             private static SQLiteConnection sqlConnection;
 
@@ -40,48 +39,8 @@ namespace DLT
                     executeSQL(sql);
                 }
 
-                // Check if the presence file exists
-                if (File.Exists(presenceFilename))
-                {
-                    Logging.info("Presence file found. Adding addresses to initial connections.");
-                }
-
                 return true;
             }
-
-            // Saves a list of 500 master node addresses to a file
-            public static void savePresenceFile()
-            {
-                // Get a list of master node presences
-                List<string> mn_presences = PresenceList.getMasterNodeAddresses(500);
-                // Don't write to file if no masternode presences were found in addition to the current node
-                if (mn_presences.Count < 2)
-                    return;
-
-                using (TextWriter tw = new StreamWriter(presenceFilename))
-                {
-                    foreach (String addr in mn_presences)
-                        tw.WriteLine(addr);
-                }
-                mn_presences.Clear();
-            }
-
-            // Retrieves the master node address file's contents
-            public static List<string> readPresenceFile()
-            {
-                List<string> mn_presences = new List<string>();
-                try
-                {
-                    mn_presences = File.ReadAllLines(presenceFilename).ToList();
-                }
-                catch(Exception)
-                {
-
-                }
-
-                return mn_presences;
-            }
-
 
             public class _storage_Block
             {
