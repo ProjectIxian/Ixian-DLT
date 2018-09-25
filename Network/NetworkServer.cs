@@ -342,7 +342,7 @@ namespace DLT
 
                 lock (connectedClients)
                 {
-                    if (connectedClients.Count > Config.maximumServerClients)
+                    if (connectedClients.Count + 1 > Config.maximumServerClients)
                     {
                         Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port));
@@ -351,7 +351,7 @@ namespace DLT
                         return;
                     }
 
-                    Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count, Config.maximumServerClients));
+                    Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, Config.maximumServerClients));
 
                     var existing_clients = connectedClients.Where(re => re.remoteIP.Address == clientEndpoint.Address);
                     if (existing_clients.Count() > 0)
