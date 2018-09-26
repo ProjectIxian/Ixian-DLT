@@ -251,7 +251,15 @@ namespace DLT
                         byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
                         try
                         {
-                            endpoint.clientSocket.Send(ba, SocketFlags.None);
+                            for (int sentBytes = 0; sentBytes < ba.Length; )
+                            {
+                                sentBytes += endpoint.clientSocket.Send(ba, sentBytes, ba.Length-sentBytes, SocketFlags.None);
+                                if (sentBytes < ba.Length)
+                                {
+                                    Thread.Sleep(5);
+                                }
+                                // TODO TODO TODO timeout
+                            }
                         }
                         catch (Exception)
                         {
@@ -273,7 +281,23 @@ namespace DLT
                             if(addr.address == neighbor)
                             {
                                 byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
-                                ep.clientSocket.Send(ba, SocketFlags.None);
+                                try
+                                {
+                                    for (int sentBytes = 0; sentBytes < ba.Length;)
+                                    {
+                                        sentBytes += ep.clientSocket.Send(ba, sentBytes, ba.Length - sentBytes, SocketFlags.None);
+                                        if (sentBytes < ba.Length)
+                                        {
+                                            Thread.Sleep(5);
+                                        }
+                                        // TODO TODO TODO timeout
+                                    }
+                                }
+                                catch (Exception)
+                                {
+                                    // Report any issues related to sockets
+                                    // Logging.warn(string.Format("SRV: Socket exception for {0}. Info: {1}", endpoint.remoteIP, e.ToString()));
+                                }
                                 return true;
                             }
                         }

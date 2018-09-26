@@ -154,7 +154,15 @@ namespace DLT
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
             try
             {
-                tcpClient.Client.Send(ba, SocketFlags.None);
+                for (int sentBytes = 0; sentBytes < ba.Length;)
+                {
+                    sentBytes += tcpClient.Client.Send(ba, sentBytes, ba.Length - sentBytes, SocketFlags.None);
+                    if(sentBytes < ba.Length)
+                    {
+                        Thread.Sleep(5);
+                    }
+                    // TODO TODO TODO timeout
+                }
                 if (tcpClient.Client.Connected == false)
                 {
                     Console.WriteLine("Failed senddata to client: {0}. Reconnecting.", address);
