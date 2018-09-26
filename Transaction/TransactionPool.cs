@@ -839,8 +839,6 @@ namespace DLT
             Node.walletState.setWalletBalance(tx.from, source_balance_after, ws_snapshot, source_wallet.nonce);
             Node.walletState.setWalletBalance(tx.to, dest_balance_after, ws_snapshot, dest_wallet.nonce);
 
-            Logging.info(String.Format("Processed transaction from block {0}, amount: {1}, fee: {2}, from balance before: {3}, from balance after: {4}, to balance before: {5}, to balance after: {6}, from nonce: {7}, to nonce: {8}", block.blockNum, tx.amount, tx.fee, source_balance_before, source_balance_after, dest_balance_before, dest_balance_after, source_wallet.nonce, dest_wallet.nonce));
-
             if (!ws_snapshot)
             {
                 tx.applied = block.blockNum;
