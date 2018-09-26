@@ -13,15 +13,15 @@ namespace DLT
 {
     namespace Network
     {
+        struct QueueMessage
+        {
+            public ProtocolMessageCode code;
+            public byte[] data;
+            public Socket skipSocket;
+        }
+
         class NetworkQueue
         {
-            struct QueueMessage
-            {
-                public ProtocolMessageCode code;
-                public byte[] data;
-                public Socket skipSocket;
-            }
-
             private static bool shouldStop = false; // flag to signal shutdown of threads
 
 
@@ -108,7 +108,7 @@ namespace DLT
                     if(message_found)
                     {
                         // Active message set, attempt to broadcast it
-                        NetworkClientManager.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
+                     //   NetworkClientManager.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
                         NetworkServer.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
                     }
                     else

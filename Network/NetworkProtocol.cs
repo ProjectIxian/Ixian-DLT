@@ -91,7 +91,9 @@ namespace DLT
                     return;
                 }
 
-                NetworkQueue.broadcastProtocolMessage(code, data, skipSocket);
+                NetworkClientManager.broadcastData(code, data, skipSocket);
+                NetworkServer.broadcastData(code, data, skipSocket);
+                // NetworkQueue.broadcastProtocolMessage(code, data, skipSocket);
             }
 
             public static void syncWalletStateNeighbor(string neighbor)

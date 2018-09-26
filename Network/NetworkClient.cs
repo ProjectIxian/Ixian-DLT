@@ -14,12 +14,20 @@ namespace DLT
     class NetworkClient
     {
         public TcpClient tcpClient = null;
-        public bool running;
+        public bool running = false;
         public string address = "127.0.0.1:10000";
 
         private string tcpHostname = "";
         private int tcpPort = 0;
         private int failedReconnects = 0;
+
+        // Maintain two threads for handling data receiving and sending
+        private Thread recvThread = null;
+        private Thread sendThread = null;
+
+        // Maintain a queue of messages to send
+        private static List<QueueMessage> sendQueueMessages = new List<QueueMessage>();
+
 
         public NetworkClient()
         {
@@ -74,7 +82,7 @@ namespace DLT
                         break;
 
                     case SocketError.AddressAlreadyInUse:
-                            Logging.warn(string.Format("Socket exception for {0}:{1} has failed. Address already in use.", hostname, port));
+                        Logging.warn(string.Format("Socket exception for {0}:{1} has failed. Address already in use.", hostname, port));
                         break;
 
                     default:
@@ -89,7 +97,7 @@ namespace DLT
                 {
                     tcpClient.Client.Close();
                 }
-                catch(Exception)
+                catch (Exception)
                 {
                     Logging.warn(string.Format("Socket exception for {0}:{1} when closing.", hostname, port));
                 }
@@ -107,13 +115,19 @@ namespace DLT
             }
 
             Logging.info(string.Format("Network client connected to {0}:{1}", hostname, port));
-            
+
             // Reset the failed reconnects count
             failedReconnects = 0;
 
             running = true;
-            Thread thread = new Thread(new ThreadStart(onUpdate));
-            thread.Start();
+
+            // Start receive thread
+            recvThread = new Thread(new ThreadStart(recvLoop));
+            recvThread.Start();
+
+            // Start send thread
+            sendThread = new Thread(new ThreadStart(sendLoop));
+            sendThread.Start();
 
             return true;
         }
@@ -121,7 +135,7 @@ namespace DLT
         // Reconnect with the previous settings
         public bool reconnect()
         {
-            if(tcpHostname.Length < 1 )
+            if (tcpHostname.Length < 1)
             {
                 Logging.warn("Network client reconnect failed due to invalid hostname.");
                 failedReconnects++;
@@ -151,13 +165,41 @@ namespace DLT
         // Sends data over the network
         public void sendData(ProtocolMessageCode code, byte[] data)
         {
+            if (data == null)
+            {
+                Logging.warn(string.Format("Invalid protocol message data for {0}", code));
+                return;
+            }
+
+            QueueMessage message = new QueueMessage();
+            message.code = code;
+            message.data = data;
+            message.skipSocket = null;
+
+            lock (sendQueueMessages)
+            {
+                if (sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
+                {
+                    Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                }
+                else
+                {
+                    sendQueueMessages.Add(message);
+                }
+            }
+
+        }
+
+        // Internal function that sends data through the socket
+        private void sendDataInternal(ProtocolMessageCode code, byte[] data)
+        {
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
             try
             {
                 for (int sentBytes = 0; sentBytes < ba.Length;)
                 {
                     sentBytes += tcpClient.Client.Send(ba, sentBytes, ba.Length - sentBytes, SocketFlags.None);
-                    if(sentBytes < ba.Length)
+                    if (sentBytes < ba.Length)
                     {
                         Thread.Sleep(5);
                     }
@@ -170,15 +212,15 @@ namespace DLT
 
                 }
             }
-            catch(Exception)
+            catch (Exception)
             {
                 Console.WriteLine("CLN: Socket exception, attempting to reconnect");
                 reconnect();
             }
         }
 
-
-        private void onUpdate()
+        // Receive thread
+        private void recvLoop()
         {
             // Send a hello message containing the public ip and port of this node
             List<string> ips = CoreNetworkUtils.GetAllLocalIPAddresses();
@@ -243,6 +285,46 @@ namespace DLT
             }
 
             disconnect();
+            Thread.Yield();
+        }
+
+        // Send thread
+        private void sendLoop()
+        {
+            // Prepare an special message object to use while sending, without locking up the queue messages
+            QueueMessage active_message = new QueueMessage();
+
+            while (running)
+            {
+                bool message_found = false;
+                lock (sendQueueMessages)
+                {
+                    if (sendQueueMessages.Count > 0)
+                    {
+                        // Pick the oldest message
+                        QueueMessage candidate = sendQueueMessages[0];
+                        active_message.code = candidate.code;
+                        active_message.data = candidate.data;
+                        active_message.skipSocket = candidate.skipSocket;
+                        // Remove it from the queue
+                        sendQueueMessages.Remove(candidate);
+                        message_found = true;
+                    }
+                }
+
+                if (message_found)
+                {
+                    // Active message set, attempt to send it
+                    sendDataInternal(active_message.code, active_message.data);
+                }
+                else
+                {
+                    // No active message
+                    // Sleep for 100ms to prevent cpu waste
+                    Thread.Sleep(100);
+                }
+            }
+
             Thread.Yield();
         }
 

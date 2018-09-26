@@ -209,18 +209,10 @@ namespace DLT
                             {
                                 try
                                 {
-                                    //Console.WriteLine("~~~~");
                                     foreach (RemoteEndpoint endpoint in connectedClients)
                                     {
-                                        //   Console.WriteLine("Ping {0}", endpoint.presence.addresses[0].address);
-                                        Thread th = new Thread(() =>
-                                        {
-                                            sendPing(endpoint, m.ToArray());
-                                            Thread.Yield();
-                                        });
-                                        th.Start();
+                                        sendPing(endpoint, m.ToArray());
                                     }
-                                    // Console.WriteLine("~==~~");
                                 }
                                 catch (Exception)
                                 {
@@ -248,24 +240,7 @@ namespace DLT
                                 continue;
                         }
 
-                        byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
-                        try
-                        {
-                            for (int sentBytes = 0; sentBytes < ba.Length; )
-                            {
-                                sentBytes += endpoint.clientSocket.Send(ba, sentBytes, ba.Length-sentBytes, SocketFlags.None);
-                                if (sentBytes < ba.Length)
-                                {
-                                    Thread.Sleep(5);
-                                }
-                                // TODO TODO TODO timeout
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            // Report any issues related to sockets
-                            // Logging.warn(string.Format("SRV: Socket exception for {0}. Info: {1}", endpoint.remoteIP, e.ToString()));
-                        }
+                        endpoint.sendData(code, data);
                     }
                 }
             }
@@ -280,24 +255,7 @@ namespace DLT
                         {
                             if(addr.address == neighbor)
                             {
-                                byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
-                                try
-                                {
-                                    for (int sentBytes = 0; sentBytes < ba.Length;)
-                                    {
-                                        sentBytes += ep.clientSocket.Send(ba, sentBytes, ba.Length - sentBytes, SocketFlags.None);
-                                        if (sentBytes < ba.Length)
-                                        {
-                                            Thread.Sleep(5);
-                                        }
-                                        // TODO TODO TODO timeout
-                                    }
-                                }
-                                catch (Exception)
-                                {
-                                    // Report any issues related to sockets
-                                    // Logging.warn(string.Format("SRV: Socket exception for {0}. Info: {1}", endpoint.remoteIP, e.ToString()));
-                                }
+                                ep.sendData(code, data);
                                 return true;
                             }
                         }
@@ -312,24 +270,7 @@ namespace DLT
                 if (endpoint == null)
                     return;
 
-                // TODO: find a better way to detect near-instant disconnects
-                byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.keepAlivePresence, data);
-                try
-                {
-                    endpoint.clientSocket.Send(ba, SocketFlags.None);
-                    if (endpoint.clientSocket.Connected == false)
-                    {
-                        //Console.WriteLine("!!! Failed to ping remote endpoint.");
-                        endpoint.state = RemoteEndpointState.Closed;
-                    }
-                }
-                catch (Exception)
-                {
-                    //Console.WriteLine("Failed ping to client: {0}", e.ToString());
-                    endpoint.state = RemoteEndpointState.Closed;
-                }
-
-
+                endpoint.sendData(ProtocolMessageCode.keepAlivePresence, data);
             }
 
             // Returns all the connected clients
@@ -409,75 +350,26 @@ namespace DLT
                     remoteEndpoint.presence = null;
                     remoteEndpoint.presenceAddress = null;
                     remoteEndpoint.state = RemoteEndpointState.Initial;
-                    remoteEndpoint.thread = new Thread(clientLoop);
-                    remoteEndpoint.thread.Start(remoteEndpoint);
 
                     connectedClients.Add(remoteEndpoint);
 
+                    remoteEndpoint.start();
+
+
                 }
             }
 
-            private static void clientLoop(object data)
+            // Removes an endpoint from the connected clients list
+            public static bool removeEndpoint(RemoteEndpoint endpoint)
             {
-                RemoteEndpoint client = null;
-                if (data is RemoteEndpoint)
-                {
-                    client = (RemoteEndpoint)data;
-                }
-                else
-                {
-                    throw new Exception(String.Format("NetworkServer.clientLoop called with incorrect data object. Expected 'RemoteEndpoint', got '{0}'", data.GetType().ToString()));
-                }
-
-                bool clientActive = true;
-                while (clientActive)
-                {
-                    // Let the protocol handler receive and handle messages
-                    try
-                    {
-                        ProtocolMessage.readProtocolMessage(client.clientSocket, client);
-                    }
-                    catch (Exception)
-                    {
-                        //Console.WriteLine("Disconnected client: {0}", e.ToString());
-                        client.state = RemoteEndpointState.Closed;
-                    }
-                    
-                    // Check if the client disconnected
-                    if (client.state == RemoteEndpointState.Closed)
-                    {
-                        clientActive = false;
-                    }
-                }
-
-                // Remove corresponding address from presence list
-                if(client.presence != null && client.presenceAddress != null)
-                {
-                    PresenceList.removeAddressEntry(client.presence.wallet, client.presenceAddress);
-                }
-
-                // Close the client socket
-                if (client != null && client.clientSocket != null)
-                {
-                    try
-                    {
-                        client.clientSocket.Shutdown(SocketShutdown.Both);
-                        client.clientSocket.Close();
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine("Could not shutdown client socket: {0}", e.ToString());
-                    }
-                }
-
+                bool result = false;
                 lock (connectedClients)
                 {
-                    connectedClients.Remove(client);
+                    result = connectedClients.Remove(endpoint);
                 }
-
-                Thread.Yield();
+                return result;
             }
-
+    
 
         }
     }
