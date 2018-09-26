@@ -510,6 +510,7 @@ namespace DLTNode
                 if (Node.blockSync.synchronizing)
                     dltStatus = "Synchronizing";
                 networkArray.Add("DLT Status", dltStatus);
+                networkArray.Add("Block Processor Status", Node.blockProcessor.operating);
 
                 networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
                 networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
@@ -518,6 +519,8 @@ namespace DLTNode
                 networkArray.Add("WS Checksum", Node.walletState.calculateWalletStateChecksum());
                 networkArray.Add("WS Delta Checksum", Node.walletState.calculateWalletStateChecksum(true));
                 networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
+                networkArray.Add("TX Count", TransactionPool.getAllTransactions().Count());
+                networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
 
                 string responseString = JsonConvert.SerializeObject(networkArray);
                 sendResponse(context.Response, responseString);

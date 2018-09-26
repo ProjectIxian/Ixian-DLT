@@ -493,7 +493,7 @@ namespace DLT
                     // Remove all failed transactions from the TxPool and block
                     foreach (Transaction tx in failed_transactions)
                     {
-                        Logging.info(String.Format("Removing failed transaction #{0} from pool and block.", tx.id));
+                        Logging.info(String.Format("Removing failed transaction #{0} from pool.", tx.id));
                         // Remove from TxPool
                         if(tx.applied == 0)
                         {
@@ -527,7 +527,11 @@ namespace DLT
                     }
 
                     // Reset the internal nonce
-                    internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
+                    if (!ws_snapshot)
+                    {
+                        // TODO TODO TODO move this to a more appropriate place
+                        internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
+                    }
 
 
 
@@ -576,7 +580,7 @@ namespace DLT
                     // Remove all failed transactions from the TxPool
                     foreach (Transaction tx in failed_staking_transactions)
                     {
-                        Logging.info(String.Format("Removing failed staking transaction #{0} from pool and block.", tx.id));
+                        Logging.info(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
                         if (tx.applied == 0)
                         {
                             // Remove from TxPool
@@ -812,7 +816,7 @@ namespace DLT
             // Check the nonce
             if (source_wallet.nonce + 1 != tx.nonce)
             {
-                Logging.warn(String.Format("Incorrect nonce for transaction {0}. Is {1} should be {2}", tx.id, tx.nonce, source_wallet.nonce + 1));
+                Logging.warn(String.Format("Incorrect nonce for transaction {0}. Tx nonce is {1}, expecting {2}", tx.id, tx.nonce, source_wallet.nonce + 1));
                 failed_transactions.Add(tx);
                 return false;
             }

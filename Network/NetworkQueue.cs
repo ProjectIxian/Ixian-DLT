@@ -50,7 +50,14 @@ namespace DLT
 
                 lock (queueMessages)
                 {
-                    queueMessages.Add(message);
+                    if (queueMessages.Exists(x => x.code == message.code && x.data == message.data && x.skipSocket == message.skipSocket))
+                    {
+                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                    }
+                    else
+                    {
+                        queueMessages.Add(message);
+                    }
                 }
             }
 
