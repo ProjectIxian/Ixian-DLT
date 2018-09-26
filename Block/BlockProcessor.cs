@@ -921,6 +921,17 @@ namespace DLT
                 ulong total_transactions = 0;
                 IxiNumber total_amount = 0;
 
+                // Apply staking transactions to block. 
+                // Generate the staking transactions with the blockgen flag, as we are the current block generator
+                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6);
+                foreach (Transaction transaction in staking_transactions)
+                {
+                    localNewBlock.addTransaction(transaction);
+                    total_amount += transaction.amount;
+                    total_transactions++;
+                }
+                staking_transactions.Clear();
+
                 List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
                 pool_transactions.OrderBy(x => x.nonce);
                 // TODO TODO TODO this will not be needed after new nonce
@@ -969,16 +980,6 @@ namespace DLT
                     total_transactions++;
                 }
 
-                // Apply staking transactions to block. 
-                // Generate the staking transactions with the blockgen flag, as we are the current block generator
-                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6);
-                foreach (Transaction transaction in staking_transactions)
-                {
-                    localNewBlock.addTransaction(transaction);
-                    total_amount += transaction.amount;
-                    total_transactions++;
-                }
-                staking_transactions.Clear();
 
                 Console.WriteLine("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount);
 
@@ -1092,7 +1093,7 @@ namespace DLT
             }
 
             // Calculate the amount of new IXIs to be minted
-            IxiNumber newIxis = totalIxis * inflationPA / new IxiNumber("100000000");
+            IxiNumber newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
             // Retrieve the list of signature wallets

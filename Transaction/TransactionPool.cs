@@ -400,6 +400,51 @@ namespace DLT
             return true;
         }
 
+        public static void applyStakingTransactionsFromBlock(Block block, List<Transaction> failed_staking_transactions, bool ws_snapshot = false)
+        {
+            // TODO: move this to a seperate function. Left here for now for dev purposes
+            // Apply any staking transactions in the pool at this moment
+            Transaction[] staking_txs = null;
+            if (ws_snapshot)
+            {
+                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, ws_snapshot).ToArray();
+            }
+            else
+            {
+                staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
+            }
+            if (staking_txs == null)
+                return;
+
+            // Maintain a list of stakers
+            List<string> blockStakers = new List<string>();
+
+            foreach (Transaction tx in staking_txs)
+            {
+                if (tx.applied > 0)
+                    continue;
+
+                string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
+                ulong txbnum = Convert.ToUInt64(split_str[1]);
+
+                if (txbnum != block.blockNum - 6)
+                    continue;
+
+                // Special case for Staking Reward transaction
+                // Do not apply them if we are synchronizing
+                // TODO: note that this can backfire when recovering completely from a file
+                if (Node.blockSync.synchronizing && Config.recoverFromFile == false)
+                    continue;
+
+                if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
+                {
+                    Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
+                    continue;
+                }
+            }
+
+        }
+
         // This applies all the transactions from a block to the actual walletstate.
         // It removes the failed transactions as well from the pool and block.
         public static bool applyTransactionsFromBlock(Block block, bool ws_snapshot = false)
@@ -419,6 +464,33 @@ namespace DLT
                     // Maintain a list of failed transactions to remove them from the TxPool in one go
                     List<Transaction> failed_transactions = new List<Transaction>();
                     List<Transaction> already_applied_transactions = new List<Transaction>();
+
+                    List<Transaction> failed_staking_transactions = new List<Transaction>();
+
+                    applyStakingTransactionsFromBlock(block, failed_staking_transactions, ws_snapshot);
+
+                    // Remove all failed transactions from the TxPool
+                    foreach (Transaction tx in failed_staking_transactions)
+                    {
+                        Logging.info(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
+                        if (tx.applied == 0)
+                        {
+                            // Remove from TxPool
+                            transactions.Remove(tx);
+                        }
+                        else
+                        {
+                            Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
+                        }
+                        //block.transactions.Remove(tx.id);
+                    }
+                    if (failed_staking_transactions.Count > 0)
+                    {
+                        failed_staking_transactions.Clear();
+                        Logging.error(string.Format("Block #{0} has failed staking transactions, rejecting the block.", block.blockNum));
+                        return false;
+                    }
+
 
                     foreach (string txid in block.transactions)
                     {
@@ -531,71 +603,6 @@ namespace DLT
                     {
                         // TODO TODO TODO move this to a more appropriate place
                         internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
-                    }
-
-
-
-                    // TODO: move this to a seperate function. Left here for now for dev purposes
-                    // Apply any staking transactions in the pool at this moment
-                    Transaction[] staking_txs = null;
-                    if (ws_snapshot)
-                    {
-                        staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, ws_snapshot).ToArray();
-                    }
-                    else
-                    {
-                        staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
-                    }
-                    if (staking_txs == null)
-                        return true;
-
-                    // Maintain a list of stakers
-                    List<string> blockStakers = new List<string>();
-                    List<Transaction> failed_staking_transactions = new List<Transaction>();
-
-                    foreach (Transaction tx in staking_txs)
-                    {
-                        if (tx.applied > 0)
-                            continue;
-
-                        string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
-                        ulong txbnum = Convert.ToUInt64(split_str[1]);
-
-                        if (txbnum != block.blockNum - 6)
-                            continue;
-
-                        // Special case for Staking Reward transaction
-                        // Do not apply them if we are synchronizing
-                        // TODO: note that this can backfire when recovering completely from a file
-                        if (Node.blockSync.synchronizing && Config.recoverFromFile == false)
-                            continue;
-
-                        if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
-                        {
-                            Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
-                            continue;
-                        }
-                    }
-
-                    // Remove all failed transactions from the TxPool
-                    foreach (Transaction tx in failed_staking_transactions)
-                    {
-                        Logging.info(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
-                        if (tx.applied == 0)
-                        {
-                            // Remove from TxPool
-                            transactions.Remove(tx);
-                        }else
-                        {
-                            Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
-                        }
-                        //block.transactions.Remove(tx.id);
-                    }
-                    if (failed_staking_transactions.Count > 0)
-                    {
-                        failed_staking_transactions.Clear();
-                        Logging.error(string.Format("Block #{0} has failed staking transactions, rejecting the block.", block.blockNum));
-                        return false;
                     }
                 }
             }
