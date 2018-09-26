@@ -361,6 +361,8 @@ namespace DLT
                 }
                 try
                 {
+                    // TODO TODO TODO verify nonces
+
                     // TODO: check to see if other transaction types need additional verification
                     if (t.type == (int)Transaction.Type.Normal)
                     {
@@ -519,6 +521,7 @@ namespace DLT
         {
             bool requestBlockAgain = false;
             ulong requestBlockNum = 0;
+            bool sleep = false;
 
             lock (localBlockLock)
             {
@@ -544,9 +547,10 @@ namespace DLT
                         // accept this block, apply its transactions, recalc consensus, etc
                         if (applyAcceptedBlock(localNewBlock) == true)
                         {
-                            if (Node.walletState.calculateWalletStateChecksum() != localNewBlock.walletStateChecksum)
+                            string wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                            if (wsChecksum != localNewBlock.walletStateChecksum)
                             {
-                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!.", localNewBlock.blockNum));
+                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum, localNewBlock.walletStateChecksum, wsChecksum));
                                 rollBackAcceptedBlock(localNewBlock);
                                 if (Node.walletState.calculateWalletStateChecksum() != Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum)
                                 {
@@ -586,9 +590,10 @@ namespace DLT
                         }
                     }else
                     {
+                        // TODO TODO TODO partial rollback may be necessary, but check if the block hasn't been added already
                         ProtocolMessage.broadcastNewBlock(localNewBlock);
                         Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
-                        Thread.Sleep(500);
+                        sleep = true;
                     }
                 }
                 else
@@ -598,6 +603,11 @@ namespace DLT
                     localNewBlock = null;
                     requestBlockAgain = true;
                 }
+            }
+
+            if(sleep)
+            {
+                Thread.Sleep(5000);
             }
 
             // Check if we should request the block again
@@ -911,14 +921,45 @@ namespace DLT
                 ulong total_transactions = 0;
                 IxiNumber total_amount = 0;
 
-                Transaction[] pool_transactions = TransactionPool.getUnappliedTransactions();
+                List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
+                pool_transactions.OrderBy(x => x.nonce);
+                // TODO TODO TODO this will not be needed after new nonce
+                //------------ nOnce fix section ------------
+                List<Transaction> removeTransactionArr = new List<Transaction>();
+                SortedList<string, ulong> fromNonceArr = new SortedList<string, ulong>();
+                foreach (var transaction in pool_transactions)
+                {
+                    if (transaction.type == (int)Transaction.Type.Genesis || transaction.type == (int)Transaction.Type.PoWSolution || transaction.type == (int)Transaction.Type.StakingReward)
+                    {
+                        continue;
+                    }
+                    if (!fromNonceArr.ContainsKey(transaction.from))
+                    {
+                        fromNonceArr.Add(transaction.from, Node.walletState.getWallet(transaction.from).nonce);
+                    }
+                    if (transaction.nonce != fromNonceArr[transaction.from] + 1)
+                    {
+                        removeTransactionArr.Add(transaction);
+                    }
+                    else
+                    {
+                        fromNonceArr.AddOrReplace(transaction.from, transaction.nonce);
+                    }
+                }
+                fromNonceArr.Clear();
+                foreach(var transaction in removeTransactionArr)
+                {
+                    pool_transactions.Remove(transaction);
+                }
+                removeTransactionArr.Clear();
+                //------------ end of nOnce fix section ------------
                 foreach (var transaction in pool_transactions)
                 {
                     //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);
-                    // TODO: add an if check if adding the transaction failed ?
+                    // TODO TODO TODO verify that the transaction is actually valid at this point
 
                     // Skip adding staking rewards
-                    if(transaction.type == (int)Transaction.Type.StakingReward)
+                    if (transaction.type == (int)Transaction.Type.StakingReward)
                     {
                         continue;
                     }
@@ -1145,9 +1186,9 @@ namespace DLT
                 return false;
             }
 
-            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, ws_snapshot);
             if (ws_snapshot == false)
             {
+                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, ws_snapshot);
                 foreach (Transaction transaction in transactions)
                 {
                     if (!TransactionPool.addTransaction(transaction, true))
