@@ -27,7 +27,7 @@ namespace DLT
         public bool running = false;
 
         // Maintain a queue of messages to send
-        private static List<QueueMessage> sendQueueMessages = new List<QueueMessage>();
+        private List<QueueMessage> sendQueueMessages = new List<QueueMessage>();
 
 
         public void start()
@@ -191,7 +191,23 @@ namespace DLT
                 }
                 else
                 {
-                    sendQueueMessages.Add(message);
+                    if (sendQueueMessages.Count > 50)
+                    {
+                        // Prioritize certain messages if the queue is large
+                        if (message.code == ProtocolMessageCode.keepAlivePresence || message.code == ProtocolMessageCode.ping ||
+                            message.code == ProtocolMessageCode.newBlock || message.code == ProtocolMessageCode.blockData)
+                        {
+                            sendQueueMessages.Insert(10, message);
+                        }
+                        else
+                        {
+                            sendQueueMessages.Add(message);
+                        }
+                    }
+                    else
+                    {
+                        sendQueueMessages.Add(message);
+                    }
                 }
             }
 
