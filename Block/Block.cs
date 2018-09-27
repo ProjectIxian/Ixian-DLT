@@ -470,13 +470,13 @@ namespace DLT
             {
                 last_block_chksum = "G E N E S I S  B L O C K";
             }
-            Console.WriteLine("\t\t|- Block Number:\t\t {0}", blockNum);
-            Console.WriteLine("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockChain.getRequiredConsensus());
-            Console.WriteLine("\t\t|- Block Checksum:\t\t {0}", blockChecksum);
-            Console.WriteLine("\t\t|- Last Block Checksum: \t {0}", last_block_chksum);
-            Console.WriteLine("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum);
-            Console.WriteLine("\t\t|- Sig Freeze Checksum: \t {0}", signatureFreezeChecksum);
-            Console.WriteLine("\t\t|- Difficulty:\t\t\t {0}", difficulty);
+            Logging.info(String.Format("\t\t|- Block Number:\t\t {0}", blockNum));
+            Logging.info(String.Format("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockChain.getRequiredConsensus()));
+            Logging.info(String.Format("\t\t|- Block Checksum:\t\t {0}", blockChecksum));
+            Logging.info(String.Format("\t\t|- Last Block Checksum: \t {0}", last_block_chksum));
+            Logging.info(String.Format("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum));
+            Logging.info(String.Format("\t\t|- Sig Freeze Checksum: \t {0}", signatureFreezeChecksum));
+            Logging.info(String.Format("\t\t|- Difficulty:\t\t\t {0}", difficulty));
         }
 
         public bool isGenesis { get { return this.blockNum == 0 && this.lastBlockChecksum == null; } }

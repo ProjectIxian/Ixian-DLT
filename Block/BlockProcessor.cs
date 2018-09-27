@@ -534,7 +534,7 @@ namespace DLT
                     {
                         if(!verifySignatureFreezeChecksum(localNewBlock))
                         {
-                            Logging.info(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
+                            Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
                             return;
                         }
                         if (localNewBlock.blockNum != Node.blockChain.getLastBlockNum() + 1)
@@ -579,10 +579,10 @@ namespace DLT
                                 // TODO: find a better place for this
                                 PresenceStorage.savePresenceFile();
                             }
-                        }
-                        else
+                        }else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
                         {
-                            Logging.info(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
+                            // TODO TODO TODO Partial rollback may be needed here
+                            Logging.error(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
                             localNewBlock.logBlockDetails();
                             requestBlockNum = localNewBlock.blockNum;
                             localNewBlock = null;
@@ -590,7 +590,6 @@ namespace DLT
                         }
                     }else
                     {
-                        // TODO TODO TODO partial rollback may be necessary, but check if the block hasn't been added already
                         ProtocolMessage.broadcastNewBlock(localNewBlock);
                         Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
                         sleep = true;
@@ -614,9 +613,7 @@ namespace DLT
             if (requestBlockAgain && requestBlockNum > 0)
             {
                 // Show a notification
-                Console.ForegroundColor = ConsoleColor.Red;
                 Logging.error(string.Format("Requesting block {0} again due to previous mismatch.", requestBlockNum));
-                Console.ResetColor();
                 // Sleep a bit to prevent spam
                 Thread.Sleep(5000);
                 // Request the block again
@@ -733,7 +730,7 @@ namespace DLT
 
             if (sigfreezechecksum.Length < 3)
             {
-                Logging.info("Current block does not have sigfreeze checksum.");
+                Logging.warn("Current block does not have sigfreeze checksum.");
                 return;
             }
 
@@ -748,7 +745,7 @@ namespace DLT
 
             if (sigfreezechecksum.Equals(targetSigFreezeChecksum, StringComparison.Ordinal) == false)
             {
-                Logging.info(string.Format("Signature freeze mismatch for block {0}. Current block height: {1}", targetBlock.blockNum, b.blockNum));
+                Logging.warn(string.Format("Signature freeze mismatch for block {0}. Current block height: {1}", targetBlock.blockNum, b.blockNum));
                 // TODO: fetch the block again or re-sync
                 return;
             }
@@ -853,9 +850,7 @@ namespace DLT
         {
             lock (localBlockLock)
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("GENERATING NEW BLOCK");
-                Console.ResetColor();
+                Logging.info("GENERATING NEW BLOCK");
                 // TODO this section should probably be moved to verifyBlockAcceptance
                 if (localNewBlock != null)
                 {
@@ -913,7 +908,7 @@ namespace DLT
                 lastBlockStartTime = DateTime.Now;
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
-                Console.WriteLine("\t\t|- Block Number: {0}", localNewBlock.blockNum);
+                Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
 
                 // Apply signature freeze
                 localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
@@ -981,7 +976,7 @@ namespace DLT
                 }
 
 
-                Console.WriteLine("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount);
+                Logging.info(String.Format("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount));
 
                 // Calculate mining difficulty
                 localNewBlock.difficulty = calculateDifficulty();
@@ -1094,8 +1089,8 @@ namespace DLT
 
             // Calculate the amount of new IXIs to be minted
             IxiNumber newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
+            //Console.ForegroundColor = ConsoleColor.Magenta;
+            //Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
             // Retrieve the list of signature wallets
             List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
 
@@ -1150,7 +1145,7 @@ namespace DLT
                 if (award > (long)0)
                 {
                     string wallet_addr = signatureWallets[i];
-                    Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
+                    //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
                     Transaction tx = new Transaction();
                     tx.type = (int)Transaction.Type.StakingReward;
@@ -1170,8 +1165,8 @@ namespace DLT
                 }
 
             }
-            Console.WriteLine("------");
-            Console.ResetColor();
+            //Console.WriteLine("------");
+            //Console.ResetColor();
 
 
             return transactions;

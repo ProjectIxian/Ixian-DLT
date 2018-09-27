@@ -106,7 +106,7 @@ namespace DLTNode
                 if (key.Key == ConsoleKey.W)
                 {
                     string ws_checksum = Node.walletState.calculateWalletStateChecksum();
-                    Console.WriteLine(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
+                    Logging.info(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
                         Node.walletState.numWallets, Node.walletState.hasSnapshot, ws_checksum));
                 }
 

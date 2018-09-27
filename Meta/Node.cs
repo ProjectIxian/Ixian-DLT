@@ -68,11 +68,11 @@ namespace DLT.Meta
                         showIPmenu();
                     } else
                     {
-                        Logging.info(String.Format("None of the locally configured IP addresses are public. Attempting UPnP..."));
+                        Logging.warn(String.Format("None of the locally configured IP addresses are public. Attempting UPnP..."));
                         IPAddress public_ip = upnp.GetExternalIPAddress();
                         if(public_ip == null)
                         {
-                            Logging.info("UPnP failed.");
+                            Logging.warn("UPnP failed.");
                             showIPmenu();
                         } else
                         {
@@ -83,7 +83,7 @@ namespace DLT.Meta
                                 Logging.info(string.Format("Network configured. Public IP is: {0}", Config.publicServerIP));
                             } else
                             {
-                                Logging.info("UPnP configuration failed.");
+                                Logging.warn("UPnP configuration failed.");
                                 showIPmenu();
                             }
                         }
@@ -165,7 +165,7 @@ namespace DLT.Meta
             {
                 if(Node.blockProcessor.operating == true)
                 {
-                    Console.WriteLine("Starting Network Server now.");
+                    Logging.info("Starting Network Server now.");
 
                     // Start the node server
                     NetworkServer.beginNetworkOperations();
@@ -220,7 +220,7 @@ namespace DLT.Meta
         static public void synchronize()
         {
             // Clear everything and force a resynchronization
-            Console.WriteLine("\n\n\tSynchronizing to network...\n");
+            Logging.info("\n\n\tSynchronizing to network...\n");
 
             blockProcessor = new BlockProcessor();
             blockChain = new BlockChain();
@@ -412,7 +412,7 @@ namespace DLT.Meta
 
             Logging.clear();
 
-            Console.WriteLine("Cleaned cache and logs.");
+            Logging.info("Cleaned cache and logs.");
             return true;
         }
     }

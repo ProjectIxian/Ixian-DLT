@@ -54,7 +54,7 @@ namespace DLT
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
 
-            Console.WriteLine("MINER STARTED");
+            Logging.info("MINER STARTED");
             return true;
         }
 
@@ -187,7 +187,7 @@ namespace DLT
             if (Miner.validateHash(hash) == true)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash);
+                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash));
                 Console.ResetColor();
 
                 // Broadcast the nonce to the network

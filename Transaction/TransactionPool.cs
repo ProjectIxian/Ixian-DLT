@@ -438,7 +438,7 @@ namespace DLT
 
                 if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
                 {
-                    Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
+                    //Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
                     continue;
                 }
             }
@@ -472,7 +472,7 @@ namespace DLT
                     // Remove all failed transactions from the TxPool
                     foreach (Transaction tx in failed_staking_transactions)
                     {
-                        Logging.info(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
+                        Logging.warn(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
                         if (tx.applied == 0)
                         {
                             // Remove from TxPool
@@ -565,7 +565,7 @@ namespace DLT
                     // Remove all failed transactions from the TxPool and block
                     foreach (Transaction tx in failed_transactions)
                     {
-                        Logging.info(String.Format("Removing failed transaction #{0} from pool.", tx.id));
+                        Logging.warn(String.Format("Removing failed transaction #{0} from pool.", tx.id));
                         // Remove from TxPool
                         if(tx.applied == 0)
                         {
@@ -871,9 +871,7 @@ namespace DLT
                 IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
                 IxiNumber powRewardPart = Config.powReward / miners_count;
 
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum);
-                Console.ResetColor();
+                Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
 
                 string checksum_source = "MINERS";
                 foreach (string miner in miners_to_reward)
@@ -930,7 +928,7 @@ namespace DLT
                     // Read the number of transactions
                     int num_transactions = reader.ReadInt32();
 
-                    Console.WriteLine("Number of transactions in sync txpool: {0}", num_transactions);
+                    Logging.info(String.Format("Number of transactions in sync txpool: {0}", num_transactions));
                     if (num_transactions < 0)
                         return false;
 
@@ -948,7 +946,7 @@ namespace DLT
                                 transactions.Add(new_transaction);
                             }
 
-                            Console.WriteLine("SYNC Transaction: {0}", new_transaction.id);
+                            Logging.info(String.Format("SYNC Transaction: {0}", new_transaction.id));
 
                         }
                     }

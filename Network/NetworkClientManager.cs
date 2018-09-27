@@ -130,7 +130,7 @@ namespace DLT
             // Skip hostnames we can't resolve
             if(resolved_server_name.Length < 1)
             {
-                Logging.info(string.Format("Cannot resolve IP for {0}, skipping connection.", server[0]));
+                Logging.warn(string.Format("Cannot resolve IP for {0}, skipping connection.", server[0]));
                 return false;
             }
 

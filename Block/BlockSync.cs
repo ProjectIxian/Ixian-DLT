@@ -133,7 +133,7 @@ namespace DLT
 
         private void performWalletStateSync()
         {
-            Console.WriteLine("WS SYNC block: {0}", wsSyncStartBlock);
+            Logging.info(String.Format("WS SYNC block: {0}", wsSyncStartBlock));
             if (wsSyncStartBlock > 0)
             {
                 Logging.info(String.Format("We are synchronizing to block #{0}.", wsSyncStartBlock));
@@ -217,7 +217,7 @@ namespace DLT
                     }
                     if (b_status == BlockVerifyStatus.Invalid)
                     {
-                        Logging.info(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
+                        Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                         ProtocolMessage.broadcastGetBlock(b.blockNum);
                         return;
@@ -350,7 +350,7 @@ namespace DLT
         {
             if(synchronizing == true)
             {
-                Logging.info("Unable to perform outgoing walletstate sync until own blocksync is complete.");
+                Logging.warn("Unable to perform outgoing walletstate sync until own blocksync is complete.");
                 return false;
             }
 

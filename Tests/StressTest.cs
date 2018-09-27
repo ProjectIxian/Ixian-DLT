@@ -220,15 +220,15 @@ namespace DLTNode
                 tcpClient.Client.Send(ba, SocketFlags.None);
                 if (tcpClient.Client.Connected == false)
                 {
-                    Console.WriteLine("Failed senddata to client. Reconnecting.");
+                    Logging.error("Failed senddata to client. Reconnecting.");
 
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Console.WriteLine("CLN: Socket exception, attempting to reconnect");
+                Logging.error(String.Format("CLN: Socket exception, attempting to reconnect {0}", e));
             }
-            Console.WriteLine("sendData done");
+            //Console.WriteLine("sendData done");
         }
     }
 }

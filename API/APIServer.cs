@@ -581,7 +581,7 @@ namespace DLTNode
             }
             catch(Exception e)
             {
-                Console.WriteLine("HTTP API: {0}", e.ToString());
+                Logging.error(String.Format("HTTP API: {0}", e.ToString()));
             }
         }
 

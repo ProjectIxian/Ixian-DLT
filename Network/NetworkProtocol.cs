@@ -227,7 +227,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("NET: endpoint disconnected " + e);
+                    Logging.error(String.Format("NET: endpoint disconnected {0}", e));
                     throw e;
                 }
 
@@ -277,7 +277,7 @@ namespace DLT
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine("NET: dropped packet. " + e);
+                                Logging.error(String.Format("NET: dropped packet. {0}", e));
                                 return;
                             }
                             // Compute checksum of received data
@@ -286,7 +286,7 @@ namespace DLT
                             // Verify the checksum before proceeding
                             if (Crypto.byteArrayCompare(local_checksum, data_checksum) == false)
                             {
-                                Logging.warn("Dropped message (invalid checksum)");
+                                Logging.error("Dropped message (invalid checksum)");
                                 continue;
                             }
 
@@ -371,7 +371,7 @@ namespace DLT
                                                 using (BinaryWriter writer = new BinaryWriter(m2))
                                                 {
                                                     writer.Write(string.Format("Incorrect testnet designator: {0}. Should be {1}", test_net, Config.isTestNet));
-                                                    Logging.info(string.Format("Rejected master node {0} due to incorrect testnet designator: {1}", hostname, test_net));
+                                                    Logging.warn(string.Format("Rejected master node {0} due to incorrect testnet designator: {1}", hostname, test_net));
                                                     socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
                                                     socket.Disconnect(true);
                                                     return;
@@ -412,7 +412,7 @@ namespace DLT
                                                     using (BinaryWriter writer = new BinaryWriter(m2))
                                                     {
                                                         writer.Write(string.Format("Insufficient funds. Minimum is {0}", Config.minimumMasterNodeFunds));
-                                                        Logging.info(string.Format("Rejected master node {0} due to insufficient funds: {1}", hostname, balance.ToString()));
+                                                        Logging.warn(string.Format("Rejected master node {0} due to insufficient funds: {1}", hostname, balance.ToString()));
                                                         socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
                                                         socket.Disconnect(true);
                                                         return;
@@ -448,7 +448,7 @@ namespace DLT
                                     catch(Exception e)
                                     {
                                         // Disconnect the node in case of any reading errors
-                                        Logging.info(string.Format("Older node connected. {0}", e.ToString()));
+                                        Logging.warn(string.Format("Older node connected. {0}", e.ToString()));
                                         using (MemoryStream m2 = new MemoryStream())
                                         {
                                             using (BinaryWriter writer = new BinaryWriter(m2))
@@ -497,11 +497,11 @@ namespace DLT
                                 using (BinaryReader reader = new BinaryReader(m))
                                 {
                                     int node_version = reader.ReadInt32();
-                                    Console.WriteLine(string.Format("Received Hello: Node version {0}", node_version));
+                                    Logging.info(string.Format("Received Hello: Node version {0}", node_version));
                                     // Check for incompatible nodes
                                     if (node_version < Config.nodeVersion)
                                     {
-                                        Console.WriteLine("Hello: Connected node version ({0}) is too old! Upgrade the node.", node_version);
+                                        Logging.warn(String.Format("Hello: Connected node version ({0}) is too old! Upgrade the node.", node_version));
                                         socket.Disconnect(true);
                                         return;
                                     }
@@ -601,7 +601,7 @@ namespace DLT
                                         Transaction transaction = TransactionPool.getTransaction(txid);
                                         if (transaction == null)
                                         {
-                                            Logging.info(String.Format("I do not have txid '{0}.", txid));
+                                            Logging.warn(String.Format("I do not have txid '{0}.", txid));
                                             return;
                                         }
 
@@ -711,7 +711,7 @@ namespace DLT
                             {
                                 if (isAuthoritativeNode(endpoint, socket))
                                 {
-                                    Console.WriteLine("NET: Received a new transaction pool state");
+                                    Logging.info("NET: Received a new transaction pool state");
                                     TransactionPool.syncFromBytes(data);
                                 }
                             }
@@ -837,7 +837,7 @@ namespace DLT
                             {
                                 if(isAuthoritativeNode(endpoint, socket))
                                 {
-                                    Console.WriteLine("NET: Receiving complete presence list");
+                                    Logging.info("NET: Receiving complete presence list");
                                     if (Node.presenceListActive == false)
                                     {
                                         Logging.info("Synchronizing complete presence list.");
@@ -866,7 +866,7 @@ namespace DLT
                                     Presence presence = new Presence(data);
                                     if (presence.wallet.Equals(Node.walletStorage.address, StringComparison.Ordinal))
                                     {
-                                        Console.WriteLine("[PL] Received removal of self from PL, ignoring.");
+                                        Logging.info("[PL] Received removal of self from PL, ignoring.");
                                         return;
                                     }
                                     PresenceList.removeEntry(presence);

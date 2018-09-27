@@ -34,7 +34,7 @@ namespace DLT
                 }
                 if (begin_size > blocks.Count())
                 {
-                    Console.WriteLine(String.Format("REDACTED {0} blocks to keep the chain length appropriate.", begin_size - blocks.Count()));
+                    Logging.info(String.Format("REDACTED {0} blocks to keep the chain length appropriate.", begin_size - blocks.Count()));
                 }
             }
         }

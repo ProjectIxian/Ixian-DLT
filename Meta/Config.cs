@@ -27,7 +27,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "dlt-0.4.5"; // DLT Node version
+            public static readonly string version = "xdc-0.4.5"; // DLT Node version
             public static readonly bool isTestNet = true; // Testnet designator
 
             public static readonly int nodeVersion = 4; // Ixian protocol version
