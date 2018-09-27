@@ -162,7 +162,7 @@ namespace DLT
                 if (socket.Available < 1)
                 {
                     // Sleep a while to prevent cpu cycle waste
-                    Thread.Sleep(100);
+                    Thread.Sleep(10);
                     return;
                 }
 
@@ -171,7 +171,6 @@ namespace DLT
                 var big_buffer = new List<byte>();
 
                 bool message_found = false;
-
 
                 try
                 {
@@ -295,7 +294,8 @@ namespace DLT
 
                             // Can proceed to parse the data parameter based on the protocol message code.
                             // Data can contain multiple elements.
-                            parseProtocolMessage(code, data, socket, endpoint);
+                            //parseProtocolMessage(code, data, socket, endpoint);
+                            NetworkQueue.receiveProtocolMessage(code, data, socket, endpoint);
                         }
                     }
                 }

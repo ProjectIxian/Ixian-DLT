@@ -25,8 +25,16 @@ namespace DLT
             private static bool shouldStop = false; // flag to signal shutdown of threads
 
 
-            // Maintain a queue of messages to send
-            private static List<QueueMessage> queueMessages = new List<QueueMessage>();
+            struct QueueMessageRecv
+            {
+                public ProtocolMessageCode code;
+                public byte[] data;
+                public Socket socket;
+                public RemoteEndpoint endpoint;
+            }
+
+            // Maintain a queue of messages to receive
+            private static List<QueueMessageRecv> queueMessages = new List<QueueMessageRecv>();
 
 
             public static int getQueuedMessageCount()
@@ -50,7 +58,27 @@ namespace DLT
 
                 lock (queueMessages)
                 {
-                    if (queueMessages.Exists(x => x.code == message.code && x.data == message.data && x.skipSocket == message.skipSocket))
+                  //  if (queueMessages.Exists(x => x.code == message.code && x.data == message.data && x.skipSocket == message.skipSocket))
+                    {
+                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                    }
+                    //else
+                    {
+                    //    queueMessages.Add(message);
+                    }
+                }
+            }
+
+            public static void receiveProtocolMessage(ProtocolMessageCode code, byte[] data, Socket socket, RemoteEndpoint endpoint)
+            {
+                QueueMessageRecv message = new QueueMessageRecv();
+                message.code = code;
+                message.data = data;
+                message.socket = socket;
+                message.endpoint = endpoint;
+                lock (queueMessages)
+                {
+                    if (queueMessages.Exists(x => x.code == message.code && x.data == message.data && x.socket == message.socket && x.endpoint == message.endpoint))
                     {
                         Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                     }
@@ -85,7 +113,7 @@ namespace DLT
             public static void queueThreadLoop()
             {
                 // Prepare an special message object to use while sending, without locking up the queue messages
-                QueueMessage active_message = new QueueMessage();
+                QueueMessageRecv active_message = new QueueMessageRecv();
 
                 while (!shouldStop)
                 {
@@ -95,10 +123,11 @@ namespace DLT
                         if(queueMessages.Count > 0)
                         {
                             // Pick the oldest message
-                            QueueMessage candidate = queueMessages[0];
+                            QueueMessageRecv candidate = queueMessages[0];
                             active_message.code = candidate.code;
                             active_message.data = candidate.data;
-                            active_message.skipSocket = candidate.skipSocket;
+                            active_message.socket = candidate.socket;
+                            active_message.endpoint = candidate.endpoint;
                             // Remove it from the queue
                             queueMessages.Remove(candidate);
                             message_found = true;
@@ -108,8 +137,9 @@ namespace DLT
                     if(message_found)
                     {
                         // Active message set, attempt to broadcast it
-                     //   NetworkClientManager.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
-                        NetworkServer.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
+                        //   NetworkClientManager.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
+                        //   NetworkServer.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
+                        ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
                     }
                     else
                     {
