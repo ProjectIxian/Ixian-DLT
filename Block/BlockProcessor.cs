@@ -354,7 +354,7 @@ namespace DLT
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
-                    if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 20) // TODO TODO TODO hack and optimization, remove for fun with network buffers
+                    if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
                     {
                         fetchingTxTimeout = 0;
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
@@ -390,13 +390,13 @@ namespace DLT
             //
             if (!hasAllTransactions)
             {
-                if (fetchingTxForBlockNumBulk != b.blockNum) // TODO TODO TODO hack and optimization, remove for fun with network buffers
+                if (fetchingTxForBlockNumBulk != b.blockNum)
                 {
                     fetchingTxTimeout = 0;
                     fetchingTxForBlockNum = b.blockNum;
                     fetchingTxForBlockNumBulk = b.blockNum;
                     ProtocolMessage.broadcastGetBlockTransactions(b.blockNum,Node.blockSync.synchronizing); 
-                }else if(fetchingTxTimeout > 15)
+                }else if(fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
                 {
                     fetchingTxForBlockNum = b.blockNum;
                 }
