@@ -54,6 +54,8 @@ namespace DLT
             //tcpClient.Client.SendBufferSize = 1024 * 64;
             tcpClient.Client.SendTimeout = 5000;
 
+            tcpClient.Client.Blocking = true;
+
             // Reset the failed reconnects count
             failedReconnects = 0;
 
@@ -178,11 +180,11 @@ namespace DLT
 
             lock (sendQueueMessages)
             {
-                if (sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
+            //    if (sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
                 {
-                    Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+              //      Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                 }
-                else
+                //else
                 {
                     if (sendQueueMessages.Count > 50)
                     {

@@ -38,6 +38,7 @@ namespace DLT
             state = RemoteEndpointState.Initial;
 
             running = true;
+            clientSocket.Blocking = true;
 
             // Start receive thread
             recvThread = new Thread(new ThreadStart(recvLoop));
@@ -58,9 +59,9 @@ namespace DLT
                 {
                     ProtocolMessage.readProtocolMessage(clientSocket, this);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    //Console.WriteLine("Disconnected client: {0}", e.ToString());
+                    Logging.warn(string.Format("recvRE: Disconnected client: {0}", e.ToString()));
                     state = RemoteEndpointState.Closed;
                 }
 
@@ -87,7 +88,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Logging.warn(string.Format("Could not shutdown client socket: {0}", e.ToString()));
+                    Logging.warn(string.Format("recvRE: Could not shutdown client socket: {0}", e.ToString()));
                 }
             }
 
@@ -156,13 +157,13 @@ namespace DLT
                 }
                 if (clientSocket.Connected == false)
                 {
-                    Logging.warn("Failed senddata to remote endpoint. Closing.");
-                    state = RemoteEndpointState.Closed;
+                    Logging.warn("sendRE: Failed senddata to remote endpoint. Closing.");
+              //      state = RemoteEndpointState.Closed;
                 }
             }
             catch (Exception e)
             {
-                Logging.warn(String.Format("RE: Socket exception, closing {0}", e));
+                Logging.warn(String.Format("sendRE: Socket exception, closing {0}", e));
                 state = RemoteEndpointState.Closed;
 
             }
@@ -185,11 +186,11 @@ namespace DLT
 
             lock (sendQueueMessages)
             {
-                if (sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
+               // if (sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
                 {
-                    Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));                
+                 //   Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));                
                 }
-                else
+                //else
                 {
                     if (sendQueueMessages.Count > 50)
                     {
