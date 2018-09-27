@@ -24,7 +24,7 @@ namespace DLT
         {
             private static bool shouldStop = false; // flag to signal shutdown of threads
 
-
+            // Internal queue message entity with socket and remoteendpoint support
             struct QueueMessageRecv
             {
                 public ProtocolMessageCode code;
@@ -39,43 +39,23 @@ namespace DLT
 
             public static int getQueuedMessageCount()
             {
-                return queueMessages.Count;
-            }
-
-            // Broadcast a protocol message across clients and nodes
-            public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
-            {
-                if (data == null)
-                {
-                    Logging.warn(string.Format("Invalid protocol message data for {0}", code));
-                    return;
-                }
-
-                QueueMessage message = new QueueMessage();
-                message.code = code;
-                message.data = data;
-                message.skipSocket = skipSocket;
-
                 lock (queueMessages)
                 {
-                  //  if (queueMessages.Exists(x => x.code == message.code && x.data == message.data && x.skipSocket == message.skipSocket))
-                    {
-                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
-                    }
-                    //else
-                    {
-                    //    queueMessages.Add(message);
-                    }
+                    return queueMessages.Count;
                 }
             }
+
 
             public static void receiveProtocolMessage(ProtocolMessageCode code, byte[] data, Socket socket, RemoteEndpoint endpoint)
             {
-                QueueMessageRecv message = new QueueMessageRecv();
-                message.code = code;
-                message.data = data;
-                message.socket = socket;
-                message.endpoint = endpoint;
+                QueueMessageRecv message = new QueueMessageRecv
+                {
+                    code = code,
+                    data = data,
+                    socket = socket,
+                    endpoint = endpoint
+                };
+
                 lock (queueMessages)
                 {
                     if (queueMessages.Exists(x => x.code == message.code && x.data == message.data && x.socket == message.socket && x.endpoint == message.endpoint))
@@ -111,7 +91,7 @@ namespace DLT
                 Logging.info("Network queue thread started.");
             }
 
-            // Signals all the mining threads to stop
+            // Signals all the queue threads to stop
             public static bool stop()
             {
                 shouldStop = true;
@@ -121,7 +101,7 @@ namespace DLT
             // Actual network queue logic
             public static void queueThreadLoop()
             {
-                // Prepare an special message object to use while sending, without locking up the queue messages
+                // Prepare an special message object to use while receiving and parsing, without locking up the queue messages
                 QueueMessageRecv active_message = new QueueMessageRecv();
 
                 while (!shouldStop)
@@ -145,9 +125,7 @@ namespace DLT
 
                     if(message_found)
                     {
-                        // Active message set, attempt to broadcast it
-                        //   NetworkClientManager.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
-                        //   NetworkServer.broadcastData(active_message.code, active_message.data, active_message.skipSocket);
+                        // Active message set, attempt to parse it
                         ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
                     }
                     else
