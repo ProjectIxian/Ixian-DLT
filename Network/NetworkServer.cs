@@ -229,7 +229,7 @@ namespace DLT
             // Send data to all connected clients
             public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {
-                lock (connectedClients)
+               // lock (connectedClients)
                 {
                     foreach (RemoteEndpoint endpoint in connectedClients)
                     {
