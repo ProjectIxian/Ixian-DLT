@@ -58,6 +58,7 @@ namespace DLT
 
                 lock (queueMessages)
                 {
+
                     if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
                     {
                         if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))

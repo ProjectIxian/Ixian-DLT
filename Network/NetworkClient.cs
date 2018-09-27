@@ -193,10 +193,7 @@ namespace DLT
                             message.code == ProtocolMessageCode.newBlock || message.code == ProtocolMessageCode.blockData)
                         {
                             sendQueueMessages.Insert(10, message);
-                        }
-                        else
-                        {
-                            sendQueueMessages.Add(message);
+                            return;
                         }
                     }
                     else
@@ -235,7 +232,6 @@ namespace DLT
                 Logging.warn(string.Format("CLN: Socket exception, attempting to reconnect. {0}", e.Message));
                 reconnect();
             }
-            Thread.Sleep(1);
         }
 
         // Receive thread

@@ -167,7 +167,6 @@ namespace DLT
                 state = RemoteEndpointState.Closed;
 
             }
-            Thread.Sleep(1);
         }
 
 
