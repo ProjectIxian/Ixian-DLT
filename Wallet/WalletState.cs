@@ -17,6 +17,8 @@ namespace DLT
         private Dictionary<string, Wallet> wsDelta = null;
         private string cachedDeltaChecksum = "";
 
+        private IxiNumber cachedTotalSupply = new IxiNumber(0);
+
         /* Size:
          * 10_000 wallets: ~510 KB
          * 100_000 wallets: ~5 MB
@@ -49,6 +51,7 @@ namespace DLT
         {
             walletState = new Dictionary<string, Wallet>(oldWS.walletState);
             cachedChecksum = oldWS.cachedChecksum;
+            cachedTotalSupply = oldWS.cachedTotalSupply;
             wsDelta = new Dictionary<string, Wallet>(oldWS.wsDelta);
             cachedDeltaChecksum = oldWS.cachedDeltaChecksum;
         }
@@ -60,6 +63,7 @@ namespace DLT
             {
                 walletState.Clear();
                 cachedChecksum = "";
+                cachedTotalSupply = new IxiNumber(0);
                 wsDelta = null;
                 cachedDeltaChecksum = "";
 
@@ -108,6 +112,7 @@ namespace DLT
                     wsDelta = null;
                     cachedDeltaChecksum = "";
                     cachedChecksum = "";
+                    cachedTotalSupply = new IxiNumber(0);
                 }
             }
         }
@@ -159,6 +164,7 @@ namespace DLT
                 {
                     walletState.AddOrReplace(id, wallet);
                     cachedChecksum = "";
+                    cachedTotalSupply = new IxiNumber(0);
                     cachedDeltaChecksum = "";
                 }
                 else
@@ -274,6 +280,7 @@ namespace DLT
                 }
                 cachedChecksum = "";
                 cachedDeltaChecksum = "";
+                cachedTotalSupply = new IxiNumber(0);
             }
         }
 
@@ -283,6 +290,10 @@ namespace DLT
             IxiNumber total = new IxiNumber();
             lock (stateLock)
             {
+                if (cachedTotalSupply != 0)
+                {
+                    return cachedTotalSupply;
+                }
                 try
                 {
                     foreach (var item in walletState)
@@ -290,6 +301,7 @@ namespace DLT
                         Wallet wal = (Wallet)item.Value;
                         total = total + wal.balance;
                     }
+                    cachedTotalSupply = total;
                 }
                 catch (Exception e)
                 {
