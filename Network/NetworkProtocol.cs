@@ -77,6 +77,20 @@ namespace DLT
                 }
             }
 
+            public static void broadcastGetBlockTransactions(ulong blockNum, bool requestAllTransactions)
+            {
+                using (MemoryStream mw = new MemoryStream())
+                {
+                    using (BinaryWriter writerw = new BinaryWriter(mw))
+                    {
+                        writerw.Write(blockNum);
+                        writerw.Write(requestAllTransactions);
+
+                        broadcastProtocolMessage(ProtocolMessageCode.getBlockTransactions, mw.ToArray());
+                    }
+                }
+            }
+
             public static void broadcastSyncWalletState()
             {
                 broadcastProtocolMessage(ProtocolMessageCode.syncWalletState, new byte[1]);
@@ -643,25 +657,13 @@ namespace DLT
                                     return;
 
                                 //
-                                if (Node.blockSync.synchronizing)
+                                if (!Node.blockSync.synchronizing)
                                 {
                                     if (transaction.type == (int)Transaction.Type.StakingReward)
                                     {
-                                        string[] split = transaction.data.Split(new string[] { "||" }, StringSplitOptions.None);
-                                        if (split.Length > 1)
-                                        {
-
-                                            string blocknum = split[1];
-
-                                            transaction.id = "stk-" + blocknum + "-" + transaction.id;
-                                        }
-                                        Logging.info(string.Format("Received network staking transaction: {0}", transaction.id));
+                                        // Skip received staking transactions if we're not synchronizing
+                                        return;
                                     }
-                                }
-                                else if (transaction.type == (int)Transaction.Type.StakingReward)
-                                {
-                                    // Skip received staking transactions if we're not synchronizing
-                                    return;
                                 }
 
                                 // Add the transaction to the pool
@@ -903,6 +905,95 @@ namespace DLT
                                         {
                                             // TODO blacklisting point
                                             Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", wallet));
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getBlockTransactions:
+                            {
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        ulong blockNum = reader.ReadUInt64();
+                                        bool requestAllTransactions = reader.ReadBoolean();
+                                        Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
+                                        using (MemoryStream mOut = new MemoryStream())
+                                        {
+                                            using (BinaryWriter writer = new BinaryWriter(mOut))
+                                            {
+                                                Block b = Node.blockChain.getBlock(blockNum);
+                                                List<string> txIdArr = null;
+                                                if(b != null)
+                                                {
+                                                    txIdArr = new List<string>(b.transactions);
+                                                }
+                                                else
+                                                {
+                                                    lock(Node.blockProcessor.localBlockLock)
+                                                    {
+                                                        Block tmp = Node.blockProcessor.getLocalBlock();
+                                                        if(tmp != null && b.blockNum == blockNum)
+                                                        {
+                                                            txIdArr = new List<string>(tmp.transactions);
+                                                        }
+                                                    }
+
+                                                }
+                                                for (int i = 0; i < txIdArr.Count; i++)
+                                                {
+                                                    if(!requestAllTransactions)
+                                                    {
+                                                        if(txIdArr[i].StartsWith("stk"))
+                                                        {
+                                                            continue;
+                                                        }
+                                                    }
+                                                    Transaction tx = TransactionPool.getTransaction(txIdArr[i]);
+                                                    if (tx != null)
+                                                    {
+                                                        byte[] txBytes = tx.getBytes();
+
+                                                        writer.Write(txBytes.Length);
+                                                        writer.Write(txBytes);
+                                                    }
+                                                }
+
+                                                byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                socket.Send(ba, SocketFlags.None);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.transactionsChunk:
+                            {
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        while (m.Length > m.Position)
+                                        {
+                                            int len = reader.ReadInt32();
+                                            if (m.Position + len > m.Length)
+                                            {
+                                                Logging.warn(String.Format("A node is sending invalid transaction chunks (tx byte len > received data len)."));
+                                                break;
+                                            }
+                                            byte[] txData = reader.ReadBytes(len);
+                                            Transaction tx = new Transaction(txData);
+                                            if(tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
+                                            {
+                                                continue;
+                                            }
+                                            if(!TransactionPool.addTransaction(tx))
+                                            {
+                                                Logging.error(String.Format("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id));
+                                            }
                                         }
                                     }
                                 }

@@ -21,7 +21,7 @@ namespace DLT
         public ulong firstSplitOccurence { get; private set; }
 
         Block localNewBlock; // Block being worked on currently
-        readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
+        public readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
         int blockGenerationInterval = 30; // in seconds
@@ -32,6 +32,7 @@ namespace DLT
 
         private ulong fetchingTxForBlockNum = 0;
         private ulong fetchingTxTimeout = 0;
+        private ulong fetchingTxForBlockNumBulk = 0;
 
         public BlockProcessor()
         {
@@ -353,7 +354,7 @@ namespace DLT
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
-                    if (fetchingTxForBlockNum != b.blockNum || fetchingTxTimeout > 150) // TODO TODO TODO hack and optimization, remove for fun with network buffers
+                    if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 20) // TODO TODO TODO hack and optimization, remove for fun with network buffers
                     {
                         fetchingTxTimeout = 0;
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
@@ -389,9 +390,18 @@ namespace DLT
             //
             if (!hasAllTransactions)
             {
-                Thread.Sleep(100); // TODO TODO TODO hack, remove for fun with network buffers
-                fetchingTxForBlockNum = b.blockNum;
+                if (fetchingTxForBlockNumBulk != b.blockNum) // TODO TODO TODO hack and optimization, remove for fun with network buffers
+                {
+                    fetchingTxTimeout = 0;
+                    fetchingTxForBlockNum = b.blockNum;
+                    fetchingTxForBlockNumBulk = b.blockNum;
+                    ProtocolMessage.broadcastGetBlockTransactions(b.blockNum,Node.blockSync.synchronizing); 
+                }else if(fetchingTxTimeout > 15)
+                {
+                    fetchingTxForBlockNum = b.blockNum;
+                }
                 fetchingTxTimeout++;
+                Thread.Sleep(100); // TODO TODO TODO hack, remove for fun with network buffers
                 Logging.info(String.Format("Block #{0} is missing some transactions, which have been requested from the network.", b.blockNum));
                 return BlockVerifyStatus.Indeterminate;
             }
@@ -1164,7 +1174,7 @@ namespace DLT
                     string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
                     tx.data = data;
                     tx.timeStamp = Clock.getTimestamp(DateTime.Now);
-                    tx.id = "stk-" + targetBlock.blockNum + "-" + tx.generateID(); // Staking-specific txid
+                    tx.id = tx.generateID(); // Staking-specific txid
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = "Stake";
 
