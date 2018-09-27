@@ -96,8 +96,17 @@ namespace DLT
                 shouldStop = false;
                 queueMessages.Clear();
 
-                Thread queue_thread = new Thread(queueThreadLoop);
-                queue_thread.Start();
+                Thread queue_thread1 = new Thread(queueThreadLoop);
+                queue_thread1.Start();
+
+                Thread queue_thread2 = new Thread(queueThreadLoop);
+                queue_thread2.Start();
+
+                Thread queue_thread3 = new Thread(queueThreadLoop);
+                queue_thread3.Start();
+
+                Thread queue_thread4 = new Thread(queueThreadLoop);
+                queue_thread4.Start();
 
                 Logging.info("Network queue thread started.");
             }
@@ -144,8 +153,8 @@ namespace DLT
                     else
                     {
                         // No active message
-                        // Sleep for 100ms to prevent cpu waste
-                        Thread.Sleep(100);
+                        // Sleep for 10ms to prevent cpu waste
+                        Thread.Sleep(10);
                     }
 
                 }
