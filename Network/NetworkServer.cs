@@ -327,7 +327,7 @@ namespace DLT
                     }
 
                     // Setup socket keepalive mechanism
-                    int size = sizeof(UInt32);
+          /*          int size = sizeof(UInt32);
                     UInt32 on = 1;
                     UInt32 keepAliveInterval = 10000; // send a packet once every x seconds.
                     UInt32 retryInterval = 1000; // if no response, resend every second.
@@ -335,7 +335,7 @@ namespace DLT
                     Array.Copy(BitConverter.GetBytes(on), 0, inArray, 0, size);
                     Array.Copy(BitConverter.GetBytes(keepAliveInterval), 0, inArray, size, size);
                     Array.Copy(BitConverter.GetBytes(retryInterval), 0, inArray, size * 2, size);
-                    clientSocket.IOControl(IOControlCode.KeepAliveValues, inArray, null);
+                    clientSocket.IOControl(IOControlCode.KeepAliveValues, inArray, null);*/
 
                     // Add timeouts and set socket options
                     clientSocket.ReceiveTimeout = 5000;

@@ -227,7 +227,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("NET: endpoint disconnected " + e);
+                    Logging.warn(String.Format("NET: endpoint disconnected " + e));
                     throw e;
                 }
 
