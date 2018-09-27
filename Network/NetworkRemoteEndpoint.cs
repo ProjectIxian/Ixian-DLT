@@ -164,9 +164,10 @@ namespace DLT
             catch (Exception e)
             {
                 Logging.warn(String.Format("sendRE: Socket exception, closing {0}", e));
-                state = RemoteEndpointState.Closed;
+           //     state = RemoteEndpointState.Closed;
 
             }
+            Thread.Sleep(1);
         }
 
 

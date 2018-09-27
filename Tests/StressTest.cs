@@ -194,13 +194,15 @@ namespace DLTNode
 
             ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
             
-            for(int i = 0; i < 5000; i++)
+            for(int i = 0; i < 1000; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = Config.transactionPrice;
                 string to = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481";
                 string from = Node.walletStorage.getWalletAddress();
                 Transaction transaction = new Transaction(amount, fee, to, from, nonce);
+                Console.WriteLine("> sending {0}", transaction.id);
+
                 ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes());
 
                 nonce++;

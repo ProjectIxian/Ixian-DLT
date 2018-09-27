@@ -220,7 +220,7 @@ namespace DLT
                         }else
                         {
                             // sleep a litte while waiting for bytes
-                            Thread.Sleep(50);
+                            //Thread.Sleep(50);
                             // TODO TODO TODO, should reset the big_buffer if a timeout occurs
                         }
                     }

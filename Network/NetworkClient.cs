@@ -230,11 +230,12 @@ namespace DLT
 
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Logging.warn("CLN: Socket exception, attempting to reconnect");
+                Logging.warn(string.Format("CLN: Socket exception, attempting to reconnect. {0}", e.Message));
                 reconnect();
             }
+            Thread.Sleep(1);
         }
 
         // Receive thread
