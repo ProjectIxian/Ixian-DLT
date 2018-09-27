@@ -56,6 +56,13 @@ namespace DLT
             }
             // check if it is time to generate a new block
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+            if(Node.blockChain.getLastBlockNum() < 10)
+            {
+                blockGenerationInterval = 5;
+            }else
+            {
+                blockGenerationInterval = 30;
+            }
             //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
             if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval)) || Node.forceNextBlock)
             {
