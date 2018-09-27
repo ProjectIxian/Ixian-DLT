@@ -223,14 +223,14 @@ namespace DLT
                 }
                 if (tcpClient.Client.Connected == false)
                 {
-                    Console.WriteLine("Failed senddata to client: {0}. Reconnecting.", address);
+                    Logging.warn(String.Format("Failed senddata to client: {0}. Reconnecting.", address));
                     reconnect();
 
                 }
             }
             catch (Exception)
             {
-                Console.WriteLine("CLN: Socket exception, attempting to reconnect");
+                Logging.warn("CLN: Socket exception, attempting to reconnect");
                 reconnect();
             }
         }

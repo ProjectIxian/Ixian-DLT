@@ -87,7 +87,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Could not shutdown client socket: {0}", e.ToString());
+                    Logging.warn(string.Format("Could not shutdown client socket: {0}", e.ToString()));
                 }
             }
 
@@ -156,13 +156,13 @@ namespace DLT
                 }
                 if (clientSocket.Connected == false)
                 {
-                    Console.WriteLine("Failed senddata to remote endpoint. Closing.");
+                    Logging.warn("Failed senddata to remote endpoint. Closing.");
                     state = RemoteEndpointState.Closed;
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine("RE: Socket exception, closing {0}", e);
+                Logging.warn(String.Format("RE: Socket exception, closing {0}", e));
                 state = RemoteEndpointState.Closed;
 
             }
