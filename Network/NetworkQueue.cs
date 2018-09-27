@@ -58,14 +58,28 @@ namespace DLT
 
                 lock (queueMessages)
                 {
-                    if (queueMessages.Exists(x => x.code == message.code && x.data == message.data && x.socket == message.socket && x.endpoint == message.endpoint))
+                    if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
                     {
-                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                        if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
+                        {
+                            Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                            return;
+                        }
                     }
-                    else
+
+                    if (queueMessages.Count() > 20)
                     {
-                        queueMessages.Add(message);
+                        if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.ping || code == ProtocolMessageCode.blockData ||
+                            code == ProtocolMessageCode.getBlockTransactions || code == ProtocolMessageCode.transactionsChunk)
+                        {
+                            queueMessages.Insert(5, message);
+                            return;
+                        }
                     }
+                    
+                    // Add it to the queue
+                    queueMessages.Add(message);
+                    
                 }
             }
 
@@ -78,7 +92,7 @@ namespace DLT
 
                 Thread queue_thread1 = new Thread(queueThreadLoop);
                 queue_thread1.Start();
-
+/*
                 Thread queue_thread2 = new Thread(queueThreadLoop);
                 queue_thread2.Start();
 
@@ -87,7 +101,7 @@ namespace DLT
 
                 Thread queue_thread4 = new Thread(queueThreadLoop);
                 queue_thread4.Start();
-
+                */
                 Logging.info("Network queue thread started.");
             }
 
