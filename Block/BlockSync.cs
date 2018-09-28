@@ -248,12 +248,14 @@ namespace DLT
                     // Apply transactions when rolling forward from a recover file without a synced WS
                     if (Config.recoverFromFile)
                     {
-                        // Apply staking rewards
-                        Node.blockProcessor.distributeStakingRewards(b);
-
-                        TransactionPool.applyTransactionsFromBlock(b);
-                        // Apply transaction fees
-                        Node.blockProcessor.applyTransactionFeeRewards(b);
+                        Node.blockProcessor.applyAcceptedBlock(b);
+                        string wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                        if (wsChecksum != b.walletStateChecksum)
+                        {
+                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actualy WS: {2}", b.blockNum, b.walletStateChecksum, wsChecksum));
+                            synchronizing = false;
+                            return;
+                        }
                     }
                     bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
                     if (Node.blockChain.Count <= 5 || sigFreezeCheck)
@@ -272,19 +274,19 @@ namespace DLT
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
 
                 }
-            }
-            if (wsSyncStartBlock > 0)
-            {
-                if (Node.blockChain.getLastBlockNum() == wsSyncStartBlock)
+                if (wsSyncStartBlock > 0)
+                {
+                    if (Node.blockChain.getLastBlockNum() == wsSyncStartBlock)
+                    {
+                        verifyLastBlock();
+                        return;
+                    }
+                }
+                else if (Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
                 {
                     verifyLastBlock();
                     return;
                 }
-            }
-            else if (Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
-            {
-                verifyLastBlock();
-                return;
             }
         }
 
@@ -425,20 +427,17 @@ namespace DLT
             if (synchronizing == false) return;
             lock (pendingBlocks)
             {
+                // ignore any block num higher than confirmed WS
                 if (wsSyncStartBlock > 0 && b.blockNum > wsSyncStartBlock)
                 {
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                    Logging.warn(String.Format("Sync: Block num #{0} is bigger than the WS confirmed block number #{1}.", b.blockNum, wsSyncStartBlock));
                     return;
                 }
 
                 int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);
                 if (idx > -1)
                 {
-                    /*if (pendingBlocks[idx].signatures.Count() != b.signatures.Count())
-                    {*/
-                        pendingBlocks[idx] = b;
-                    //}
+                    pendingBlocks[idx] = b;
                 }
                 else // idx <= -1
                 {

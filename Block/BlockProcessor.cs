@@ -607,20 +607,26 @@ namespace DLT
                             requestBlockNum = localNewBlock.blockNum;
                             localNewBlock = null;
                             requestBlockAgain = true;
+                        }else
+                        {
+                            localNewBlock = null;
                         }
-                    }else
+                    }
+                    else
                     {
                         ProtocolMessage.broadcastNewBlock(localNewBlock);
                         Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
                         sleep = true;
                     }
-                }
-                else
+                }else if (Node.blockChain.getBlock(localNewBlock.blockNum) == null)
                 {
                     Logging.error(String.Format("We have an invalid block #{0} in verifyBlockAcceptance, requesting the block again.", localNewBlock.blockNum));
                     requestBlockNum = localNewBlock.blockNum;
                     localNewBlock = null;
                     requestBlockAgain = true;
+                }else
+                {
+                    localNewBlock = null;
                 }
             }
 
@@ -680,7 +686,7 @@ namespace DLT
         // Returns false if walletstate is not correct
         public bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
         {
-            if(Node.blockChain.getBlock(b.blockNum) != null)
+            if(Node.blockChain.getBlock(b.blockNum, !Node.blockSync.synchronizing) != null)
             {
                 Logging.warn(String.Format("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace));
                 return false;

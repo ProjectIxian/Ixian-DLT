@@ -76,13 +76,18 @@ namespace DLT
             // Todo: find a better way to handle this without running into threading bugs
             lock (transactions)
             {
-                foreach (Transaction tx in transactions)
+                /*foreach (Transaction tx in transactions)
                 {
                     if (tx.equals(transaction) == true)
                         return false;
                     // Additional pass for dynamic-generated transactions
                     if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
                         return false;
+                }*/
+
+                if (transactions.Find(x => x.id == transaction.id) != null)
+                {
+                    return false;
                 }
             }
 
@@ -196,19 +201,24 @@ namespace DLT
             lock (transactions)
             {
                 // Search for dups again
-                foreach (Transaction tx in transactions)
+                /*foreach (Transaction tx in transactions)
                 {
                     if (tx.equals(transaction) == true)
                         return false;
                     if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
                         return false;
+                }*/
+
+                if(transactions.Find(x => x.id == transaction.id) != null)
+                {
+                    return false;
                 }
 
                 transactions.Add(transaction);
 
                 // Sort the transactions by nonce ascending
                 // TODO: this will be replaced when the new nonce mechanism is implemented
-                transactions.Sort((x, y) => x.nonce.CompareTo(y.nonce));
+                //transactions.Sort((x, y) => x.nonce.CompareTo(y.nonce));
             }
 
             // Storage the transaction in the database
