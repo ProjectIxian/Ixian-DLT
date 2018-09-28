@@ -227,15 +227,9 @@ namespace DLT
                     Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
                         b.blockNum, syncTargetBlockNum - Node.blockChain.getLastBlockNum()));
 
-                    bool lastBlock = false;
-                    if(wsSyncStartBlock == b.blockNum)
-                    {
-                        lastBlock = true;
-                    }
-
                     // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
                     // verify with a parameter to ignore WS tests, but do all the others
-                    BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, !lastBlock);
+                    BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, !Config.recoverFromFile);
 
                     if (b_status == BlockVerifyStatus.Indeterminate)
                     {
