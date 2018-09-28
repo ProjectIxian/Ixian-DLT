@@ -63,15 +63,14 @@ namespace DLT
                     {
                         if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
                         {
-                            Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                            //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                             return;
                         }
                     }
 
                     if (queueMessages.Count() > 20)
                     {
-                        if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.ping || code == ProtocolMessageCode.blockData ||
-                            code == ProtocolMessageCode.getBlockTransactions || code == ProtocolMessageCode.transactionsChunk)
+                        if (code != ProtocolMessageCode.newTransaction)
                         {
                             queueMessages.Insert(5, message);
                             return;

@@ -189,8 +189,7 @@ namespace DLT
                     if (sendQueueMessages.Count > 50)
                     {
                         // Prioritize certain messages if the queue is large
-                        if (message.code == ProtocolMessageCode.keepAlivePresence || message.code == ProtocolMessageCode.ping || 
-                            message.code == ProtocolMessageCode.newBlock || message.code == ProtocolMessageCode.blockData)
+                        if (message.code != ProtocolMessageCode.newTransaction)
                         {
                             sendQueueMessages.Insert(10, message);
                             return;
