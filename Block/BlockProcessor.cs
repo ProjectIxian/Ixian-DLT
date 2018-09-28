@@ -1107,9 +1107,12 @@ namespace DLT
             foreach (string wallet_addr in signatureWallets)
             {
                 Wallet wallet = Node.walletState.getWallet(wallet_addr, ws_snapshot);
-                totalIxisStaked += wallet.balance;
-                stakes[idx] = wallet.balance.getAmount();
-                idx += 1;
+                if (wallet.balance.getAmount() > 0)
+                {
+                    totalIxisStaked += wallet.balance;
+                    stakes[idx] = wallet.balance.getAmount();
+                    idx += 1;
+                }
             }
 
             if(totalIxisStaked.getAmount() <= 0)
