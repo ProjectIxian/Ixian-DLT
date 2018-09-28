@@ -104,7 +104,7 @@ namespace DLT
 
                 // whatever is left in missingBlocks is what we need to request
                 Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
-                if(missingBlocks.Count() == 0)
+                if (missingBlocks.Count() == 0)
                 {
                     receivedAllMissingBlocks = true;
                     return false;
@@ -203,13 +203,40 @@ namespace DLT
                         return;
                     }
 
+
+
+                    ulong targetBlock = next_to_apply - 5;
+
+                    if (targetBlock < lowestBlockNum)
+                    {
+                        targetBlock = lowestBlockNum;
+                    }
+
+                    Block tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
+                    if (tb != null)
+                    {
+                        Node.blockChain.refreshSignatures(tb, true);
+                        if (tb.blockChecksum == Node.blockChain.getBlock(tb.blockNum).blockChecksum && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                        {
+                            Node.blockProcessor.handleSigFreezedBlock(tb);
+                        }
+                        pendingBlocks.RemoveAll(x => x.blockNum == tb.blockNum);
+                    }
+
+
                     Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
                         b.blockNum, syncTargetBlockNum - Node.blockChain.getLastBlockNum()));
 
+                    bool lastBlock = false;
+                    if(wsSyncStartBlock == b.blockNum)
+                    {
+                        lastBlock = true;
+                    }
+
                     // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
                     // verify with a parameter to ignore WS tests, but do all the others
-                    BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, true);
-                    
+                    BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, !lastBlock);
+
                     if (b_status == BlockVerifyStatus.Indeterminate)
                     {
                         Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
@@ -223,72 +250,47 @@ namespace DLT
                         return;
                     }
 
-                    if (b.blockNum > wsSyncStartBlock)
+                    // TODO: carefully verify this
+                    // Apply transactions when rolling forward from a recover file without a synced WS
+                    if (Config.recoverFromFile)
                     {
-                        // TODO: carefully verify this
-                        // Apply transactions when rolling forward from a recover file without a synced WS
-                        if (Config.recoverFromFile)
-                        {
-                            // Apply staking rewards
-                            Node.blockProcessor.distributeStakingRewards(b);
+                        // Apply staking rewards
+                        Node.blockProcessor.distributeStakingRewards(b);
 
-                            TransactionPool.applyTransactionsFromBlock(b);
-                            // Apply transaction fees
-                            Node.blockProcessor.applyTransactionFeeRewards(b);
-                        }
-                        else if(wsSyncStartBlock > 0)
-                        {
-                            Node.blockProcessor.applyAcceptedBlock(b);
-                        }
+                        TransactionPool.applyTransactionsFromBlock(b);
+                        // Apply transaction fees
+                        Node.blockProcessor.applyTransactionFeeRewards(b);
                     }
-
-                    // if last block doesn't have enough sigs, set as local block, get more sigs
-                    if (b.signatures.Count < Node.blockChain.getRequiredConsensus())
+                    bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
+                    if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                     {
-                        if (b.blockNum >= syncTargetBlockNum) // if last block
-                        {
-                            Logging.info(String.Format("Block #{0} has less than the required sigs and is the last one, forwarding it to onBlockReceived().", b.blockNum));
-                            Node.blockProcessor.onBlockReceived(b);
-                        }
-                        else
-                        {
-                            Logging.info(String.Format("Block #{0} has less than the required sigs and is not the last one. Discarding and requesting a new one.", b.blockNum));
-                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            ProtocolMessage.broadcastGetBlock(b.blockNum);
-                            return;
-                        }
-                    }else
+                        Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
+                        //Node.blockProcessor.distributeStakingRewards(b);
+                        TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
+                        Node.blockChain.appendBlock(b);
+                    }
+                    else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                     {
-                        if (Node.blockChain.Count <= 5 || Node.blockProcessor.verifySignatureFreezeChecksum(b))
-                        {
-                            Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                            //Node.blockProcessor.distributeStakingRewards(b);
-                            TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
-                            Node.blockChain.appendBlock(b);
-                        }else if(Node.blockChain.Count > 5 && !Node.blockProcessor.verifySignatureFreezeChecksum(b))
-                        {
-                            // invalid sigfreeze, waiting for the correct block
-                            return;
-                        }
+                        // invalid sigfreeze, waiting for the correct block
+                        return;
                     }
 
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
 
-                    if (wsSyncStartBlock > 0)
-                    {
-                        if (b.blockNum == wsSyncStartBlock)
-                        {
-                            verifyLastBlock();
-                            return;
-                        }
-                    }
-                    else if (syncTargetBlockNum == b.blockNum)
-                    {
-                        verifyLastBlock();
-                        return;
-                    }
                 }
-
+            }
+            if (wsSyncStartBlock > 0)
+            {
+                if (Node.blockChain.getLastBlockNum() == wsSyncStartBlock)
+                {
+                    verifyLastBlock();
+                    return;
+                }
+            }
+            else if (Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
+            {
+                verifyLastBlock();
+                return;
             }
         }
 
@@ -320,13 +322,19 @@ namespace DLT
                 return false;
             }
 
+            stopSyncStartBlockProcessing();
+
+            return true;
+        }
+
+        private void stopSyncStartBlockProcessing()
+        {
             // if we reach here, we are synchronized
             synchronizing = false;
             syncTargetBlockNum = 0;
 
             Node.blockProcessor.firstBlockAfterSync = true;
             Node.blockProcessor.resumeOperation();
-            return true;
         }
 
 

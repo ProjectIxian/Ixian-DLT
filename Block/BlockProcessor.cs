@@ -191,8 +191,11 @@ namespace DLT
                     {
                         // we already have the correct block but the sender does not, broadcast our block
                         //ProtocolMessage.broadcastNewBlock(targetBlock);
-                        byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.newBlock, targetBlock.getBytes());
-                        socket.Send(ba, SocketFlags.None);
+                        if (socket != null)
+                        {
+                            byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.newBlock, targetBlock.getBytes());
+                            socket.Send(ba, SocketFlags.None);
+                        }
                     }
                     return false;
                 }

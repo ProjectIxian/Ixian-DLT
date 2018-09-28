@@ -939,29 +939,31 @@ namespace DLT
                                                             txIdArr = new List<string>(tmp.transactions);
                                                         }
                                                     }
-
                                                 }
-                                                for (int i = 0; i < txIdArr.Count; i++)
+                                                if (txIdArr != null)
                                                 {
-                                                    if(!requestAllTransactions)
+                                                    for (int i = 0; i < txIdArr.Count; i++)
                                                     {
-                                                        if(txIdArr[i].StartsWith("stk"))
+                                                        if (!requestAllTransactions)
                                                         {
-                                                            continue;
+                                                            if (txIdArr[i].StartsWith("stk"))
+                                                            {
+                                                                continue;
+                                                            }
+                                                        }
+                                                        Transaction tx = TransactionPool.getTransaction(txIdArr[i]);
+                                                        if (tx != null)
+                                                        {
+                                                            byte[] txBytes = tx.getBytes();
+
+                                                            writer.Write(txBytes.Length);
+                                                            writer.Write(txBytes);
                                                         }
                                                     }
-                                                    Transaction tx = TransactionPool.getTransaction(txIdArr[i]);
-                                                    if (tx != null)
-                                                    {
-                                                        byte[] txBytes = tx.getBytes();
 
-                                                        writer.Write(txBytes.Length);
-                                                        writer.Write(txBytes);
-                                                    }
+                                                    byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                    socket.Send(ba, SocketFlags.None);
                                                 }
-
-                                                byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                socket.Send(ba, SocketFlags.None);
                                             }
                                         }
                                     }
@@ -989,7 +991,11 @@ namespace DLT
                                             {
                                                 continue;
                                             }
-                                            if(!TransactionPool.addTransaction(tx))
+                                            if (TransactionPool.getTransaction(tx.id) != null)
+                                            {
+                                                continue;
+                                            }
+                                            if (!TransactionPool.addTransaction(tx))
                                             {
                                                 Logging.error(String.Format("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id));
                                             }
