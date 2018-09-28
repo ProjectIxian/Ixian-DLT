@@ -90,18 +90,13 @@ namespace DLT
                 shouldStop = false;
                 queueMessages.Clear();
 
-                Thread queue_thread1 = new Thread(queueThreadLoop);
-                queue_thread1.Start();
-/*
-                Thread queue_thread2 = new Thread(queueThreadLoop);
-                queue_thread2.Start();
-
-                Thread queue_thread3 = new Thread(queueThreadLoop);
-                queue_thread3.Start();
-
-                Thread queue_thread4 = new Thread(queueThreadLoop);
-                queue_thread4.Start();
-                */
+                // Multi-threaded network queue parsing
+                for (int i = 0; i < 1; i++)
+                {
+                    Thread queue_thread = new Thread(queueThreadLoop);
+                    queue_thread.Start();
+                }
+                
                 Logging.info("Network queue thread started.");
             }
 

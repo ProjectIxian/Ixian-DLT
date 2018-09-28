@@ -225,7 +225,8 @@ namespace DLT
             Meta.Storage.insertTransaction(transaction);
 
             //   Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
-            Console.WriteLine("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount);
+            //Console.WriteLine("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount);
+            Console.Write("$");
 
             if (Node.blockSync.synchronizing == true)
                 return true;

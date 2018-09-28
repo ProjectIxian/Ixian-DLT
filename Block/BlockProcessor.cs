@@ -34,12 +34,17 @@ namespace DLT
         private ulong fetchingTxTimeout = 0;
         private ulong fetchingTxForBlockNumBulk = 0;
 
+        private Thread block_thread = null;
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.Now;
             localNewBlock = null;
             operating = false;
             firstBlockAfterSync = false;
+
+            Thread queue_thread1 = new Thread(onUpdate);
+            queue_thread1.Start();
         }
 
         public void resumeOperation()
@@ -47,38 +52,58 @@ namespace DLT
             Logging.info("BlockProcessor resuming normal operation.");
             lastBlockStartTime = DateTime.Now;
             operating = true;
+
+            // Abort the thread if it's already created
+            if (block_thread != null)
+                block_thread.Abort();
+
+            // Start the thread
+            block_thread = new Thread(onUpdate);
+            block_thread.Start();
         }
 
-        public bool onUpdate()
+        public void stopOperation()
         {
-            if(operating == false)
+            operating = false;
+            Logging.info("BlockProcessor stopped.");
+        }
+
+        // Check passed time since last block generation and if needed generate a new block
+        public void onUpdate()
+        {
+            while (operating)
             {
-                return true;
-            }
-            // check if it is time to generate a new block
-            TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
-            if(Node.blockChain.getLastBlockNum() < 10)
-            {
-                blockGenerationInterval = 5;
-            }else
-            {
-                blockGenerationInterval = 30;
-            }
-            //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
-            if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval)) || Node.forceNextBlock)
-            {
-                if (Node.forceNextBlock)
+                // check if it is time to generate a new block
+                TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+                if (Node.blockChain.getLastBlockNum() < 10)
                 {
-                    Logging.info("Forcing new block generation");
-                    Node.forceNextBlock = false;
+                    blockGenerationInterval = 5;
                 }
-                generateNewBlock();
+                else
+                {
+                    blockGenerationInterval = 30;
+                }
+
+                //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
+                if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval)) || Node.forceNextBlock)
+                {
+                    if (Node.forceNextBlock)
+                    {
+                        Logging.info("Forcing new block generation");
+                        Node.forceNextBlock = false;
+                    }
+                    generateNewBlock();
+                }
+                else
+                {
+                    verifyBlockAcceptance();
+                }
+
+                // Sleep until next iteration
+                Thread.Sleep(1000);
             }
-            else
-            {
-                verifyBlockAcceptance();
-            }
-            return true;
+            Thread.Yield();
+            return;
         }
 
         public int getElectedNodeOffset()
@@ -1041,6 +1066,9 @@ namespace DLT
         public List<Transaction> generateStakingTransactions(ulong targetBlockNum, bool ws_snapshot = false)
         {
             List<Transaction> transactions = new List<Transaction>();
+            /// WARNING WARNING WARNING
+            return transactions;
+
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
             {

@@ -150,8 +150,6 @@ namespace DLT.Meta
 
         static public bool update()
         {
-            // Check passed time since last block generation and if needed generate a new block
-            blockProcessor.onUpdate();
             blockSync.onUpdate();
 
             // Update redacted blockchain
@@ -200,6 +198,9 @@ namespace DLT.Meta
             // Stop the network queue
             NetworkQueue.stop();
 
+            // Stop the block processor
+            blockProcessor.stopOperation();
+
             // Stop all network clients
             NetworkClientManager.stop();
             
@@ -221,6 +222,8 @@ namespace DLT.Meta
         {
             // Clear everything and force a resynchronization
             Logging.info("\n\n\tSynchronizing to network...\n");
+
+            blockProcessor.stopOperation();
 
             blockProcessor = new BlockProcessor();
             blockChain = new BlockChain();
