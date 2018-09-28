@@ -431,6 +431,13 @@ namespace DLT
             if (synchronizing == false) return;
             lock (pendingBlocks)
             {
+                if (wsSyncStartBlock > 0 && b.blockNum > wsSyncStartBlock)
+                {
+                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                    Logging.warn(String.Format("Sync: Block num #{0} is bigger than the WS confirmed block number #{1}.", b.blockNum, wsSyncStartBlock));
+                    return;
+                }
+
                 int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);
                 if (idx > -1)
                 {
@@ -441,11 +448,6 @@ namespace DLT
                 }
                 else // idx <= -1
                 {
-                    if(wsSyncStartBlock > 0 && b.blockNum > wsSyncStartBlock)
-                    {
-                        Logging.warn(String.Format("Sync: Block num #{0} is bigger than the WS confirmed block number #{1}.", b.blockNum, wsSyncStartBlock));
-                        return;
-                    }
                     pendingBlocks.Add(b);
                 }
             }

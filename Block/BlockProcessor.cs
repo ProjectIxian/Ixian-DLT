@@ -871,57 +871,6 @@ namespace DLT
             lock (localBlockLock)
             {
                 Logging.info("GENERATING NEW BLOCK");
-                // TODO this section should probably be moved to verifyBlockAcceptance
-                if (localNewBlock != null)
-                {
-                    Node.debugDumpState();
-                    Logging.info(String.Format("Local new block #{0}, sigs: {1}, checksum: {2}, wsChecksum: {3}", localNewBlock.blockNum, localNewBlock.signatures.Count, localNewBlock.blockChecksum, localNewBlock.walletStateChecksum));
-                    // either it arrived just before we started creating it, or previous block couldn't get signed in time
-                    ulong current_block_num = localNewBlock.blockNum;
-                    ulong supposed_block_num = Node.blockChain.getLastBlockNum() + 1;
-                    if (current_block_num == supposed_block_num)
-                    {
-                        // this means the block currently being processed couldn't be signed in time.
-                        TimeSpan since_last_blockgen = DateTime.Now - lastBlockStartTime;
-                        if ((int)since_last_blockgen.TotalSeconds >= (2 * blockGenerationInterval))
-                        {
-                            // it has been two generation cycles without enough signatures
-                            // we assume a network split (or a massive node drop) here and fix consensus to keep going
-                            firstSplitOccurence = current_block_num; // This should be handled when network merges again, but that part isn't implemented yet
-                            int consensus_number = Node.blockChain.getRequiredConsensus();
-                            Logging.warn(String.Format("Unable to reach consensus. Maybe the network was split or too many nodes dropped at once. Split mode assumed and proceeding with consensus {0}.", consensus_number));
-                            if (localNewBlock.signatures.Count < consensus_number)
-                            {
-                                // we have become isolated from the network, so we shutdown
-                                Logging.error(String.Format("Currently generated block only has {0} signatures. Attempting to reconnect to the network...", localNewBlock.signatures.Count));
-                                // TODO: notify network to reconnect to other nodes on the PL
-                                // TODO TODO TODO : Split handling
-                            }
-                            //lastBlockStartTime = DateTime.Now;
-                            return;
-                        }
-                        else //! since_last_blockgen.TotalSeconds < (2 * blockGenerationInterval)
-                        {
-                            Logging.warn(String.Format("It is taking too long to reach consensus! Re-broadcasting block."));
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
-                        }
-                    }
-                    else if (current_block_num < supposed_block_num)
-                    {
-                        // we are falling behind. Clear out current state and wait for the next network state
-                        Logging.error(String.Format("We were processing #{0}, but that is already accepted. Lagging behind the network!", current_block_num));
-                        localNewBlock = null;
-                        lastBlockStartTime = DateTime.Now;
-                    }
-                    else
-                    {
-                        // we are too far ahead (this should never happen)
-                        Logging.error(String.Format("Logic error detected. Current block num is #{0}, but should be #{1}. Clearing state and waiting for the network.", current_block_num, supposed_block_num));
-                        localNewBlock = null;
-                        lastBlockStartTime = DateTime.Now;
-                    }
-                    return;
-                }
 
                 // Create a new block and add all the transactions in the pool
                 localNewBlock = new Block();
