@@ -37,6 +37,14 @@ namespace DLT
 
                     sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
                     executeSQL(sql);
+                    sql = "CREATE INDEX `type` ON `transactions` (`type`);";
+                    executeSQL(sql);
+                    sql = "CREATE INDEX `from` ON `transactions` (`from`);";
+                    executeSQL(sql);
+                    sql = "CREATE INDEX `to` ON `transactions` (`to`);";
+                    executeSQL(sql);
+                    sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
+                    executeSQL(sql);
                 }
 
                 return true;

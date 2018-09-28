@@ -19,14 +19,16 @@ namespace DLT
         public bool synchronizing { get; private set; }
         List<Block> pendingBlocks = new List<Block>();
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
-
-        List<List<WsChunk>> sendingWsChunks = new List<List<WsChunk>>();
+        int wsSyncCount = 0;
+        DateTime lastChunkRequested;
+        
 
         ulong syncTargetBlockNum;
-        int maxBlockRequests = 100;
+        int maxBlockRequests = 25;
         bool receivedAllMissingBlocks = false;
 
         ulong wsSyncConfirmedBlockNum;
+        bool wsSynced = false;
         string syncNeighbor;
         HashSet<int> missingWsChunks = new HashSet<int>();
 
@@ -56,7 +58,7 @@ namespace DLT
                 Thread.Sleep(1000);
                 return;
             }
-            if (Config.recoverFromFile || wsSyncConfirmedBlockNum > 0)
+            if (Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
             {
                 // Request missing blocks if needed
                 if (receivedAllMissingBlocks == false)
@@ -156,6 +158,7 @@ namespace DLT
                                 Node.walletState.setWalletChunk(c.wallets);
                             }
                             pendingWsChunks.Clear();
+                            wsSynced = true;
                         }
                     }
                 }
@@ -268,6 +271,19 @@ namespace DLT
                             synchronizing = false;
                             return;
                         }
+                    } else
+                    {
+                        if (syncToBlock == b.blockNum)
+                        {
+                            string wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                            if (wsChecksum != b.walletStateChecksum)
+                            {
+                                Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
+                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                ProtocolMessage.broadcastGetBlock(b.blockNum);
+                                return;
+                            }
+                        }
                     }
                     bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
                     if (Node.blockChain.Count <= 5 || sigFreezeCheck)
@@ -358,27 +374,23 @@ namespace DLT
         // Called when receiving a walletstate synchronization request
         public bool startOutgoingWSSync(RemoteEndpoint endpoint)
         {
-            if(synchronizing == true)
+            // TODO TODO TODO this function really should be done better
+
+            if (synchronizing == true)
             {
                 Logging.warn("Unable to perform outgoing walletstate sync until own blocksync is complete.");
                 return false;
             }
 
-            pendingWsChunks.Clear();
-
-            /*   if(pendingWsChunks.Count > 0)
-               {
-                     Logging.info("Unable to perform outgoing walletstate sync, because another outgoing sync is still in progress.");
-                     return false;
-               }
-               */
-
             lock (pendingWsChunks)
             {
-              //  List<WsChunk> sendingWs = sendingWsChunks.Find()
-
-                pendingWsChunks.AddRange(Node.walletState.getWalletStateChunks(Config.walletStateChunkSplit));
-                //sendingWsChunks.Add();
+                if (wsSyncCount == 0 || (lastChunkRequested - DateTime.Now).TotalSeconds > 150)
+                {
+                    wsSyncCount = 0;
+                    pendingWsChunks.Clear();
+                    pendingWsChunks.AddRange(Node.walletState.getWalletStateChunks(Config.walletStateChunkSplit));
+                }
+                wsSyncCount++;
             }
             Logging.info("Started outgoing WalletState Sync.");
             return true;
@@ -386,9 +398,18 @@ namespace DLT
 
         public void outgoingSyncComplete()
         {
+            // TODO TODO TODO this function really should be done better
+
             lock (pendingWsChunks)
             {
-                pendingWsChunks.Clear();
+                if (wsSyncCount > 0)
+                {
+                    wsSyncCount--;
+                    if (wsSyncCount == 0)
+                    {
+                        pendingWsChunks.Clear();
+                    }
+                }
             }
             Logging.info("Outgoing WalletState Sync finished.");
         }
@@ -401,6 +422,7 @@ namespace DLT
                 Logging.warn("Neighbor is requesting WalletState chunks, but we are synchronizing!");
                 return;
             }
+            lastChunkRequested = DateTime.Now;
             if (chunk_num >= 0 && chunk_num < pendingWsChunks.Count)
             {
                 ProtocolMessage.sendWalletStateChunk(endpoint, pendingWsChunks[chunk_num]);
