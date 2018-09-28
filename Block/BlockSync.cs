@@ -348,8 +348,6 @@ namespace DLT
         {
             // if we reach here, we are synchronized
             synchronizing = false;
-            syncTargetBlockNum = 0;
-            wsSyncConfirmedBlockNum = 0;
 
             Node.blockProcessor.firstBlockAfterSync = true;
             Node.blockProcessor.resumeOperation();
