@@ -1067,7 +1067,7 @@ namespace DLT
         {
             List<Transaction> transactions = new List<Transaction>();
             /// WARNING WARNING WARNING
-            return transactions;
+            //return transactions;
 
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
@@ -1110,6 +1110,12 @@ namespace DLT
                 totalIxisStaked += wallet.balance;
                 stakes[idx] = wallet.balance.getAmount();
                 idx += 1;
+            }
+
+            if(totalIxisStaked.getAmount() <= 0)
+            {
+                Logging.warn(String.Format("No Ixis were staked or a logic error occured - total ixi staked returned: ", totalIxisStaked.getAmount()));
+                return transactions;
             }
 
             // Second pass, determine awards by stake
