@@ -1,12 +1,9 @@
 ﻿using DLT.Meta;
 using DLT.Network;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace DLT
 {
@@ -26,10 +23,10 @@ namespace DLT
         List<List<WsChunk>> sendingWsChunks = new List<List<WsChunk>>();
 
         ulong syncTargetBlockNum;
-        int maxBlockRequests = 25;
+        int maxBlockRequests = 100;
         bool receivedAllMissingBlocks = false;
 
-        ulong wsSyncStartBlock;
+        ulong wsSyncConfirmedBlockNum;
         string syncNeighbor;
         HashSet<int> missingWsChunks = new HashSet<int>();
 
@@ -53,13 +50,13 @@ namespace DLT
 
             Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
                 pendingBlocks.Count, pendingWsChunks.Count));
-            if(!Config.recoverFromFile && wsSyncStartBlock == 0)
+            if(!Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
             {
                 startWalletStateSync();
                 Thread.Sleep(1000);
                 return;
             }
-            if (Config.recoverFromFile || wsSyncStartBlock > 0)
+            if (Config.recoverFromFile || wsSyncConfirmedBlockNum > 0)
             {
                 // Request missing blocks if needed
                 if (receivedAllMissingBlocks == false)
@@ -90,8 +87,15 @@ namespace DLT
                 return false;
             }
 
-            ulong firstBlock = Node.blockChain.redactedWindow > syncTargetBlockNum ? 1 : syncTargetBlockNum - Node.blockChain.redactedWindow + 1;
-            ulong lastBlock = syncTargetBlockNum;
+            ulong syncToBlock = syncTargetBlockNum;
+
+            if (wsSyncConfirmedBlockNum > 0)
+            {
+                syncToBlock = wsSyncConfirmedBlockNum;
+            }
+
+            ulong firstBlock = Node.blockChain.redactedWindow > syncToBlock ? 1 : syncToBlock - Node.blockChain.redactedWindow + 1;
+            ulong lastBlock = syncToBlock;
             List<ulong> missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
 
             int count = 0;
@@ -133,10 +137,10 @@ namespace DLT
 
         private void performWalletStateSync()
         {
-            Logging.info(String.Format("WS SYNC block: {0}", wsSyncStartBlock));
-            if (wsSyncStartBlock > 0)
+            Logging.info(String.Format("WS SYNC block: {0}", wsSyncConfirmedBlockNum));
+            if (wsSyncConfirmedBlockNum > 0)
             {
-                Logging.info(String.Format("We are synchronizing to block #{0}.", wsSyncStartBlock));
+                Logging.info(String.Format("We are synchronizing to block #{0}.", wsSyncConfirmedBlockNum));
                 requestWalletChunks();
                 if (missingWsChunks.Count == 0)
                 {
@@ -159,7 +163,7 @@ namespace DLT
                 {
                     return;
                 }
-                Logging.info(String.Format("Verifying complete walletstate as of block #{0}", wsSyncStartBlock));
+                Logging.info(String.Format("Verifying complete walletstate as of block #{0}", wsSyncConfirmedBlockNum));
 
                 canPerformWalletstateSync = false;
             }
@@ -174,9 +178,17 @@ namespace DLT
             lock (pendingBlocks)
             {
                 ulong lowestBlockNum = 1;
-                if (Node.blockChain.redactedWindowSize < syncTargetBlockNum)
+
+                ulong syncToBlock = syncTargetBlockNum;
+
+                if (wsSyncConfirmedBlockNum > 0)
                 {
-                    lowestBlockNum = syncTargetBlockNum - Node.blockChain.redactedWindowSize + 1;
+                    syncToBlock = wsSyncConfirmedBlockNum;
+                }
+
+                if (Node.blockChain.redactedWindowSize < syncToBlock)
+                {
+                    lowestBlockNum = syncToBlock - Node.blockChain.redactedWindowSize + 1;
                 }
                 if (Node.blockChain.Count > 0)
                 {
@@ -225,7 +237,7 @@ namespace DLT
 
 
                     Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
-                        b.blockNum, syncTargetBlockNum - Node.blockChain.getLastBlockNum()));
+                        b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
 
                     // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
                     // verify with a parameter to ignore WS tests, but do all the others
@@ -274,15 +286,8 @@ namespace DLT
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
 
                 }
-                if (wsSyncStartBlock > 0)
-                {
-                    if (Node.blockChain.getLastBlockNum() == wsSyncStartBlock)
-                    {
-                        verifyLastBlock();
-                        return;
-                    }
-                }
-                else if (Node.blockChain.getLastBlockNum() == syncTargetBlockNum)
+
+                if (Node.blockChain.getLastBlockNum() == syncToBlock)
                 {
                     verifyLastBlock();
                     return;
@@ -314,7 +319,7 @@ namespace DLT
             if(b.walletStateChecksum != Node.walletState.calculateWalletStateChecksum())
             {
                 // TODO TODO TODO resync?
-                Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncStartBlock, b.walletStateChecksum, Node.walletState.calculateWalletStateChecksum()));
+                Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, b.walletStateChecksum, Node.walletState.calculateWalletStateChecksum()));
                 return false;
             }
 
@@ -328,6 +333,7 @@ namespace DLT
             // if we reach here, we are synchronized
             synchronizing = false;
             syncTargetBlockNum = 0;
+            wsSyncConfirmedBlockNum = 0;
 
             Node.blockProcessor.firstBlockAfterSync = true;
             Node.blockProcessor.resumeOperation();
@@ -428,7 +434,7 @@ namespace DLT
             lock (pendingBlocks)
             {
                 // ignore any block num higher than confirmed WS
-                if (wsSyncStartBlock > 0 && b.blockNum > wsSyncStartBlock)
+                if (wsSyncConfirmedBlockNum > 0 && b.blockNum > wsSyncConfirmedBlockNum)
                 {
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                     return;
@@ -460,13 +466,13 @@ namespace DLT
             }
             synchronizing = true;
             // select sync partner for walletstate
-            wsSyncStartBlock = 0;
+            wsSyncConfirmedBlockNum = 0;
             receivedAllMissingBlocks = false;
         }
 
         public void onWalletStateHeader(ulong ws_block, long ws_count)
         {
-            if(synchronizing == true && wsSyncStartBlock == 0)
+            if(synchronizing == true && wsSyncConfirmedBlockNum == 0)
             {
                 long chunks = ws_count / Config.walletStateChunkSplit;
                 if(ws_count % Config.walletStateChunkSplit > 0)
@@ -475,7 +481,7 @@ namespace DLT
                 }
                 Logging.info(String.Format("Starting Wallet State synchronization. Starting block: #{0}. Wallets: {1} ({2} chunks)", 
                     ws_block, ws_count, chunks));
-                wsSyncStartBlock = ws_block;
+                wsSyncConfirmedBlockNum = ws_block;
                 lock (missingWsChunks)
                 {
                     missingWsChunks.Clear();
@@ -511,12 +517,8 @@ namespace DLT
                 if(Node.blockProcessor.operating == false)
                 {
                     // This should happen when node first starts up.
-                    // Node: some of the chain might be loaded from disk, so we might need to walk through that. This case is ignored for now.
+                    // Note: some of the chain might be loaded from disk, so we might need to walk through that. This case is ignored for now.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
-
-                    // TODO: this can get very slow depending on number of transactions.
-                    // Find a better way to handle it
-                    Storage.redactBlockStorage(block_height); // Redact block storage if needed
 
                     syncTargetBlockNum = block_height;
                     startSync();
