@@ -1098,20 +1098,21 @@ namespace DLT
             List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
 
             IxiNumber totalIxisStaked = new IxiNumber(0);
-            int stakers = signatureWallets.Count;
+            string[] stakeWallets = new string[signatureWallets.Count];
             BigInteger[] stakes = new BigInteger[signatureWallets.Count];
             BigInteger[] awards = new BigInteger[signatureWallets.Count];
             BigInteger[] awardRemainders = new BigInteger[signatureWallets.Count];
             // First pass, go through each wallet to find its balance
-            int idx = 0;
+            int stakers = 0;
             foreach (string wallet_addr in signatureWallets)
             {
                 Wallet wallet = Node.walletState.getWallet(wallet_addr, ws_snapshot);
                 if (wallet.balance.getAmount() > 0)
                 {
                     totalIxisStaked += wallet.balance;
-                    stakes[idx] = wallet.balance.getAmount();
-                    idx += 1;
+                    stakes[stakers] = wallet.balance.getAmount();
+                    stakeWallets[stakers] = wallet_addr;
+                    stakers += 1;
                 }
             }
 
@@ -1123,7 +1124,7 @@ namespace DLT
 
             // Second pass, determine awards by stake
             BigInteger totalAwarded = 0;
-            for (int i = 0; i < stakes.Length; i++)
+            for (int i = 0; i < stakers; i++)
             {
                 BigInteger p = (newIxis.getAmount() * stakes[i] * 100) / totalIxisStaked.getAmount();
                 awardRemainders[i] = p % 100;
@@ -1151,12 +1152,12 @@ namespace DLT
                 }
             }
 
-            for (int i = 0; i < stakes.Length; i++)
+            for (int i = 0; i < stakers; i++)
             {
                 IxiNumber award = new IxiNumber(awards[i]);
                 if (award > (long)0)
                 {
-                    string wallet_addr = signatureWallets[i];
+                    string wallet_addr = stakeWallets[i];
                     //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
                     Transaction tx = new Transaction();
