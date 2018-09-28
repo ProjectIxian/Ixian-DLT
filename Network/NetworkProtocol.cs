@@ -666,7 +666,7 @@ namespace DLT
                                 }
 
                                 // Add the transaction to the pool
-                                TransactionPool.addTransaction(transaction, false, socket);                               
+                                TransactionPool.addTransaction(transaction, true, socket);                               
                             }
                             break;
                         case ProtocolMessageCode.bye:
@@ -995,7 +995,7 @@ namespace DLT
                                             {
                                                 continue;
                                             }
-                                            if (!TransactionPool.addTransaction(tx))
+                                            if (!TransactionPool.addTransaction(tx, true))
                                             {
                                                 Logging.error(String.Format("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id));
                                             }

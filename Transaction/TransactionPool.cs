@@ -183,7 +183,7 @@ namespace DLT
 
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction, bool no_storage_no_broadcast = false, Socket skipSocket = null)
+        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, Socket skipSocket = null)
         {
             if (!verifyTransaction(transaction))
             {
@@ -212,7 +212,6 @@ namespace DLT
             }
 
             // Storage the transaction in the database
-            //  if (no_storage_no_broadcast == false)
             Meta.Storage.insertTransaction(transaction);
 
             //   Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
@@ -222,7 +221,7 @@ namespace DLT
                 return true;
 
             // Broadcast this transaction to the network
-            if (no_storage_no_broadcast == false)
+            if (no_broadcast == false)
                 ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes(), skipSocket);
 
 
