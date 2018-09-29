@@ -209,6 +209,13 @@ namespace DLT
                         next_to_apply = lowestBlockNum;
                     }
 
+                    if(next_to_apply > syncToBlock)
+                    {
+                        // we have everything, clear pending blocks and break
+                        pendingBlocks.Clear();
+                        break;
+                    }
+
                     Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
                     if (b == null)
                     {

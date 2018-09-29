@@ -373,6 +373,12 @@ namespace DLT
             // Check all transactions in the block against our TXpool, make sure all is legal
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Indeterminate
             bool hasAllTransactions = true;
+            bool fetchTransactions = false;
+            if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
+            {
+                fetchingTxTimeout = 0;
+                fetchTransactions = true;
+            }
             Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
             foreach (string txid in b.transactions)
             {
@@ -386,7 +392,7 @@ namespace DLT
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
-                    if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
+                    if(fetchTransactions)
                     {
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
                         ProtocolMessage.broadcastGetTransaction(txid); 
@@ -427,7 +433,7 @@ namespace DLT
                     fetchingTxForBlockNum = b.blockNum;
                     fetchingTxForBlockNumBulk = b.blockNum;
                     ProtocolMessage.broadcastGetBlockTransactions(b.blockNum,Node.blockSync.synchronizing); 
-                }else if(fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
+                }else if(fetchingTxTimeout == 0) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
                 {
                     fetchingTxForBlockNum = b.blockNum;
                 }
