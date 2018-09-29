@@ -705,24 +705,6 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.syncPoolState:
-                            {
-                                byte[] tdata = TransactionPool.getBytes();
-                                byte[] ba = prepareProtocolMessage(ProtocolMessageCode.poolState, tdata);
-                                socket.Send(ba, SocketFlags.None);
-                            }
-                            break;
-
-                        case ProtocolMessageCode.poolState:
-                            {
-                                if (isAuthoritativeNode(endpoint, socket))
-                                {
-                                    Logging.info("NET: Received a new transaction pool state");
-                                    TransactionPool.syncFromBytes(data);
-                                }
-                            }
-                            break;
-
                         case ProtocolMessageCode.syncWalletState:
                             {
                                 if(Node.blockSync.startOutgoingWSSync(endpoint) == false)
