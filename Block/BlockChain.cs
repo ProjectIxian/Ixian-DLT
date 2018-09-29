@@ -35,8 +35,8 @@ namespace DLT
                     if (Config.storeFullHistory == false)
                     {
                         Storage.removeBlock(blocks[0]); // Remove from storage
-                        blocks.RemoveAt(0); // Remove from memory
                     }
+                    blocks.RemoveAt(0); // Remove from memory
                 }
                 if (begin_size > blocks.Count())
                 {
