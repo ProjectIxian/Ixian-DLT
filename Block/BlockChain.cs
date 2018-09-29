@@ -22,22 +22,21 @@ namespace DLT
         }
 
         public void onUpdate() {
-            // Check if this is a full history node
-            if (Config.storeFullHistory == true)
-            {
-                // Do not redact blocks in this case
-                return;
-            }
-
+        
             lock (blocks)
             {
                 // redaction
                 int begin_size = blocks.Count();
-                while ((ulong)blocks.Count() > redactedWindowSize)
+                while ((ulong) blocks.Count() > redactedWindowSize)
                 {
                     TransactionPool.redactTransactionsForBlock(blocks[0]); // Remove from Transaction Pool
-                    Storage.removeBlock(blocks[0]); // Remove from storage
-                    blocks.RemoveAt(0); // Remove from memory
+
+                    // Check if this is a full history node
+                    if (Config.storeFullHistory == false)
+                    {
+                        Storage.removeBlock(blocks[0]); // Remove from storage
+                        blocks.RemoveAt(0); // Remove from memory
+                    }
                 }
                 if (begin_size > blocks.Count())
                 {
