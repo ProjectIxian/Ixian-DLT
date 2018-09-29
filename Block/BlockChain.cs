@@ -22,13 +22,19 @@ namespace DLT
         }
 
         public void onUpdate() {
+            // Check if this is a full history node
+            if (Config.storeFullHistory == true)
+            {
+                // Do not redact blocks in this case
+                return;
+            }
+
             lock (blocks)
             {
                 // redaction
                 int begin_size = blocks.Count();
                 while ((ulong)blocks.Count() > redactedWindowSize)
                 {
-                    // TODO TODO TODO Handle full history node case
                     TransactionPool.redactTransactionsForBlock(blocks[0]); // Remove from Transaction Pool
                     Storage.removeBlock(blocks[0]); // Remove from storage
                     blocks.RemoveAt(0); // Remove from memory

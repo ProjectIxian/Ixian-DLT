@@ -964,8 +964,9 @@ namespace DLT
                 //------------ end of nOnce fix section ------------
                 foreach (var transaction in pool_transactions)
                 {
-                    //Console.WriteLine("\t\t|- tx: {0}, amount: {1}", transaction.id, transaction.amount);
-                    // TODO TODO TODO verify that the transaction is actually valid at this point
+                    // Verify that the transaction is actually valid at this point
+                    if (TransactionPool.verifyTransaction(transaction) == false)
+                        continue;
 
                     // Skip adding staking rewards
                     if (transaction.type == (int)Transaction.Type.StakingReward)
