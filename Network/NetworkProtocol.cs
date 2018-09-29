@@ -133,14 +133,6 @@ namespace DLT
                 }
             }
 
-            public static void syncCompleteNeighbor(string neighbor)
-            {
-                if(NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.syncWalletStateComplete, new byte[1]) == false)
-                {
-                    NetworkServer.sendToClient(neighbor, ProtocolMessageCode.syncWalletStateComplete, new byte[1]);
-                }
-            }
-
             public static void sendWalletStateChunk(RemoteEndpoint endpoint, WsChunk chunk)
             {
                 using (MemoryStream m = new MemoryStream())
@@ -732,7 +724,7 @@ namespace DLT
                                 {
                                     using (BinaryWriter writer = new BinaryWriter(m))
                                     {
-                                        ulong walletstate_block = Node.blockChain.getLastBlockNum();
+                                        ulong walletstate_block = Node.blockSync.pendingWsBlockNum;
                                         long walletstate_count = Node.walletState.numWallets;
 
                                         // Return the current walletstate block and walletstate count
@@ -745,9 +737,6 @@ namespace DLT
                                 }
 
                             }
-                            break;
-                        case ProtocolMessageCode.syncWalletStateComplete:
-                            Node.blockSync.outgoingSyncComplete();
                             break;
 
                         case ProtocolMessageCode.walletState:

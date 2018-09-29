@@ -18,6 +18,7 @@ namespace DLT
     {
         public bool synchronizing { get; private set; }
         List<Block> pendingBlocks = new List<Block>();
+        public ulong pendingWsBlockNum { get; private set; }
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
         int wsSyncCount = 0;
         DateTime lastChunkRequested;
@@ -199,7 +200,6 @@ namespace DLT
                 }
 
                 // Loop until we have no more pending blocks
-                // TODO: handle potential edge cases
                 while (pendingBlocks.Count() > 0)
                 {
 
@@ -385,6 +385,7 @@ namespace DLT
                 if (wsSyncCount == 0 || (lastChunkRequested - DateTime.Now).TotalSeconds > 150)
                 {
                     wsSyncCount = 0;
+                    pendingWsBlockNum = Node.blockChain.getLastBlockNum();
                     pendingWsChunks.Clear();
                     pendingWsChunks.AddRange(Node.walletState.getWalletStateChunks(Config.walletStateChunkSplit));
                 }
@@ -424,6 +425,10 @@ namespace DLT
             if (chunk_num >= 0 && chunk_num < pendingWsChunks.Count)
             {
                 ProtocolMessage.sendWalletStateChunk(endpoint, pendingWsChunks[chunk_num]);
+                if(chunk_num + 1 == pendingWsChunks.Count)
+                {
+                    outgoingSyncComplete();
+                }
             } else
             {
                 Logging.warn(String.Format("Neighbor requested an invalid WalletState chunk: {0}, but the pending array only has 0-{1}.",
@@ -477,16 +482,10 @@ namespace DLT
             // clear out current state
             lock (pendingBlocks)
             {
-                lock (pendingWsChunks)
-                {
-                    pendingBlocks.Clear();
-                    pendingWsChunks.Clear();
-                    Node.walletState.clear();
-                }
+                pendingBlocks.Clear();
             }
             synchronizing = true;
             // select sync partner for walletstate
-            wsSyncConfirmedBlockNum = 0;
             receivedAllMissingBlocks = false;
         }
 
