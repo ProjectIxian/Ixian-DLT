@@ -24,9 +24,13 @@ namespace DLT
         // Maintain two threads for handling data receiving and sending
         private Thread recvThread = null;
         private Thread sendThread = null;
+        private Thread parseThread = null;
 
         // Maintain a queue of messages to send
         private List<QueueMessage> sendQueueMessages = new List<QueueMessage>();
+
+        // Maintain a queue of raw received data
+        private List<QueueMessageRaw> recvRawQueueMessages = new List<QueueMessageRaw>();
 
 
         public NetworkClient()
@@ -49,10 +53,10 @@ namespace DLT
             // Disable the Nagle Algorithm for this tcp socket.
             tcpClient.Client.NoDelay = true;
 
-            tcpClient.Client.ReceiveTimeout = 5000;
+            tcpClient.Client.ReceiveTimeout = 15000;
             //tcpClient.Client.ReceiveBufferSize = 1024 * 64;
             //tcpClient.Client.SendBufferSize = 1024 * 64;
-            tcpClient.Client.SendTimeout = 5000;
+            tcpClient.Client.SendTimeout = 15000;
 
             tcpClient.Client.Blocking = true;
 
@@ -130,6 +134,10 @@ namespace DLT
             // Start send thread
             sendThread = new Thread(new ThreadStart(sendLoop));
             sendThread.Start();
+
+            // Start parse thread
+            parseThread = new Thread(new ThreadStart(parseLoop));
+            parseThread.Start();
 
             return true;
         }
@@ -285,7 +293,9 @@ namespace DLT
                 try
                 {
                     // Let the protocol handler receive and handle messages
-                    ProtocolMessage.readProtocolMessage(tcpClient.Client, null);
+                    byte[] data = ProtocolMessage.readSocketData(tcpClient.Client, null);
+                    if (data != null)
+                        parseDataInternal(data, tcpClient.Client, null);
                 }
                 catch(Exception)
                 {
@@ -341,6 +351,61 @@ namespace DLT
 
             Thread.Yield();
         }
+
+        // Parse thread
+        private void parseLoop()
+        {
+            // Prepare an special message object to use while sending, without locking up the queue messages
+            QueueMessageRaw active_message = new QueueMessageRaw();
+
+            while (running)
+            {
+                bool message_found = false;
+                lock (recvRawQueueMessages)
+                {
+                    if (recvRawQueueMessages.Count > 0)
+                    {
+                        // Pick the oldest message
+                        QueueMessageRaw candidate = recvRawQueueMessages[0];
+                        active_message.data = candidate.data;
+                        active_message.socket = candidate.socket;
+                        active_message.endpoint = candidate.endpoint;
+                        // Remove it from the queue
+                        recvRawQueueMessages.Remove(candidate);
+                        message_found = true;
+                    }
+                }
+
+                if (message_found)
+                {
+                    // Active message set, attempt to send it
+                    ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, null);
+                }
+                else
+                {
+                    // No active message
+                    // Sleep for 10ms to prevent cpu waste
+                    Thread.Sleep(10);
+                }
+            }
+
+            Thread.Yield();
+        }
+
+        private void parseDataInternal(byte[] data, Socket socket, RemoteEndpoint endpoint)
+        {
+            QueueMessageRaw message = new QueueMessageRaw();
+            message.data = data;
+            message.socket = socket;
+            message.endpoint = endpoint;
+
+            lock (recvRawQueueMessages)
+            {
+                recvRawQueueMessages.Add(message);
+            }
+        }
+
+
 
         public void disconnect()
         {

@@ -20,6 +20,7 @@ namespace DLT
         // Maintain two threads for handling data receiving and sending
         private Thread recvThread = null;
         private Thread sendThread = null;
+        private Thread parseThread = null;
 
         public Presence presence = null;
         public PresenceAddress presenceAddress = null;
@@ -28,6 +29,9 @@ namespace DLT
 
         // Maintain a queue of messages to send
         private List<QueueMessage> sendQueueMessages = new List<QueueMessage>();
+
+        // Maintain a queue of raw received data
+        private List<QueueMessageRaw> recvRawQueueMessages = new List<QueueMessageRaw>();
 
 
         public void start()
@@ -47,6 +51,10 @@ namespace DLT
             // Start send thread
             sendThread = new Thread(new ThreadStart(sendLoop));
             sendThread.Start();
+
+            // Start parse thread
+            parseThread = new Thread(new ThreadStart(parseLoop));
+            parseThread.Start();
         }
 
         // Receive thread
@@ -57,7 +65,9 @@ namespace DLT
                 // Let the protocol handler receive and handle messages
                 try
                 {
-                    ProtocolMessage.readProtocolMessage(clientSocket, this);
+                    byte[] data = ProtocolMessage.readSocketData(clientSocket, this);
+                    if(data !=null )
+                        parseDataInternal(data, clientSocket, this);
                 }
                 catch (Exception e)
                 {
@@ -137,6 +147,59 @@ namespace DLT
             }
 
             Thread.Yield();
+        }
+
+        // Parse thread
+        private void parseLoop()
+        {
+            // Prepare an special message object to use while sending, without locking up the queue messages
+            QueueMessageRaw active_message = new QueueMessageRaw();
+
+            while (running)
+            {
+                bool message_found = false;
+                lock (recvRawQueueMessages)
+                {
+                    if (recvRawQueueMessages.Count > 0)
+                    {
+                        // Pick the oldest message
+                        QueueMessageRaw candidate = recvRawQueueMessages[0];
+                        active_message.data = candidate.data;
+                        active_message.socket = candidate.socket;
+                        active_message.endpoint = candidate.endpoint;
+                        // Remove it from the queue
+                        recvRawQueueMessages.Remove(candidate);
+                        message_found = true;
+                    }
+                }
+
+                if (message_found)
+                {
+                    // Active message set, attempt to send it
+                    ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, this);
+                }
+                else
+                {
+                    // No active message
+                    // Sleep for 10ms to prevent cpu waste
+                    Thread.Sleep(10);
+                }
+            }
+
+            Thread.Yield();
+        }
+
+        private void parseDataInternal(byte[] data, Socket socket, RemoteEndpoint endpoint)
+        {
+            QueueMessageRaw message = new QueueMessageRaw();
+            message.data = data;
+            message.socket = socket;
+            message.endpoint = endpoint;
+
+            lock(recvRawQueueMessages)
+            {
+                recvRawQueueMessages.Add(message);
+            }
         }
 
 

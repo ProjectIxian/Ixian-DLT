@@ -20,6 +20,13 @@ namespace DLT
             public Socket skipSocket;
         }
 
+        struct QueueMessageRaw
+        {
+            public byte[] data;
+            public Socket socket;
+            public RemoteEndpoint endpoint;
+        }
+
         class NetworkQueue
         {
             private static bool shouldStop = false; // flag to signal shutdown of threads

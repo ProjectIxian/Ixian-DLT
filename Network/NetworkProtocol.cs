@@ -154,11 +154,13 @@ namespace DLT
                 }
             }
 
-            // Server-side protocol reading
-            public static void readProtocolMessage(Socket socket, RemoteEndpoint endpoint)
+            // Reads data from a socket and returns a byte array
+            public static byte[] readSocketData(Socket socket, RemoteEndpoint endpoint)
             {
+                byte[] data = null;
+
                 // Check for socket availability
-                if(socket.Connected == false)
+                if (socket.Connected == false)
                 {
                     throw new Exception("Socket already disconnected at other end");
                 }
@@ -167,7 +169,7 @@ namespace DLT
                 {
                     // Sleep a while to prevent cpu cycle waste
                     Thread.Sleep(10);
-                    return;
+                    return data;
                 }
 
                 // Read multi-packet messages
@@ -207,7 +209,8 @@ namespace DLT
                                             }
                                         }
                                     }
-                                }else if (big_buffer.Count == data_length + header_length)
+                                }
+                                else if (big_buffer.Count == data_length + header_length)
                                 {
                                     // we have everything that we need, save the last byte and break
                                     message_found = true;
@@ -220,7 +223,8 @@ namespace DLT
                                     big_buffer.Add(current_byte[0]);
                                 }
                             }
-                        }else
+                        }
+                        else
                         {
                             // sleep a litte while waiting for bytes
                             //Thread.Sleep(50);
@@ -234,7 +238,15 @@ namespace DLT
                     throw e;
                 }
 
-                byte[] recv_buffer = big_buffer.ToArray();
+                data = big_buffer.ToArray();
+                return data;
+            }
+
+            // Read a protocol message from a byte array
+            public static void readProtocolMessage(byte[] recv_buffer, Socket socket, RemoteEndpoint endpoint)
+            {
+                if (socket == null)
+                    return;
 
                 ProtocolMessageCode code = ProtocolMessageCode.hello;
                 byte[] data = null;
@@ -312,6 +324,9 @@ namespace DLT
             // Unified protocol message parsing
             public static void parseProtocolMessage(ProtocolMessageCode code, byte[] data, Socket socket, RemoteEndpoint endpoint)
             {
+                if (socket == null)
+                    return;
+
                 try
                 {
                     switch (code)
@@ -922,7 +937,7 @@ namespace DLT
                                                     lock(Node.blockProcessor.localBlockLock)
                                                     {
                                                         Block tmp = Node.blockProcessor.getLocalBlock();
-                                                        if(tmp != null && b.blockNum == blockNum)
+                                                        if(tmp != null && tmp.blockNum == blockNum)
                                                         {
                                                             txIdArr = new List<string>(tmp.transactions);
                                                         }
@@ -1000,7 +1015,7 @@ namespace DLT
                 }
                 catch(Exception e)
                 {
-                    Logging.error(string.Format("Error parsing network message. Details: {0}", e.ToString()));
+                    Logging.error(string.Format("Error parsing network message. Details: {0} [ {1} ]", e.ToString(), e.StackTrace));
                 }
                 
             }
