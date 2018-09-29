@@ -388,7 +388,6 @@ namespace DLT
                 {
                     if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
                     {
-                        fetchingTxTimeout = 0;
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
                         ProtocolMessage.broadcastGetTransaction(txid); 
                     }
