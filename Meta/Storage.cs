@@ -4,16 +4,25 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace DLT
 {
     namespace Meta
-    {   
+    {
         public class Storage
         {
             public static string filename = "blockchain.dat";
 
             private static SQLiteConnection sqlConnection;
+
+            // Maintain a queue of sql statements
+            private static List<Transaction> queueStatements = new List<Transaction>();
+
+
+            private static Thread thread = null;
+            private static bool running = false;
+
 
             // Creates the storage file if not found
             public static bool prepareStorage()
@@ -47,8 +56,20 @@ namespace DLT
                     executeSQL(sql);
                 }
 
+                // Start thread
+                running = true;
+                thread = new Thread(new ThreadStart(threadLoop));
+                thread.Start();
+
                 return true;
             }
+
+            // Shutdown storage thread
+            public static void stopStorage()
+            {
+                running = false;
+            }
+
 
             public class _storage_Block
             {
@@ -112,7 +133,7 @@ namespace DLT
             public static bool appendToStorage(byte[] data)
             {
                 // Check if history is enabled
-                if(Config.storeFullHistory == true)
+                if (Config.storeFullHistory == true)
                 {
                     return false;
                 }
@@ -125,13 +146,13 @@ namespace DLT
 
                 Block b = block;
                 string transactions = "";
-                foreach(string tx in block.transactions)
+                foreach (string tx in block.transactions)
                 {
                     transactions = string.Format("{0}||{1}", transactions, tx);
                 }
 
                 string signatures = "";
-                foreach(string sig in block.signatures)
+                foreach (string sig in block.signatures)
                 {
                     signatures = string.Format("{0}||{1}", signatures, sig);
                 }
@@ -141,7 +162,8 @@ namespace DLT
                 {
                     string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
                     result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures);
-                }else
+                }
+                else
                 {
                     // Likely already have the block stored, update the old entry
                     string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ? WHERE `blockNum` = ?";
@@ -153,14 +175,15 @@ namespace DLT
                 return result;
             }
 
-            public static bool insertTransaction(Transaction transaction)
+            public static bool insertTransactionInternal(Transaction transaction)
             {
                 bool result = false;
                 if (getTransaction(transaction.id) == null)
                 {
                     string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
                     result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied);
-                }else
+                }
+                else
                 {
                     // Likely already have the tx stored, update the old entry
                     string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `applied` = ? WHERE `id` = ?";
@@ -172,7 +195,7 @@ namespace DLT
 
             public static Block getBlock(ulong blocknum)
             {
-                if(blocknum < 0)
+                if (blocknum < 0)
                 {
                     return null;
                 }
@@ -182,7 +205,8 @@ namespace DLT
                 try
                 {
                     _storage_block = sqlConnection.Query<_storage_Block>(sql, (long)blocknum).ToArray();
-                }catch(Exception e)
+                }
+                catch (Exception e)
                 {
                     Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
                     return null;
@@ -190,7 +214,7 @@ namespace DLT
 
                 if (_storage_block == null)
                     return block;
-                
+
                 if (_storage_block.Length < 1)
                     return block;
 
@@ -308,7 +332,7 @@ namespace DLT
             // Removes a transaction from the storage database
             public static bool removeTransaction(string txid)
             {
-                string sql = "DELETE FROM transactions where `id` = ?";             
+                string sql = "DELETE FROM transactions where `id` = ?";
                 return executeSQL(sql, txid);
             }
 
@@ -317,7 +341,7 @@ namespace DLT
             public static bool redactBlockStorage(ulong blockheight)
             {
                 // Only redact on non-history nodes
-                if(Config.storeFullHistory == true)
+                if (Config.storeFullHistory == true)
                 {
                     return false;
                 }
@@ -352,7 +376,7 @@ namespace DLT
                     return false;
 
                 // Go through each block
-                foreach(_storage_Block blk in _storage_blocks)
+                foreach (_storage_Block blk in _storage_blocks)
                 {
                     // Extract transactions
                     string[] split_str = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
@@ -389,6 +413,54 @@ namespace DLT
                     return false;
                 }
                 return true;
+            }
+
+
+            public static void insertTransaction(Transaction transaction)
+            {
+                lock(queueStatements)
+                {
+                    queueStatements.Add(transaction);
+                }
+            }
+
+
+
+            // Storage thread
+            private static void threadLoop()
+            {
+                // Prepare an special message object to use, without locking up the queue messages
+                Transaction active_tx = null;
+
+                while (running)
+                {
+                    bool message_found = false;
+
+                    lock (queueStatements)
+                    {
+                        if (queueStatements.Count() > 0)
+                        {
+                            Transaction candidate = queueStatements[0];
+                            active_tx = candidate;
+                            queueStatements.Remove(candidate);
+                            message_found = true;
+                        }
+                    }
+
+                    if(message_found)
+                    {
+                        insertTransactionInternal(active_tx);
+                    }
+                    else
+                    {
+                        // No active message
+                        // Sleep for 100ms to prevent cpu waste
+                        Thread.Sleep(100);
+                    }
+
+                }
+
+                Thread.Yield();
             }
         }
         /**/

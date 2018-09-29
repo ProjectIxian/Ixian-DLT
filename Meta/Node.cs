@@ -207,6 +207,9 @@ namespace DLT.Meta
             // Stop the network server
             NetworkServer.stopNetworkOperations();
 
+            // Stop the storage thread
+            Storage.stopStorage();
+
             presenceListActive = false;
         }
 
