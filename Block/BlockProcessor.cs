@@ -314,9 +314,13 @@ namespace DLT
                 // Don't request block 0
                 if (b.blockNum - 1 > 0)
                 {
-                    for (ulong missingBlock = Node.blockChain.getLastBlockNum() + 1; missingBlock < b.blockNum; missingBlock++)
+                    if (!Node.blockSync.synchronizing)
                     {
-                        ProtocolMessage.broadcastGetBlock(missingBlock);
+                        for (ulong missingBlock = Node.blockChain.getLastBlockNum() + 1; missingBlock < b.blockNum; missingBlock++)
+                        {
+                            ProtocolMessage.broadcastGetBlock(missingBlock);
+                            Thread.Sleep(100);
+                        }
                     }
                 }
                 return BlockVerifyStatus.Indeterminate;
