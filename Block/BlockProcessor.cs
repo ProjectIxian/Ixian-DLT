@@ -711,7 +711,7 @@ namespace DLT
         // Returns false if walletstate is not correct
         public bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
         {
-            if(Node.blockChain.getBlock(b.blockNum, !Node.blockSync.synchronizing) != null)
+            if(Node.blockChain.getBlock(b.blockNum) != null)
             {
                 Logging.warn(String.Format("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace));
                 return false;

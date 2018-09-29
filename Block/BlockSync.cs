@@ -120,7 +120,7 @@ namespace DLT
                 foreach (ulong blockNum in missingBlocks)
                 {
                     // First check if the missing block can be found in storage
-                    Block block = Node.blockChain.getBlock(blockNum);
+                    Block block = Node.blockChain.getBlock(blockNum, true);
                     if (block != null)
                     {
                         Node.blockSync.onBlockReceived(block);

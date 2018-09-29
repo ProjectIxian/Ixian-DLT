@@ -77,7 +77,7 @@ namespace DLT
 
         // Attempts to retrieve a block from memory or from storage
         // Returns null if no block is found
-        public Block getBlock(ulong blocknum, bool search_in_storage = true)
+        public Block getBlock(ulong blocknum, bool search_in_storage = false)
         {
             Block block = null;
 

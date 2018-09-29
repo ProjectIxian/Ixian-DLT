@@ -51,7 +51,6 @@ namespace DLT
                     using (BinaryWriter writerw = new BinaryWriter(mw))
                     {
                         writerw.Write(block_num);
-                        writerw.Write(false);
 
                         broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipSocket);
                     }
@@ -535,11 +534,10 @@ namespace DLT
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
                                         ulong block_number = reader.ReadUInt64();
-                                        bool fetch_walletstate = reader.ReadBoolean(); // Deprecated as of version 4
 
                                         Logging.info(String.Format("Block #{0} has been requested.", block_number));
-
-                                        Block block = Node.blockChain.getBlock(block_number, false);
+                                        // TODO TODO TODO full history node
+                                        Block block = Node.blockChain.getBlock(block_number, true);
                                         if (block == null)
                                         {
                                             Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
@@ -912,7 +910,8 @@ namespace DLT
                                         {
                                             using (BinaryWriter writer = new BinaryWriter(mOut))
                                             {
-                                                Block b = Node.blockChain.getBlock(blockNum);
+                                                // TODO TODO TODO full history node
+                                                Block b = Node.blockChain.getBlock(blockNum, true);
                                                 List<string> txIdArr = null;
                                                 if(b != null)
                                                 {
