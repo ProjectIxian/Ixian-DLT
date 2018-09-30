@@ -373,6 +373,7 @@ namespace DLT
             int txTimeout = 0;
             lock (fetchingTxForBlocks)
             {
+<<<<<<< HEAD
                 if (fetchingTxForBlocks.ContainsKey(b.blockNum))
                 {
                     txTimeout = fetchingTxForBlocks[b.blockNum];
@@ -382,6 +383,10 @@ namespace DLT
             {
                 Logging.info("fetchingTxTimeout EXPIRED");
                 txTimeout = 0;
+=======
+                Logging.info("fetchingTxTimeout EXPIRED");
+                fetchingTxTimeout = 0;
+>>>>>>> 427c732c041e53ebf03731e810498c85fb7e5ff1
                 fetchTransactions = true;
             }
             int missing = 0;
@@ -1137,7 +1142,7 @@ namespace DLT
 
             if(totalIxisStaked.getAmount() <= 0)
             {
-                Logging.warn(String.Format("No Ixis were staked or a logic error occured - total ixi staked returned: ", totalIxisStaked.getAmount()));
+                Logging.warn(String.Format("No Ixis were staked or a logic error occured - total ixi staked returned: {0}", totalIxisStaked.getAmount()));
                 return transactions;
             }
 
