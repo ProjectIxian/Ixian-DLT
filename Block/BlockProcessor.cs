@@ -42,9 +42,6 @@ namespace DLT
             localNewBlock = null;
             operating = false;
             firstBlockAfterSync = false;
-
-            Thread queue_thread1 = new Thread(onUpdate);
-            queue_thread1.Start();
         }
 
         public void resumeOperation()
@@ -432,7 +429,7 @@ namespace DLT
                     fetchingTxTimeout = 0;
                     fetchingTxForBlockNum = b.blockNum;
                     fetchingTxForBlockNumBulk = b.blockNum;
-                    ProtocolMessage.broadcastGetBlockTransactions(b.blockNum,Node.blockSync.synchronizing); 
+                    ProtocolMessage.broadcastGetBlockTransactions(b.blockNum,Node.blockSync.synchronizing);                    
                 }else if(fetchingTxTimeout == 0) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
                 {
                     fetchingTxForBlockNum = b.blockNum;

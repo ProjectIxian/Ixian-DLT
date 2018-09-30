@@ -954,9 +954,16 @@ namespace DLT
                                                         }
                                                     }
 
-                                                    byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                    socket.Send(ba, SocketFlags.None);
-                                                    //endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                    if (endpoint != null)
+                                                    {
+                                                        endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                    }
+                                                    else
+                                                    {
+                                                        byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                        socket.Send(ba, SocketFlags.None);
+                                                    }
+                                                    
                                                 }
                                             }
                                         }
@@ -967,6 +974,7 @@ namespace DLT
 
                         case ProtocolMessageCode.transactionsChunk:
                             {
+                                Console.WriteLine("GOT TXC!");
                                 using (MemoryStream m = new MemoryStream(data))
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
@@ -981,6 +989,7 @@ namespace DLT
                                             }
                                             byte[] txData = reader.ReadBytes(len);
                                             Transaction tx = new Transaction(txData);
+                                            Console.WriteLine("Adding {0}", tx.id);
                                             if(tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                                             {
                                                 continue;

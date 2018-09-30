@@ -35,52 +35,76 @@ namespace DLT
 
         bool canPerformWalletstateSync = false;
 
+        private Thread sync_thread = null;
+
+        private bool running = false;
 
         public BlockSync()
         {
             synchronizing = false;
             receivedAllMissingBlocks = false;
+
+            running = true;
+            // Start the thread
+            sync_thread = new Thread(onUpdate);
+            sync_thread.Start();
         }
 
         public void onUpdate()
         {
-            if (synchronizing == false) return;
-            if (syncTargetBlockNum == 0)
+            while (running)
             {
-                // we haven't connected to any clients yet
-                return;
-            }
-
-            Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
-                pendingBlocks.Count, pendingWsChunks.Count));
-            if(!Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
-            {
-                startWalletStateSync();
-                Thread.Sleep(1000);
-                return;
-            }
-            if (Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
-            {
-                // Request missing blocks if needed
-                if (receivedAllMissingBlocks == false)
+                if (synchronizing == false)
                 {
-                    if (requestMissingBlocks())
+                    Thread.Sleep(100);
+                    return;
+                }
+                if (syncTargetBlockNum == 0)
+                {
+                    // we haven't connected to any clients yet
+                    Thread.Sleep(100);
+                    return;
+                }
+
+                Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
+                    pendingBlocks.Count, pendingWsChunks.Count));
+                if (!Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
+                {
+                    startWalletStateSync();
+                    Thread.Sleep(1000);
+                    return;
+                }
+                if (Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
+                {
+                    // Request missing blocks if needed
+                    if (receivedAllMissingBlocks == false)
                     {
-                        // If blocks were requested, wait for next iteration
-                        return;
+                        if (requestMissingBlocks())
+                        {
+                            // If blocks were requested, wait for next iteration
+                            return;
+                        }
                     }
                 }
+                // Check if we can perform the walletstate synchronization
+                if (canPerformWalletstateSync)
+                {
+                    performWalletStateSync();
+                }
+                else
+                {
+                    // Proceed with rolling forward the chain
+                    rollForward();
+                }
             }
-            // Check if we can perform the walletstate synchronization
-            if (canPerformWalletstateSync)
-            {
-                performWalletStateSync();
-            }
-            else
-            {
-                // Proceed with rolling forward the chain
-                rollForward();
-            }
+
+            Thread.Yield();
+        }
+
+        public void stop()
+        {
+            running = false;
+            Logging.info("BlockSync stopped.");
         }
 
         private bool requestMissingBlocks()

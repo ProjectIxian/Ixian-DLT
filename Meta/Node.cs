@@ -201,6 +201,9 @@ namespace DLT.Meta
             // Stop the block processor
             blockProcessor.stopOperation();
 
+            // Stop the block sync
+            blockSync.stop();
+
             // Stop all network clients
             NetworkClientManager.stop();
             
