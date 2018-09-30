@@ -150,8 +150,6 @@ namespace DLT.Meta
 
         static public bool update()
         {
-            blockSync.onUpdate();
-
             // Update redacted blockchain
             blockChain.onUpdate();
 

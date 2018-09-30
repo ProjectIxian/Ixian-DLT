@@ -52,18 +52,19 @@ namespace DLT
 
         public void onUpdate()
         {
+            
             while (running)
             {
                 if (synchronizing == false)
                 {
                     Thread.Sleep(100);
-                    return;
+                    continue;
                 }
                 if (syncTargetBlockNum == 0)
                 {
                     // we haven't connected to any clients yet
                     Thread.Sleep(100);
-                    return;
+                    continue;
                 }
 
                 Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
@@ -72,7 +73,7 @@ namespace DLT
                 {
                     startWalletStateSync();
                     Thread.Sleep(1000);
-                    return;
+                    continue;
                 }
                 if (Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
@@ -82,7 +83,8 @@ namespace DLT
                         if (requestMissingBlocks())
                         {
                             // If blocks were requested, wait for next iteration
-                            return;
+                            Thread.Sleep(500);
+                            continue;
                         }
                     }
                 }
@@ -132,31 +134,32 @@ namespace DLT
                 {
                     missingBlocks.RemoveAll(x => x == b.blockNum);
                 }
-
-                // whatever is left in missingBlocks is what we need to request
-                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
-                if (missingBlocks.Count() == 0)
-                {
-                    receivedAllMissingBlocks = true;
-                    return false;
-                }
-
-                foreach (ulong blockNum in missingBlocks)
-                {
-                    // First check if the missing block can be found in storage
-                    Block block = Node.blockChain.getBlock(blockNum, true);
-                    if (block != null)
-                    {
-                        Node.blockSync.onBlockReceived(block);
-                        continue;
-                    }
-
-                    // Didn't find the block in storage, request it from the network
-                    ProtocolMessage.broadcastGetBlock(blockNum);
-                    count++;
-                    if (count >= maxBlockRequests) break;
-                }
             }
+
+            // whatever is left in missingBlocks is what we need to request
+            Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
+            if (missingBlocks.Count() == 0)
+            {
+                receivedAllMissingBlocks = true;
+                return false;
+            }
+
+            foreach (ulong blockNum in missingBlocks)
+            {
+                // First check if the missing block can be found in storage
+                Block block = Node.blockChain.getBlock(blockNum, true);
+                if (block != null)
+                {
+                    Node.blockSync.onBlockReceived(block);
+                    continue;
+                }
+
+                // Didn't find the block in storage, request it from the network
+                ProtocolMessage.broadcastGetBlock(blockNum);
+                count++;
+                if (count >= maxBlockRequests) break;
+            }
+
             if (count > 0)
                 return true;
             return false;

@@ -66,8 +66,6 @@ namespace DLT
 
                 lock (queueMessages)
                 {
-
-
                     // Move transaction messages to the transaction queue
                     if(code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData)
                     {
