@@ -42,6 +42,7 @@ namespace DLT
 
             // Maintain a queue of messages to receive
             private static List<QueueMessageRecv> queueMessages = new List<QueueMessageRecv>();
+            private static List<QueueMessageRecv> txqueueMessages = new List<QueueMessageRecv>();
 
 
             public static int getQueuedMessageCount()
@@ -75,16 +76,14 @@ namespace DLT
                         }
                     }
 
-                    if (queueMessages.Count() > 20)
+                    if(code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData)
                     {
-                        if (code != ProtocolMessageCode.newTransaction)
-                        {
-                            queueMessages.Insert(5, message);
-                            return;
-                        }
+                        // Add it to the tx queue
+                        txqueueMessages.Add(message);
+                        return;
                     }
-                    
-                    // Add it to the queue
+
+                    // Add it to the normal queue
                     queueMessages.Add(message);
                     
                 }
@@ -103,7 +102,10 @@ namespace DLT
                     Thread queue_thread = new Thread(queueThreadLoop);
                     queue_thread.Start();
                 }
-                
+
+                Thread txqueue_thread = new Thread(txqueueThreadLoop);
+                txqueue_thread.Start();
+
                 Logging.info("Network queue thread started.");
             }
 
@@ -155,7 +157,45 @@ namespace DLT
                 Logging.info("Network queue thread stopped.");
             }
 
+            // Actual tx network queue logic
+            public static void txqueueThreadLoop()
+            {
+                // Prepare an special message object to use while receiving and parsing, without locking up the queue messages
+                QueueMessageRecv active_message = new QueueMessageRecv();
 
+                while (!shouldStop)
+                {
+                    bool message_found = false;
+                    lock (queueMessages)
+                    {
+                        if (queueMessages.Count > 0)
+                        {
+                            // Pick the oldest message
+                            QueueMessageRecv candidate = txqueueMessages[0];
+                            active_message.code = candidate.code;
+                            active_message.data = candidate.data;
+                            active_message.socket = candidate.socket;
+                            active_message.endpoint = candidate.endpoint;
+                            // Remove it from the queue
+                            txqueueMessages.Remove(candidate);
+                            message_found = true;
+                        }
+                    }
+
+                    if (message_found)
+                    {
+                        // Active message set, attempt to parse it
+                        ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
+                    }
+                    else
+                    {
+                        // No active message
+                        // Sleep for 10ms to prevent cpu waste
+                        Thread.Sleep(10);
+                    }
+                }
+                Logging.info("Network queue thread stopped.");
+            }
         }
     }
 }

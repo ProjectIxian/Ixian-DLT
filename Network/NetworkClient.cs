@@ -53,10 +53,10 @@ namespace DLT
             // Disable the Nagle Algorithm for this tcp socket.
             tcpClient.Client.NoDelay = true;
 
-            tcpClient.Client.ReceiveTimeout = 15000;
+            //tcpClient.Client.ReceiveTimeout = 5000;
             //tcpClient.Client.ReceiveBufferSize = 1024 * 64;
             //tcpClient.Client.SendBufferSize = 1024 * 64;
-            tcpClient.Client.SendTimeout = 15000;
+            //tcpClient.Client.SendTimeout = 5000;
 
             tcpClient.Client.Blocking = true;
 
@@ -199,7 +199,7 @@ namespace DLT
                         // Prioritize certain messages if the queue is large
                         if (message.code != ProtocolMessageCode.newTransaction)
                         {
-                            sendQueueMessages.Insert(10, message);
+                            sendQueueMessages.Insert(1, message);
                             return;
                         }
                     }
@@ -224,6 +224,7 @@ namespace DLT
                     if (sentBytes < ba.Length)
                     {
                         Thread.Sleep(5);
+                        Console.WriteLine("Still sending");
                     }
                     // TODO TODO TODO timeout
                 }
@@ -295,8 +296,11 @@ namespace DLT
                     // Let the protocol handler receive and handle messages
                     byte[] data = ProtocolMessage.readSocketData(tcpClient.Client, null);
                     if (data != null)
-                        ProtocolMessage.readProtocolMessage(data, tcpClient.Client, null);
-                        //parseDataInternal(data, tcpClient.Client, null);
+                    {
+                        //ProtocolMessage.readProtocolMessage(data, tcpClient.Client, null);
+                        parseDataInternal(data, tcpClient.Client, null);
+                    }
+                
                 }
                 catch(Exception)
                 {

@@ -246,7 +246,10 @@ namespace DLT
             public static void readProtocolMessage(byte[] recv_buffer, Socket socket, RemoteEndpoint endpoint)
             {
                 if (socket == null)
+                {
+                    Logging.error("Socket was null. readProtocolMessage");
                     return;
+                }
 
                 ProtocolMessageCode code = ProtocolMessageCode.hello;
                 byte[] data = null;
@@ -310,8 +313,8 @@ namespace DLT
 
                             // Can proceed to parse the data parameter based on the protocol message code.
                             // Data can contain multiple elements.
-                            //parseProtocolMessage(code, data, socket, endpoint);
-                            NetworkQueue.receiveProtocolMessage(code, data, socket, endpoint);
+                            parseProtocolMessage(code, data, socket, endpoint);
+                            //NetworkQueue.receiveProtocolMessage(code, data, socket, endpoint);
                         }
                     }
                 }
@@ -325,7 +328,10 @@ namespace DLT
             public static void parseProtocolMessage(ProtocolMessageCode code, byte[] data, Socket socket, RemoteEndpoint endpoint)
             {
                 if (socket == null)
+                {
+                    Logging.error("Socket was null. parseProtocolMessage");
                     return;
+                }
 
                 try
                 {

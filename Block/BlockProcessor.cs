@@ -373,9 +373,11 @@ namespace DLT
             bool fetchTransactions = false;
             if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
             {
+                Loggin.info("fetchingTxTimeout EXPIRED");
                 fetchingTxTimeout = 0;
                 fetchTransactions = true;
             }
+            int missing = 0;
             Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
             foreach (string txid in b.transactions)
             {
@@ -395,6 +397,7 @@ namespace DLT
                         ProtocolMessage.broadcastGetTransaction(txid); 
                     }
                     hasAllTransactions = false;
+                    missing++;
                     continue;
                 }
                 if (!minusBalances.ContainsKey(t.from))
@@ -428,7 +431,7 @@ namespace DLT
                 {
                     fetchingTxTimeout = 0;
                     fetchingTxForBlockNum = b.blockNum;
-                    fetchingTxForBlockNumBulk = b.blockNum;
+                    fetchingTxForBlockNumBulk = b.blockNum;                    
                     ProtocolMessage.broadcastGetBlockTransactions(b.blockNum,Node.blockSync.synchronizing);                    
                 }else if(fetchingTxTimeout == 0) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
                 {
@@ -436,7 +439,7 @@ namespace DLT
                 }
                 fetchingTxTimeout++;
                 Thread.Sleep(100); // TODO TODO TODO hack, remove for fun with network buffers
-                Logging.info(String.Format("Block #{0} is missing some transactions, which have been requested from the network.", b.blockNum));
+                Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", missing, b.blockNum));
                 return BlockVerifyStatus.Indeterminate;
             }
             fetchingTxForBlockNum = 0;

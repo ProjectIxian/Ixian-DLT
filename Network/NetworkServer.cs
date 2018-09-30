@@ -338,8 +338,8 @@ namespace DLT
                     clientSocket.IOControl(IOControlCode.KeepAliveValues, inArray, null);*/
 
                     // Add timeouts and set socket options
-                    clientSocket.ReceiveTimeout = 15000;
-                    clientSocket.SendTimeout = 15000;
+                    //clientSocket.ReceiveTimeout = 5000;
+                    //clientSocket.SendTimeout = 5000;
                     clientSocket.LingerState = new LingerOption(true, 3);
                     clientSocket.NoDelay = true;
                     clientSocket.Blocking = true;

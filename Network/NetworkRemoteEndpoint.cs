@@ -67,8 +67,8 @@ namespace DLT
                 {
                     byte[] data = ProtocolMessage.readSocketData(clientSocket, this);
                     if(data !=null )
-                        ProtocolMessage.readProtocolMessage(data, clientSocket, this);
-                        //parseDataInternal(data, clientSocket, this);
+                        //ProtocolMessage.readProtocolMessage(data, clientSocket, this);
+                        parseDataInternal(data, clientSocket, this);
                 }
                 catch (Exception e)
                 {
@@ -215,6 +215,7 @@ namespace DLT
                     sentBytes += clientSocket.Send(ba, sentBytes, ba.Length - sentBytes, SocketFlags.None);
                     if (sentBytes < ba.Length)
                     {
+                        Logging.warn("sendRE: Socket issue?");
                         Thread.Sleep(5);
                     }
                     // TODO TODO TODO timeout
@@ -261,7 +262,7 @@ namespace DLT
                         // Prioritize certain messages if the queue is large
                         if (message.code != ProtocolMessageCode.newTransaction)
                         {
-                            sendQueueMessages.Insert(10, message);
+                            sendQueueMessages.Insert(1, message);
                         }
                         else
                         {
