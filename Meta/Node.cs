@@ -348,7 +348,7 @@ namespace DLT.Meta
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.address);
                     if (nodeBalance < Config.minimumMasterNodeFunds)
                     {
-                        Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {0} and restart the node.", Config.minimumMasterNodeFunds, walletStorage.address));
+                        Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", Config.minimumMasterNodeFunds, walletStorage.address));
                         Node.stop();
                         running = false;
                         return false;

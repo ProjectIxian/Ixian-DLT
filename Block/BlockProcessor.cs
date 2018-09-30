@@ -373,7 +373,7 @@ namespace DLT
             bool fetchTransactions = false;
             if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
             {
-                Loggin.info("fetchingTxTimeout EXPIRED");
+                Logging.info("fetchingTxTimeout EXPIRED");
                 fetchingTxTimeout = 0;
                 fetchTransactions = true;
             }
@@ -1128,7 +1128,7 @@ namespace DLT
 
             if(totalIxisStaked.getAmount() <= 0)
             {
-                Logging.warn(String.Format("No Ixis were staked or a logic error occured - total ixi staked returned: ", totalIxisStaked.getAmount()));
+                Logging.warn(String.Format("No Ixis were staked or a logic error occured - total ixi staked returned: {0}", totalIxisStaked.getAmount()));
                 return transactions;
             }
 
