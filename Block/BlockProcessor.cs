@@ -373,7 +373,6 @@ namespace DLT
             int txTimeout = 0;
             lock (fetchingTxForBlocks)
             {
-<<<<<<< HEAD
                 if (fetchingTxForBlocks.ContainsKey(b.blockNum))
                 {
                     txTimeout = fetchingTxForBlocks[b.blockNum];
@@ -383,10 +382,6 @@ namespace DLT
             {
                 Logging.info("fetchingTxTimeout EXPIRED");
                 txTimeout = 0;
-=======
-                Logging.info("fetchingTxTimeout EXPIRED");
-                fetchingTxTimeout = 0;
->>>>>>> 427c732c041e53ebf03731e810498c85fb7e5ff1
                 fetchTransactions = true;
             }
             int missing = 0;
