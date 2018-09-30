@@ -30,9 +30,8 @@ namespace DLT
 
         private static string[] splitter = { "::" };
 
-        private ulong fetchingTxForBlockNum = 0;
-        private ulong fetchingTxTimeout = 0;
-        private ulong fetchingTxForBlockNumBulk = 0;
+        private SortedList<ulong, int> fetchingTxForBlocks = new SortedList<ulong, int>();
+        private SortedList<ulong, int> fetchingBulkTxForBlocks = new SortedList<ulong, int>();
 
         private Thread block_thread = null;
 
@@ -371,10 +370,18 @@ namespace DLT
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Indeterminate
             bool hasAllTransactions = true;
             bool fetchTransactions = false;
-            if (fetchingTxForBlockNum == b.blockNum && fetchingTxTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
+            int txTimeout = 0;
+            lock (fetchingTxForBlocks)
             {
-                Loggin.info("fetchingTxTimeout EXPIRED");
-                fetchingTxTimeout = 0;
+                if (fetchingTxForBlocks.ContainsKey(b.blockNum))
+                {
+                    txTimeout = fetchingTxForBlocks[b.blockNum];
+                }
+            }
+            if (txTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
+            {
+                Logging.info("fetchingTxTimeout EXPIRED");
+                txTimeout = 0;
                 fetchTransactions = true;
             }
             int missing = 0;
@@ -427,24 +434,26 @@ namespace DLT
             //
             if (!hasAllTransactions)
             {
-                if (fetchingTxForBlockNumBulk != b.blockNum)
+                lock (fetchingTxForBlocks)
                 {
-                    fetchingTxTimeout = 0;
-                    fetchingTxForBlockNum = b.blockNum;
-                    fetchingTxForBlockNumBulk = b.blockNum;                    
-                    ProtocolMessage.broadcastGetBlockTransactions(b.blockNum,Node.blockSync.synchronizing);                    
-                }else if(fetchingTxTimeout == 0) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
-                {
-                    fetchingTxForBlockNum = b.blockNum;
+                    if (!fetchingBulkTxForBlocks.ContainsKey(b.blockNum))
+                    {
+                        fetchingBulkTxForBlocks.Add(b.blockNum, 0);
+                        fetchingTxForBlocks.Add(b.blockNum, 0);
+                        ProtocolMessage.broadcastGetBlockTransactions(b.blockNum, Node.blockSync.synchronizing);
+                    }
+                    fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
+                    fetchingTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
                 }
-                fetchingTxTimeout++;
                 Thread.Sleep(100); // TODO TODO TODO hack, remove for fun with network buffers
                 Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", missing, b.blockNum));
                 return BlockVerifyStatus.Indeterminate;
             }
-            fetchingTxForBlockNum = 0;
-            fetchingTxTimeout = 0;
-
+            lock (fetchingTxForBlocks)
+            {
+                fetchingBulkTxForBlocks.Remove(b.blockNum);
+                fetchingTxForBlocks.Remove(b.blockNum);
+            }
             // Note: This part depends on no one else messing with WS while it runs.
             // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
             // the generate thread is paused, so we need to lock
