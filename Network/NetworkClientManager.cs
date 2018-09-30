@@ -227,7 +227,7 @@ namespace DLT
         // Send data to all connected nodes
         public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
         {
-            lock (networkClients)
+            //lock (networkClients)
             {
                 foreach (NetworkClient client in networkClients)
                 {

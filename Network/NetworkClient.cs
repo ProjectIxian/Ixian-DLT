@@ -295,7 +295,8 @@ namespace DLT
                     // Let the protocol handler receive and handle messages
                     byte[] data = ProtocolMessage.readSocketData(tcpClient.Client, null);
                     if (data != null)
-                        parseDataInternal(data, tcpClient.Client, null);
+                        ProtocolMessage.readProtocolMessage(data, tcpClient.Client, null);
+                        //parseDataInternal(data, tcpClient.Client, null);
                 }
                 catch(Exception)
                 {

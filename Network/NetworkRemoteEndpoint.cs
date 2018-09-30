@@ -67,7 +67,8 @@ namespace DLT
                 {
                     byte[] data = ProtocolMessage.readSocketData(clientSocket, this);
                     if(data !=null )
-                        parseDataInternal(data, clientSocket, this);
+                        ProtocolMessage.readProtocolMessage(data, clientSocket, this);
+                        //parseDataInternal(data, clientSocket, this);
                 }
                 catch (Exception e)
                 {

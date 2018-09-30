@@ -149,7 +149,7 @@ namespace DLT
                             writer.Write(w.nonce);
                         }
                         //
-                        endpoint.clientSocket.Send(ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.walletStateChunk, m.ToArray()));
+                        endpoint.sendData(ProtocolMessageCode.walletStateChunk, m.ToArray());
                     }
                 }
             }
@@ -504,8 +504,9 @@ namespace DLT
                                     writer.Write(block.walletStateChecksum);
                                     writer.Write(Node.blockChain.getRequiredConsensus());
 
-                                    byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
-                                    socket.Send(ba, SocketFlags.None);
+                                    //byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
+                                    //socket.Send(ba, SocketFlags.None);
+                                    endpoint.sendData(ProtocolMessageCode.helloData, m.ToArray());
                                 }
                             }
                             break;
@@ -560,7 +561,8 @@ namespace DLT
                                         }
                                         Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Substring(4)));
                                         // Send the block
-                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.blockData, block.getBytes()), SocketFlags.None);
+                                        //socket.Send(prepareProtocolMessage(ProtocolMessageCode.blockData, block.getBytes()), SocketFlags.None);
+                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
 
                                         // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
                                         // TODO: looking for a better solution but will likely need an updated network subsystem
@@ -597,8 +599,9 @@ namespace DLT
                                                 writerw.Write(balance.ToString());
 
  
-                                                byte[] ba = prepareProtocolMessage(ProtocolMessageCode.balance, mw.ToArray());
-                                                socket.Send(ba, SocketFlags.None);
+                                                //byte[] ba = prepareProtocolMessage(ProtocolMessageCode.balance, mw.ToArray());
+                                                //socket.Send(ba, SocketFlags.None);
+                                                endpoint.sendData(ProtocolMessageCode.balance, mw.getBytes());
                                             }
                                         }
                                     }
@@ -625,8 +628,9 @@ namespace DLT
 
                                         Logging.info(String.Format("Sending transaction {0} - {1} - {2} - {3}.", txid, transaction.id, transaction.checksum, transaction.amount));
 
-                                        byte[] ba = prepareProtocolMessage(ProtocolMessageCode.transactionData, transaction.getBytes());
-                                        socket.Send(ba, SocketFlags.None);
+                                        //byte[] ba = prepareProtocolMessage(ProtocolMessageCode.transactionData, transaction.getBytes());
+                                        //socket.Send(ba, SocketFlags.None);
+                                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
                                     }
                                 }
                             }
@@ -657,6 +661,8 @@ namespace DLT
                         case ProtocolMessageCode.transactionData:
                             {
                                 Transaction transaction = new Transaction(data);
+                                Logging.info("Received transaction");
+                                Logging.info(transaction.id);
                                 if (transaction == null)
                                     return;
 
@@ -726,8 +732,9 @@ namespace DLT
                                         writer.Write(walletstate_block);
                                         writer.Write(walletstate_count);
 
-                                        byte[] ba = prepareProtocolMessage(ProtocolMessageCode.walletState, m.ToArray());
-                                        socket.Send(ba, SocketFlags.None);
+                                        //byte[] ba = prepareProtocolMessage(ProtocolMessageCode.walletState, m.ToArray());
+                                        //socket.Send(ba, SocketFlags.None);
+                                        endpoint.sendData(ProtocolMessageCode.walletState, m.ToArray());
                                     }
                                 }
 
@@ -813,8 +820,9 @@ namespace DLT
                         case ProtocolMessageCode.syncPresenceList:
                             {
                                 byte[] pdata = PresenceList.getBytes();
-                                byte[] ba = prepareProtocolMessage(ProtocolMessageCode.presenceList, pdata);
-                                socket.Send(ba, SocketFlags.None);                               
+                                //byte[] ba = prepareProtocolMessage(ProtocolMessageCode.presenceList, pdata);
+                                //socket.Send(ba, SocketFlags.None);
+                                endpoint.sendData(ProtocolMessageCode.presenceList, pdata);
                             }
                             break;
 
@@ -946,8 +954,9 @@ namespace DLT
                                                         }
                                                     }
 
-                                                    byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                    socket.Send(ba, SocketFlags.None);
+                                                    //byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                    //socket.Send(ba, SocketFlags.None);
+                                                    endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
                                                 }
                                             }
                                         }
