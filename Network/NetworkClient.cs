@@ -365,35 +365,42 @@ namespace DLT
 
             while (running)
             {
-                bool message_found = false;
-                lock (recvRawQueueMessages)
+                try
                 {
-                    if (recvRawQueueMessages.Count > 0)
+                    bool message_found = false;
+                    lock (recvRawQueueMessages)
                     {
-                        // Pick the oldest message
-                        QueueMessageRaw candidate = recvRawQueueMessages[0];
-                        active_message.data = candidate.data;
-                        active_message.socket = candidate.socket;
-                        active_message.endpoint = candidate.endpoint;
-                        // Remove it from the queue
-                        recvRawQueueMessages.Remove(candidate);
-                        message_found = true;
+                        if (recvRawQueueMessages.Count > 0)
+                        {
+                            // Pick the oldest message
+                            QueueMessageRaw candidate = recvRawQueueMessages[0];
+                            active_message.data = candidate.data;
+                            active_message.socket = candidate.socket;
+                            active_message.endpoint = candidate.endpoint;
+                            // Remove it from the queue
+                            recvRawQueueMessages.Remove(candidate);
+                            message_found = true;
+                        }
+                    }
+
+                    if (message_found)
+                    {
+                        // Active message set, attempt to send it
+                        ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, null);
+                    }
+                    else
+                    {
+                        // No active message
+                        // Sleep for 10ms to prevent cpu waste
+                        Thread.Sleep(10);
                     }
                 }
-
-                if (message_found)
+                catch (Exception e)
                 {
-                    // Active message set, attempt to send it
-                    ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, null);
-                }
-                else
-                {
-                    // No active message
-                    // Sleep for 10ms to prevent cpu waste
-                    Thread.Sleep(10);
+                    Logging.error("Exception occured in parseLoop: " + e);
+                    running = false;
                 }
             }
-
             Thread.Yield();
         }
 
