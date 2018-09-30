@@ -261,35 +261,37 @@ namespace DLT
                         // Check for multi-message packets. One packet can contain multiple network messages.
                         while (reader.BaseStream.Position < reader.BaseStream.Length)
                         {
-                            byte startByte = reader.ReadByte();
-
-                            int message_code = reader.ReadInt32();
-                            code = (ProtocolMessageCode)message_code;
-
-                            int data_length = reader.ReadInt32();
-
-                            // If this is a connected client, filter messages
-                            if (endpoint != null)
-                            {
-                                if (endpoint.presence == null)
-                                {
-                                    // Check for presence and only accept hello and syncPL messages if there is no presence.
-                                    if (code == ProtocolMessageCode.hello || code == ProtocolMessageCode.syncPresenceList || code == ProtocolMessageCode.getBalance || code == ProtocolMessageCode.newTransaction)
-                                    {
-
-                                    }
-                                    else
-                                    {
-                                        // Ignore anything else
-                                        return;
-                                    }
-                                }
-                            }
-
                             byte[] data_checksum;
-
                             try
                             {
+                                byte startByte = reader.ReadByte();
+
+                                int message_code = reader.ReadInt32();
+                                code = (ProtocolMessageCode)message_code;
+
+                                int data_length = reader.ReadInt32();
+
+                                // If this is a connected client, filter messages
+                                if (endpoint != null)
+                                {
+                                    if (endpoint.presence == null)
+                                    {
+                                        // Check for presence and only accept hello and syncPL messages if there is no presence.
+                                        if (code == ProtocolMessageCode.hello || code == ProtocolMessageCode.syncPresenceList || code == ProtocolMessageCode.getBalance || code == ProtocolMessageCode.newTransaction)
+                                        {
+
+                                        }
+                                        else
+                                        {
+                                            // Ignore anything else
+                                            return;
+                                        }
+                                    }
+                                }
+
+
+
+
                                 data_checksum = reader.ReadBytes(32); // sha256, 8 bits per byte
                                 data = reader.ReadBytes(data_length);
                             }
@@ -313,8 +315,8 @@ namespace DLT
 
                             // Can proceed to parse the data parameter based on the protocol message code.
                             // Data can contain multiple elements.
-                            parseProtocolMessage(code, data, socket, endpoint);
-                            //NetworkQueue.receiveProtocolMessage(code, data, socket, endpoint);
+                            //parseProtocolMessage(code, data, socket, endpoint);
+                            NetworkQueue.receiveProtocolMessage(code, data, socket, endpoint);
                         }
                     }
                 }
@@ -980,7 +982,6 @@ namespace DLT
 
                         case ProtocolMessageCode.transactionsChunk:
                             {
-                                Console.WriteLine("GOT TXC!");
                                 using (MemoryStream m = new MemoryStream(data))
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
@@ -995,7 +996,6 @@ namespace DLT
                                             }
                                             byte[] txData = reader.ReadBytes(len);
                                             Transaction tx = new Transaction(txData);
-                                            Console.WriteLine("Adding {0}", tx.id);
                                             if(tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                                             {
                                                 continue;

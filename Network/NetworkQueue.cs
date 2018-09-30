@@ -67,20 +67,31 @@ namespace DLT
                 lock (queueMessages)
                 {
 
-                    if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
+
+                    // Move transaction messages to the transaction queue
+                    if(code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData)
                     {
                         if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
                         {
                             //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                             return;
                         }
-                    }
+                        
 
-                    if(code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData)
-                    {
                         // Add it to the tx queue
                         txqueueMessages.Add(message);
                         return;
+                    }
+
+
+                    // Handle normal messages, but prioritize block-related messages
+                    if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
+                    {
+                        if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
+                        {
+                            //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                            return;
+                        }
                     }
 
                     // Add it to the normal queue
@@ -166,9 +177,9 @@ namespace DLT
                 while (!shouldStop)
                 {
                     bool message_found = false;
-                    lock (queueMessages)
+                    lock (txqueueMessages)
                     {
-                        if (queueMessages.Count > 0)
+                        if (txqueueMessages.Count > 0)
                         {
                             // Pick the oldest message
                             QueueMessageRecv candidate = txqueueMessages[0];
