@@ -247,17 +247,25 @@ namespace DLT
 
         public static bool sendToClient(string neighbor, ProtocolMessageCode code, byte[] data)
         {
+            NetworkClient client = null;
             lock(networkClients)
             {
                 foreach(NetworkClient c in networkClients)
                 {
                     if(c.getFullAddress() == neighbor)
                     {
-                        c.sendData(code, data);
-                        return true;
+                        client = c;
+                        break;
                     }
                 }
             }
+
+            if(client != null)
+            {
+                client.sendData(code, data);
+                return true;
+            }
+
             return false;
         }
 

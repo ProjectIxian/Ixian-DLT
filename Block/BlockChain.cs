@@ -75,9 +75,10 @@ namespace DLT
                     return false;
                 }
                 blocks.Add(b);
-                Storage.insertBlock(b);
-                return true;
             }
+            // Add block to storage
+            Storage.insertBlock(b);
+            return true;           
         }
 
         // Attempts to retrieve a block from memory or from storage
@@ -170,13 +171,17 @@ namespace DLT
                     return false;
                 }
             }
+            Block updatestorage_block = null;
+            int beforeSigs = 0;
+            int afterSigs = 0;
+
             lock (blocks)
             {
                 int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum == b.blockChecksum);
                 if (idx > 0)
                 {
                     string beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
-                    int beforeSigs = blocks[idx].signatures.Count;
+                    beforeSigs = blocks[idx].signatures.Count;
                     if (forceRefresh)
                     {
                         blocks[idx].signatures = b.signatures;
@@ -186,17 +191,23 @@ namespace DLT
                         blocks[idx].addSignaturesFrom(b);
                     }
                     string afterSigsChecksum = blocks[idx].calculateSignatureChecksum();
-                    int afterSigs = blocks[idx].signatures.Count;
+                    afterSigs = blocks[idx].signatures.Count;
                     if (beforeSigsChecksum != afterSigsChecksum)
                     {
-                        // TODO: optimize this
-                        Storage.insertBlock(blocks[idx]); // Update the block
-
-                        Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
-                        return true;
+                        updatestorage_block = blocks[idx];
                     }
                 }
             }
+
+            // Check if the block needs to be refreshed
+            if(updatestorage_block != null)
+            {
+                Storage.insertBlock(updatestorage_block); // Update the block
+
+                Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
+                return true;
+            }
+
             return false;
         }
 

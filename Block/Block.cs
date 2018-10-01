@@ -206,6 +206,11 @@ namespace DLT
         {
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
             string public_key = Node.walletStorage.publicKey;
+
+            // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
+            string private_key = Node.walletStorage.privateKey;
+            string signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
+
             lock (signatures)
             {
                 foreach (string sig in signatures)
@@ -217,14 +222,12 @@ namespace DLT
                         return false;
                     }
                 }
-                string private_key = Node.walletStorage.privateKey;
-                string signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
 
                 string merged_signature = signature + splitter[0] + public_key;
-
-                signatures.Add(merged_signature);
-                Logging.info(String.Format("Signed block #{0}.", blockNum));
+                signatures.Add(merged_signature);               
             }
+
+            Logging.info(String.Format("Signed block #{0}.", blockNum));
 
             return true;
         }
