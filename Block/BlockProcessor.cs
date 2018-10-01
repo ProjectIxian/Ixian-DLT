@@ -434,6 +434,7 @@ namespace DLT
                     continue;
                 }else if(Node.blockSync.synchronizing && TransactionPool.getTransaction(txid) == null)
                 {
+                    t.applied = 0;
                     TransactionPool.addTransaction(t, true);
                 }
                 if (!minusBalances.ContainsKey(t.from))
