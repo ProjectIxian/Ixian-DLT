@@ -669,8 +669,6 @@ namespace DLT
                         case ProtocolMessageCode.transactionData:
                             {
                                 Transaction transaction = new Transaction(data);
-                                Logging.info("Received transaction");
-                                Logging.info(transaction.id);
                                 if (transaction == null)
                                     return;
 
