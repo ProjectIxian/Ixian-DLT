@@ -412,7 +412,7 @@ namespace DLT
                 // Skip fetching staking txids if we're not synchronizing
                 if (txid.StartsWith("stk"))
                 {
-                    if (Node.blockSync.synchronizing == false)
+                    if (Node.blockSync.synchronizing == false || Config.recoverFromFile)
                         continue;
                 }
 
