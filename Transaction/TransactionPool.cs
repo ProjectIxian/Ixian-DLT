@@ -186,6 +186,19 @@ namespace DLT
             return true;
         }
 
+        public static bool setAppliedFlag(string txid, ulong blockNum)
+        {
+            Transaction t = transactions.Find(x => x.id == txid);
+            if (t == null)
+            {
+                return false;
+            }
+            t.applied = blockNum;
+            // Storage the transaction in the database
+            Meta.Storage.insertTransaction(t);
+            return true;
+        }
+
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
         public static bool addTransaction(Transaction transaction, bool no_broadcast = false, Socket skipSocket = null)
@@ -215,9 +228,6 @@ namespace DLT
                 //transactions.Sort((x, y) => x.nonce.CompareTo(y.nonce));
             }
 
-            // Storage the transaction in the database
-            Meta.Storage.insertTransaction(transaction);
-
             //   Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
             //Console.WriteLine("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount);
             Console.Write("$");
@@ -235,7 +245,7 @@ namespace DLT
 
         // Attempts to retrieve a transaction from memory or from storage
         // Returns null if no transaction is found
-        public static Transaction getTransaction(string txid)
+        public static Transaction getTransaction(string txid, bool search_in_storage = false)
         {
             Transaction transaction = null;
 
@@ -248,8 +258,12 @@ namespace DLT
             if (transaction != null)
                 return transaction;
 
-            // No transaction found in memory, look into storage
-            transaction = Storage.getTransaction(txid);
+            if (search_in_storage)
+            {
+                // No transaction found in memory, look into storage
+                transaction = Storage.getTransaction(txid);
+            }
+
             return transaction;
         }
 
@@ -398,7 +412,7 @@ namespace DLT
                             b.blockNum, b.blockChecksum, txid));
                         return false;
                     }
-                    tx.applied = b.blockNum;
+                    setAppliedFlag(txid, b.blockNum);
                 }
             }
             return true;
@@ -634,7 +648,7 @@ namespace DLT
             // Update the block's applied field
             if (!ws_snapshot)
             {
-                tx.applied = block.blockNum;
+                setAppliedFlag(tx.id, block.blockNum);
             }
 
             // Verify if the solution is correct
@@ -673,7 +687,7 @@ namespace DLT
             Node.walletState.setWalletBalance(tx.to, tx.amount, ws_snapshot);
             if (!ws_snapshot)
             {
-                tx.applied = block.blockNum;
+                setAppliedFlag(tx.id, block.blockNum);
             }
 
             return true;
@@ -755,7 +769,7 @@ namespace DLT
             Node.walletState.setWalletBalance(tx.to, staking_balance_after, ws_snapshot, staking_wallet.nonce);
             if (!ws_snapshot)
             {
-                tx.applied = block.blockNum;
+                setAppliedFlag(tx.id, block.blockNum);
             }
 
             blockStakers.Add(tx.to);
@@ -845,7 +859,7 @@ namespace DLT
 
             if (!ws_snapshot)
             {
-                tx.applied = block.blockNum;
+                setAppliedFlag(tx.id, block.blockNum);
             }
 
             return true;

@@ -264,6 +264,11 @@ namespace DLT
                                 ProtocolMessage.broadcastNewBlock(updatedBlock);
                             }
                         }
+                    }else
+                    {
+                        // we likely have to correct block, resend
+                        // TODO TODO TODO this might go into an endless loop between 2 nodes
+                        ProtocolMessage.broadcastNewBlock(localBlock);
                     }
                 }
                 return;
@@ -360,10 +365,17 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false)
         {
+
             BlockVerifyStatus basicVerification = verifyBlockBasic(b);
             if(basicVerification != BlockVerifyStatus.Valid)
             {
                 return basicVerification;
+            }
+
+            if (Node.blockChain.getLastBlockNum() + 1 != b.blockNum)
+            {
+                // TODO TODO TODO verify if the block matches the one in blockchain and validate it
+                return BlockVerifyStatus.Indeterminate;
             }
 
             // Check all transactions in the block against our TXpool, make sure all is legal
@@ -395,7 +407,7 @@ namespace DLT
                         continue;
                 }
 
-                Transaction t = TransactionPool.getTransaction(txid);
+                Transaction t = TransactionPool.getTransaction(txid, Node.blockSync.synchronizing);
                 if (t == null)
                 {
                     if(fetchTransactions)
@@ -406,6 +418,9 @@ namespace DLT
                     hasAllTransactions = false;
                     missing++;
                     continue;
+                }else if(Node.blockSync.synchronizing && TransactionPool.getTransaction(txid) == null)
+                {
+                    TransactionPool.addTransaction(t, true);
                 }
                 if (!minusBalances.ContainsKey(t.from))
                 {

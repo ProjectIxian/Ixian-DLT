@@ -561,7 +561,7 @@ namespace DLT
 
                                         Logging.info(String.Format("Block #{0} has been requested.", block_number));
                                         // TODO TODO TODO full history node
-                                        Block block = Node.blockChain.getBlock(block_number, true);
+                                        Block block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                                         if (block == null)
                                         {
                                             Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
@@ -627,7 +627,7 @@ namespace DLT
                                         string txid = reader.ReadString();
 
                                         // Check for a transaction corresponding to this id
-                                        Transaction transaction = TransactionPool.getTransaction(txid);
+                                        Transaction transaction = TransactionPool.getTransaction(txid, Config.storeFullHistory);
                                         if (transaction == null)
                                         {
                                             Logging.warn(String.Format("I do not have txid '{0}.", txid));
@@ -924,7 +924,7 @@ namespace DLT
                                             using (BinaryWriter writer = new BinaryWriter(mOut))
                                             {
                                                 // TODO TODO TODO full history node
-                                                Block b = Node.blockChain.getBlock(blockNum, true);
+                                                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
                                                 List<string> txIdArr = null;
                                                 if(b != null)
                                                 {
@@ -952,7 +952,7 @@ namespace DLT
                                                                 continue;
                                                             }
                                                         }
-                                                        Transaction tx = TransactionPool.getTransaction(txIdArr[i]);
+                                                        Transaction tx = TransactionPool.getTransaction(txIdArr[i], Config.storeFullHistory);
                                                         if (tx != null)
                                                         {
                                                             byte[] txBytes = tx.getBytes();
