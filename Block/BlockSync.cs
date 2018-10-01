@@ -467,15 +467,12 @@ namespace DLT
         {
             // TODO TODO TODO this function really should be done better
 
-            lock (pendingWsChunks)
+            if (wsSyncCount > 0)
             {
-                if (wsSyncCount > 0)
+                wsSyncCount--;
+                if (wsSyncCount == 0)
                 {
-                    wsSyncCount--;
-                    if (wsSyncCount == 0)
-                    {
-                        pendingWsChunks.Clear();
-                    }
+                    pendingWsChunks.Clear();
                 }
             }
             Logging.info("Outgoing WalletState Sync finished.");
@@ -484,23 +481,28 @@ namespace DLT
         // passing endpoint through here is an ugly hack, which should be removed once network code is refactored.
         public void onRequestWalletChunk(int chunk_num, RemoteEndpoint endpoint)
         {
-            if(synchronizing == true)
+            // TODO TODO TODO this function really should be done better
+            if (synchronizing == true)
             {
                 Logging.warn("Neighbor is requesting WalletState chunks, but we are synchronizing!");
                 return;
             }
             lastChunkRequested = DateTime.Now;
-            if (chunk_num >= 0 && chunk_num < pendingWsChunks.Count)
+            lock (pendingWsChunks)
             {
-                ProtocolMessage.sendWalletStateChunk(endpoint, pendingWsChunks[chunk_num]);
-                if(chunk_num + 1 == pendingWsChunks.Count)
+                if (chunk_num >= 0 && chunk_num < pendingWsChunks.Count)
                 {
-                    outgoingSyncComplete();
+                    ProtocolMessage.sendWalletStateChunk(endpoint, pendingWsChunks[chunk_num]);
+                    if (chunk_num + 1 == pendingWsChunks.Count)
+                    {
+                        outgoingSyncComplete();
+                    }
                 }
-            } else
-            {
-                Logging.warn(String.Format("Neighbor requested an invalid WalletState chunk: {0}, but the pending array only has 0-{1}.",
-                    chunk_num, pendingWsChunks.Count));
+                else
+                {
+                    Logging.warn(String.Format("Neighbor requested an invalid WalletState chunk: {0}, but the pending array only has 0-{1}.",
+                        chunk_num, pendingWsChunks.Count));
+                }
             }
         }
 

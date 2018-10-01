@@ -319,9 +319,15 @@ namespace DLT
                 {
                     if (!Node.blockSync.synchronizing)
                     {
+                        int tmpCnt = 0;
                         for (ulong missingBlock = Node.blockChain.getLastBlockNum() + 1; missingBlock < b.blockNum; missingBlock++)
                         {
+                            if (tmpCnt > 5)
+                            {
+                                break;
+                            }
                             ProtocolMessage.broadcastGetBlock(missingBlock);
+                            tmpCnt++;
                             Thread.Sleep(100);
                         }
                     }
@@ -369,7 +375,8 @@ namespace DLT
         {
 
             BlockVerifyStatus basicVerification = verifyBlockBasic(b);
-            if(basicVerification != BlockVerifyStatus.Valid)
+
+            if (basicVerification != BlockVerifyStatus.Valid)
             {
                 return basicVerification;
             }
@@ -415,10 +422,15 @@ namespace DLT
                     if(fetchTransactions)
                     {
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
-                        ProtocolMessage.broadcastGetTransaction(txid); 
+                        ProtocolMessage.broadcastGetTransaction(txid);
+                        hasAllTransactions = false;
+                        missing++;
                     }
-                    hasAllTransactions = false;
-                    missing++;
+                    else
+                    {
+                        hasAllTransactions = false;
+                        break;
+                    }
                     continue;
                 }else if(Node.blockSync.synchronizing && TransactionPool.getTransaction(txid) == null)
                 {
@@ -471,6 +483,7 @@ namespace DLT
                 fetchingBulkTxForBlocks.Remove(b.blockNum);
                 fetchingTxForBlocks.Remove(b.blockNum);
             }
+
             // Note: This part depends on no one else messing with WS while it runs.
             // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
             // the generate thread is paused, so we need to lock

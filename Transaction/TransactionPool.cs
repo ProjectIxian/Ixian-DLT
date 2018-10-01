@@ -3,6 +3,7 @@ using DLT.Network;
 using DLTNode;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -174,7 +175,8 @@ namespace DLT
                     }
                 }
             }
-
+            /*var sw = new System.Diagnostics.Stopwatch();
+            sw.Start();*/
             // Finally, verify the signature
             if (transaction.verifySignature() == false)
             {
@@ -182,6 +184,9 @@ namespace DLT
                 Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
                 return false;
             }
+            /*sw.Stop();
+            TimeSpan elapsed = sw.Elapsed;
+            Logging.info(string.Format("VerifySignature duration: {0}ms", elapsed.TotalMilliseconds));*/
 
             return true;
         }
@@ -261,7 +266,13 @@ namespace DLT
             if (search_in_storage)
             {
                 // No transaction found in memory, look into storage
+
+                /*var sw = new System.Diagnostics.Stopwatch();
+                sw.Start();*/
                 transaction = Storage.getTransaction(txid);
+                /*sw.Stop();
+                TimeSpan elapsed = sw.Elapsed;
+                Logging.info(string.Format("StopWatch duration: {0}ms", elapsed.TotalMilliseconds));*/
             }
 
             return transaction;

@@ -271,7 +271,7 @@ namespace DLT
 
                 Transaction transaction = null;
 
-                string sql = "select * from transactions where `id` = ?";
+                string sql = "select * from transactions where `id` = ? LIMIT 1";
                 _storage_Transaction[] _storage_tx = null;
                 try
                 {
