@@ -50,6 +50,7 @@ namespace DLT
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly IxiNumber powReward = new IxiNumber("12.5");
             public static readonly int nodeNewTransactionsLimit = 10000; // Limit the number of new transactions per node per block
+            public static readonly ulong maximumTransactionsPerBlock = 2000; // Limit the maximum number of transactions in a newly generated block
 
             private static Config singletonInstance;
             private Config()

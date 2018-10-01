@@ -994,8 +994,18 @@ namespace DLT
                 }
                 removeTransactionArr.Clear();
                 //------------ end of nOnce fix section ------------
+
+                ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
+
                 foreach (var transaction in pool_transactions)
                 {
+                    // Check if we reached the transaction limit for this block
+                    if(normal_transactions >= Config.maximumTransactionsPerBlock)
+                    {
+                        // Limit all other transactions
+                        break;
+                    }
+
                     // Verify that the transaction is actually valid at this point
                     if (TransactionPool.verifyTransaction(transaction) == false)
                         continue;
@@ -1004,11 +1014,12 @@ namespace DLT
                     if (transaction.type == (int)Transaction.Type.StakingReward)
                     {
                         continue;
-                    }
+                    }                    
 
                     localNewBlock.addTransaction(transaction);
                     total_amount += transaction.amount;
                     total_transactions++;
+                    normal_transactions++;
                 }
 
 
