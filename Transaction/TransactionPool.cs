@@ -474,157 +474,162 @@ namespace DLT
 
             try
             {
-                lock (transactions)
+                // Maintain a dictionary of block solutions and the corresponding miners for solved blocks
+                IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
+
+                // Maintain a list of failed transactions to remove them from the TxPool in one go
+                List<Transaction> failed_transactions = new List<Transaction>();
+                List<Transaction> already_applied_transactions = new List<Transaction>();
+
+                List<Transaction> failed_staking_transactions = new List<Transaction>();
+
+                applyStakingTransactionsFromBlock(block, failed_staking_transactions, ws_snapshot);
+
+                // Remove all failed transactions from the TxPool
+                foreach (Transaction tx in failed_staking_transactions)
                 {
-                    // Maintain a dictionary of block solutions and the corresponding miners for solved blocks
-                    IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
-
-                    // Maintain a list of failed transactions to remove them from the TxPool in one go
-                    List<Transaction> failed_transactions = new List<Transaction>();
-                    List<Transaction> already_applied_transactions = new List<Transaction>();
-
-                    List<Transaction> failed_staking_transactions = new List<Transaction>();
-
-                    applyStakingTransactionsFromBlock(block, failed_staking_transactions, ws_snapshot);
-
-                    // Remove all failed transactions from the TxPool
-                    foreach (Transaction tx in failed_staking_transactions)
+                    Logging.warn(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
+                    if (tx.applied == 0)
                     {
-                        Logging.warn(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
-                        if (tx.applied == 0)
+                        lock (transactions)
                         {
                             // Remove from TxPool
                             transactions.Remove(tx);
                         }
-                        else
-                        {
-                            Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
-                        }
-                        //block.transactions.Remove(tx.id);
                     }
-                    if (failed_staking_transactions.Count > 0)
+                    else
                     {
-                        failed_staking_transactions.Clear();
-                        Logging.error(string.Format("Block #{0} has failed staking transactions, rejecting the block.", block.blockNum));
+                        Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
+                    }
+                    //block.transactions.Remove(tx.id);
+                }
+                if (failed_staking_transactions.Count > 0)
+                {
+                    failed_staking_transactions.Clear();
+                    Logging.error(string.Format("Block #{0} has failed staking transactions, rejecting the block.", block.blockNum));
+                    return false;
+                }
+
+
+                foreach (string txid in block.transactions)
+                {
+                    // Skip staking txids
+                    if (txid.StartsWith("stk"))
+                    {
+                        if (Node.blockSync.synchronizing)
+                        {
+                            if (getTransaction(txid) == null)
+                            {
+                                Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
+                            }
+                        }
+                        continue;
+                    }
+
+                    Transaction tx = getTransaction(txid);
+
+                    if (tx == null)
+                    {
+                        Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
+                            block.blockNum, block.blockChecksum, txid));
                         return false;
                     }
 
-
-                    foreach (string txid in block.transactions)
+                    if (tx.type == (int)Transaction.Type.StakingReward)
                     {
-                        // Skip staking txids
-                        if (txid.StartsWith("stk"))
-                        {
-                            if (Node.blockSync.synchronizing)
-                            {
-                                if (getTransaction(txid) == null)
-                                {
-                                    Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
-                                }
-                            }
-                            continue;
-                        }
-
-                        Transaction tx = getTransaction(txid);
-
-                        if (tx == null)
-                        {
-                            Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
-                                block.blockNum, block.blockChecksum, txid));
-                            return false;
-                        }
-
-                        if(tx.type == (int)Transaction.Type.StakingReward)
-                        {
-                            continue;
-                        }
-
-                        // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
-                        if (tx.applied > 0 && tx.applied != block.blockNum)
-                        {
-                            // remove transaction from block as it has already been applied on a different block
-                            already_applied_transactions.Add(tx);
-                            continue;
-                        }
-
-                        // Special case for PoWSolution transactions
-                        if (applyPowTransaction(tx, block, blockSolutionsDictionary, ws_snapshot))
-                        {
-                            continue;
-                        }
-
-                        // Check the transaction amount
-                        if (tx.amount == 0)
-                        {
-                            failed_transactions.Add(tx);
-                            continue;
-                        }
-
-                        // Special case for Genesis transactions
-                        if (applyGenesisTransaction(tx, block, failed_transactions, ws_snapshot))
-                        {
-                            continue;
-                        }
-
-                        // If we reached this point, it means this is a normal transaction
-                        applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
-
+                        continue;
                     }
 
-                    // Finally, Check if we have any miners to reward
-                    if (blockSolutionsDictionary.Count > 0)
+                    // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
+                    if (tx.applied > 0 && tx.applied != block.blockNum)
                     {
-                        rewardMiners(blockSolutionsDictionary, ws_snapshot);
+                        // remove transaction from block as it has already been applied on a different block
+                        already_applied_transactions.Add(tx);
+                        continue;
                     }
 
-                    // Clear the solutions dictionary
-                    blockSolutionsDictionary.Clear();
-
-                    // Remove all failed transactions from the TxPool and block
-                    foreach (Transaction tx in failed_transactions)
+                    // Special case for PoWSolution transactions
+                    if (applyPowTransaction(tx, block, blockSolutionsDictionary, ws_snapshot))
                     {
-                        Logging.warn(String.Format("Removing failed transaction #{0} from pool.", tx.id));
-                        // Remove from TxPool
-                        if(tx.applied == 0)
+                        continue;
+                    }
+
+                    // Check the transaction amount
+                    if (tx.amount == 0)
+                    {
+                        failed_transactions.Add(tx);
+                        continue;
+                    }
+
+                    // Special case for Genesis transactions
+                    if (applyGenesisTransaction(tx, block, failed_transactions, ws_snapshot))
+                    {
+                        continue;
+                    }
+
+                    // If we reached this point, it means this is a normal transaction
+                    applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
+
+                }
+
+                // Finally, Check if we have any miners to reward
+                if (blockSolutionsDictionary.Count > 0)
+                {
+                    rewardMiners(blockSolutionsDictionary, ws_snapshot);
+                }
+
+                // Clear the solutions dictionary
+                blockSolutionsDictionary.Clear();
+
+                // Remove all failed transactions from the TxPool and block
+                foreach (Transaction tx in failed_transactions)
+                {
+                    Logging.warn(String.Format("Removing failed transaction #{0} from pool.", tx.id));
+                    // Remove from TxPool
+                    if (tx.applied == 0)
+                    {
+                        lock (transactions)
                         {
                             transactions.Remove(tx);
-                        }else
-                        {
-                            Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
                         }
-                        //block.transactions.Remove(tx.id);
                     }
-                    if (failed_transactions.Count > 0)
+                    else
                     {
-                        failed_transactions.Clear();
-                        Logging.error(string.Format("Block #{0} has failed transactions, rejecting the block.", block.blockNum));
-                        return false;
+                        Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
                     }
-
-                    // Remove all already applied transactions from the block
-                    /*foreach (Transaction tx in already_applied_transactions)
-                    {
-                        Logging.info(String.Format("Removing already applied transaction #{0} from block.", tx.id));
-                        block.transactions.Remove(tx.id);
-                    }
-                    already_applied_transactions.Clear();*/
-
-                    if (already_applied_transactions.Count > 0)
-                    {
-                        already_applied_transactions.Clear();
-                        Logging.error(string.Format("Block #{0} has transactions that were already applied on other blocks, rejecting the block.", block.blockNum));
-                        return false;
-                    }
-
-                    // Reset the internal nonce
-                    if (!ws_snapshot)
-                    {
-                        // TODO TODO TODO move this to a more appropriate place
-                        internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
-                    }
+                    //block.transactions.Remove(tx.id);
                 }
+                if (failed_transactions.Count > 0)
+                {
+                    failed_transactions.Clear();
+                    Logging.error(string.Format("Block #{0} has failed transactions, rejecting the block.", block.blockNum));
+                    return false;
+                }
+
+                // Remove all already applied transactions from the block
+                /*foreach (Transaction tx in already_applied_transactions)
+                {
+                    Logging.info(String.Format("Removing already applied transaction #{0} from block.", tx.id));
+                    block.transactions.Remove(tx.id);
+                }
+                already_applied_transactions.Clear();*/
+
+                if (already_applied_transactions.Count > 0)
+                {
+                    already_applied_transactions.Clear();
+                    Logging.error(string.Format("Block #{0} has transactions that were already applied on other blocks, rejecting the block.", block.blockNum));
+                    return false;
+                }
+
+                // Reset the internal nonce
+                if (!ws_snapshot)
+                {
+                    // TODO TODO TODO move this to a more appropriate place
+                    internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
+                }
+
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Logging.error(string.Format("Error applying transactions from block #{0}. Message: {1}", block.blockNum, e.Message));
                 return false;

@@ -305,6 +305,21 @@ namespace DLT
             {
                 IPEndPoint clientEndpoint = (IPEndPoint)clientSocket.RemoteEndPoint;
 
+                // Add timeouts and set socket options
+                //clientSocket.ReceiveTimeout = 5000;
+                //clientSocket.SendTimeout = 5000;
+                clientSocket.LingerState = new LingerOption(true, 3);
+                clientSocket.NoDelay = true;
+                clientSocket.Blocking = true;
+
+                // Setup the remote endpoint
+                RemoteEndpoint remoteEndpoint = new RemoteEndpoint();
+                remoteEndpoint.remoteIP = clientEndpoint;
+                remoteEndpoint.clientSocket = clientSocket;
+                remoteEndpoint.presence = null;
+                remoteEndpoint.presenceAddress = null;
+                remoteEndpoint.state = RemoteEndpointState.Initial;
+
                 lock (connectedClients)
                 {
                     if (connectedClients.Count + 1 > Config.maximumServerClients)
@@ -316,8 +331,6 @@ namespace DLT
                         return;
                     }
 
-                    Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, Config.maximumServerClients));
-
                     var existing_clients = connectedClients.Where(re => re.remoteIP.Address == clientEndpoint.Address);
                     if (existing_clients.Count() > 0)
                     {
@@ -326,38 +339,12 @@ namespace DLT
                         // TODO: handle this situation (client already connected)
                     }
 
-                    // Setup socket keepalive mechanism
-          /*          int size = sizeof(UInt32);
-                    UInt32 on = 1;
-                    UInt32 keepAliveInterval = 10000; // send a packet once every x seconds.
-                    UInt32 retryInterval = 1000; // if no response, resend every second.
-                    byte[] inArray = new byte[size * 3];
-                    Array.Copy(BitConverter.GetBytes(on), 0, inArray, 0, size);
-                    Array.Copy(BitConverter.GetBytes(keepAliveInterval), 0, inArray, size, size);
-                    Array.Copy(BitConverter.GetBytes(retryInterval), 0, inArray, size * 2, size);
-                    clientSocket.IOControl(IOControlCode.KeepAliveValues, inArray, null);*/
-
-                    // Add timeouts and set socket options
-                    //clientSocket.ReceiveTimeout = 5000;
-                    //clientSocket.SendTimeout = 5000;
-                    clientSocket.LingerState = new LingerOption(true, 3);
-                    clientSocket.NoDelay = true;
-                    clientSocket.Blocking = true;
-
-                    // Setup the remote endpoint
-                    RemoteEndpoint remoteEndpoint = new RemoteEndpoint();
-                    remoteEndpoint.remoteIP = clientEndpoint;
-                    remoteEndpoint.clientSocket = clientSocket;
-                    remoteEndpoint.presence = null;
-                    remoteEndpoint.presenceAddress = null;
-                    remoteEndpoint.state = RemoteEndpointState.Initial;
-
                     connectedClients.Add(remoteEndpoint);
-
-                    remoteEndpoint.start();
-
-
                 }
+
+                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, Config.maximumServerClients));
+
+                remoteEndpoint.start();
             }
 
             // Removes an endpoint from the connected clients list
