@@ -340,7 +340,7 @@ namespace DLT
             if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the missing blocks
             {
                 // Don't request block 0
-                if (b.blockNum - 1 > 0)
+                if (b.blockNum - 1 > 0 && highestNetworkBlockNum < b.blockNum)
                 {
                     if (!Node.blockSync.synchronizing)
                     {
