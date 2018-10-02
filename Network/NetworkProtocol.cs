@@ -857,22 +857,6 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.removePresence:
-                            {
-                                if (isAuthoritativeNode(endpoint, socket))
-                                {
-                                    // Parse the data and remove the entry from the presence list
-                                    Presence presence = new Presence(data);
-                                    if (presence.wallet.Equals(Node.walletStorage.address, StringComparison.Ordinal))
-                                    {
-                                        Logging.info("[PL] Received removal of self from PL, ignoring.");
-                                        return;
-                                    }
-                                    PresenceList.removeEntry(presence);
-                                }
-                            }
-                            break;
-
                         case ProtocolMessageCode.keepAlivePresence:
                             {
                                 bool updated = PresenceList.receiveKeepAlive(data);
