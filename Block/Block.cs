@@ -298,9 +298,6 @@ namespace DLT
             {
                 public_key = Node.walletStorage.publicKey;
             }
-            string private_key = Node.walletStorage.privateKey;
-
-            string signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
 
             foreach (string merged_signature in signatures)
             {
@@ -312,7 +309,7 @@ namespace DLT
                 if (public_key.Equals(signature_parts[1], StringComparison.Ordinal))
                 {
                     // Check if signature is actually valid
-                    if(CryptoManager.lib.verifySignature(blockChecksum, public_key, signature))
+                    if(CryptoManager.lib.verifySignature(blockChecksum, public_key, signature_parts[0]))
                     {
                         return true;
                     }

@@ -550,14 +550,10 @@ namespace DLT
 
         private void onBlockReceived_currentBlock(Block b)
         {
-            if (b.blockNum > Node.blockChain.getLastBlockNum() + 1)
+            if (b.blockNum != Node.blockChain.getLastBlockNum() + 1)
             {
                 Logging.warn(String.Format("Received block #{0}, but next block should be #{1}.", b.blockNum, Node.blockChain.getLastBlockNum() + 1));
                 // TODO: keep a counter - if this happens too often, this node is falling behind the network
-                for (ulong missingBlock = Node.blockChain.getLastBlockNum() + 1; missingBlock < b.blockNum; missingBlock++)
-                {
-                    ProtocolMessage.broadcastGetBlock(missingBlock);
-                }
                 return;
             }
             lock (localBlockLock)
@@ -580,11 +576,9 @@ namespace DLT
                     }
                     else
                     {
-                        if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() || (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())) || firstBlockAfterSync == true))
-                        {
-                            Logging.info(String.Format("Incoming block #{0} has elected nodes sig or full consensus, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
-                            localNewBlock = b;
-                        }else if(b.getUniqueSignatureCount() > localNewBlock.getUniqueSignatureCount() && b.blockNum == localNewBlock.blockNum)
+                        int blockSigCount = b.getUniqueSignatureCount();
+                        int localBlockSigCount = localNewBlock.getUniqueSignatureCount();
+                        if(blockSigCount > localBlockSigCount && b.blockNum == localNewBlock.blockNum)
                         {
                             Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             localNewBlock = b;
@@ -592,19 +586,24 @@ namespace DLT
                         else
                         {
                             // discard with a warning, likely spam, resend our local block
-                            Logging.info(String.Format("Incoming block #{0} doesn't have elected nodes sig, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                            Logging.info(String.Format("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
-                        firstBlockAfterSync = false;
                     }
                 }
                 else // localNewBlock == null
                 {
-                    // this becomes the reference time for generating a new block
-                    lastBlockStartTime = DateTime.Now;
-                    localNewBlock = b;
+                    if (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())) || firstBlockAfterSync)
+                    {
+                        localNewBlock = b;
+                        firstBlockAfterSync = false;
+                    }
+                    else
+                    {
+                        Logging.warn(String.Format("Incoming block #{0} doesn't have elected nodes sig, waiting for a new block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                    }
                 }
-                if (localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                if (localNewBlock != null && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
                 {
                     ProtocolMessage.broadcastNewBlock(localNewBlock);
                 }
@@ -663,6 +662,7 @@ namespace DLT
                             {
                                 Node.blockChain.appendBlock(localNewBlock);
                                 Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
+                                lastBlockStartTime = DateTime.Now;
                                 localNewBlock.logBlockDetails();
                                 localNewBlock = null;
 
@@ -954,7 +954,6 @@ namespace DLT
 
                 // Create a new block and add all the transactions in the pool
                 localNewBlock = new Block();
-                lastBlockStartTime = DateTime.Now;
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
