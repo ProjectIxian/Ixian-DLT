@@ -127,6 +127,20 @@ namespace DLT
 
             running = true;
 
+            
+            if(recvThread != null)
+            {
+                recvThread.Abort();
+            }
+            if (sendThread != null)
+            {
+                recvThread.Abort();
+            }
+            if (parseThread != null)
+            {
+                recvThread.Abort();
+            }
+
             // Start receive thread
             recvThread = new Thread(new ThreadStart(recvLoop));
             recvThread.Start();
@@ -151,6 +165,9 @@ namespace DLT
                 failedReconnects++;
                 return false;
             }
+
+            // Safely close the threads
+            running = false;
 
             // Check if socket already disconnected
             if (tcpClient == null)
@@ -224,7 +241,6 @@ namespace DLT
                     if (sentBytes < ba.Length)
                     {
                         Thread.Sleep(5);
-                        Console.WriteLine("Still sending");
                     }
                     // TODO TODO TODO timeout
                 }
