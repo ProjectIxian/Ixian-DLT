@@ -112,6 +112,7 @@ namespace DLT
             {
                 shouldStop = false;
                 queueMessages.Clear();
+                txqueueMessages.Clear();
 
                 // Multi-threaded network queue parsing
                 for (int i = 0; i < 1; i++)
@@ -131,6 +132,20 @@ namespace DLT
             {
                 shouldStop = true;
                 return true;
+            }
+
+            // Resets the network queues
+            public static void reset()
+            {
+                lock(queueMessages)
+                {
+                    queueMessages.Clear();
+                }
+
+                lock(txqueueMessages)
+                {
+                    txqueueMessages.Clear();
+                }
             }
 
             // Actual network queue logic

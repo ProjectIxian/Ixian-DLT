@@ -57,6 +57,26 @@ namespace DLT
             parseThread.Start();
         }
 
+        // Aborts all related endpoint threads and data
+        public void abort()
+        {         
+            state = RemoteEndpointState.Closed;
+            running = false;
+            lock (sendQueueMessages)
+            {
+                sendQueueMessages.Clear();
+            }
+
+            lock(recvRawQueueMessages)
+            {
+                recvRawQueueMessages.Clear();
+            }
+            // Abort all related threads
+            recvThread.Abort();
+            sendThread.Abort();
+            parseThread.Abort();
+        }
+
         // Receive thread
         private void recvLoop()
         {

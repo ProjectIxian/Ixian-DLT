@@ -218,6 +218,10 @@ namespace DLT.Meta
         {
             // Reconnect server and clients
             presenceListActive = false;
+
+            // Reset the network receive queue
+            NetworkQueue.reset();
+
             NetworkServer.restartNetworkOperations();
             NetworkClientManager.restartClients();
         }

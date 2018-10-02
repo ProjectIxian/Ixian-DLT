@@ -22,7 +22,7 @@ namespace DLT
 
 
             private static bool continueRunning;
-            private static Thread netControllerThread;
+            private static Thread netControllerThread = null;
             private static TcpListener listener;
             private static List<RemoteEndpoint> connectedClients = new List<RemoteEndpoint>();
             private static Thread pingThread;
@@ -83,7 +83,7 @@ namespace DLT
                 if (netControllerThread == null)
                 {
                     // not running
-                    Logging.info("Network server thread was halted.");
+                    Logging.info("Network server thread was already halted.");
                     return;
                 }
                 continueRunning = false;
@@ -93,14 +93,20 @@ namespace DLT
 
                 Logging.info("Closing network server connected clients");
                 // Clear all clients
-                //lock(connectedClients)
+                lock(connectedClients)
                 {
                     // Immediately close all connected client sockets
                     foreach(RemoteEndpoint client in connectedClients)
                     {
-                        client.state = RemoteEndpointState.Closed;
+                        client.abort();
                     }
-                }               
+
+                    connectedClients.Clear();
+                }
+
+                netControllerThread.Abort();
+                netControllerThread = null;
+                pingThread.Abort();
             }
 
             // Restart the network server
