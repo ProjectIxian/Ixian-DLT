@@ -593,7 +593,9 @@ namespace DLT
                 }
                 else // localNewBlock == null
                 {
-                    if (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset())) || firstBlockAfterSync)
+                    if (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()))
+                        || b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()
+                        || firstBlockAfterSync)
                     {
                         localNewBlock = b;
                         firstBlockAfterSync = false;
@@ -615,6 +617,9 @@ namespace DLT
             bool requestBlockAgain = false;
             ulong requestBlockNum = 0;
             bool sleep = false;
+
+            var sw = new System.Diagnostics.Stopwatch();
+            sw.Start();
 
             lock (localBlockLock)
             {
@@ -704,7 +709,12 @@ namespace DLT
                 }
             }
 
-            if(sleep)
+            sw.Stop();
+            TimeSpan elapsed = sw.Elapsed;
+            Logging.info(string.Format("Verify block took: {0}ms", elapsed.TotalMilliseconds));
+
+
+            if (sleep)
             {
                 Thread.Sleep(5000);
             }
@@ -760,7 +770,7 @@ namespace DLT
         // Returns false if walletstate is not correct
         public bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
         {
-            if(Node.blockChain.getBlock(b.blockNum) != null)
+            if (Node.blockChain.getBlock(b.blockNum) != null)
             {
                 Logging.warn(String.Format("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace));
                 return false;
