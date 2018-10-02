@@ -205,11 +205,11 @@ namespace DLT
 
             lock (sendQueueMessages)
             {
-            //    if (sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
+                if (message.code != ProtocolMessageCode.ping && message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
                 {
-              //      Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                    Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                 }
-                //else
+                else
                 {
                     if (sendQueueMessages.Count > 50)
                     {
