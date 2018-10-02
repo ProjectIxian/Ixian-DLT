@@ -199,8 +199,11 @@ namespace DLT
                 return false;
             }
             t.applied = blockNum;
-            // Storage the transaction in the database
-            Meta.Storage.insertTransaction(t);
+            // Storage the transaction in the database when not syncing
+            if (Node.blockSync.synchronizing == false)
+            {
+                Meta.Storage.updateAppliedFlag(t);
+            }
             return true;
         }
 
@@ -208,11 +211,14 @@ namespace DLT
         // Returns true if the transaction is added to the pool, false otherwise
         public static bool addTransaction(Transaction transaction, bool no_broadcast = false, Socket skipSocket = null)
         {
-            if (!verifyTransaction(transaction))
+            if (Node.blockSync.synchronizing == false)
             {
-                return false;
+                if (!verifyTransaction(transaction))
+                {
+                    return false;
+                }
             }
-
+            
             //Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
 
             // Lock transactions to prevent threading bugs
@@ -225,7 +231,7 @@ namespace DLT
                 {
                     return false;
                 }
-
+                
                 transactions.Add(transaction);
 
                 // Sort the transactions by nonce ascending

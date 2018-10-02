@@ -16,12 +16,28 @@ namespace DLT
 
             private static SQLiteConnection sqlConnection;
 
-            // Maintain a queue of sql statements
-            private static List<Transaction> queueStatements = new List<Transaction>();
 
 
             private static Thread thread = null;
             private static bool running = false;
+
+
+
+            private enum QueueStorageCode
+            {
+                insertTransaction,
+                insertBlock,
+                updateTxAppliedFlag
+
+            }
+            private struct QueueStorageMessage
+            {
+                public QueueStorageCode code;
+                public object data;
+            }
+
+            // Maintain a queue of sql statements
+            private static List<QueueStorageMessage> queueStatements = new List<QueueStorageMessage>();
 
 
             // Creates the storage file if not found
@@ -140,10 +156,8 @@ namespace DLT
                 return true;
             }
 
-            public static bool insertBlock(Block block)
+            public static bool insertBlockInternal(Block block)
             {
-                // TODO: prevent this from executing when the inserted block is from storage instead of network
-
                 Block b = block;
                 string transactions = "";
                 foreach (string tx in block.transactions)
@@ -189,6 +203,16 @@ namespace DLT
                     string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `applied` = ? WHERE `id` = ?";
                     result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied, transaction.id);
                 }
+
+                return result;
+            }
+
+            public static bool updateAppliedFlagInternal(Transaction transaction)
+            {
+                bool result = false;
+
+                string sql = "UPDATE `transactions` SET `applied` = ? WHERE `id` = ?";
+                result = executeSQL(sql, (long)transaction.applied, transaction.id);
 
                 return result;
             }
@@ -307,6 +331,16 @@ namespace DLT
                 return transaction;
             }
 
+
+            // Retrieve a bunch of transactions from the sql database
+            public static List<Transaction> getTransactions(List<string> txids)
+            {
+
+                List<Transaction> transactions = new List<Transaction>();
+                return transactions;
+            }
+
+
             // Removes a block from the storage database
             // Also removes all transactions linked to this block
             public static bool removeBlock(Block block, bool removePreviousBlocks = false)
@@ -415,12 +449,49 @@ namespace DLT
                 return true;
             }
 
+            public static bool insertBlock(Block block)
+            {
+                QueueStorageMessage message = new QueueStorageMessage
+                {
+                    code = QueueStorageCode.insertBlock,
+                    data = block
+                };
+
+                lock (queueStatements)
+                {
+
+                    queueStatements.Add(message);
+                }
+                return true;
+            }
+
 
             public static void insertTransaction(Transaction transaction)
             {
-                lock(queueStatements)
+                QueueStorageMessage message = new QueueStorageMessage
                 {
-                    queueStatements.Add(transaction);
+                    code = QueueStorageCode.insertTransaction,
+                    data = transaction
+                };
+
+                lock (queueStatements)
+                {
+
+                    queueStatements.Add(message);
+                }
+            }
+
+            public static void updateAppliedFlag(Transaction transaction)
+            {
+                QueueStorageMessage message = new QueueStorageMessage
+                {
+                    code = QueueStorageCode.updateTxAppliedFlag,
+                    data = transaction
+                };
+
+                lock (queueStatements)
+                {
+                    queueStatements.Add(message);
                 }
             }
 
@@ -430,7 +501,7 @@ namespace DLT
             private static void threadLoop()
             {
                 // Prepare an special message object to use, without locking up the queue messages
-                Transaction active_tx = null;
+                QueueStorageMessage active_message = new QueueStorageMessage();
 
                 while (running)
                 {
@@ -440,8 +511,8 @@ namespace DLT
                     {
                         if (queueStatements.Count() > 0)
                         {
-                            Transaction candidate = queueStatements[0];
-                            active_tx = candidate;
+                            QueueStorageMessage candidate = queueStatements[0];
+                            active_message = candidate;
                             queueStatements.Remove(candidate);
                             message_found = true;
                         }
@@ -449,7 +520,19 @@ namespace DLT
 
                     if(message_found)
                     {
-                        insertTransactionInternal(active_tx);
+                        if (active_message.code == QueueStorageCode.insertTransaction)
+                        {
+                            insertTransactionInternal((Transaction)active_message.data);
+                        }
+                        else if (active_message.code == QueueStorageCode.updateTxAppliedFlag)
+                        {
+                            updateAppliedFlagInternal((Transaction)active_message.data);
+                        }
+                        else if (active_message.code == QueueStorageCode.insertBlock)
+                        {
+                            insertBlockInternal((Block)active_message.data);
+                        }
+
                     }
                     else
                     {
