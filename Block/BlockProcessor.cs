@@ -35,6 +35,8 @@ namespace DLT
 
         private Thread block_thread = null;
 
+        private ulong highestNetworkBlockNum = 0;
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.Now;
@@ -290,7 +292,6 @@ namespace DLT
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
             }
-            // TODO TODO TODO verify sigs against WS as well?
             if (b.signatures.Count == 0)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which has no valid signatures!", b.blockNum, b.blockChecksum));
@@ -312,29 +313,8 @@ namespace DLT
         {
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
-            if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the block
-            {
-                // Don't request block 0
-                if (b.blockNum - 1 > 0)
-                {
-                    if (!Node.blockSync.synchronizing)
-                    {
-                        int tmpCnt = 0;
-                        for (ulong missingBlock = Node.blockChain.getLastBlockNum() + 1; missingBlock < b.blockNum; missingBlock++)
-                        {
-                            if (tmpCnt > 5)
-                            {
-                                break;
-                            }
-                            ProtocolMessage.broadcastGetBlock(missingBlock);
-                            tmpCnt++;
-                            Thread.Sleep(100);
-                        }
-                    }
-                }
-                return BlockVerifyStatus.Indeterminate;
-            }
-            else if (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum) // block found but checksum doesn't match
+
+            if (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum) // block found but checksum doesn't match
             {
                 Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
                 // TODO Blacklisting point?
@@ -357,6 +337,27 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
+            if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the missing blocks
+            {
+                // Don't request block 0
+                if (b.blockNum - 1 > 0)
+                {
+                    if (!Node.blockSync.synchronizing)
+                    {
+                        if (removeSignaturesWithLowBalance(b))
+                        {
+                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, b.blockChecksum));
+                            // TODO: Blacklisting point
+                        }
+                        if(b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()) // if at least 2 blocks behind
+                        {
+                            highestNetworkBlockNum = b.blockNum;
+                        }
+                        ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
+                    }
+                }
+                return BlockVerifyStatus.Indeterminate;
+            }
             // Verify sigfreeze
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
             {
@@ -373,6 +374,9 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false)
         {
+
+            var sw = new System.Diagnostics.Stopwatch();
+            sw.Start();
 
             BlockVerifyStatus basicVerification = verifyBlockBasic(b);
 
@@ -429,6 +433,7 @@ namespace DLT
                     else
                     {
                         hasAllTransactions = false;
+                        missing = b.transactions.Count;
                         break;
                     }
                     continue;
@@ -540,7 +545,9 @@ namespace DLT
             }
 
 
-
+            sw.Stop();
+            TimeSpan elapsed = sw.Elapsed;
+            Logging.info(string.Format("VerifyBlock duration: {0}ms", elapsed.TotalMilliseconds));
 
 
             // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic
@@ -677,8 +684,18 @@ namespace DLT
                                 // Save masternodes
                                 // TODO: find a better place for this
                                 PresenceStorage.savePresenceFile();
+
+                                if (highestNetworkBlockNum > Node.blockChain.getLastBlockNum())
+                                {
+                                    ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
+                                }else
+                                {
+                                    highestNetworkBlockNum = 0;
+                                }
+
                             }
-                        }else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
+                        }
+                        else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
                         {
                             // TODO TODO TODO Partial rollback may be needed here
                             Logging.error(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
@@ -711,7 +728,7 @@ namespace DLT
 
             sw.Stop();
             TimeSpan elapsed = sw.Elapsed;
-            Logging.info(string.Format("Verify block took: {0}ms", elapsed.TotalMilliseconds));
+            Logging.info(string.Format("VerifyBlockAcceptance took: {0}ms", elapsed.TotalMilliseconds));
 
 
             if (sleep)
