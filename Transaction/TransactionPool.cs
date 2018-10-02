@@ -23,7 +23,7 @@ namespace DLT
         //  3k blocks: 850 MB
         //
 
-        static readonly List<Transaction> transactions = new List<Transaction> { };
+        static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
         public static int activeTransactions
         {
             get
@@ -193,12 +193,16 @@ namespace DLT
 
         public static bool setAppliedFlag(string txid, ulong blockNum)
         {
-            Transaction t = transactions.Find(x => x.id == txid);
-            if (t == null)
+            Transaction t;
+            lock (transactions)
             {
-                return false;
+                if (!transactions.ContainsKey(txid))
+                {
+                    return false;
+                }
+                t = transactions[txid];
+                t.applied = blockNum;
             }
-            t.applied = blockNum;
             // Storage the transaction in the database when not syncing
             if (Node.blockSync.synchronizing == false)
             {
@@ -227,12 +231,12 @@ namespace DLT
                 // Search for dups again
 
                 
-                if(transactions.Find(x => x.id == transaction.id) != null)
+                if(transactions.ContainsKey(transaction.id))
                 {
                     return false;
                 }
                 
-                transactions.Add(transaction);
+                transactions.Add(transaction.id, transaction);
 
                 // Sort the transactions by nonce ascending
                 // TODO: this will be replaced when the new nonce mechanism is implemented
@@ -263,7 +267,7 @@ namespace DLT
             lock(transactions)
             {
                 //Logging.info(String.Format("Looking for transaction {{ {0} }}. Pool has {1}.", txid, transactions.Count));
-                transaction = transactions.Find(x => x.id == txid);
+                transaction = transactions.ContainsKey(txid) ? transactions[txid] : null;
             }
 
             if (transaction != null)
@@ -290,16 +294,11 @@ namespace DLT
             if (block == null)
                 return false;
 
-            Transaction transaction = null;
-
             lock (transactions)
             {
                 foreach (string txid in block.transactions)
                 {
-                    transaction = transactions.Find(x => x.id == txid);
-                    if (transaction != null)
-                        transactions.Remove(transaction);
-                    transaction = null;
+                    transactions.Remove(txid);
                 }
             }
             return true;
@@ -309,7 +308,7 @@ namespace DLT
         {
             lock(transactions)
             {
-                return transactions.ToArray();
+                return transactions.Select(e => e.Value).ToArray();
             }
         }
 
@@ -317,7 +316,7 @@ namespace DLT
         {
             lock(transactions)
             {
-                return transactions.Where(x => x.applied == 0).ToArray();
+                return transactions.Select(e => e.Value).Where(x => x.applied == 0).ToArray();
             }
         }
 
@@ -439,17 +438,18 @@ namespace DLT
         {
             // TODO: move this to a seperate function. Left here for now for dev purposes
             // Apply any staking transactions in the pool at this moment
-            Transaction[] staking_txs = null;
+            List<Transaction> staking_txs = null;
             if (ws_snapshot)
             {
-                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, ws_snapshot).ToArray();
+                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, ws_snapshot);
             }
             else
             {
-                staking_txs = transactions.Where(x => x.type == (int)Transaction.Type.StakingReward).ToArray();
+                lock (transactions)
+                {
+                    staking_txs = transactions.Select(e => e.Value).Where(x => x.type == (int)Transaction.Type.StakingReward).ToList();
+                }
             }
-            if (staking_txs == null)
-                return;
 
             // Maintain a list of stakers
             List<string> blockStakers = new List<string>();
@@ -511,7 +511,7 @@ namespace DLT
                         lock (transactions)
                         {
                             // Remove from TxPool
-                            transactions.Remove(tx);
+                            transactions.Remove(tx.id);
                         }
                     }
                     else
@@ -607,7 +607,7 @@ namespace DLT
                     {
                         lock (transactions)
                         {
-                            transactions.Remove(tx);
+                            transactions.Remove(tx.id);
                         }
                     }
                     else
@@ -946,7 +946,7 @@ namespace DLT
                         writer.Write(num_transactions);
 
                         // Write each transactions
-                        foreach (Transaction transaction in transactions)
+                        foreach (Transaction transaction in transactions.Select(e => e.Value))
                         {
                             byte[] transaction_data = transaction.getBytes();
                             int transaction_data_size = transaction_data.Length;
@@ -983,7 +983,7 @@ namespace DLT
                             Transaction new_transaction = new Transaction(transaction_bytes);
                             lock (transactions)
                             {
-                                transactions.Add(new_transaction);
+                                transactions.Add(new_transaction.id, new_transaction);
                             }
 
                             Logging.info(String.Format("SYNC Transaction: {0}", new_transaction.id));
@@ -1020,7 +1020,7 @@ namespace DLT
             lock (transactions)
             {
                 // Go through each transaction and reverse it for the specific address
-                foreach (Transaction transaction in transactions)
+                foreach (Transaction transaction in transactions.Select(e=>e.Value))
                 {
                     if (address.Equals(transaction.from))
                     {
@@ -1039,7 +1039,7 @@ namespace DLT
         {
             lock(transactions)
             {
-                return transactions.Exists(x => x.id == txid);
+                return transactions.ContainsKey(txid);
             }
         }
 
