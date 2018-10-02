@@ -637,14 +637,6 @@ namespace DLT
                     Logging.error(string.Format("Block #{0} has transactions that were already applied on other blocks, rejecting the block.", block.blockNum));
                     return false;
                 }
-
-                // Reset the internal nonce
-                if (!ws_snapshot)
-                {
-                    // TODO TODO TODO move this to a more appropriate place
-                    internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
-                }
-
             }
             catch (Exception e)
             {

@@ -805,6 +805,12 @@ namespace DLT
             // Apply transaction fees
             applyTransactionFeeRewards(b, ws_snapshot);
 
+            // Reset the internal nonce
+            if (!ws_snapshot)
+            {
+                TransactionPool.internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
+            }
+
             return true;
         }
 
@@ -1047,8 +1053,9 @@ namespace DLT
                     }
 
                     // Verify that the transaction is actually valid at this point
-                    if (TransactionPool.verifyTransaction(transaction) == false)
-                        continue;
+                    // no need as the tx is already in the pool and was verified when received
+                    //if (TransactionPool.verifyTransaction(transaction) == false)
+                    //    continue;
 
                     // Skip adding staking rewards
                     if (transaction.type == (int)Transaction.Type.StakingReward)
@@ -1074,8 +1081,6 @@ namespace DLT
                 localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
                 Node.walletState.revert();
 
-                // Calculate the block checksums and sign it
-                //localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
                 localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();
                 localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.applySignature();
