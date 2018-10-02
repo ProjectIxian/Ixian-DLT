@@ -112,6 +112,7 @@ namespace DLT
             catch(Exception e)
             {
                 Logging.warn(string.Format("Cannot create block from bytes: {0}", e.ToString()));
+                throw;
             }
         }
 
