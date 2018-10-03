@@ -83,21 +83,15 @@ namespace DLT
             // Run through existing transactions in the pool and verify for double-spending / invalid states
             // Note that we lock the transaction for the entire duration of the checks, which might pose performance issues
             // Todo: find a better way to handle this without running into threading bugs
-        //    lock (transactions)
+            // Lock transactions to prevent threading bugs
+            lock (transactions)
             {
-                /*foreach (Transaction tx in transactions)
+                // Search for dups
+                if (transactions.ContainsKey(transaction.id))
                 {
-                    if (tx.equals(transaction) == true)
-                        return false;
-                    // Additional pass for dynamic-generated transactions
-                    if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
-                        return false;
-                }*/
-/*
-                if (transactions.Find(x => x.id == transaction.id) != null)
-                {
+                    // we already have this transaction, discard
                     return false;
-                }*/
+                }
             }
 
             // Prevent sending to the sender's address
