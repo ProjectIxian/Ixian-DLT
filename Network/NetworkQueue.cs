@@ -64,10 +64,10 @@ namespace DLT
                     endpoint = endpoint
                 };
 
-                lock (queueMessages)
+                lock (txqueueMessages)
                 {
                     // Move transaction messages to the transaction queue
-                    if(code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData || code == ProtocolMessageCode.transactionsChunk)
+                    if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData || code == ProtocolMessageCode.transactionsChunk)
                     {
                         if (txqueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
                         {
@@ -87,7 +87,10 @@ namespace DLT
                         }
                         return;
                     }
+                }
 
+                lock (queueMessages)
+                {
                     // ignore duplicates
                     if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
                     {
@@ -110,7 +113,6 @@ namespace DLT
 
                     // Add it to the normal queue
                     queueMessages.Add(message);
-                    
                 }
             }
 
