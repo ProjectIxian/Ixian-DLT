@@ -339,10 +339,10 @@ namespace DLT
 
             if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the missing blocks
             {
-                // Don't request block 0
-                if (b.blockNum - 1 > 0 && highestNetworkBlockNum < b.blockNum)
+                if (!Node.blockSync.synchronizing)
                 {
-                    if (!Node.blockSync.synchronizing)
+                    // Don't request block 0
+                    if (b.blockNum - 1 > 0 && highestNetworkBlockNum < b.blockNum)
                     {
                         if (removeSignaturesWithLowBalance(b))
                         {
@@ -353,8 +353,8 @@ namespace DLT
                         {
                             highestNetworkBlockNum = b.blockNum;
                         }
-                        ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
                     }
+                    ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
                 }
                 return BlockVerifyStatus.Indeterminate;
             }
