@@ -67,7 +67,8 @@ namespace DLT
                 lock (txqueueMessages)
                 {
                     // Move transaction messages to the transaction queue
-                    if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData || code == ProtocolMessageCode.transactionsChunk)
+                    if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData
+                        || code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions)
                     {
                         if (txqueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
                         {
@@ -76,7 +77,7 @@ namespace DLT
                         }
 
 
-                        if (code == ProtocolMessageCode.transactionsChunk && txqueueMessages.Count > 8)
+                        if (txqueueMessages.Count > 6 && (code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions))
                         {
                             txqueueMessages.Insert(3, message);
                         }
@@ -99,14 +100,15 @@ namespace DLT
                     }
 
                     // Handle normal messages, but prioritize block-related messages
-                    if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData || code == ProtocolMessageCode.getBlockTransactions
-                        || code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence || code == ProtocolMessageCode.updatePresence)
+                    if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData 
+                        || code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence
+                        || code == ProtocolMessageCode.updatePresence)
                     {
 
                         // Prioritize if queue is large
-                        if (queueMessages.Count > 25)
+                        if (queueMessages.Count > 6)
                         {
-                            queueMessages.Insert(10, message);
+                            queueMessages.Insert(3, message);
                             return;
                         }
                     }

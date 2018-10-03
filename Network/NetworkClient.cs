@@ -217,7 +217,10 @@ namespace DLT
                         if (message.code != ProtocolMessageCode.newTransaction)
                         {
                             sendQueueMessages.Insert(1, message);
-                            return;
+                        }
+                        else
+                        {
+                            sendQueueMessages.Add(message);
                         }
                     }
                     else
