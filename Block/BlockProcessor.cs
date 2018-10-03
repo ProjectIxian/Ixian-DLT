@@ -409,6 +409,7 @@ namespace DLT
                 txTimeout = 0;
                 fetchTransactions = true;
             }
+            int txCount = 0;
             int missing = 0;
             Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
             foreach (string txid in b.transactions)
@@ -453,6 +454,7 @@ namespace DLT
                     // TODO: check to see if other transaction types need additional verification
                     if (t.type == (int)Transaction.Type.Normal)
                     {
+                        txCount++;
                         IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
                         minusBalances[t.from] = new_minus_balance;
                     }
@@ -465,6 +467,11 @@ namespace DLT
                         t.id, t.amount, t.from, t.to));
                     return BlockVerifyStatus.Invalid;
                 }
+            }
+            if((ulong)txCount > Config.maximumTransactionsPerBlock + 10)
+            {
+                Logging.warn(String.Format("Block has more transactions than the maximumTransactionsPerBlock setting {0}/{1}", txCount, Config.maximumTransactionsPerBlock + 10));
+                return BlockVerifyStatus.Invalid;
             }
             //
             if (!hasAllTransactions)
