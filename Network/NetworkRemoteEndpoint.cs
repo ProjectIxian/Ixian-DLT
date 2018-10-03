@@ -96,6 +96,9 @@ namespace DLT
                     state = RemoteEndpointState.Closed;
                 }
 
+                // Sleep a while to prevent cpu cycle waste
+                Thread.Sleep(10);
+
                 // Check if the client disconnected
                 if (state == RemoteEndpointState.Closed)
                 {

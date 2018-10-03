@@ -184,14 +184,15 @@ namespace DLT
                     int header_length = 41; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes)
                     while (message_found == false && socket.Connected)
                     {
-                        var current_byte = new Byte[1];
-                        var byteCounter = socket.Receive(current_byte, current_byte.Length, SocketFlags.None);
+                        var bytesToRead = 1;
+                        var currentBuffer = new Byte[bytesToRead];
+                        var byteCounter = socket.Receive(currentBuffer, bytesToRead, SocketFlags.None);
 
-                        if (byteCounter.Equals(1))
+                        if (byteCounter > 0)
                         {
                             if (big_buffer.Count > 0)
                             {
-                                big_buffer.Add(current_byte[0]);
+                                big_buffer.AddRange(currentBuffer);
                                 if (big_buffer.Count == header_length) // 41 is the header length
                                 {
                                     // we should have the full header, save the data length
@@ -202,10 +203,12 @@ namespace DLT
                                             reader.ReadByte(); // skip start byte
                                             reader.ReadInt32(); // skip message code
                                             data_length = reader.ReadInt32(); // finally read data length
+                                            // TODO TODO TODO add a maximum data length
                                             if (data_length <= 0)
                                             {
                                                 data_length = 0;
                                                 big_buffer.Clear();
+                                                bytesToRead = 1;
                                             }
                                         }
                                     }
@@ -215,19 +218,28 @@ namespace DLT
                                     // we have everything that we need, save the last byte and break
                                     message_found = true;
                                 }
+                                if (data_length > 0)
+                                {
+                                    bytesToRead = data_length + header_length - big_buffer.Count;
+                                    if (bytesToRead > 8000)
+                                    {
+                                        bytesToRead = 8000;
+                                    }
+                                }
                             }
                             else
                             {
-                                if (current_byte[0] == 'X') // X is the message start byte
+                                if (currentBuffer[0] == 'X') // X is the message start byte
                                 {
-                                    big_buffer.Add(current_byte[0]);
+                                    big_buffer.Add(currentBuffer[0]);
+                                    bytesToRead = header_length - 1; // header length - start byte
                                 }
                             }
                         }
                         else
                         {
                             // sleep a litte while waiting for bytes
-                            //Thread.Sleep(50);
+                            Thread.Sleep(10);
                             // TODO TODO TODO, should reset the big_buffer if a timeout occurs
                         }
                     }
