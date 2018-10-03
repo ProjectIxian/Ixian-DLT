@@ -67,33 +67,41 @@ namespace DLT
                 lock (queueMessages)
                 {
                     // Move transaction messages to the transaction queue
-                    if(code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData)
+                    if(code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData || code == ProtocolMessageCode.transactionsChunk)
                     {
-                        if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
+                        if (txqueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
                         {
                             //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                             return;
                         }
-                        
 
-                        // Add it to the tx queue
-                        txqueueMessages.Add(message);
+
+                        if (code == ProtocolMessageCode.transactionsChunk && txqueueMessages.Count > 8)
+                        {
+                            txqueueMessages.Insert(3, message);
+                        }
+                        else
+                        {
+                            // Add it to the tx queue
+                            txqueueMessages.Add(message);
+                        }
                         return;
                     }
 
+                    // ignore duplicates
+                    if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
+                    {
+                        //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                        return;
+                    }
 
                     // Handle normal messages, but prioritize block-related messages
-                    if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData || code == ProtocolMessageCode.getBlockTransactions || code == ProtocolMessageCode.transactionsChunk 
-                        || code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence)
+                    if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData || code == ProtocolMessageCode.getBlockTransactions
+                        || code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence || code == ProtocolMessageCode.updatePresence)
                     {
-                        if (queueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
-                        {
-                            //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
-                            return;
-                        }
 
                         // Prioritize if queue is large
-                        if (queueMessages.Count > 50)
+                        if (queueMessages.Count > 25)
                         {
                             queueMessages.Insert(10, message);
                             return;
