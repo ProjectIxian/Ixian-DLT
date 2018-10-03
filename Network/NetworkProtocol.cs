@@ -968,11 +968,15 @@ namespace DLT
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
+                                        var sw = new System.Diagnostics.Stopwatch();
+                                        sw.Start();
+                                        int processedTxCount = 0;
                                         while (m.Length > m.Position)
                                         {
                                             int len = reader.ReadInt32();
                                             if (m.Position + len > m.Length)
                                             {
+                                                // TODO blacklist
                                                 Logging.warn(String.Format("A node is sending invalid transaction chunks (tx byte len > received data len)."));
                                                 break;
                                             }
@@ -989,8 +993,14 @@ namespace DLT
                                             if (!TransactionPool.addTransaction(tx, true))
                                             {
                                                 Logging.error(String.Format("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id));
+                                            }else
+                                            {
+                                                processedTxCount++;
                                             }
                                         }
+                                        sw.Stop();
+                                        TimeSpan elapsed = sw.Elapsed;
+                                        Logging.info(string.Format("Processed {0} txs in {1}ms", processedTxCount, elapsed.TotalMilliseconds));
                                     }
                                 }
                             }
