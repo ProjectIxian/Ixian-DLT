@@ -372,10 +372,15 @@ namespace DLTNode
 
             if (methodName.Equals("stress", StringComparison.OrdinalIgnoreCase))
             {
+                string type_string = request.QueryString["type"];
+                if(type_string == null)
+                {
+                    type_string = "txspam";
+                }
                 // Used for performing various tests.
-                StressTest.start();
+                StressTest.start(type_string);
 
-                string responseString = JsonConvert.SerializeObject("Stress test initiated");
+                string responseString = JsonConvert.SerializeObject("Stress test");
                 sendResponse(context.Response, responseString);
                 return true;
             }

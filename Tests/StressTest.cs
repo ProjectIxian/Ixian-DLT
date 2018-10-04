@@ -16,19 +16,33 @@ namespace DLTNode
     {
         public static TcpClient tcpClient = null;
 
+        static string txfilename = "txspam.file";
         static string hostname = "192.168.1.101";
         static int port = 10515;
 
-        public static void start()
+        static int txspamNum = 1000; // Set the number of spam transactions
+
+        public static void start(string type)
         {
             // Run protocol spam
-            //  startProtocolTest();
+            if(type.Equals("protocol", StringComparison.Ordinal))
+              startProtocolTest();
 
             // Run the spam connect test
-            //  startSpamConnectTest();
+            if (type.Equals("connect", StringComparison.Ordinal))
+                startSpamConnectTest();
 
             // Run transaction spam test
-            startTxSpamTest();
+            if (type.Equals("txspam", StringComparison.Ordinal))
+                startTxSpamTest();
+
+            // Run the transaction spam file generation test
+            if (type.Equals("txfilegen", StringComparison.Ordinal))
+                startTxFileGenTest();
+
+            // Run the transaction spam file test
+            if (type.Equals("txfilespam", StringComparison.Ordinal))
+                startTxFileSpamTest();
         }
 
         private static bool connect()
@@ -195,7 +209,7 @@ namespace DLTNode
 
             ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
             
-            for(int i = 0; i < 2500; i++)
+            for(int i = 0; i < txspamNum; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = Config.transactionPrice;
@@ -211,6 +225,95 @@ namespace DLTNode
             Logging.info("Ending tx spam test");
             Console.ResetColor();
         }
+
+        public static void startTxFileGenTest()
+        {
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Logging.info("Starting tx file gen test");
+            Console.ResetColor();
+
+            BinaryWriter writer;
+            try
+            {
+                writer = new BinaryWriter(new FileStream(txfilename, FileMode.Create));
+            }
+            catch (IOException e)
+            {
+                Logging.error(String.Format("Cannot create txspam file. {0}", e.Message));
+                return;
+            }
+
+            ulong nonce = 0; // Set the starting nonce
+            for (int i = 0; i < txspamNum; i++)
+            {
+                IxiNumber amount = new IxiNumber("0.01");
+                IxiNumber fee = Config.transactionPrice;
+                string to = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481";
+                string from = Node.walletStorage.getWalletAddress();
+                Transaction transaction = new Transaction(amount, fee, to, from, nonce);
+                byte[] bytes = transaction.getBytes();
+                
+                Console.WriteLine("> writing tx {0}", transaction.id);
+                writer.Write(bytes.Length);
+                writer.Write(bytes);
+
+                nonce++;
+            }
+
+            writer.Close();
+
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Logging.info("Ending tx file gen test");
+            Console.ResetColor();
+        }
+
+        public static void startTxFileSpamTest()
+        {
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Logging.info("Starting tx file spam test");
+            Console.ResetColor();
+
+            if (File.Exists(txfilename) == false)
+            {
+                Logging.error("Cannot start tx file spam test. Missing tx spam file!");
+                return;
+            }
+
+            BinaryReader reader;
+            try
+            {
+                reader = new BinaryReader(new FileStream(txfilename, FileMode.Open));
+            }
+            catch (IOException e)
+            {
+                Logging.log(LogSeverity.error, String.Format("Cannot open txspam file. {0}", e.Message));
+                return;
+            }
+
+            try
+            {
+                for (int i = 0; i < txspamNum; i++)
+                {
+                    int length = reader.ReadInt32();
+                    byte[] bytes = reader.ReadBytes(length);
+                    Transaction transaction = new Transaction(bytes);
+                    Console.WriteLine("> adding tx {0}", transaction.id);
+                    TransactionPool.addTransaction(transaction);
+                }
+            }
+            catch (IOException e)
+            {
+                Logging.log(LogSeverity.error, String.Format("Cannot read from txspam file. {0}", e.Message));
+                return;
+            }
+            reader.Close();
+
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Logging.info("Ending tx file spam test");
+            Console.ResetColor();
+        }
+
+
 
         // Sends data over the network
         public static void sendData(ProtocolMessageCode code, byte[] data)
