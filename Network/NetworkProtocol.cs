@@ -247,6 +247,7 @@ namespace DLT
                                     bytesToRead = header_length - 1; // header length - start byte
                                 }
                             }
+                            Thread.Yield();
                         }
                         else
                         {

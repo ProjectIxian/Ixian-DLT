@@ -96,8 +96,8 @@ namespace DLT
                     state = RemoteEndpointState.Closed;
                 }
 
-                // Sleep a while to prevent cpu cycle waste
-                Thread.Sleep(10);
+                // Sleep a while to throttle the client
+                Thread.Sleep(1);
 
                 // Check if the client disconnected
                 if (state == RemoteEndpointState.Closed)
@@ -161,9 +161,12 @@ namespace DLT
                 {
                     // Active message set, attempt to send it
                     sendDataInternal(active_message.code, active_message.data);
+                    Thread.Sleep(1);
+                }else
+                {
+                    // Sleep for 10ms to prevent cpu waste
+                    Thread.Sleep(10);
                 }
-                // Sleep for 10ms to prevent cpu waste
-                Thread.Sleep(10);
             }
 
             Thread.Yield();
@@ -199,17 +202,20 @@ namespace DLT
                     {
                         // Active message set, attempt to send it
                         ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, this);
+                    }else
+                    {
+                    Thread.Sleep(10);
                     }
+
                 }
                 catch (Exception e)
                 {
                     Logging.error("Exception occured in parseLoopRE: " + e);
                 }
-                // Sleep for 10ms to prevent cpu waste
-                Thread.Sleep(10);
+                // Sleep a bit to prevent cpu waste
+                Thread.Yield();
             }
 
-            Thread.Yield();
         }
 
         private void parseDataInternal(byte[] data, Socket socket, RemoteEndpoint endpoint)
@@ -234,12 +240,21 @@ namespace DLT
             {
                 for (int sentBytes = 0; sentBytes < ba.Length;)
                 {
-                    sentBytes += clientSocket.Send(ba, sentBytes, ba.Length - sentBytes, SocketFlags.None);
-                    if (sentBytes < ba.Length)
+                    int bytesToSendCount = ba.Length - sentBytes;
+                    if (bytesToSendCount > 8000)
                     {
-                        Logging.warn("sendRE: Socket issue?");
-                        Thread.Sleep(5);
+                        bytesToSendCount = 8000;
                     }
+                    int curSentBytes = clientSocket.Send(ba, sentBytes, ba.Length - sentBytes, SocketFlags.None);
+                    if (curSentBytes < bytesToSendCount)
+                    {
+                        Thread.Sleep(10);
+                    }else
+                    {
+                        // Sleep a bit to allow other threads to do their thing
+                        Thread.Yield();
+                    }
+                    sentBytes += curSentBytes;
                     // TODO TODO TODO timeout
                 }
                 if (clientSocket.Connected == false)
