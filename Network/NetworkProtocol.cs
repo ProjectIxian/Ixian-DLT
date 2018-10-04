@@ -16,6 +16,7 @@ namespace DLT
         {
 
             [ThreadStatic] static byte[] currentBuffer = null;
+            public static readonly ulong[] recvByteHist = new ulong[100];
 
 
 
@@ -192,6 +193,11 @@ namespace DLT
                     while (message_found == false && socket.Connected)
                     {
                         var bytesToRead = 1;
+                        //int pos = bytesToRead > recvByteHist.Length ? recvByteHist.Length - 1 : bytesToRead;
+                        /*lock (recvByteHist)
+                        {
+                            recvByteHist[pos]++;
+                        }*/
                         var byteCounter = socket.Receive(currentBuffer, bytesToRead, SocketFlags.None);
 
                         if (byteCounter > 0)

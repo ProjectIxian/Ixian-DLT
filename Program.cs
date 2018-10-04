@@ -109,6 +109,22 @@ namespace DLTNode
                     Logging.info(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
                         Node.walletState.numWallets, Node.walletState.hasSnapshot, ws_checksum));
                 }
+                if(key.Key == ConsoleKey.H)
+                {
+                    ulong[] temp = new ulong[ProtocolMessage.recvByteHist.Length];
+                    lock (ProtocolMessage.recvByteHist)
+                    {
+                        ProtocolMessage.recvByteHist.CopyTo(temp, 0);
+                    }
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
+                    for (int i = 0; i < temp.Length; i++)
+                    {
+                        Console.WriteLine(String.Format("[{0}]: {1}", i, temp[i]));
+                    }
+                    Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
+                    Console.ResetColor();
+                }
 
             }
             if (Node.update() == false)
