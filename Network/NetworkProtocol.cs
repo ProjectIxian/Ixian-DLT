@@ -6,6 +6,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Linq;
 
 namespace DLT
 {
@@ -182,17 +183,17 @@ namespace DLT
                 {
                     int data_length = 0;
                     int header_length = 41; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes)
+                    var currentBuffer = new Byte[8192];
                     while (message_found == false && socket.Connected)
                     {
                         var bytesToRead = 1;
-                        var currentBuffer = new Byte[bytesToRead];
                         var byteCounter = socket.Receive(currentBuffer, bytesToRead, SocketFlags.None);
 
                         if (byteCounter > 0)
                         {
                             if (big_buffer.Count > 0)
                             {
-                                big_buffer.AddRange(currentBuffer);
+                                big_buffer.AddRange(currentBuffer.Take(byteCounter));
                                 if (big_buffer.Count == header_length) // 41 is the header length
                                 {
                                     // we should have the full header, save the data length
