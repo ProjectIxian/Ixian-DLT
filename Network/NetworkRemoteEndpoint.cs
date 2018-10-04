@@ -204,7 +204,7 @@ namespace DLT
                         ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, this);
                     }else
                     {
-                    Thread.Sleep(10);
+                        Thread.Sleep(10);
                     }
 
                 }

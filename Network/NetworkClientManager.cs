@@ -227,20 +227,22 @@ namespace DLT
         // Send data to all connected nodes
         public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
         {
-            //lock (networkClients)
+            List<NetworkClient> netClients = null;
+            lock (networkClients)
             {
-                foreach (NetworkClient client in networkClients)
+                netClients = new List<NetworkClient>(networkClients);
+            }
+            foreach (NetworkClient client in netClients)
+            {
+                if (client.isConnected())
                 {
-                    if (client.isConnected())
+                    if (skipSocket != null)
                     {
-                        if (skipSocket != null)
-                        {
-                            if (client.tcpClient.Client == skipSocket)
-                                continue;
-                        }
-
-                        client.sendData(code, data);
+                        if (client.tcpClient.Client == skipSocket)
+                            continue;
                     }
+
+                    client.sendData(code, data);
                 }
             }
         }
@@ -417,51 +419,58 @@ namespace DLT
 
             while (autoReconnect)
             {
+                List<NetworkClient> netClients = null;
                 lock (networkClients)
                 {
-                    // Check if we need to connect to more neighbors
-                    if(networkClients.Count < Config.simultaneousConnectedNeighbors)
+                    netClients = new List<NetworkClient>(networkClients);
+                }
+                // Check if we need to connect to more neighbors
+                if(netClients.Count < Config.simultaneousConnectedNeighbors)
+                {
+                    // Scan for and connect to a new neighbor
+                    connectToRandomNeighbor();
+                }
+                else if(netClients.Count > Config.simultaneousConnectedNeighbors)
+                {
+                    // Disconnect the oldest connected node
+                    netClients[0].disconnect();
+                    lock (networkClients)
                     {
-                        // Scan for and connect to a new neighbor
-                        connectToRandomNeighbor();
+                        networkClients.Remove(netClients[0]);
                     }
-                    else if(networkClients.Count > Config.simultaneousConnectedNeighbors)
+                }
+
+                // Connect randomly to a new node. Currently a 5% chance to reconnect during this iteration
+                if(rnd.Next(20) == 1)
+                {
+                    connectToRandomNeighbor();
+                }
+
+                // Prepare a list of failed clients
+                List<NetworkClient> failed_clients = new List<NetworkClient>();
+
+                foreach (NetworkClient client in netClients)
+                {
+                    // Check if we exceeded the maximum reconnect count
+                    if (client.getFailedReconnectsCount() >= Config.maximumNeighborReconnectCount)
                     {
-                        // Disconnect the oldest connected node
-                        networkClients[0].disconnect();
-                        networkClients.RemoveAt(0);
+                        // Remove this client so we can search for a new neighbor
+                        failed_clients.Add(client);
                     }
-
-                    // Connect randomly to a new node. Currently a 5% chance to reconnect during this iteration
-                    if(rnd.Next(20) == 1)
+                    else
                     {
-                        connectToRandomNeighbor();
+                        // Everything is in order, send a ping message
+                        client.sendPing();
                     }
+                }
 
-                    // Prepare a list of failed clients
-                    List<NetworkClient> failed_clients = new List<NetworkClient>();
-
-                    foreach (NetworkClient client in networkClients)
-                    {
-                        // Check if we exceeded the maximum reconnect count
-                        if (client.getFailedReconnectsCount() >= Config.maximumNeighborReconnectCount)
-                        {
-                            // Remove this client so we can search for a new neighbor
-                            failed_clients.Add(client);
-                        }
-                        else
-                        {
-                            // Everything is in order, send a ping message
-                            client.sendPing();
-                        }
-                    }
-
-                    // Go through the list of failed clients and remove them
-                    foreach (NetworkClient client in failed_clients)
+                // Go through the list of failed clients and remove them
+                foreach (NetworkClient client in failed_clients)
+                {
+                    lock (networkClients)
                     {
                         networkClients.Remove(client);
                     }
-
                 }
 
                 // Wait 5 seconds before rechecking

@@ -211,19 +211,21 @@ namespace DLT
 
                             }
 
+                            List<RemoteEndpoint> netClients = null;
                             lock (connectedClients)
                             {
-                                try
+                                netClients = new List<RemoteEndpoint>(connectedClients);
+                            }
+                            try
+                            {
+                                foreach (RemoteEndpoint endpoint in netClients)
                                 {
-                                    foreach (RemoteEndpoint endpoint in connectedClients)
-                                    {
-                                        sendPing(endpoint, m.ToArray());
-                                    }
+                                    sendPing(endpoint, m.ToArray());
                                 }
-                                catch (Exception)
-                                {
+                            }
+                            catch (Exception)
+                            {
 
-                                }
                             }
                         }
                     }
@@ -235,24 +237,27 @@ namespace DLT
             // Send data to all connected clients
             public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {
+                List<RemoteEndpoint> netClients = null;
                 lock (connectedClients)
                 {
-                    foreach (RemoteEndpoint endpoint in connectedClients)
+                    netClients = new List<RemoteEndpoint>(connectedClients);
+                }
+                foreach (RemoteEndpoint endpoint in netClients)
+                {
+                    // TODO: filter messages based on presence node type
+                    if(skipSocket != null)
                     {
-                        // TODO: filter messages based on presence node type
-                        if(skipSocket != null)
-                        {
-                            if (endpoint.clientSocket == skipSocket)
-                                continue;
-                        }
-
-                        endpoint.sendData(code, data);
+                        if (endpoint.clientSocket == skipSocket)
+                            continue;
                     }
+
+                    endpoint.sendData(code, data);
                 }
             }
 
             public static bool sendToClient(string neighbor, ProtocolMessageCode code, byte[] data)
             {
+                RemoteEndpoint client = null;
                 lock (connectedClients)
                 {
                     foreach (RemoteEndpoint ep in connectedClients)
@@ -261,11 +266,16 @@ namespace DLT
                         {
                             if(addr.address == neighbor)
                             {
-                                ep.sendData(code, data);
-                                return true;
+                                client = ep;
+                                break;
                             }
                         }
                     }
+                }
+                if (client != null)
+                {
+                    client.sendData(code, data);
+                    return true;
                 }
                 return false;
             }
