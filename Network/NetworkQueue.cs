@@ -191,13 +191,8 @@ namespace DLT
                         // Active message set, attempt to parse it
                         ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
                     }
-                    else
-                    {
-                        // No active message
-                        // Sleep for 10ms to prevent cpu waste
-                        Thread.Sleep(10);
-                    }
-
+                    // Sleep for 1ms to prevent cpu waste
+                    Thread.Sleep(1);
                 }
                 Logging.info("Network queue thread stopped.");
             }
@@ -232,12 +227,8 @@ namespace DLT
                         // Active message set, attempt to parse it
                         ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
                     }
-                    else
-                    {
-                        // No active message
-                        // Sleep for 10ms to prevent cpu waste
-                        Thread.Sleep(10);
-                    }
+                    // Sleep for 1ms to prevent cpu waste
+                    Thread.Sleep(10);
                 }
                 Logging.info("Network queue thread stopped.");
             }

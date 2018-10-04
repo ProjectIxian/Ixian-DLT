@@ -279,12 +279,12 @@ namespace DLT
                 }
                 else
                 {
-                    if (sendQueueMessages.Count > 50)
+                    if (sendQueueMessages.Count > 6)
                     {
                         // Prioritize certain messages if the queue is large
                         if (message.code != ProtocolMessageCode.newTransaction)
                         {
-                            sendQueueMessages.Insert(1, message);
+                            sendQueueMessages.Insert(3, message);
                         }
                         else
                         {

@@ -289,7 +289,7 @@ namespace DLT
                     foreach (RemoteEndpoint rclient in connectedClients)
                     {
                         if (rclient.presence is null) continue; // ignore, if the clients are in the process of connecting and have not yet sent their identity
-                      foreach(PresenceAddress addr in rclient.presence.addresses)
+                        foreach(PresenceAddress addr in rclient.presence.addresses)
                         {
                             try
                             {
