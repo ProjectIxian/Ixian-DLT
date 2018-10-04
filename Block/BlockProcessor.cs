@@ -1309,25 +1309,6 @@ namespace DLT
             return true;
         }
 
-        public void storeStakingRewards(Block b)
-        {
-            // Prevent distribution if we don't have 10 fully generated blocks yet
-            if (Node.blockChain.getLastBlockNum() < 10)
-            {
-                return;
-            }
-
-            List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6);
-            foreach (Transaction transaction in transactions)
-            {
-                Meta.Storage.insertTransaction(transaction);
-            }
-
-
-        }
-
-
-
         public bool hasNewBlock()
         {
             return localNewBlock != null;

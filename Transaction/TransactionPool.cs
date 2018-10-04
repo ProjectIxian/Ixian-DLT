@@ -197,11 +197,8 @@ namespace DLT
                 t = transactions[txid];
                 t.applied = blockNum;
             }
-            // Storage the transaction in the database when not syncing
-            if (Node.blockSync.synchronizing == false)
-            {
-                Meta.Storage.updateAppliedFlag(t);
-            }
+            // Storage the transaction in the database
+            Meta.Storage.insertTransaction(t);
             return true;
         }
 

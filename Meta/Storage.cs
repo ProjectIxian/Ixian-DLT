@@ -207,7 +207,7 @@ namespace DLT
                 return result;
             }
 
-            public static bool updateAppliedFlagInternal(Transaction transaction)
+            /*public static bool updateAppliedFlagInternal(Transaction transaction)
             {
                 bool result = false;
 
@@ -215,7 +215,7 @@ namespace DLT
                 result = executeSQL(sql, (long)transaction.applied, transaction.id);
 
                 return result;
-            }
+            }*/
 
             public static Block getBlock(ulong blocknum)
             {
@@ -481,7 +481,7 @@ namespace DLT
                 }
             }
 
-            public static void updateAppliedFlag(Transaction transaction)
+            /*public static void updateAppliedFlag(Transaction transaction)
             {
                 QueueStorageMessage message = new QueueStorageMessage
                 {
@@ -493,7 +493,7 @@ namespace DLT
                 {
                     queueStatements.Add(message);
                 }
-            }
+            }*/
 
 
 
@@ -518,25 +518,26 @@ namespace DLT
                         }
                     }
 
-                    if(message_found)
+                    if (message_found)
                     {
                         if (active_message.code == QueueStorageCode.insertTransaction)
                         {
                             insertTransactionInternal((Transaction)active_message.data);
                         }
-                        else if (active_message.code == QueueStorageCode.updateTxAppliedFlag)
+                        /*else if (active_message.code == QueueStorageCode.updateTxAppliedFlag)
                         {
                             updateAppliedFlagInternal((Transaction)active_message.data);
-                        }
+                        }*/
                         else if (active_message.code == QueueStorageCode.insertBlock)
                         {
                             insertBlockInternal((Block)active_message.data);
                         }
-
                     }
-                    // Sleep for 10ms to prevent cpu waste
-                    Thread.Sleep(10);
-
+                    else
+                    {
+                        // Sleep for 10ms to prevent cpu waste
+                        Thread.Sleep(10);
+                    }
                 }
 
                 Thread.Yield();
