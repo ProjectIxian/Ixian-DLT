@@ -205,7 +205,7 @@ namespace DLT
 
             lock (sendQueueMessages)
             {
-                if (message.code != ProtocolMessageCode.ping && message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
+                if (message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
                 {
                     Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                 }
@@ -365,12 +365,8 @@ namespace DLT
                     // Active message set, attempt to send it
                     sendDataInternal(active_message.code, active_message.data);
                 }
-                else
-                {
-                    // No active message
-                    // Sleep for 100ms to prevent cpu waste
-                    Thread.Sleep(100);
-                }
+                // Sleep for 10ms to prevent cpu waste
+                Thread.Sleep(10);
             }
 
             Thread.Yield();
@@ -407,18 +403,13 @@ namespace DLT
                         // Active message set, attempt to send it
                         ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, null);
                     }
-                    else
-                    {
-                        // No active message
-                        // Sleep for 10ms to prevent cpu waste
-                        Thread.Sleep(10);
-                    }
                 }
                 catch (Exception e)
                 {
                     Logging.error("Exception occured in parseLoop: " + e);
-                    running = false;
                 }
+                // Sleep for 10ms to prevent cpu waste
+                Thread.Sleep(10);
             }
             Thread.Yield();
         }

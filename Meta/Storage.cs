@@ -534,12 +534,8 @@ namespace DLT
                         }
 
                     }
-                    else
-                    {
-                        // No active message
-                        // Sleep for 100ms to prevent cpu waste
-                        Thread.Sleep(100);
-                    }
+                    // Sleep for 10ms to prevent cpu waste
+                    Thread.Sleep(10);
 
                 }
 

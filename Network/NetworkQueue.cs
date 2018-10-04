@@ -68,7 +68,8 @@ namespace DLT
                 {
                     // Move transaction messages to the transaction queue
                     if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData
-                        || code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions)
+                        || code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions
+                        || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
                     {
                         if (txqueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data) /*&& x.socket == message.socket && x.endpoint == message.endpoint*/))
                         {
@@ -77,7 +78,8 @@ namespace DLT
                         }
 
 
-                        if (txqueueMessages.Count > 6 && (code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions))
+                        if (txqueueMessages.Count > 6 && 
+                            (code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData))
                         {
                             txqueueMessages.Insert(3, message);
                         }
@@ -100,8 +102,7 @@ namespace DLT
                     }
 
                     // Handle normal messages, but prioritize block-related messages
-                    if (code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData 
-                        || code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence
+                    if (code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence
                         || code == ProtocolMessageCode.updatePresence)
                     {
 
