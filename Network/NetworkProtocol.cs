@@ -15,6 +15,7 @@ namespace DLT
         public class ProtocolMessage
         {
 
+            [ThreadStatic] static byte[] currentBuffer = null;
 
 
 
@@ -158,6 +159,11 @@ namespace DLT
             // Reads data from a socket and returns a byte array
             public static byte[] readSocketData(Socket socket, RemoteEndpoint endpoint)
             {
+                if(currentBuffer == null)
+                {
+                    currentBuffer = new byte[8192];
+                }
+
                 byte[] data = null;
 
                 // Check for socket availability
@@ -183,7 +189,6 @@ namespace DLT
                 {
                     int data_length = 0;
                     int header_length = 41; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes)
-                    var currentBuffer = new Byte[8192];
                     while (message_found == false && socket.Connected)
                     {
                         var bytesToRead = 1;
