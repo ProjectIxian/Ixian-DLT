@@ -334,7 +334,7 @@ namespace DLT
                             // Can proceed to parse the data parameter based on the protocol message code.
                             // Data can contain multiple elements.
                             //parseProtocolMessage(code, data, socket, endpoint);
-                            NetworkQueue.receiveProtocolMessage(code, data, socket, endpoint);
+                            NetworkQueue.receiveProtocolMessage(code, data, Crypto.hashToString(data_checksum), socket, endpoint);
                         }
                     }
                 }
