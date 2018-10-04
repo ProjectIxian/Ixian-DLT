@@ -190,9 +190,9 @@ namespace DLT
                 {
                     int data_length = 0;
                     int header_length = 41; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes)
+                    var bytesToRead = 1;
                     while (message_found == false && socket.Connected)
                     {
-                        var bytesToRead = 1;
                         //int pos = bytesToRead > recvByteHist.Length ? recvByteHist.Length - 1 : bytesToRead;
                         /*lock (recvByteHist)
                         {
