@@ -244,6 +244,8 @@ namespace DLTNode
             }
 
             ulong nonce = 0; // Set the starting nonce
+
+            writer.Write(txspamNum);
             for (int i = 0; i < txspamNum; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
@@ -279,6 +281,13 @@ namespace DLTNode
                 return;
             }
 
+            ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
+            if(nonce != 0)
+            {
+                Logging.error("Cannot start tx file spam test. Initial nonce is not 0!");
+                return;
+            }
+
             BinaryReader reader;
             try
             {
@@ -292,7 +301,9 @@ namespace DLTNode
 
             try
             {
-                for (int i = 0; i < txspamNum; i++)
+                int spam_num = reader.ReadInt32();
+                Logging.info(string.Format("Reading {0} spam transactions from file.", spam_num));
+                for (int i = 0; i < spam_num; i++)
                 {
                     int length = reader.ReadInt32();
                     byte[] bytes = reader.ReadBytes(length);
