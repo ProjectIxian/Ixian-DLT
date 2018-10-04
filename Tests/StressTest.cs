@@ -20,10 +20,13 @@ namespace DLTNode
         static string hostname = "192.168.1.101";
         static int port = 10515;
 
-        static int txspamNum = 1000; // Set the number of spam transactions
+        static int txspamNum = 1000; // Set the initial number of spam transactions
 
-        public static void start(string type)
+        public static void start(string type, int txnum = 0)
         {
+            if (txnum != 0)
+                txspamNum = txnum;
+
             // Run protocol spam
             if(type.Equals("protocol", StringComparison.Ordinal))
               startProtocolTest();

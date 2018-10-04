@@ -377,8 +377,24 @@ namespace DLTNode
                 {
                     type_string = "txspam";
                 }
+
+                int txnum = 0;
+                string txnumstr = request.QueryString["num"];
+                if(txnumstr != null)
+                {
+                    try
+                    {
+                        txnum = Convert.ToInt32(txnumstr);
+                    }
+                    catch (OverflowException)
+                    {
+                        txnum = 0;
+                    }
+                }
+
+
                 // Used for performing various tests.
-                StressTest.start(type_string);
+                StressTest.start(type_string, txnum);
 
                 string responseString = JsonConvert.SerializeObject("Stress test");
                 sendResponse(context.Response, responseString);
