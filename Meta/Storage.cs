@@ -542,6 +542,15 @@ namespace DLT
 
                 Thread.Yield();
             }
+
+            public static int getQueuedQueryCount()
+            {
+                lock (queueStatements)
+                {
+                    return queueStatements.Count;
+                }
+            }
+
         }
         /**/
     }

@@ -693,7 +693,7 @@ namespace DLT
                                 localNewBlock = null;
 
                                 // Reset transaction limits
-                                TransactionPool.resetSocketTransactionLimits();
+                                //TransactionPool.resetSocketTransactionLimits();
 
                                 // Save masternodes
                                 // TODO: find a better place for this

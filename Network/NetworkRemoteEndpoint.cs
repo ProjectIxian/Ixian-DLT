@@ -97,7 +97,7 @@ namespace DLT
                 }
 
                 // Sleep a while to throttle the client
-                //Thread.Sleep(1);
+                Thread.Sleep(1);
 
                 // Check if the client disconnected
                 if (state == RemoteEndpointState.Closed)

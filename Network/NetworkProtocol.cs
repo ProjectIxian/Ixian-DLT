@@ -688,11 +688,11 @@ namespace DLT
 
                         case ProtocolMessageCode.newTransaction:
                             {
-                                if(TransactionPool.checkSocketTransactionLimits(socket) == true)
+                                /*if(TransactionPool.checkSocketTransactionLimits(socket) == true)
                                 {
                                     // Throttled, ignore this transaction
                                     return;
-                                }
+                                }*/
 
                                 Transaction transaction = new Transaction(data);
                                 if (transaction == null)

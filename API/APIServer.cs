@@ -525,10 +525,9 @@ namespace DLTNode
                 networkArray.Add("Node Version", Config.version);
                 networkArray.Add("My External IP", Config.publicServerIP);
                 networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
-                networkArray.Add("Receive Network Queue", NetworkQueue.getQueuedMessageCount());
-                networkArray.Add("Receive Network Tx Queue", NetworkQueue.getTxQueuedMessageCount());
-                networkArray.Add("Send Network Queue (clients)", NetworkServer.getQueuedMessageCount());
-                networkArray.Add("Send Network Queue (servers)", NetworkClientManager.getQueuedMessageCount());
+                networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
+                    + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
+                    + ", Storage: " + Storage.getQueuedQueryCount());
                 networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
 
                 string dltStatus = "Active";
@@ -541,17 +540,18 @@ namespace DLTNode
                     bpStatus = "Running";
                 networkArray.Add("Block Processor Status", bpStatus);
 
-                networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
-                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
-
                 networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
-                networkArray.Add("WS Checksum", Node.walletState.calculateWalletStateChecksum());
-                networkArray.Add("WS Delta Checksum", Node.walletState.calculateWalletStateChecksum(true));
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());
                 networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
                 networkArray.Add("TX Count", TransactionPool.getAllTransactions().Count());
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
+
+                networkArray.Add("WS Checksum", Node.walletState.calculateWalletStateChecksum());
+                networkArray.Add("WS Delta Checksum", Node.walletState.calculateWalletStateChecksum(true));
+
+                networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
+                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
 
                 string responseString = JsonConvert.SerializeObject(networkArray);
                 sendResponse(context.Response, responseString);
