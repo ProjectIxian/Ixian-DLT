@@ -859,6 +859,7 @@ namespace DLT
 
                         case ProtocolMessageCode.presenceList:
                             {
+                                // TODO TODO TODO secure this further
                                 if(isAuthoritativeNode(endpoint, socket))
                                 {
                                     Logging.info("NET: Receiving complete presence list");
@@ -874,6 +875,7 @@ namespace DLT
 
                         case ProtocolMessageCode.updatePresence:
                             {
+                                // TODO TODO TODO secure this further
                                 if (isAuthoritativeNode(endpoint, socket))
                                 {
                                     // Parse the data and update entries in the presence list
@@ -905,7 +907,15 @@ namespace DLT
                                         Presence p = PresenceList.presences.Find(x => x.wallet == wallet);
                                         if (p != null)
                                         {
-                                            broadcastProtocolMessage(ProtocolMessageCode.updatePresence, p.getBytes());
+                                            if (endpoint != null)
+                                            {
+                                                endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes());
+                                            }
+                                            else
+                                            {
+                                                byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.updatePresence, p.getBytes());
+                                                socket.Send(ba, SocketFlags.None);
+                                            }
                                         }
                                         else
                                         {

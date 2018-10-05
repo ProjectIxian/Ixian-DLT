@@ -70,18 +70,16 @@ namespace DLT
                 {
                     // Move transaction messages to the transaction queue
                     if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData
-                        || code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions
-                        || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
+                        || code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
                     {
-                        if (txqueueMessages.Exists(x => x.checksum == message.checksum && x.socket == message.socket && x.endpoint == message.endpoint))
+                        if (txqueueMessages.Exists(x => x.checksum == message.checksum))
                         {
                             //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                             return;
                         }
 
-
                         if (txqueueMessages.Count > 6 && 
-                            (code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.getBlockTransactions || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData))
+                            (code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData))
                         {
                             txqueueMessages.Insert(3, message);
                         }
@@ -168,6 +166,7 @@ namespace DLT
             {
                 // Prepare an special message object to use while receiving and parsing, without locking up the queue messages
                 QueueMessageRecv active_message = new QueueMessageRecv();
+                QueueMessageRecv candidate = new QueueMessageRecv();
 
                 while (!shouldStop)
                 {
@@ -177,14 +176,12 @@ namespace DLT
                         if(queueMessages.Count > 0)
                         {
                             // Pick the oldest message
-                            QueueMessageRecv candidate = queueMessages[0];
+                            candidate = queueMessages[0];
                             active_message.code = candidate.code;
                             active_message.data = candidate.data;
                             active_message.checksum = candidate.checksum;
                             active_message.socket = candidate.socket;
                             active_message.endpoint = candidate.endpoint;
-                            // Remove it from the queue
-                            queueMessages.Remove(candidate);
                             message_found = true;
                         }
                     }
@@ -193,6 +190,11 @@ namespace DLT
                     {
                         // Active message set, attempt to parse it
                         ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
+                        lock (queueMessages)
+                        {
+                            // Remove it from the queue
+                            queueMessages.Remove(candidate);
+                        }
                         // Sleep a bit to allow other threads to do their thing
                         Thread.Yield();
                     }
@@ -210,6 +212,7 @@ namespace DLT
             {
                 // Prepare an special message object to use while receiving and parsing, without locking up the queue messages
                 QueueMessageRecv active_message = new QueueMessageRecv();
+                QueueMessageRecv candidate = new QueueMessageRecv();
 
                 while (!shouldStop)
                 {
@@ -219,14 +222,12 @@ namespace DLT
                         if (txqueueMessages.Count > 0)
                         {
                             // Pick the oldest message
-                            QueueMessageRecv candidate = txqueueMessages[0];
+                            candidate = txqueueMessages[0];
                             active_message.code = candidate.code;
                             active_message.data = candidate.data;
                             active_message.checksum = candidate.checksum;
                             active_message.socket = candidate.socket;
                             active_message.endpoint = candidate.endpoint;
-                            // Remove it from the queue
-                            txqueueMessages.Remove(candidate);
                             message_found = true;
                         }
                     }
@@ -235,6 +236,11 @@ namespace DLT
                     {
                         // Active message set, attempt to parse it
                         ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
+                        lock (txqueueMessages)
+                        {
+                            // Remove it from the queue
+                            txqueueMessages.Remove(candidate);
+                        }
                         // Sleep a bit to allow other threads to do their thing
                         Thread.Yield();
                     }
