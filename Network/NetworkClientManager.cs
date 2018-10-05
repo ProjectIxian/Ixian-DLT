@@ -547,5 +547,17 @@ namespace DLT
             Thread.Yield();
         }
 
+        public static int getQueuedMessageCount()
+        {
+            int messageCount = 0;
+            lock (networkClients)
+            {
+                foreach (NetworkClient client in networkClients)
+                {
+                    messageCount += client.getQueuedMessageCount();
+                }
+            }
+            return messageCount;
+        }
     }
 }

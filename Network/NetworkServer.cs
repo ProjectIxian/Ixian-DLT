@@ -45,8 +45,6 @@ namespace DLT
             }
 
 
-
-
             public static void beginNetworkOperations()
             {
                 if (netControllerThread != null)
@@ -371,7 +369,19 @@ namespace DLT
                 }
                 return result;
             }
-    
+
+            public static int getQueuedMessageCount()
+            {
+                int messageCount = 0;
+                lock (connectedClients)
+                {
+                    foreach (RemoteEndpoint client in connectedClients)
+                    {
+                        messageCount += client.getQueuedMessageCount();
+                    }
+                }
+                return messageCount;
+            }
 
         }
     }

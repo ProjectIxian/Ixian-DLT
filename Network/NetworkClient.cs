@@ -517,6 +517,13 @@ namespace DLT
             return failedReconnects;
         }
 
+        public int getQueuedMessageCount()
+        {
+            lock (sendQueueMessages)
+            {
+                return sendQueueMessages.Count;
+            }
+        }
     }
 
 }

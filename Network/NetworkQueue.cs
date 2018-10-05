@@ -55,6 +55,14 @@ namespace DLT
                 }
             }
 
+            public static int getTxQueuedMessageCount()
+            {
+                lock (txqueueMessages)
+                {
+                    return txqueueMessages.Count;
+                }
+            }
+
 
             public static void receiveProtocolMessage(ProtocolMessageCode code, byte[] data, string checksum, Socket socket, RemoteEndpoint endpoint)
             {

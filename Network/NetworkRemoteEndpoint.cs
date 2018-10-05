@@ -317,5 +317,13 @@ namespace DLT
 
         }
 
+        public int getQueuedMessageCount()
+        {
+            lock (sendQueueMessages)
+            {
+                return sendQueueMessages.Count;
+            }
+        }
+
     }
 }
