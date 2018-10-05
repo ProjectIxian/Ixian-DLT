@@ -200,11 +200,12 @@ namespace DLT
             QueueMessage message = new QueueMessage();
             message.code = code;
             message.data = data;
+            message.checksum = Crypto.sha256(data);
             message.skipSocket = null;
 
             lock (sendQueueMessages)
             {
-                if (message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.data.SequenceEqual(x.data)))
+                if (message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
                 {
                     Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                 }
@@ -232,9 +233,9 @@ namespace DLT
         }
 
         // Internal function that sends data through the socket
-        private void sendDataInternal(ProtocolMessageCode code, byte[] data)
+        private void sendDataInternal(ProtocolMessageCode code, byte[] data, byte[] checksum)
         {
-            byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
+            byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data, checksum);
             try
             {
                 for (int sentBytes = 0; sentBytes < ba.Length;)
@@ -338,7 +339,7 @@ namespace DLT
                 }
 
                 // Sleep a while to throttle the client
-                Thread.Sleep(1);
+                //Thread.Sleep(1);
             }
 
             disconnect();
@@ -362,6 +363,7 @@ namespace DLT
                         QueueMessage candidate = sendQueueMessages[0];
                         active_message.code = candidate.code;
                         active_message.data = candidate.data;
+                        active_message.checksum = candidate.checksum;
                         active_message.skipSocket = candidate.skipSocket;
                         // Remove it from the queue
                         sendQueueMessages.Remove(candidate);
@@ -372,7 +374,7 @@ namespace DLT
                 if (message_found)
                 {
                     // Active message set, attempt to send it
-                    sendDataInternal(active_message.code, active_message.data);
+                    sendDataInternal(active_message.code, active_message.data, active_message.checksum);
                     Thread.Sleep(1);
                 }
                 else

@@ -237,21 +237,19 @@ namespace DLT
             // Send data to all connected clients
             public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {
-                List<RemoteEndpoint> netClients = null;
                 lock (connectedClients)
                 {
-                    netClients = new List<RemoteEndpoint>(connectedClients);
-                }
-                foreach (RemoteEndpoint endpoint in netClients)
-                {
-                    // TODO: filter messages based on presence node type
-                    if(skipSocket != null)
+                    foreach (RemoteEndpoint endpoint in connectedClients)
                     {
-                        if (endpoint.clientSocket == skipSocket)
-                            continue;
-                    }
+                        // TODO: filter messages based on presence node type
+                        if(skipSocket != null)
+                        {
+                            if (endpoint.clientSocket == skipSocket)
+                                continue;
+                        }
 
-                    endpoint.sendData(code, data);
+                        endpoint.sendData(code, data);
+                    }
                 }
             }
 

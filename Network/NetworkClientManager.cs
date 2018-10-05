@@ -227,22 +227,20 @@ namespace DLT
         // Send data to all connected nodes
         public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
         {
-            List<NetworkClient> netClients = null;
             lock (networkClients)
             {
-                netClients = new List<NetworkClient>(networkClients);
-            }
-            foreach (NetworkClient client in netClients)
-            {
-                if (client.isConnected())
+                foreach (NetworkClient client in networkClients)
                 {
-                    if (skipSocket != null)
+                    if (client.isConnected())
                     {
-                        if (client.tcpClient.Client == skipSocket)
-                            continue;
-                    }
+                        if (skipSocket != null)
+                        {
+                            if (client.tcpClient.Client == skipSocket)
+                                continue;
+                        }
 
-                    client.sendData(code, data);
+                        client.sendData(code, data);
+                    }
                 }
             }
         }

@@ -21,13 +21,18 @@ namespace DLT
 
 
             // Prepare a network protocol message. Works for both client-side and server-side
-            public static byte[] prepareProtocolMessage(ProtocolMessageCode code, byte[] data)
+            public static byte[] prepareProtocolMessage(ProtocolMessageCode code, byte[] data, byte[] checksum = null)
             {
                 byte[] result = null;
 
                 // Prepare the protocol sections
                 int data_length = data.Length;
-                byte[] data_checksum = Crypto.sha256(data);
+                byte[] data_checksum = checksum;
+
+                if(checksum == null)
+                {
+                    data_checksum = Crypto.sha256(data);
+                }
 
                 using (MemoryStream m = new MemoryStream())
                 {
@@ -594,7 +599,14 @@ namespace DLT
                                         }
                                         Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Substring(4)));
                                         // Send the block
-                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.blockData, block.getBytes()), SocketFlags.None);
+                                        if (endpoint != null)
+                                        {
+                                            endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
+                                        }
+                                        else
+                                        {
+                                            socket.Send(prepareProtocolMessage(ProtocolMessageCode.blockData, block.getBytes()), SocketFlags.None);
+                                        }
                                         //endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
 
                                         // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
@@ -661,9 +673,14 @@ namespace DLT
 
                                         Logging.info(String.Format("Sending transaction {0} - {1} - {2} - {3}.", txid, transaction.id, transaction.checksum, transaction.amount));
 
-                                        byte[] ba = prepareProtocolMessage(ProtocolMessageCode.transactionData, transaction.getBytes());
-                                        socket.Send(ba, SocketFlags.None);
-                                        //endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
+                                        if (endpoint != null)
+                                        {
+                                            endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
+                                        }
+                                        else
+                                        {
+                                            socket.Send(prepareProtocolMessage(ProtocolMessageCode.transactionData, transaction.getBytes()), SocketFlags.None);
+                                        }
                                     }
                                 }
                             }
@@ -730,7 +747,7 @@ namespace DLT
                                 Block block = new Block(data);
                                 //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
                                 Node.blockSync.onBlockReceived(block);
-                                Node.blockProcessor.onBlockReceived(block);
+                                Node.blockProcessor.onBlockReceived(block, endpoint, socket);
                             }
                             break;
 
@@ -738,7 +755,7 @@ namespace DLT
                             {
                                 Block block = new Block(data);
                                 Node.blockSync.onBlockReceived(block);
-                                Node.blockProcessor.onBlockReceived(block, socket);
+                                Node.blockProcessor.onBlockReceived(block, endpoint, socket);
                             }
                             break;
 

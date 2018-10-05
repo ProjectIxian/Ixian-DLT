@@ -17,6 +17,7 @@ namespace DLT
         {
             public ProtocolMessageCode code;
             public byte[] data;
+            public byte[] checksum;
             public Socket skipSocket;
         }
 
@@ -72,7 +73,7 @@ namespace DLT
                     if (code == ProtocolMessageCode.newTransaction || code == ProtocolMessageCode.transactionData
                         || code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData)
                     {
-                        if (txqueueMessages.Exists(x => x.checksum == message.checksum))
+                        if (txqueueMessages.Exists(x => x.code == message.code && x.checksum == message.checksum))
                         {
                             //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                             return;
@@ -95,7 +96,7 @@ namespace DLT
                 lock (queueMessages)
                 {
                     // ignore duplicates
-                    if (queueMessages.Exists(x => x.checksum == message.checksum && x.socket == message.socket && x.endpoint == message.endpoint))
+                    if (queueMessages.Exists(x => x.code == message.code && x.checksum == message.checksum && x.socket == message.socket && x.endpoint == message.endpoint))
                     {
                         //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                         return;
