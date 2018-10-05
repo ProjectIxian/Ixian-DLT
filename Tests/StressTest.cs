@@ -27,25 +27,29 @@ namespace DLTNode
             if (txnum != 0)
                 txspamNum = txnum;
 
-            // Run protocol spam
-            if(type.Equals("protocol", StringComparison.Ordinal))
-              startProtocolTest();
+            new Thread(() =>
+            {
+                // Run protocol spam
+                if (type.Equals("protocol", StringComparison.Ordinal))
+                    startProtocolTest();
 
-            // Run the spam connect test
-            if (type.Equals("connect", StringComparison.Ordinal))
-                startSpamConnectTest();
+                // Run the spam connect test
+                if (type.Equals("connect", StringComparison.Ordinal))
+                    startSpamConnectTest();
 
-            // Run transaction spam test
-            if (type.Equals("txspam", StringComparison.Ordinal))
-                startTxSpamTest();
+                // Run transaction spam test
+                if (type.Equals("txspam", StringComparison.Ordinal))
+                    startTxSpamTest();
 
-            // Run the transaction spam file generation test
-            if (type.Equals("txfilegen", StringComparison.Ordinal))
-                startTxFileGenTest();
+                // Run the transaction spam file generation test
+                if (type.Equals("txfilegen", StringComparison.Ordinal))
+                    startTxFileGenTest();
 
-            // Run the transaction spam file test
-            if (type.Equals("txfilespam", StringComparison.Ordinal))
-                startTxFileSpamTest();
+                // Run the transaction spam file test
+                if (type.Equals("txfilespam", StringComparison.Ordinal))
+                    startTxFileSpamTest();
+
+            }).Start();
         }
 
         private static bool connect()
