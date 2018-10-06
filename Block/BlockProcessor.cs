@@ -1273,7 +1273,7 @@ namespace DLT
 
                     tx.amount = award;
 
-                    string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, targetBlock.blockNum, "b");
+                    string data = string.Format("{0}||{1}", Node.walletStorage.publicKey, targetBlock.blockNum);
                     tx.data = data;
                     tx.timeStamp = Clock.getTimestamp(DateTime.Now);
                     tx.id = tx.generateID(); // Staking-specific txid
