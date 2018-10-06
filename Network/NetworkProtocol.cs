@@ -44,6 +44,7 @@ namespace DLT
                         writer.Write((int)code);
                         writer.Write(data_length);
                         writer.Write(data_checksum);
+                        writer.Write((byte)'I');
                         writer.Write(data);
                     }
                     result = m.ToArray();
@@ -194,7 +195,7 @@ namespace DLT
                 try
                 {
                     int data_length = 0;
-                    int header_length = 41; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes)
+                    int header_length = 42; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes) + end byte
                     var bytesToRead = 1;
                     while (message_found == false && socket.Connected)
                     {
@@ -220,9 +221,12 @@ namespace DLT
                                             reader.ReadByte(); // skip start byte
                                             reader.ReadInt32(); // skip message code
                                             data_length = reader.ReadInt32(); // finally read data length
+                                            reader.ReadBytes(32); // skip checksum sha256, 32 bytes
+                                            byte endByte = reader.ReadByte(); // end byte
                                             // TODO TODO TODO add a maximum data length
-                                            if (data_length <= 0)
+                                            if (endByte != 'I' || data_length <= 0)
                                             {
+                                                Logging.warn("Header end byte was not 'I' or data length was 0");
                                                 data_length = 0;
                                                 big_buffer.Clear();
                                                 bytesToRead = 1;
@@ -265,7 +269,7 @@ namespace DLT
                 catch (Exception e)
                 {
                     Logging.error(String.Format("NET: endpoint disconnected {0}", e));
-                    throw e;
+                    throw;
                 }
 
                 data = big_buffer.ToArray();
@@ -323,6 +327,7 @@ namespace DLT
 
 
                                 data_checksum = reader.ReadBytes(32); // sha256, 8 bits per byte
+                                byte endByte = reader.ReadByte();
                                 data = reader.ReadBytes(data_length);
                             }
                             catch (Exception e)
