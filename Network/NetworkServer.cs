@@ -25,7 +25,6 @@ namespace DLT
             private static Thread netControllerThread = null;
             private static TcpListener listener;
             private static List<RemoteEndpoint> connectedClients = new List<RemoteEndpoint>();
-            private static Thread pingThread;
             private static NetworkServer singletonInstance = new NetworkServer();
 
             static NetworkServer()
@@ -71,9 +70,6 @@ namespace DLT
 
                 Logging.info(string.Format("Public network node address: {0} port {1}", publicIPAddress, Config.serverPort));
 
-                // Finally, start the ping thread
-                pingThread = new Thread(pingLoop);
-                pingThread.Start();
             }
 
             public static void stopNetworkOperations()
@@ -104,7 +100,6 @@ namespace DLT
 
                 netControllerThread.Abort();
                 netControllerThread = null;
-                pingThread.Abort();
             }
 
             // Restart the network server
@@ -163,75 +158,6 @@ namespace DLT
                 Thread.Yield();
             }
 
-            // Unified pinging thread for all connected stream clients
-            private static void pingLoop()
-            {
-                // Only ping while networkops loop is active
-                while (continueRunning)
-                {
-                    // Wait x seconds before rechecking
-                    for (int i = 0; i < Config.keepAliveInterval; i++)
-                    {
-                        if (continueRunning == false)
-                        {
-                            Thread.Yield();
-                            return;
-                        }
-                        // Sleep for one second
-                        Thread.Sleep(1000);
-                    }
-
-                    // Prepare the keepalive message
-                    using (MemoryStream m = new MemoryStream())
-                    {
-                        using (BinaryWriter writer = new BinaryWriter(m))
-                        {
-                            try
-                            {
-                                string publicHostname = string.Format("{0}:{1}", NetworkServer.publicIPAddress, Config.serverPort);
-                                string wallet = Node.walletStorage.address;
-                                writer.Write(wallet);
-                                writer.Write(Config.device_id);
-                                writer.Write(publicHostname);
-
-                                // Add the unix timestamp
-                                string timestamp = Clock.getTimestamp(DateTime.Now);
-                                writer.Write(timestamp);
-
-                                // Add a verifiable signature
-                                string private_key = Node.walletStorage.privateKey;
-                                string signature = CryptoManager.lib.getSignature(timestamp, private_key);
-                                writer.Write(signature);
-                            }
-                            catch(Exception)
-                            {
-                                continue;
-
-                            }
-
-                            List<RemoteEndpoint> netClients = null;
-                            lock (connectedClients)
-                            {
-                                netClients = new List<RemoteEndpoint>(connectedClients);
-                            }
-                            try
-                            {
-                                foreach (RemoteEndpoint endpoint in netClients)
-                                {
-                                    sendPing(endpoint, m.ToArray());
-                                }
-                            }
-                            catch (Exception)
-                            {
-
-                            }
-                        }
-                    }
-
-                }
-                Thread.Yield();
-            }
-
             // Send data to all connected clients
             public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
             {
@@ -275,16 +201,7 @@ namespace DLT
                 }
                 return false;
             }
-
-            // Send a ping packet to verify the connection status
-            private static void sendPing(RemoteEndpoint endpoint, byte[] data)
-            {
-                if (endpoint == null)
-                    return;
-
-                endpoint.sendData(ProtocolMessageCode.keepAlivePresence, data);
-            }
-
+            
             // Returns all the connected clients
             public static string[] getConnectedClients()
             {

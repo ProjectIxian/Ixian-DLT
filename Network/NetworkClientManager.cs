@@ -19,9 +19,6 @@ namespace DLT
         private static Thread reconnectThread;
         private static bool autoReconnect = true;
 
-        private static Thread keepAliveThread;
-        private static bool autoKeepalive = false;
-
         // Starts the Network Client Manager. First it connects to one of the seed nodes in order to fetch the Presence List.
         // Afterwards, it starts the reconnect and keepalive threads
         public static void start()
@@ -47,17 +44,10 @@ namespace DLT
             reconnectThread = new Thread(reconnectClients);
             autoReconnect = true;
             reconnectThread.Start();
-
-            // Start the keepalive thread
-            autoKeepalive = true;
-            keepAliveThread = new Thread(keepAlive);
-            keepAliveThread.Start();
-
         }
 
         public static void stop()
         {
-            autoKeepalive = false;
             autoReconnect = false;
             isolate();
 
@@ -65,6 +55,7 @@ namespace DLT
             if (reconnectThread == null)
                 return;
             reconnectThread.Abort();
+            reconnectThread = null;
         }
 
         // Immediately disconnects all clients
@@ -459,65 +450,6 @@ namespace DLT
             Thread.Yield();
         }
 
-        // Sends perioding keepalive network messages
-        private static void keepAlive()
-        {
-            while (autoKeepalive)
-            {
-                // Wait x seconds before rechecking
-                for (int i = 0; i < Config.keepAliveInterval; i++)
-                {
-                    if(autoKeepalive == false)
-                    {
-                        Thread.Yield();
-                        return;
-                    }
-                    // Sleep for one second
-                    Thread.Sleep(1000);
-                }
-
-
-                try
-                {
-                    // Prepare the keepalive message
-                    using (MemoryStream m = new MemoryStream())
-                    {
-                        using (BinaryWriter writer = new BinaryWriter(m))
-                        {
-
-                            string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
-                            string wallet = Node.walletStorage.address;
-                            writer.Write(wallet);
-                            writer.Write(Config.device_id);
-                            writer.Write(publicHostname);
-
-                            // Add the unix timestamp
-                            string timestamp = Clock.getTimestamp(DateTime.Now);
-                            writer.Write(timestamp);
-
-                            // Add a verifiable signature
-                            string private_key = Node.walletStorage.privateKey;
-                            string signature = CryptoManager.lib.getSignature(timestamp, private_key);
-                            writer.Write(signature);
-
-                        }
-
-                        // Update self presence
-                        PresenceList.receiveKeepAlive(m.ToArray());
-
-                        // Send this keepalive message to all connected clients
-                        ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, m.ToArray());
-                    }
-                }
-                catch (Exception)
-                {
-                    continue;
-                }
-
-            }
-
-            Thread.Yield();
-        }
 
         public static int getQueuedMessageCount()
         {

@@ -4,8 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 
 namespace DLT.Meta
 {
@@ -29,6 +28,9 @@ namespace DLT.Meta
         public static bool presenceListActive = false;
 
         private static bool running = false;
+
+        private static Thread keepAliveThread;
+        private static bool autoKeepalive = false;
 
         static public void start()
         {
@@ -153,23 +155,30 @@ namespace DLT.Meta
 
                 genesisNode = true;
                 Node.blockProcessor.resumeOperation();
+                serverStarted = true;
                 NetworkServer.beginNetworkOperations();
-                return;
+            }
+            else
+            {
+                if (Config.recoverFromFile)
+                {
+                    Storage.readFromStorage();
+                }
+                else
+                {
+                    // Start the network client manager
+                    NetworkClientManager.start();
+
+                    // Start the miner
+                    miner = new Miner();
+                    miner.start();
+                }
             }
 
-            if (Config.recoverFromFile)
-            {
-                Storage.readFromStorage();
-            }
-            else 
-            {
-                // Start the network client manager
-                NetworkClientManager.start();
-            }
-
-            // Start the miner
-            miner = new Miner();
-            miner.start();
+            // Start the keepalive thread
+            autoKeepalive = true;
+            keepAliveThread = new Thread(keepAlive);
+            keepAliveThread.Start();
         }
 
         static public bool update()
@@ -189,6 +198,7 @@ namespace DLT.Meta
 
                     // Start the node server
                     NetworkServer.beginNetworkOperations();
+
                     serverStarted = true;
                 }
             }
@@ -215,6 +225,13 @@ namespace DLT.Meta
             if (miner != null)
             {
                 miner.stop();
+            }
+
+            autoKeepalive = false;
+            if (keepAliveThread != null)
+            {
+                keepAliveThread.Abort();
+                keepAliveThread = null;
             }
 
             // Stop the network queue
@@ -450,5 +467,66 @@ namespace DLT.Meta
             Logging.info("Cleaned cache and logs.");
             return true;
         }
+
+        // Sends perioding keepalive network messages
+        private static void keepAlive()
+        {
+            while (autoKeepalive)
+            {
+                // Wait x seconds before rechecking
+                for (int i = 0; i < Config.keepAliveInterval; i++)
+                {
+                    if (autoKeepalive == false)
+                    {
+                        Thread.Yield();
+                        return;
+                    }
+                    // Sleep for one second
+                    Thread.Sleep(1000);
+                }
+
+
+                try
+                {
+                    // Prepare the keepalive message
+                    using (MemoryStream m = new MemoryStream())
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(m))
+                        {
+
+                            string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
+                            string wallet = Node.walletStorage.address;
+                            writer.Write(wallet);
+                            writer.Write(Config.device_id);
+                            writer.Write(publicHostname);
+
+                            // Add the unix timestamp
+                            string timestamp = Clock.getTimestamp(DateTime.Now);
+                            writer.Write(timestamp);
+
+                            // Add a verifiable signature
+                            string private_key = Node.walletStorage.privateKey;
+                            string signature = CryptoManager.lib.getSignature(timestamp, private_key);
+                            writer.Write(signature);
+
+                        }
+
+                        // Update self presence
+                        PresenceList.receiveKeepAlive(m.ToArray());
+
+                        // Send this keepalive message to all connected clients
+                        ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, m.ToArray());
+                    }
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+            }
+
+            Thread.Yield();
+        }
+
     }
 }
