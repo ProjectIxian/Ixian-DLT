@@ -153,7 +153,7 @@ namespace DLTNode
 
             // Create a crypto lib
             CryptoLib crypto_lib = new CryptoLib(new CryptoLibs.BouncyCastle());
-            crypto_lib.generateKeys();
+            crypto_lib.generateKeys(Config.defaultRsaKeySize);
 
             Logging.log(LogSeverity.info, String.Format("Public Key base64: {0}", crypto_lib.getPublicKey()));
             Logging.log(LogSeverity.info, String.Format("Private Key base64: {0}", crypto_lib.getPrivateKey()));

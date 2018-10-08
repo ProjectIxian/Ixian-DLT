@@ -92,15 +92,15 @@ namespace DLT
                 if (canPerformWalletstateSync)
                 {
                     performWalletStateSync();
+                    Thread.Sleep(1000);
                 }
                 else
                 {
                     // Proceed with rolling forward the chain
                     rollForward();
                 }
+                Thread.Yield();
             }
-
-            Thread.Yield();
         }
 
         public void stop()

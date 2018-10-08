@@ -695,10 +695,6 @@ namespace DLT
                                 // Reset transaction limits
                                 //TransactionPool.resetSocketTransactionLimits();
 
-                                // Save masternodes
-                                // TODO: find a better place for this
-                                PresenceStorage.savePresenceFile();
-
                                 if (highestNetworkBlockNum > Node.blockChain.getLastBlockNum())
                                 {
                                     ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);

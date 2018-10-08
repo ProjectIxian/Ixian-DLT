@@ -22,34 +22,25 @@ namespace DLT
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
 
-        private static List<string> networkMasterNodes = new List<string>();
-
         // Starts the Network Client Manager. First it connects to one of the seed nodes in order to fetch the Presence List.
         // Afterwards, it starts the reconnect and keepalive threads
         public static void start()
         {
             networkClients = new List<NetworkClient>();
 
-            List<string> pl_masternodes = PresenceStorage.readPresenceFile();
-            foreach(string addr in pl_masternodes)
-            {
-                if (networkMasterNodes.Contains(addr) == false)
-                    networkMasterNodes.Add(addr);
-            }
-            
+            PeerStorage.readPeersFile();
+
             // Now add the seed nodes to the list
             foreach(string addr in CoreNetworkUtils.seedNodes)
             {
-                if(networkMasterNodes.Contains(addr) == false)
-                    networkMasterNodes.Add(addr);
+                PeerStorage.addPeerToPeerList(addr, addr, false);
             }
 
             // Connect to a random node first
-            Random rnd = new Random();
             bool firstSeedConnected = false;
             while (firstSeedConnected == false)
             {
-                firstSeedConnected = connectTo(networkMasterNodes[rnd.Next(networkMasterNodes.Count)]);
+                firstSeedConnected = connectTo(PeerStorage.getRandomMasterNodeIp());
             }
 
             // Start the reconnect thread
@@ -299,101 +290,82 @@ namespace DLT
         // Scans the Presence List for a new potential neighbor. Returns null if no new neighbor is found.
         public static string scanForNeighbor()
         {
-            // Cache the connected clients string array first for faster comparisons
-            string[] connectedClients = getConnectedClients();
-
-            // Prepare a list of candidate nodes
-            List<string> candidates = new List<string>();
-            Random rnd = new Random();
-
-            lock (PresenceList.presences)
+            string connectToAddress = null;
+            // Find only masternodes
+            while (connectToAddress == null)
             {
-                foreach (Presence presence in PresenceList.presences)
+                bool addr_valid = true;
+                string address = PeerStorage.getRandomMasterNodeIp();
+
+                if(address == "")
                 {
-                    // Find only masternodes
-                    foreach (PresenceAddress addr in presence.addresses)
+                    break;
+                }
+
+                // Check if we are already connected to this address
+                lock (networkClients)
+                {
+                    foreach (NetworkClient client in networkClients)
                     {
-                        if (addr.type == 'M')
+                        if (client.address.Equals(address, StringComparison.Ordinal))
                         {
-                            // Check if the address format is correct
-                            string[] server = addr.address.Split(':');
-                            if (server.Count() < 2)
-                            {
-                                continue;
-                            }
-
-                            bool addr_valid = true;
-
-                            // Check if we are already connected to this address
-                            lock (networkClients)
-                            {
-                                foreach (NetworkClient client in networkClients)
-                                {
-                                    if (client.address.Equals(addr.address, StringComparison.Ordinal))
-                                    {
-                                        // Address is already in the client list
-                                        addr_valid = false;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (addr_valid == false)
-                                continue;
-
-                            // Check against connecting clients list as well
-                            lock (connectingClients)
-                            {
-                                foreach (string client in connectingClients)
-                                {
-                                    if (addr.address.Equals(client, StringComparison.Ordinal))
-                                    {
-                                        // Address is already in the connecting client list
-                                        addr_valid = false;
-                                        break;
-                                    }
-                                }
-
-                            }
-
-                            if (addr_valid == false)
-                                continue;
-
-                            // Next, check if we're connecting to a self address of this node
-
-                            // Resolve the hostname first
-                            string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
-
-                            // Get all self addresses and run through them
-                            List<string> self_addresses = CoreNetworkUtils.GetAllLocalIPAddresses();
-                            foreach (string self_address in self_addresses)
-                            {
-                                // Don't connect to self
-                                if (resolved_server_name.Equals(self_address, StringComparison.Ordinal))
-                                {
-                                    if (server[1].Equals(string.Format("{0}", Config.serverPort), StringComparison.Ordinal))
-                                    {
-                                        addr_valid = false;
-                                    }
-                                }
-                            }
-
-                            // If the address is valid, add it to the candidates
-                            if (addr_valid)
-                            {
-                                candidates.Add(addr.address);
-                            }
+                            // Address is already in the client list
+                            addr_valid = false;
+                            break;
                         }
                     }
                 }
+
+                if (addr_valid == false)
+                    continue;
+
+                // Check against connecting clients list as well
+                lock (connectingClients)
+                {
+                    foreach (string client in connectingClients)
+                    {
+                        if (address.Equals(client, StringComparison.Ordinal))
+                        {
+                            // Address is already in the connecting client list
+                            addr_valid = false;
+                            break;
+                        }
+                    }
+
+                }
+
+                if (addr_valid == false)
+                    continue;
+
+                // Next, check if we're connecting to a self address of this node
+
+                string[] server = address.Split(':');
+
+                // Resolve the hostname first
+                string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
+
+                // Get all self addresses and run through them
+                List<string> self_addresses = CoreNetworkUtils.GetAllLocalIPAddresses();
+                foreach (string self_address in self_addresses)
+                {
+                    // Don't connect to self
+                    if (resolved_server_name.Equals(self_address, StringComparison.Ordinal))
+                    {
+                        if (server[1].Equals(string.Format("{0}", Config.serverPort), StringComparison.Ordinal))
+                        {
+                            addr_valid = false;
+                        }
+                    }
+                }
+
+                // If the address is valid, add it to the candidates
+                if (addr_valid)
+                {
+                    connectToAddress = address;
+                }
             }
 
-
-            if (candidates.Count < 1)
-                    return null;
-
-            string candidate = candidates[rnd.Next(candidates.Count)];
-            return candidate;
+            return connectToAddress;
         }
 
         // Scan for and connect to a new neighbor
@@ -468,6 +440,15 @@ namespace DLT
                     lock (networkClients)
                     {
                         networkClients.Remove(client);
+                    }
+                }
+
+                // Go through list of disconnected servers and try to reconnect
+                foreach (NetworkClient client in netClients)
+                {
+                    if(!client.isConnected())
+                    {
+                        client.reconnect();
                     }
                 }
 

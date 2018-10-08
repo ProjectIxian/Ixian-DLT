@@ -42,6 +42,8 @@ namespace DLT
 
             public static readonly double networkConsensusRatio = 0.75;
 
+            public static readonly int defaultRsaKeySize = 4096;
+
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000"); // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
@@ -115,7 +117,7 @@ namespace DLT
 
                 if(start_clean)
                 {
-                    Node.cleanCacheandLogs();
+                    Node.cleanCacheAndLogs();
                 }
 
             }

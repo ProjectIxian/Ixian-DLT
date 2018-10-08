@@ -127,6 +127,30 @@ namespace DLT.Meta
                 tx.signature = Transaction.getSignature(tx.checksum);
                 TransactionPool.addTransaction(tx);
 
+                Transaction tx2 = new Transaction(new IxiNumber("1000000"), 0, "b0052ef5407605f9bd668fc699a550ca2dc5de4720017f1ad813c8e06b6235697849", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                tx2.type = (int)Transaction.Type.Genesis;
+                tx2.data = "";
+                tx2.id = tx2.generateID();
+                tx2.checksum = Transaction.calculateChecksum(tx2);
+                tx2.signature = Transaction.getSignature(tx2.checksum);
+                TransactionPool.addTransaction(tx2);
+
+                Transaction tx3 = new Transaction(new IxiNumber("1000000"), 0, "2bd883f4db2535879132e67d762f8871708927beb2a0fcc8f9f715125fc9a6c4b567", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                tx3.type = (int)Transaction.Type.Genesis;
+                tx3.data = "";
+                tx3.id = tx3.generateID();
+                tx3.checksum = Transaction.calculateChecksum(tx3);
+                tx3.signature = Transaction.getSignature(tx3.checksum);
+                TransactionPool.addTransaction(tx3);
+
+                Transaction tx4 = new Transaction(new IxiNumber("1000000"), 0, "9f51590772405d88278c160df993892148cb44ba40ab0785fd5afbba7a0ddce0bdc9", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                tx4.type = (int)Transaction.Type.Genesis;
+                tx4.data = "";
+                tx4.id = tx4.generateID();
+                tx4.checksum = Transaction.calculateChecksum(tx4);
+                tx4.signature = Transaction.getSignature(tx4.checksum);
+                TransactionPool.addTransaction(tx4);
+
                 genesisNode = true;
                 Node.blockProcessor.resumeOperation();
                 NetworkServer.beginNetworkOperations();
@@ -412,14 +436,14 @@ namespace DLT.Meta
         }
 
         // Cleans the storage cache and logs
-        public static bool cleanCacheandLogs()
+        public static bool cleanCacheAndLogs()
         {
             if(File.Exists(Storage.filename))
             {
                 File.Delete(Storage.filename);
             }
 
-            PresenceStorage.deletePresenceFile();
+            PeerStorage.deletePeersFile();
 
             Logging.clear();
 
