@@ -247,6 +247,48 @@ namespace DLTNode
                 return true;
             }
 
+            if (methodName.Equals("addmultisigtransaction", StringComparison.OrdinalIgnoreCase))
+            {
+                // Add a new transaction. This test allows sending and receiving from arbitrary addresses
+                string responseString = "Incorrect transaction parameters.";
+
+                string to = request.QueryString["to"];
+                string amount_string = request.QueryString["amount"];
+                IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
+                IxiNumber fee = Config.transactionPrice;
+
+                // Only create a transaction if there is a valid amount
+                if (amount > (long)0)
+                {
+                    string from = Node.walletStorage.address;
+
+                    TransactionPool.internalNonce++;
+                    ulong nonce = TransactionPool.internalNonce;
+
+                    if (!Address.validateChecksum(to))
+                    {
+                        responseString = "Incorrect to address.";
+                    }
+                    else
+                    {
+                        Transaction transaction = new Transaction(amount, fee, to, from, nonce, (int)Transaction.Type.MultisigTX);
+                        if (TransactionPool.addTransaction(transaction))
+                        {
+                            responseString = JsonConvert.SerializeObject(transaction);
+                        }
+                        else
+                        {
+                            responseString = "There was an error adding the transaction.";
+                        }
+                    }
+                }
+
+                // Respond with the transaction details
+                sendResponse(context.Response, responseString);
+
+                return true;
+            }
+
             if (methodName.Equals("getbalance", StringComparison.OrdinalIgnoreCase))
             {
                 string address = request.QueryString["address"];
@@ -480,11 +522,12 @@ namespace DLTNode
                 int count = 0;
                 foreach (Transaction t in transactions)
                 {
-                    formattedTransactions[count] = new string[4];
+                    formattedTransactions[count] = new string[5];
                     formattedTransactions[count][0] = t.id;
                     formattedTransactions[count][1] = string.Format("{0}", t.amount);
                     formattedTransactions[count][2] = t.timeStamp;
                     formattedTransactions[count][3] = t.applied.ToString();
+                    formattedTransactions[count][4] = ((Transaction.Type)t.type).ToString();
 
                     count++;
                 }
@@ -503,11 +546,12 @@ namespace DLTNode
                 int count = 0;
                 foreach (Transaction t in transactions)
                 {
-                    formattedTransactions[count] = new string[4];
+                    formattedTransactions[count] = new string[5];
                     formattedTransactions[count][0] = t.id;
                     formattedTransactions[count][1] = string.Format("{0}", t.amount);
                     formattedTransactions[count][2] = t.timeStamp;
                     formattedTransactions[count][3] = t.applied.ToString();
+                    formattedTransactions[count][4] = ((Transaction.Type)t.type).ToString();
 
                     count++;
                 }
