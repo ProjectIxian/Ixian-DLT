@@ -51,13 +51,17 @@ namespace DLT
             lastBlockStartTime = DateTime.Now;
             operating = true;
 
-            // Abort the thread if it's already created
-            if (block_thread != null)
-                block_thread.Abort();
+            lock (block_thread)
+            {
 
-            // Start the thread
-            block_thread = new Thread(onUpdate);
-            block_thread.Start();
+                // Abort the thread if it's already created
+                if (block_thread != null)
+                    block_thread.Abort();
+
+                // Start the thread
+                block_thread = new Thread(onUpdate);
+                block_thread.Start();
+            }
         }
 
         public void stopOperation()
