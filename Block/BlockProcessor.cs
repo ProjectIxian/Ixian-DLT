@@ -293,7 +293,7 @@ namespace DLT
                 // TODO: Blacklisting point
                 return;
             }
-            if (removeSignaturesWithoutPlEntry(b))
+            if (b.blockNum > highestNetworkBlockNum - 5 && removeSignaturesWithoutPlEntry(b))
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
                 // TODO: Blacklisting point
@@ -360,7 +360,12 @@ namespace DLT
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, b.blockChecksum));
                             // TODO: Blacklisting point
                         }
-                        if(b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()) // if at least 2 blocks behind
+                        if (removeSignaturesWithoutPlEntry(b))
+                        {
+                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
+                            // TODO: Blacklisting point
+                        }
+                        if (b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
                         }
