@@ -51,7 +51,7 @@ namespace DLT
             lastBlockStartTime = DateTime.Now;
             operating = true;
 
-            lock (block_thread)
+            lock (localBlockLock)
             {
 
                 // Abort the thread if it's already created
