@@ -33,6 +33,8 @@ namespace DLT
         private List<QueueMessageRaw> recvRawQueueMessages = new List<QueueMessageRaw>();
 
 
+        private object reconnectLock = new object();
+
         public NetworkClient()
         {
             prepareClient();
@@ -158,33 +160,36 @@ namespace DLT
         // Reconnect with the previous settings
         public bool reconnect()
         {
-            if (tcpHostname.Length < 1)
+            lock (reconnectLock)
             {
-                Logging.warn("Network client reconnect failed due to invalid hostname.");
-                failedReconnects++;
-                return false;
-            }
+                if (tcpHostname.Length < 1)
+                {
+                    Logging.warn("Network client reconnect failed due to invalid hostname.");
+                    failedReconnects++;
+                    return false;
+                }
 
-            // Safely close the threads
-            running = false;
+                // Safely close the threads
+                running = false;
 
-            // Check if socket already disconnected
-            if (tcpClient == null)
-            {
-                // TODO: handle this scenario
-            }
-            else if (tcpClient.Client == null)
-            {
-                // TODO: handle this scenario
-            }
-            else if (tcpClient.Client.Connected)
-            {
-                tcpClient.Client.Shutdown(SocketShutdown.Both);
-                tcpClient.Close();
-            }
+                // Check if socket already disconnected
+                if (tcpClient == null)
+                {
+                    // TODO: handle this scenario
+                }
+                else if (tcpClient.Client == null)
+                {
+                    // TODO: handle this scenario
+                }
+                else if (tcpClient.Client.Connected)
+                {
+                    tcpClient.Client.Shutdown(SocketShutdown.Both);
+                    tcpClient.Close();
+                }
 
-            Logging.info(string.Format("--> Reconnecting to {0}", address));
-            return connectToServer(tcpHostname, tcpPort);
+                Logging.info(string.Format("--> Reconnecting to {0}", address));
+                return connectToServer(tcpHostname, tcpPort);
+            }
         }
 
 
