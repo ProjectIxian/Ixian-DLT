@@ -475,13 +475,6 @@ namespace DLT
             return string.Format("{0}:{1}", tcpHostname, tcpPort);
         }
 
-        // Broadcasts a keepalive network message for this node PL address
-        public bool sendKeepAlive(byte[] data)
-        {
-            sendData(ProtocolMessageCode.keepAlivePresence, data);
-            return true;
-        }
-
         // Send a ping message to this server
         public void sendPing()
         {

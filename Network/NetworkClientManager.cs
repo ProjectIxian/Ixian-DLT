@@ -506,16 +506,7 @@ namespace DLT
                         PresenceList.receiveKeepAlive(m.ToArray());
 
                         // Send this keepalive message to all connected clients
-                        lock (networkClients)
-                        {
-                            foreach (NetworkClient client in networkClients)
-                            {
-                                if (client.isConnected())
-                                {
-                                    client.sendKeepAlive(m.ToArray());
-                                }
-                            }
-                        }
+                        ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, m.ToArray());
                     }
                 }
                 catch (Exception)
