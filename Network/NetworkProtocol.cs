@@ -959,6 +959,7 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlockTransactions:
                             {
+                                // TODO TODO TODO split
                                 using (MemoryStream m = new MemoryStream(data))
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
@@ -1019,6 +1020,42 @@ namespace DLT
                                                         socket.Send(ba, SocketFlags.None);
                                                     }
                                                     
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getUnappliedTransactions:
+                            {
+                                // TODO TODO TODO split
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        using (MemoryStream mOut = new MemoryStream())
+                                        {
+                                            using (BinaryWriter writer = new BinaryWriter(mOut))
+                                            {
+                                                Transaction[] txIdArr = TransactionPool.getUnappliedTransactions();
+                                                foreach(Transaction tx in txIdArr)
+                                                {
+                                                    byte[] txBytes = tx.getBytes();
+
+                                                    writer.Write(txBytes.Length);
+                                                    writer.Write(txBytes);
+                                                }
+
+                                                if (endpoint != null)
+                                                {
+                                                    endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                }
+                                                else
+                                                {
+                                                    byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                                    socket.Send(ba, SocketFlags.None);
                                                 }
                                             }
                                         }

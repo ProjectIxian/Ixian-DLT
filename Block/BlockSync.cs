@@ -39,6 +39,8 @@ namespace DLT
 
         private bool running = false;
 
+        private bool gotUnappliedTransactions = false;
+
         public BlockSync()
         {
             synchronizing = false;
@@ -87,6 +89,11 @@ namespace DLT
                             continue;
                         }
                     }
+                }
+                if(!gotUnappliedTransactions)
+                {
+                    ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.getUnappliedTransactions, new byte[1]);
+                    gotUnappliedTransactions = true;
                 }
                 // Check if we can perform the walletstate synchronization
                 if (canPerformWalletstateSync)

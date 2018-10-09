@@ -106,12 +106,6 @@ namespace DLT
                 }
             }
 
-            // Remove corresponding address from presence list
-            if (presence != null && presenceAddress != null)
-            {
-                PresenceList.removeAddressEntry(presence.wallet, presenceAddress);
-            }
-
             // Close the client socket
             if (clientSocket != null)
             {
