@@ -600,10 +600,10 @@ namespace DLT
             Logging.info(string.Format("\t|- Block Checksum:\t\t{0}", block_checksum));
             Logging.info(string.Format("\t|- WalletState checksum:\t{0}", walletstate_checksum));
             Logging.info(string.Format("\t|- Currently reported consensus:\t{0}", consensus));
-            Logging.info(string.Format("\t|- My timestamp:\t{0}", timestamp));
+            Logging.info(string.Format("\t|- Timestamp:\t{0}", timestamp));
 
 
-            Node.networkTimeDifference = (long)Clock.getTimestamp(DateTime.Now) - timestamp;
+            Node.networkTimeDifference = Clock.getTimestamp(DateTime.Now) - timestamp;
 
             if (synchronizing)
             {

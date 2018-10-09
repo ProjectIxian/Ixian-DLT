@@ -697,6 +697,8 @@ namespace DLTNode
                 Dictionary<string, Object> networkArray = new Dictionary<string, Object>();
 
                 networkArray.Add("Node Version", Config.version);
+                networkArray.Add("My time", Clock.getTimestamp(DateTime.Now));
+                networkArray.Add("Network time difference", Node.networkTimeDifference);
                 networkArray.Add("My External IP", Config.publicServerIP);
                 networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
                 networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
