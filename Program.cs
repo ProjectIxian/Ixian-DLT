@@ -23,6 +23,9 @@ namespace DLTNode
             // Clear the console first
             Console.Clear();
 
+            // Start logging
+            Logging.start();
+
             Logging.info(string.Format("IXIAN DLT Node {0} started", Config.version));
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
@@ -142,6 +145,9 @@ namespace DLTNode
 
             // Stop the DLT
             Node.stop();
+
+            // Stop logging
+            Logging.stop();
 
             Console.WriteLine("\n");
         }
