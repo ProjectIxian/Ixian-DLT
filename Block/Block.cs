@@ -20,6 +20,7 @@ namespace DLT
         public string lastBlockChecksum = "0";
         public string walletStateChecksum = "0";
         public string signatureFreezeChecksum = "0";
+        public string timestamp = "";
         public ulong difficulty = 0;
 
         // Locally calculated
@@ -67,6 +68,7 @@ namespace DLT
             lastBlockChecksum = block.lastBlockChecksum;
             walletStateChecksum = block.walletStateChecksum;
             signatureFreezeChecksum = block.signatureFreezeChecksum;
+            timestamp = block.timestamp;
             difficulty = block.difficulty;
             powField = block.powField;
         }
@@ -106,6 +108,7 @@ namespace DLT
                         signatureFreezeChecksum = reader.ReadString();
                         difficulty = reader.ReadUInt64();
                         powField = reader.ReadString();
+                        timestamp = reader.ReadString();
                     }
                 }
             }
@@ -150,6 +153,7 @@ namespace DLT
                     writer.Write(signatureFreezeChecksum);
                     writer.Write(difficulty);
                     writer.Write(powField);
+                    writer.Write(timestamp);
                 }
                 return m.ToArray();
             }
