@@ -603,7 +603,7 @@ namespace DLT
             Logging.info(string.Format("\t|- My timestamp:\t{0}", timestamp));
 
 
-            Node.networkTimeDifference = long.Parse(Clock.getTimestamp(DateTime.Now)) - timestamp;
+            Node.networkTimeDifference = (long)Clock.getTimestamp(DateTime.Now) - timestamp;
 
             if (synchronizing)
             {
