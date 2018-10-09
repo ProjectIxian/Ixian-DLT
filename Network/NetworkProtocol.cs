@@ -19,6 +19,15 @@ namespace DLT
             public static readonly ulong[] recvByteHist = new ulong[100];
 
 
+            public static byte getHeaderChecksum(byte[] header)
+            {
+                byte sum = 0x7F;
+                for(int i = 0; i < header.Length; i++)
+                {
+                    sum ^= header[i];
+                }
+                return sum;
+            }
 
             // Prepare a network protocol message. Works for both client-side and server-side
             public static byte[] prepareProtocolMessage(ProtocolMessageCode code, byte[] data, byte[] checksum = null)
@@ -27,6 +36,13 @@ namespace DLT
 
                 // Prepare the protocol sections
                 int data_length = data.Length;
+
+                if (data_length > 10000000)
+                {
+                    Logging.error(String.Format("Tried to send data bigger than 10MB - {0} with code {1}.", data_length, code));
+                    return null;
+                }
+
                 byte[] data_checksum = checksum;
 
                 if(checksum == null)
@@ -44,6 +60,13 @@ namespace DLT
                         writer.Write((int)code);
                         writer.Write(data_length);
                         writer.Write(data_checksum);
+
+                        writer.Flush();
+                        m.Flush();
+
+                        byte header_checksum = getHeaderChecksum(m.ToArray());
+                        writer.Write(header_checksum);
+
                         writer.Write((byte)'I');
                         writer.Write(data);
                     }
@@ -172,9 +195,10 @@ namespace DLT
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         reader.ReadByte(); // skip start byte
-                        reader.ReadInt32(); // skip message code
+                        int code = reader.ReadInt32(); // skip message code
                         data_length = reader.ReadInt32(); // finally read data length
-                        reader.ReadBytes(32); // skip checksum sha256, 32 bytes
+                        byte[] data_checksum = reader.ReadBytes(32); // skip checksum sha256, 32 bytes
+                        byte checksum = reader.ReadByte(); // header checksum byte
                         byte endByte = reader.ReadByte(); // end byte
 
                         if (endByte != 'I')
@@ -183,15 +207,21 @@ namespace DLT
                             return -1;
                         }
 
+                        if(getHeaderChecksum(header.Take(41).ToArray()) != checksum)
+                        {
+                            Logging.warn(String.Format("Header checksum mismatch"));
+                            return -1;
+                        }
+
                         if (data_length <= 0)
                         {
-                            Logging.warn(String.Format("Data length was {0}", data_length));
+                            Logging.warn(String.Format("Data length was {0}, code {1}", data_length, code));
                             return -1;
                         }
 
                         if (data_length > 10000000)
                         {
-                            Logging.warn(String.Format("Data length was bigger than 10MB - {0}.", data_length));
+                            Logging.warn(String.Format("Data length was bigger than 10MB - {0}, code {1}.", data_length, code));
                             return -1;
                         }
                     }
@@ -224,15 +254,15 @@ namespace DLT
 
                 // Read multi-packet messages
                 // TODO: optimize this as it's not very efficient
-                var big_buffer = new List<byte>();
+                List<byte> big_buffer = new List<byte>();
 
                 bool message_found = false;
 
                 try
                 {
                     int data_length = 0;
-                    int header_length = 42; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes) + end byte
-                    var bytesToRead = 1;
+                    int header_length = 43; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes) + header checksum (1 byte) + end byte
+                    int bytesToRead = 1;
                     while (message_found == false && socket.Connected)
                     {
                         //int pos = bytesToRead > recvByteHist.Length ? recvByteHist.Length - 1 : bytesToRead;
@@ -240,7 +270,7 @@ namespace DLT
                         {
                             recvByteHist[pos]++;
                         }*/
-                        var byteCounter = socket.Receive(currentBuffer, bytesToRead, SocketFlags.None);
+                        int byteCounter = socket.Receive(currentBuffer, bytesToRead, SocketFlags.None);
 
                         if (byteCounter > 0)
                         {
@@ -294,8 +324,10 @@ namespace DLT
                     Logging.error(String.Format("NET: endpoint disconnected {0}", e));
                     throw;
                 }
-
-                data = big_buffer.ToArray();
+                if (message_found)
+                {
+                    data = big_buffer.ToArray();
+                }
                 return data;
             }
 
@@ -350,6 +382,7 @@ namespace DLT
 
 
                                 data_checksum = reader.ReadBytes(32); // sha256, 8 bits per byte
+                                byte header_checksum = reader.ReadByte();
                                 byte endByte = reader.ReadByte();
                                 data = reader.ReadBytes(data_length);
                             }
