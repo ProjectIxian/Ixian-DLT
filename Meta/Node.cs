@@ -512,7 +512,7 @@ namespace DLT.Meta
 
                             // Add a verifiable signature
                             string private_key = Node.walletStorage.privateKey;
-                            string signature = CryptoManager.lib.getSignature(timestamp, private_key);
+                            string signature = CryptoManager.lib.getSignature(Config.device_id + "-" + timestamp + "-" + publicHostname, private_key);
                             writer.Write(signature);
 
                         }
@@ -537,7 +537,7 @@ namespace DLT.Meta
         // TODO everything connected to networkTimeDifference can probably be solved better
         public static long getCurrentTimestamp()
         {
-            return long.Parse(Clock.getTimestamp(DateTime.Now)) - networkTimeDifference;
+            return (long)(Clock.getTimestamp(DateTime.Now) - networkTimeDifference);
         }
 
     }
