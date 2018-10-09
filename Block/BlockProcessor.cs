@@ -293,6 +293,7 @@ namespace DLT
                 // TODO: Blacklisting point
                 return;
             }
+            // remove signatures without PL entry but not if we're catching up with the network
             if (b.blockNum > highestNetworkBlockNum - 5 && removeSignaturesWithoutPlEntry(b))
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
@@ -365,6 +366,7 @@ namespace DLT
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
                             // TODO: Blacklisting point
                         }
+                        // blocknum is higher than the network's, switching to catch-up mode, but only if full consensus is reached on the block
                         if (b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
