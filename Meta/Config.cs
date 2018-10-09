@@ -30,6 +30,8 @@ namespace DLT
             public static readonly string version = "xdc-0.4.5"; // DLT Node version
             public static readonly bool isTestNet = true; // Testnet designator
 
+            public static readonly int maxLogFileSize = 50 * 1024 * 1024; // 50MB
+
             public static readonly int nodeVersion = 4; // Ixian protocol version
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
