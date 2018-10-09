@@ -193,7 +193,7 @@ namespace DLTNode
             string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             tx.data = data;
 
-            tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+            tx.timeStamp = Node.getCurrentTimestamp().ToString();
             tx.id = tx.generateID();
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);

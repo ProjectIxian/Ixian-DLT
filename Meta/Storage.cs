@@ -141,7 +141,7 @@ namespace DLT
                     numSkippedBlocks = 1;
                 }
 
-                Node.blockSync.onHelloDataReceived((ulong)blk.blockNum - numSkippedBlocks, blk.blockChecksum, blk.walletStateChecksum, 1);
+                Node.blockSync.onHelloDataReceived((ulong)blk.blockNum - numSkippedBlocks, blk.blockChecksum, blk.walletStateChecksum, 1, long.Parse(Clock.getTimestamp(DateTime.Now)));
 
                 return true;
             }

@@ -546,6 +546,7 @@ namespace DLT
                                     writer.Write(block.blockChecksum);
                                     writer.Write(block.walletStateChecksum);
                                     writer.Write(Node.blockChain.getRequiredConsensus());
+                                    writer.Write(Node.getCurrentTimestamp());
 
                                     byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
                                     socket.Send(ba, SocketFlags.None);
@@ -573,15 +574,22 @@ namespace DLT
                                     string block_checksum = reader.ReadString();
                                     string walletstate_checksum = reader.ReadString();
                                     int consensus = reader.ReadInt32();
+                                    long timestamp = reader.ReadInt64();
 
+                                    long myTimestamp = Node.getCurrentTimestamp();
 
-                                    if(Node.checkCurrentBlockDeprecation(last_block_num) == false)
+                                    if (timestamp > myTimestamp + 100 || timestamp < myTimestamp - 100)
+                                    {
+                                        Logging.warn("This node's time is very different from network's time.");
+                                    }
+
+                                    if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                     {
                                         socket.Disconnect(true);
                                         return;
                                     }
 
-                                    Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum, consensus);
+                                    Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum, consensus, timestamp);
                                 }
                             }
                             break;

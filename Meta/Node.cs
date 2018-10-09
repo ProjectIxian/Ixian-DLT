@@ -32,6 +32,8 @@ namespace DLT.Meta
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
 
+        public static long networkTimeDifference = 0;
+
         static public void start()
         {
             running = true;
@@ -123,7 +125,7 @@ namespace DLT.Meta
                 tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
                 tx.amount = genesisFunds;
                 tx.data = "";
-                tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+                tx.timeStamp = getCurrentTimestamp().ToString();
                 tx.id = tx.generateID();
                 tx.checksum = Transaction.calculateChecksum(tx);
                 tx.signature = Transaction.getSignature(tx.checksum);
@@ -132,6 +134,7 @@ namespace DLT.Meta
                 Transaction tx2 = new Transaction(new IxiNumber("1000000"), 0, "b0052ef5407605f9bd668fc699a550ca2dc5de4720017f1ad813c8e06b6235697849", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
                 tx2.type = (int)Transaction.Type.Genesis;
                 tx2.data = "";
+                tx2.timeStamp = getCurrentTimestamp().ToString();
                 tx2.id = tx2.generateID();
                 tx2.checksum = Transaction.calculateChecksum(tx2);
                 tx2.signature = Transaction.getSignature(tx2.checksum);
@@ -140,6 +143,7 @@ namespace DLT.Meta
                 Transaction tx3 = new Transaction(new IxiNumber("1000000"), 0, "2bd883f4db2535879132e67d762f8871708927beb2a0fcc8f9f715125fc9a6c4b567", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
                 tx3.type = (int)Transaction.Type.Genesis;
                 tx3.data = "";
+                tx3.timeStamp = getCurrentTimestamp().ToString();
                 tx3.id = tx3.generateID();
                 tx3.checksum = Transaction.calculateChecksum(tx3);
                 tx3.signature = Transaction.getSignature(tx3.checksum);
@@ -148,6 +152,7 @@ namespace DLT.Meta
                 Transaction tx4 = new Transaction(new IxiNumber("1000000"), 0, "9f51590772405d88278c160df993892148cb44ba40ab0785fd5afbba7a0ddce0bdc9", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
                 tx4.type = (int)Transaction.Type.Genesis;
                 tx4.data = "";
+                tx4.timeStamp = getCurrentTimestamp().ToString();
                 tx4.id = tx4.generateID();
                 tx4.checksum = Transaction.calculateChecksum(tx4);
                 tx4.signature = Transaction.getSignature(tx4.checksum);
@@ -297,6 +302,7 @@ namespace DLT.Meta
         // Shows an IP selector menu
         static public void showIPmenu()
         {
+            Thread.Sleep(1000); // sleep a bit to allow logging to do it's thing
             Console.WriteLine("This node needs to be reachable from the internet. Please select a valid IP address.");
             Console.WriteLine();
 
@@ -501,7 +507,7 @@ namespace DLT.Meta
                             writer.Write(publicHostname);
 
                             // Add the unix timestamp
-                            string timestamp = Clock.getTimestamp(DateTime.Now);
+                            string timestamp = Node.getCurrentTimestamp().ToString();
                             writer.Write(timestamp);
 
                             // Add a verifiable signature
@@ -526,6 +532,12 @@ namespace DLT.Meta
             }
 
             Thread.Yield();
+        }
+
+        // TODO everything connected to networkTimeDifference can probably be solved better
+        public static long getCurrentTimestamp()
+        {
+            return long.Parse(Clock.getTimestamp(DateTime.Now)) - networkTimeDifference;
         }
 
     }

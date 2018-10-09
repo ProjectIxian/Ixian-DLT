@@ -1282,7 +1282,7 @@ namespace DLT
 
                     string data = string.Format("{0}||{1}", Node.walletStorage.publicKey, targetBlock.blockNum);
                     tx.data = data;
-                    tx.timeStamp = Clock.getTimestamp(DateTime.Now);
+                    tx.timeStamp = Node.getCurrentTimestamp().ToString();
                     tx.id = tx.generateID(); // Staking-specific txid
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = "Stake";

@@ -586,13 +586,17 @@ namespace DLT
             }
         }
 
-        public void onHelloDataReceived(ulong block_height, string block_checksum, string walletstate_checksum, int consensus)
+        public void onHelloDataReceived(ulong block_height, string block_checksum, string walletstate_checksum, int consensus, long timestamp)
         {
             Logging.info("SYNC HEADER DATA");
             Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));
             Logging.info(string.Format("\t|- Block Checksum:\t\t{0}", block_checksum));
             Logging.info(string.Format("\t|- WalletState checksum:\t{0}", walletstate_checksum));
             Logging.info(string.Format("\t|- Currently reported consensus:\t{0}", consensus));
+            Logging.info(string.Format("\t|- My timestamp:\t{0}", timestamp));
+
+
+            Node.networkTimeDifference = long.Parse(Clock.getTimestamp(DateTime.Now)) - timestamp;
 
             if (synchronizing)
             {
