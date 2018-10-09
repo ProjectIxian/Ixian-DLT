@@ -131,7 +131,7 @@ namespace DLT.Meta
                 tx.signature = Transaction.getSignature(tx.checksum);
                 TransactionPool.addTransaction(tx);
 
-                Transaction tx2 = new Transaction(new IxiNumber("1000000"), 0, "b0052ef5407605f9bd668fc699a550ca2dc5de4720017f1ad813c8e06b6235697849", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                Transaction tx2 = new Transaction(new IxiNumber("1000000"), 0, "a47d5b48bbed49fa9664b906fc0586260f064590432479471cb2b73db184e1a7228d", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
                 tx2.type = (int)Transaction.Type.Genesis;
                 tx2.data = "";
                 tx2.timeStamp = getCurrentTimestamp().ToString();

@@ -271,7 +271,7 @@ namespace DLTNode
                     }
                     else
                     {
-                        Transaction transaction = new Transaction(amount, fee, to, from, nonce, (int)Transaction.Type.MultisigTX);
+                        Transaction transaction = new Transaction(amount, fee, to, from, nonce);
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -280,6 +280,93 @@ namespace DLTNode
                         {
                             responseString = "There was an error adding the transaction.";
                         }
+                    }
+                }
+
+                // Respond with the transaction details
+                sendResponse(context.Response, responseString);
+
+                return true;
+            }
+
+            if (methodName.Equals("addmultisigkey", StringComparison.OrdinalIgnoreCase))
+            {
+                // transaction which alters a multisig wallet
+                string responseString = "Incorrect transaction parameters.";
+
+                string destWallet = request.QueryString["wallet"];
+                string signer = request.QueryString["signer"];
+                IxiNumber fee = Config.transactionPrice;
+
+                TransactionPool.internalNonce++;
+                ulong nonce = TransactionPool.internalNonce;
+
+                Transaction transaction = Transaction.multisigAddKeyTransaction(signer, fee, destWallet, nonce);
+                if (TransactionPool.addTransaction(transaction))
+                {
+                    responseString = JsonConvert.SerializeObject(transaction);
+                }
+                else
+                {
+                    responseString = "There was an error adding the transaction.";
+                }
+
+                // Respond with the transaction details
+                sendResponse(context.Response, responseString);
+
+                return true;
+            }
+
+            if (methodName.Equals("delmultisigkey", StringComparison.OrdinalIgnoreCase))
+            {
+                // transaction which alters a multisig wallet
+                string responseString = "Incorrect transaction parameters.";
+
+                string destWallet = request.QueryString["wallet"];
+                string signer = request.QueryString["signer"];
+                IxiNumber fee = Config.transactionPrice;
+
+                TransactionPool.internalNonce++;
+                ulong nonce = TransactionPool.internalNonce;
+
+                Transaction transaction = Transaction.multisigDelKeyTransaction(signer, fee, destWallet, nonce);
+                if (TransactionPool.addTransaction(transaction))
+                {
+                    responseString = JsonConvert.SerializeObject(transaction);
+                }
+                else
+                {
+                    responseString = "There was an error adding the transaction.";
+                }
+
+                // Respond with the transaction details
+                sendResponse(context.Response, responseString);
+
+                return true;
+            }
+
+            if (methodName.Equals("changemultisigs", StringComparison.OrdinalIgnoreCase))
+            {
+                // transaction which alters a multisig wallet
+                string responseString = "Incorrect transaction parameters.";
+
+                string destWallet = request.QueryString["wallet"];
+                string sigs = request.QueryString["sigs"];
+                IxiNumber fee = Config.transactionPrice;
+                if (byte.TryParse(sigs, out byte reqSigs))
+                {
+
+                    TransactionPool.internalNonce++;
+                    ulong nonce = TransactionPool.internalNonce;
+
+                    Transaction transaction = Transaction.multisigChangeReqSigs(reqSigs, fee, destWallet, nonce);
+                    if (TransactionPool.addTransaction(transaction))
+                    {
+                        responseString = JsonConvert.SerializeObject(transaction);
+                    }
+                    else
+                    {
+                        responseString = "There was an error adding the transaction.";
                     }
                 }
 
@@ -461,6 +548,46 @@ namespace DLTNode
                 statArray[2] = sync_status;
 
                 string responseString = JsonConvert.SerializeObject(statArray);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
+            if (methodName.Equals("mypubkey", StringComparison.OrdinalIgnoreCase))
+            {
+                // Show own address, balance and blockchain synchronization status
+                string pubkey = Node.walletStorage.publicKey;
+
+                string[] statArray = new String[1];
+                statArray[0] = pubkey;
+
+                string responseString = JsonConvert.SerializeObject(statArray);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
+            if (methodName.Equals("getwallet", StringComparison.OrdinalIgnoreCase))
+            {
+                // Show own address, balance and blockchain synchronization status
+                string address = request.QueryString["id"];
+                Wallet w = Node.walletState.getWallet(address);
+
+                Dictionary<string, string> walletData = new Dictionary<string, string>();
+                walletData.Add("id", w.id);
+                walletData.Add("balance", w.balance.ToString());
+                walletData.Add("type", w.type.ToString());
+                walletData.Add("requiredSigs", w.requiredSigs.ToString());
+                if (w.allowedSigners != null)
+                {
+                    walletData.Add("allowedSigners", "(" + w.allowedSigners.Length + " keys): " + string.Join(",", w.allowedSigners));
+                }
+                else
+                {
+                    walletData.Add("allowedSigners", "null");
+                }
+                walletData.Add("extraData", w.data);
+                walletData.Add("nonce", w.nonce.ToString());
+
+                string responseString = JsonConvert.SerializeObject(walletData);
                 sendResponse(context.Response, responseString);
                 return true;
             }

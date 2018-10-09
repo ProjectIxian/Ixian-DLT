@@ -74,9 +74,8 @@ namespace DLT
             }
 
             // Prevent transaction spamming
-            // Commented due to implementation of 'pending' transactions for S2 as per whitepaper
-            // Uncommented, we can use a different tx type for pending transactions
-            if (transaction.amount == 0)
+            // Note: transactions that change multisig wallet parameters may have amount zero, since it will be ignored anyway
+            if (transaction.amount == 0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
             {
                 return false;
             }
@@ -96,7 +95,8 @@ namespace DLT
             }
 
             // Prevent sending to the sender's address
-            if (transaction.from.Equals(transaction.to, StringComparison.Ordinal))
+            // unless it's a multisig change transaction
+            if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.from.Equals(transaction.to, StringComparison.Ordinal))
             {
                 Logging.warn(string.Format("Invalid TO address for transaction id: {0}", transaction.id));
                 return false;
@@ -173,24 +173,40 @@ namespace DLT
             /*var sw = new System.Diagnostics.Stopwatch();
             sw.Start();*/
             // Finally, verify the signature
-            if(transaction.type == (int)Transaction.Type.MultisigTX)
+            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
                 Logging.info(String.Format("Transaction {{ {0} }} is a multisig transaction.", transaction.id));
                 Wallet orig = Node.walletState.getWallet(transaction.from);
-                if(orig.type == WalletType.Multisig)
+                if (orig.type == WalletType.Multisig)
                 {
-                    string[] signatures = transaction.signature.Split(':');
+                    string[] signatures = transaction.signature.Split(',');
                     Logging.info(String.Format("Multisig transaction has {0} signatures, {1} required.", signatures.Length, orig.requiredSigs));
-                    foreach (string signature in signatures) {
-                        if (!isAllowedSignature(transaction.checksum, orig.allowedSigners, signature))
-                        {
-                            Logging.warn(String.Format("Transaction {{ {0} }}: signature is not on the approved signers list for wallet {1}.",
-                                transaction.id, signature));
-                            return false;
-                        }
+                    if (numValidMultisigs(transaction.checksum, signatures, orig) < 0)
+                    {
+                        Logging.warn(String.Format("Transaction {{ {0} }}: has invalid multisigs for wallet {1}.",
+                            transaction.id, orig.id));
+                        return false;
                     }
                 } else //! WalletType.Multisig
                 {
+                    if (transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    {
+                        string[] tx_data_fields = transaction.data != null ? transaction.data.Split(':') : new string[0];
+                        if (tx_data_fields.Length < 2)
+                        {
+                            Logging.warn(String.Format("Transaction {{ {0} }} is a change multisig transaction but the data field does not contain appropriate data.", transaction.id));
+                            return false;
+                        }
+                        if (tx_data_fields[0] != "MS1")
+                        {
+                            Logging.warn(String.Format("Transaction {{ {0} }} is a change multisig transaction on a non-multisig wallet. Only type 'MS1' is allowed, but the transaction has type {1}.",
+                                transaction.id, tx_data_fields[0]));
+                            return false;
+                        }
+                        // ChangeMultisigWallet Transaction type with subtype 'MS1' is allowed to operate on a normal wallet,
+                        // because it will change the wallet to a multisig wallet.
+                        return true;
+                    }
                     Logging.warn(String.Format("Transaction {{ {0} }} is a multisig transaction, but source wallet {1} is not multisig wallet!",
                         transaction.id, transaction.from));
                     return false;
@@ -225,19 +241,6 @@ namespace DLT
             return true;
         }
 
-        public static bool isAllowedSignature(string checksum, string[] allowedSigners, string signature) 
-        {
-            bool valid = false;
-            foreach(string signer in allowedSigners)
-            {
-                if(CryptoManager.lib.verifySignature(checksum, signer, signature) == true)
-                {
-                    valid = true;
-                }
-            }
-            return valid;
-        }
-
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
         public static bool addTransaction(Transaction transaction, bool no_broadcast = false, Socket skipSocket = null)
@@ -259,8 +262,9 @@ namespace DLT
 
                 if (transactions.ContainsKey(transaction.id))
                 {
-                    if (transaction.type == (int)Transaction.Type.MultisigTX)
+                    if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
+                        Logging.info(String.Format("Appending a multisig transaction {{ {0} }} in the pool.", transaction.id));
                         Transaction pool_tx = transactions[transaction.id];
                         if (pool_tx.type != (int)Transaction.Type.MultisigTX)
                         {
@@ -268,8 +272,8 @@ namespace DLT
                                 transaction.id));
                             return false;
                         }
-                        HashSet<string> final_sigs = new HashSet<string>(pool_tx.signature.Split(':'));
-                        string[] new_sigs = transaction.signature.Split(':');
+                        HashSet<string> final_sigs = new HashSet<string>(pool_tx.signature.Split(','));
+                        string[] new_sigs = transaction.signature.Split(',');
                         bool increased_sig_count = false;
                         foreach (string new_sig in new_sigs)
                         {
@@ -282,7 +286,7 @@ namespace DLT
                         {
                             Logging.info(String.Format("More signatures acquired for a multisig transaction {{ {0} }}: {1}.",
                                 transaction.id, final_sigs.Count));
-                            pool_tx.signature = string.Join(":", final_sigs);
+                            pool_tx.signature = string.Join(",", final_sigs);
                         }
                     }
                 }
@@ -625,7 +629,7 @@ namespace DLT
                     }
 
                     // Check the transaction amount
-                    if (tx.amount == 0)
+                    if (tx.amount == 0 && tx.type != (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         failed_transactions.Add(tx);
                         continue;
@@ -641,6 +645,11 @@ namespace DLT
                     if(tx.type == (int)Transaction.Type.MultisigTX)
                     {
                         applyMultisigTransaction(tx, block, failed_transactions, ws_snapshot);
+                        continue;
+                    }
+                    if(tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    {
+                        applyMultisigChangeTransaction(tx, block, failed_transactions, ws_snapshot);
                         continue;
                     }
 
@@ -879,33 +888,189 @@ namespace DLT
             return true;
         }
 
+        public static int numValidMultisigs(string checksum, string[] signatures, Wallet w)
+        {
+            // signatures are "pubkey:signature"
+            HashSet<string> pubkeys = new HashSet<string>();
+            // they must all be valid signatures for the checksum
+            foreach (string sig_c in signatures)
+            {
+                string[] sig_parts = sig_c.Split(':');
+                if (sig_parts.Length < 2)
+                {
+                    return -1;
+                }
+                pubkeys.Add(sig_parts[0]);
+                if (!CryptoManager.lib.verifySignature(checksum, sig_parts[0], sig_parts[1]))
+                {
+                    return -1;
+                }
+            }
+            // how many of them are on the wallet's allowed list?
+            return w.matchValidSigners(pubkeys.ToArray());
+        }
+
         public static bool applyMultisigTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
             if(tx.type == (int)Transaction.Type.MultisigTX)
             {
-                string[] sigs = tx.signature.Split(':');
+                string[] sigs = tx.signature.Split(',');
                 Wallet orig = Node.walletState.getWallet(tx.from, ws_snapshot);
                 if(orig.type != WalletType.Multisig)
                 {
                     Logging.error(String.Format("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
                         tx.from, tx.id));
+                    failed_transactions.Add(tx);
                     return false;
                 }
                 if(sigs.Length >= orig.requiredSigs)
                 {
                     // candidate for processing
-                    foreach(string sig in sigs)
+                    int num_valid_sigs = numValidMultisigs(tx.checksum, sigs, orig);
+                    if(num_valid_sigs < 1)
                     {
-                        if(!isAllowedSignature(tx.checksum, orig.allowedSigners, sig))
-                        {
-                            Logging.error(String.Format("Multisig Transaction {{ {0} }} contains invalid signatures for wallet {1}.",
-                                tx.id, orig.id));
-                            return false;
-                        }
+                        Logging.error(String.Format("Transaction {{ {0} }} (multisig) has invalid signatures!", tx.id));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+                    if(num_valid_sigs < orig.requiredSigs)
+                    {
+                        Logging.info(String.Format("Transaction {{ {0} }} (multisig) has {1} out of {2} required sigs.",
+                            tx.id, num_valid_sigs, orig.requiredSigs));
+                        return true;
                     }
                     return applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
                 }
                 // ignore if it doesn't have enough sigs - it will be pruned from the TXPool after a while
+            }
+            return false;
+        }
+
+        public static bool applyMultisigChangeTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
+        {
+            if(tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+            {
+                string[] sigs = tx.signature.Split(',');
+                Wallet orig = Node.walletState.getWallet(tx.from, ws_snapshot);
+                string[] tx_data_fields = tx.data != null ? tx.data.Split(':') : new string[0];
+                if(tx_data_fields.Length < 2)
+                {
+                    Logging.warn(String.Format("Transaction {{ {0} }}: Improperly formatted ChangeMultisig transaction data field: {1}. Should contain a MS_ segment.", tx.id, tx.data));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                Transaction.MultisigWalletChangeType change_type = Transaction.MultisigWalletChangeType.AddSigner;
+                switch(tx_data_fields[0])
+                {
+                    case "MS1": change_type = Transaction.MultisigWalletChangeType.AddSigner; break;
+                    case "MS2": change_type = Transaction.MultisigWalletChangeType.DelSigner; break;
+                    case "MS3":change_type = Transaction.MultisigWalletChangeType.ChangeReqSigs; break;
+                    default:
+                        {
+                            Logging.error(String.Format("Transaction {{ {0} }}: Invalid ChangeMultisig value: {1}.", tx.id, tx_data_fields[0]));
+                            failed_transactions.Add(tx);
+                            return false;
+                        }
+                }
+                if(orig.type != WalletType.Multisig && change_type != Transaction.MultisigWalletChangeType.AddSigner)
+                {
+                    Logging.error(String.Format("Transaction {{ {0} }}: Target wallet ({1}) is not a multisig wallet and the transaction will not create one!", tx.id, orig.id));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                int num_valid_sigs = numValidMultisigs(tx.checksum, sigs, orig);
+                if (num_valid_sigs < 0)
+                {
+                    Logging.info(String.Format("Transaction {{ {0} }} has invalid multisig signatures!", tx.id));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                if (num_valid_sigs < orig.requiredSigs)
+                {
+                    Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                    return true;
+                }
+                // if we came this far, all checks pass
+                Logging.info(String.Format("Applying a change multisig wallet transaction: {{ {0} }}, of type {1} to wallet {2}. The data is: {3}. Snapshot = {4}",
+                    tx.id, change_type.ToString(), orig.id, tx_data_fields[1], ws_snapshot));
+                if(ws_snapshot == false)
+                {
+                    ws_snapshot = false;
+                }
+                // todo: there is no verification that the third data field really contains a pubkey
+                switch(change_type)
+                {
+                    case Transaction.MultisigWalletChangeType.AddSigner:
+                        string sig_to_add = tx_data_fields[1];
+                        // TODO this would be a place to verify if the address is valid
+                        HashSet<string> current_pubkeys = new HashSet<string>();
+                        if(orig.allowedSigners != null)
+                        {
+                            foreach (string signer in orig.allowedSigners) current_pubkeys.Add(signer);
+                        } else
+                        {
+                            current_pubkeys.Add(orig.id);
+                        }
+                        current_pubkeys.Add(sig_to_add);
+                        Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", sig_to_add, orig.id));
+                        orig.allowedSigners = current_pubkeys.ToArray();
+                        orig.type = WalletType.Multisig;
+                        Node.walletState.setWallet(orig, ws_snapshot);
+                        break;
+                    case Transaction.MultisigWalletChangeType.DelSigner:
+                        string sig_to_del = tx_data_fields[1];
+                        // TODO this would be a place to verify if the address is valid
+                        current_pubkeys = new HashSet<string>(orig.allowedSigners);
+                        Logging.info(String.Format("Removing multisig address {0} to wallet {1}.", sig_to_del, orig.id));
+                        if (!current_pubkeys.Remove(sig_to_del))
+                        {
+                            Logging.warn(String.Format("Attempted to remove multisig address {0} from wallet {1}, but the key is not in the wallet's list. Ignoring.", sig_to_del, orig.id));
+                        }
+                        if(sig_to_del == orig.id)
+                        {
+                            Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", sig_to_del));
+                            failed_transactions.Add(tx);
+                            return false;
+                        }
+                        orig.allowedSigners = current_pubkeys.ToArray();
+                        if(orig.requiredSigs > orig.allowedSigners.Length)
+                        {
+                            Logging.info(String.Format("Removing a signer would make using the wallet impossible. Adjusting required signatures: {0} -> {1}.",
+                                orig.requiredSigs, orig.allowedSigners.Length));
+                            orig.requiredSigs = (byte)orig.allowedSigners.Length;
+                        }
+                        Node.walletState.setWallet(orig, ws_snapshot);
+                        break;
+                    case Transaction.MultisigWalletChangeType.ChangeReqSigs:
+                        if(byte.TryParse(tx_data_fields[1], out byte reqSigs))
+                        {
+                            Logging.info(String.Format("Changing multisig wallet {0} required sigs {1} -> {2}.", orig.id, orig.requiredSigs, reqSigs));
+                            orig.requiredSigs = reqSigs;
+                            if(orig.requiredSigs == 1)
+                            {
+                                Logging.info(String.Format("Wallet {0} changes back to a single-sig wallet.", orig.id));
+                                orig.type = WalletType.Normal;
+                                orig.allowedSigners = null;
+                            }
+                            if(orig.requiredSigs > orig.allowedSigners.Length)
+                            {
+                                Logging.warn(String.Format("Attempted to set required sigs for a multisig wallet to a larger value than the number of allowed pubkeys! Pubkeys = {0}, reqSigs = {1}. Ignoring.",
+                                    orig.allowedSigners.Length, reqSigs));
+                            }
+                            Node.walletState.setWallet(orig, ws_snapshot);
+                        } else
+                        {
+                            Logging.warn(String.Format("Attempted to change a multisig wallet {0} required sigs to an invalid value '{1}'.", orig.id, tx_data_fields[1]));
+                        }
+                        break;
+                    default: break; // this eventually will never happen
+                }
+                if (!ws_snapshot)
+                {
+                    setAppliedFlag(tx.id, block.blockNum);
+                }
+                return true;
+
             }
             return false;
         }

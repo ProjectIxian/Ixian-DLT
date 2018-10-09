@@ -131,20 +131,34 @@ namespace DLT
                 Wallet candidateWallet = new Wallet(id, (ulong)0);
                 if (walletState.ContainsKey(id))
                 {
-                    candidateWallet.data = walletState[id].data;
-                    candidateWallet.balance = walletState[id].balance;
-                    candidateWallet.nonce = walletState[id].nonce;
+                    // copy
+                    candidateWallet = new Wallet(walletState[id]);
                 }
                 if (snapshot)
                 {
                     if (wsDelta != null && wsDelta.ContainsKey(id))
                     {
-                        candidateWallet.data = wsDelta[id].data;
-                        candidateWallet.balance = wsDelta[id].balance;
-                        candidateWallet.nonce = wsDelta[id].nonce;
+                        // copy
+                        candidateWallet = new Wallet(wsDelta[id]);
                     }
                 }
                 return candidateWallet;
+            }
+        }
+
+        public void setWallet(Wallet w, bool snapshot = false)
+        {
+            lock(stateLock)
+            {
+                if(snapshot)
+                {
+                    if(wsDelta != null)
+                    {
+                        wsDelta.AddOrReplace(w.id, w);
+                        return;
+                    } 
+                }
+                walletState.AddOrReplace(w.id, w);
             }
         }
 
