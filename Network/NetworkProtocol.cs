@@ -163,6 +163,42 @@ namespace DLT
                 }
             }
 
+            private static int getDataLengthFromMessageHeader(List<byte> header)
+            {
+                int data_length = -1;
+                // we should have the full header, save the data length
+                using (MemoryStream m = new MemoryStream(header.ToArray()))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        reader.ReadByte(); // skip start byte
+                        reader.ReadInt32(); // skip message code
+                        data_length = reader.ReadInt32(); // finally read data length
+                        reader.ReadBytes(32); // skip checksum sha256, 32 bytes
+                        byte endByte = reader.ReadByte(); // end byte
+
+                        if (endByte != 'I')
+                        {
+                            Logging.warn("Header end byte was not 'I'");
+                            return -1;
+                        }
+
+                        if (data_length <= 0)
+                        {
+                            Logging.warn(String.Format("Data length was {0}", data_length));
+                            return -1;
+                        }
+
+                        if (data_length > 10000000)
+                        {
+                            Logging.warn(String.Format("Data length was bigger than 10MB - {0}.", data_length));
+                            return -1;
+                        }
+                    }
+                }
+                return data_length;
+            }
+
             // Reads data from a socket and returns a byte array
             public static byte[] readSocketData(Socket socket, RemoteEndpoint endpoint)
             {
@@ -211,27 +247,14 @@ namespace DLT
                             if (big_buffer.Count > 0)
                             {
                                 big_buffer.AddRange(currentBuffer.Take(byteCounter));
-                                if (big_buffer.Count == header_length) // 41 is the header length
+                                if (big_buffer.Count == header_length)
                                 {
-                                    // we should have the full header, save the data length
-                                    using (MemoryStream m = new MemoryStream(big_buffer.ToArray()))
+                                    data_length = getDataLengthFromMessageHeader(big_buffer);
+                                    if (data_length <= 0)
                                     {
-                                        using (BinaryReader reader = new BinaryReader(m))
-                                        {
-                                            reader.ReadByte(); // skip start byte
-                                            reader.ReadInt32(); // skip message code
-                                            data_length = reader.ReadInt32(); // finally read data length
-                                            reader.ReadBytes(32); // skip checksum sha256, 32 bytes
-                                            byte endByte = reader.ReadByte(); // end byte
-                                            // TODO TODO TODO add a maximum data length
-                                            if (endByte != 'I' || data_length <= 0)
-                                            {
-                                                Logging.warn("Header end byte was not 'I' or data length was 0");
-                                                data_length = 0;
-                                                big_buffer.Clear();
-                                                bytesToRead = 1;
-                                            }
-                                        }
+                                        data_length = 0;
+                                        big_buffer.Clear();
+                                        bytesToRead = 1;
                                     }
                                 }
                                 else if (big_buffer.Count == data_length + header_length)
