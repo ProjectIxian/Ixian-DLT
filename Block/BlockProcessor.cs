@@ -192,7 +192,7 @@ namespace DLT
         }
 
         // Checks if the block has been sigFreezed and if all the hashes match, returns false if the block should be discarded
-        public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null, Socket socket = null)
+        public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null, RemoteEndpoint skipEndpoint = null)
         {
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
             string sigFreezeChecksum = null;
@@ -218,18 +218,7 @@ namespace DLT
                     {
                         // we already have the correct block but the sender does not, broadcast our block
                         //ProtocolMessage.broadcastNewBlock(targetBlock);
-                        if (socket != null)
-                        {
-                            if (endpoint != null)
-                            {
-                                endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes());
-                            }
-                            else
-                            {
-                                byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.newBlock, targetBlock.getBytes());
-                                socket.Send(ba, SocketFlags.None);
-                            }
-                        }
+                        endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes());
                     }
                     return false;
                 }
@@ -238,20 +227,20 @@ namespace DLT
                     Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, b.blockChecksum));
                     // this is likely the correct block, update and broadcast to others
                     Node.blockChain.refreshSignatures(b, true);
-                    ProtocolMessage.broadcastNewBlock(targetBlock, socket);
+                    ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
                     return false;
                 }
                 else
                 {
                     Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, b.blockChecksum));
-                    ProtocolMessage.broadcastGetBlock(b.blockNum, socket);
+                    ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint);
                     return false;
                 }
             }
             return true;
         }
 
-        public void onBlockReceived(Block b, RemoteEndpoint endpoint = null, Socket socket = null)
+        public void onBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
             if (operating == false) return;
             Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, b.blockChecksum, b.getUniqueSignatureCount()));
@@ -265,7 +254,7 @@ namespace DLT
                     Block localBlock = Node.blockChain.getBlock(b.blockNum);
                     if (b.blockChecksum == localBlock.blockChecksum && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
                     {
-                        if (handleSigFreezedBlock(b, endpoint, socket))
+                        if (handleSigFreezedBlock(b, endpoint))
                         {
                             removeSignaturesWithoutPlEntry(b);
                             removeSignaturesWithLowBalance(b);

@@ -92,7 +92,7 @@ namespace DLT
                     // Immediately close all connected client sockets
                     foreach(RemoteEndpoint client in connectedClients)
                     {
-                        client.abort();
+                        client.stop();
                     }
 
                     connectedClients.Clear();
@@ -159,16 +159,16 @@ namespace DLT
             }
 
             // Send data to all connected clients
-            public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
+            public static void broadcastData(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
             {
                 lock (connectedClients)
                 {
                     foreach (RemoteEndpoint endpoint in connectedClients)
                     {
                         // TODO: filter messages based on presence node type
-                        if(skipSocket != null)
+                        if(skipEndpoint != null)
                         {
-                            if (endpoint.clientSocket == skipSocket)
+                            if (endpoint == skipEndpoint)
                                 continue;
                         }
 
@@ -184,13 +184,10 @@ namespace DLT
                 {
                     foreach (RemoteEndpoint ep in connectedClients)
                     {
-                        foreach(PresenceAddress addr in ep.presence.addresses)
+                        if(ep.address == neighbor)
                         {
-                            if(addr.address == neighbor)
-                            {
-                                client = ep;
-                                break;
-                            }
+                            client = ep;
+                            break;
                         }
                     }
                 }
@@ -209,14 +206,13 @@ namespace DLT
 
                 lock (connectedClients)
                 {
-                    foreach (RemoteEndpoint rclient in connectedClients)
+                    foreach (RemoteEndpoint client in connectedClients)
                     {
-                        if (rclient.presence is null) continue; // ignore, if the clients are in the process of connecting and have not yet sent their identity
-                        foreach(PresenceAddress addr in rclient.presence.addresses)
+                        if (client.isConnected())
                         {
                             try
                             {
-                                string client_name = addr.address; //client.getFullAddress();
+                                string client_name = client.getFullAddress();
                                 result.Add(client_name);
                             }
                             catch (Exception e)
@@ -233,7 +229,6 @@ namespace DLT
             private static void acceptConnection(Socket clientSocket)
             {
                 IPEndPoint clientEndpoint = (IPEndPoint)clientSocket.RemoteEndPoint;
-
                 // Add timeouts and set socket options
                 //clientSocket.ReceiveTimeout = 5000;
                 //clientSocket.SendTimeout = 5000;
@@ -243,11 +238,6 @@ namespace DLT
 
                 // Setup the remote endpoint
                 RemoteEndpoint remoteEndpoint = new RemoteEndpoint();
-                remoteEndpoint.remoteIP = clientEndpoint;
-                remoteEndpoint.clientSocket = clientSocket;
-                remoteEndpoint.presence = null;
-                remoteEndpoint.presenceAddress = null;
-                remoteEndpoint.state = RemoteEndpointState.Initial;
 
                 lock (connectedClients)
                 {
@@ -273,7 +263,7 @@ namespace DLT
 
                 Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, Config.maximumServerClients));
 
-                remoteEndpoint.start();
+                remoteEndpoint.start(clientSocket);
             }
 
             // Removes an endpoint from the connected clients list

@@ -76,7 +76,7 @@ namespace DLT
                 return result;
             }
 
-            public static void broadcastGetBlock(ulong block_num, Socket skipSocket = null)
+            public static void broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -84,15 +84,15 @@ namespace DLT
                     {
                         writerw.Write(block_num);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipSocket);
+                        broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint);
                     }
                 }
             }
 
-            public static void broadcastNewBlock(Block b, Socket skipSocket = null)
+            public static void broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null)
             {
                 //Logging.info(String.Format("Broadcasting block #{0} : {1}.", b.blockNum, b.blockChecksum));
-                broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipSocket);
+                broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
             }
 
             public static void broadcastGetTransaction(string txid)
@@ -128,7 +128,7 @@ namespace DLT
             }
 
             // Broadcast a protocol message across clients and nodes
-            public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
+            public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
             {
                 if(data == null)
                 {
@@ -136,8 +136,8 @@ namespace DLT
                     return;
                 }
 
-                NetworkClientManager.broadcastData(code, data, skipSocket);
-                NetworkServer.broadcastData(code, data, skipSocket);
+                NetworkClientManager.broadcastData(code, data, skipEndpoint);
+                NetworkServer.broadcastData(code, data, skipEndpoint);
             }
 
             public static void syncWalletStateNeighbor(string neighbor)
@@ -230,7 +230,7 @@ namespace DLT
             }
 
             // Reads data from a socket and returns a byte array
-            public static byte[] readSocketData(Socket socket, RemoteEndpoint endpoint)
+            public static byte[] readSocketData(Socket socket)
             {
                 if(currentBuffer == null)
                 {
@@ -332,11 +332,11 @@ namespace DLT
             }
 
             // Read a protocol message from a byte array
-            public static void readProtocolMessage(byte[] recv_buffer, Socket socket, RemoteEndpoint endpoint)
+            public static void readProtocolMessage(byte[] recv_buffer, RemoteEndpoint endpoint)
             {
-                if (socket == null)
+                if (endpoint == null)
                 {
-                    Logging.error("Socket was null. readProtocolMessage");
+                    Logging.error("Endpoint was null. readProtocolMessage");
                     return;
                 }
 
@@ -361,7 +361,7 @@ namespace DLT
                                 int data_length = reader.ReadInt32();
 
                                 // If this is a connected client, filter messages
-                                if (endpoint != null)
+                                if (endpoint.GetType() == typeof(RemoteEndpoint) )
                                 {
                                     if (endpoint.presence == null)
                                     {
@@ -407,7 +407,7 @@ namespace DLT
                             // Can proceed to parse the data parameter based on the protocol message code.
                             // Data can contain multiple elements.
                             //parseProtocolMessage(code, data, socket, endpoint);
-                            NetworkQueue.receiveProtocolMessage(code, data, Crypto.hashToString(data_checksum), socket, endpoint);
+                            NetworkQueue.receiveProtocolMessage(code, data, Crypto.hashToString(data_checksum), endpoint);
                         }
                     }
                 }
@@ -418,11 +418,11 @@ namespace DLT
             }
 
             // Unified protocol message parsing
-            public static void parseProtocolMessage(ProtocolMessageCode code, byte[] data, Socket socket, RemoteEndpoint endpoint)
+            public static void parseProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint endpoint)
             {
-                if (socket == null)
+                if (endpoint == null)
                 {
-                    Logging.error("Socket was null. parseProtocolMessage");
+                    Logging.error("Endpoint was null. parseProtocolMessage");
                     return;
                 }
 
@@ -490,8 +490,8 @@ namespace DLT
                                                 {
                                                     writer.Write(string.Format("Incorrect testnet designator: {0}. Should be {1}", test_net, Config.isTestNet));
                                                     Logging.warn(string.Format("Rejected master node {0} due to incorrect testnet designator: {1}", hostname, test_net));
-                                                    socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
-                                                    socket.Disconnect(true);
+                                                    endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
+                                                    endpoint.stop();
                                                     return;
                                                 }
                                             }
@@ -531,8 +531,8 @@ namespace DLT
                                                     {
                                                         writer.Write(string.Format("Insufficient funds. Minimum is {0}", Config.minimumMasterNodeFunds));
                                                         Logging.warn(string.Format("Rejected master node {0} due to insufficient funds: {1}", hostname, balance.ToString()));
-                                                        socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
-                                                        socket.Disconnect(true);
+                                                        endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
+                                                        endpoint.stop();
                                                         return;
                                                     }
                                                 }
@@ -572,8 +572,8 @@ namespace DLT
                                             using (BinaryWriter writer = new BinaryWriter(m2))
                                             {
                                                 writer.Write(string.Format("Please update your Ixian node to connect."));
-                                                socket.Send(prepareProtocolMessage(ProtocolMessageCode.bye, m2.ToArray()), SocketFlags.None);
-                                                socket.Disconnect(true);
+                                                endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
+                                                endpoint.stop();
                                                 return;
                                             }
                                         }
@@ -604,9 +604,7 @@ namespace DLT
                                     writer.Write(Node.blockChain.getRequiredConsensus());
                                     writer.Write(Node.getCurrentTimestamp());
 
-                                    byte[] ba = prepareProtocolMessage(ProtocolMessageCode.helloData, m.ToArray());
-                                    socket.Send(ba, SocketFlags.None);
-                                    //endpoint.sendData(ProtocolMessageCode.helloData, m.ToArray());
+                                    endpoint.sendData(ProtocolMessageCode.helloData, m.ToArray());
                                 }
                             }
                             break;
@@ -622,7 +620,7 @@ namespace DLT
                                     if (node_version < Config.nodeVersion)
                                     {
                                         Logging.warn(String.Format("Hello: Connected node version ({0}) is too old! Upgrade the node.", node_version));
-                                        socket.Disconnect(true);
+                                        endpoint.stop();
                                         return;
                                     }
 
@@ -641,7 +639,7 @@ namespace DLT
 
                                     if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                     {
-                                        socket.Disconnect(true);
+                                        endpoint.stop();
                                         return;
                                     }
 
@@ -668,15 +666,7 @@ namespace DLT
                                         }
                                         Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Substring(4)));
                                         // Send the block
-                                        if (endpoint != null)
-                                        {
-                                            endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
-                                        }
-                                        else
-                                        {
-                                            socket.Send(prepareProtocolMessage(ProtocolMessageCode.blockData, block.getBytes()), SocketFlags.None);
-                                        }
-                                        //endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
+                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
 
                                         // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
                                         // TODO: looking for a better solution but will likely need an updated network subsystem
@@ -713,9 +703,7 @@ namespace DLT
                                                 writerw.Write(balance.ToString());
 
  
-                                                byte[] ba = prepareProtocolMessage(ProtocolMessageCode.balance, mw.ToArray());
-                                                socket.Send(ba, SocketFlags.None);
-                                                //endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
+                                                endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
                                             }
                                         }
                                     }
@@ -742,14 +730,7 @@ namespace DLT
 
                                         Logging.info(String.Format("Sending transaction {0} - {1} - {2} - {3}.", txid, transaction.id, transaction.checksum, transaction.amount));
 
-                                        if (endpoint != null)
-                                        {
-                                            endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
-                                        }
-                                        else
-                                        {
-                                            socket.Send(prepareProtocolMessage(ProtocolMessageCode.transactionData, transaction.getBytes()), SocketFlags.None);
-                                        }
+                                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
                                     }
                                 }
                             }
@@ -766,7 +747,7 @@ namespace DLT
                                 Transaction transaction = new Transaction(data);
                                 if (transaction == null)
                                     return;
-                                TransactionPool.addTransaction(transaction, false, socket);
+                                TransactionPool.addTransaction(transaction, false, endpoint);
                             }
                             break;
 
@@ -794,7 +775,7 @@ namespace DLT
                                 }
 
                                 // Add the transaction to the pool
-                                TransactionPool.addTransaction(transaction, true, socket);                               
+                                TransactionPool.addTransaction(transaction, true, endpoint);                               
                             }
                             break;
                         case ProtocolMessageCode.bye:
@@ -816,7 +797,7 @@ namespace DLT
                                 Block block = new Block(data);
                                 //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
                                 Node.blockSync.onBlockReceived(block);
-                                Node.blockProcessor.onBlockReceived(block, endpoint, socket);
+                                Node.blockProcessor.onBlockReceived(block, endpoint);
                             }
                             break;
 
@@ -824,7 +805,7 @@ namespace DLT
                             {
                                 Block block = new Block(data);
                                 Node.blockSync.onBlockReceived(block);
-                                Node.blockProcessor.onBlockReceived(block, endpoint, socket);
+                                Node.blockProcessor.onBlockReceived(block, endpoint);
                             }
                             break;
 
@@ -849,9 +830,7 @@ namespace DLT
                                         writer.Write(walletstate_block);
                                         writer.Write(walletstate_count);
 
-                                        byte[] ba = prepareProtocolMessage(ProtocolMessageCode.walletState, m.ToArray());
-                                        socket.Send(ba, SocketFlags.None);
-                                        //endpoint.sendData(ProtocolMessageCode.walletState, m.ToArray());
+                                        endpoint.sendData(ProtocolMessageCode.walletState, m.ToArray());
                                     }
                                 }
 
@@ -938,15 +917,14 @@ namespace DLT
                             {
                                 byte[] pdata = PresenceList.getBytes();
                                 byte[] ba = prepareProtocolMessage(ProtocolMessageCode.presenceList, pdata);
-                                socket.Send(ba, SocketFlags.None);
-                                //endpoint.sendData(ProtocolMessageCode.presenceList, pdata);
+                                endpoint.sendData(ProtocolMessageCode.presenceList, pdata);
                             }
                             break;
 
                         case ProtocolMessageCode.presenceList:
                             {
                                 // TODO TODO TODO secure this further
-                                if(isAuthoritativeNode(endpoint, socket))
+                                if(isAuthoritativeNode(endpoint))
                                 {
                                     Logging.info("NET: Receiving complete presence list");
                                     if (Node.presenceListActive == false)
@@ -962,7 +940,7 @@ namespace DLT
                         case ProtocolMessageCode.updatePresence:
                             {
                                 // TODO TODO TODO secure this further
-                                if (isAuthoritativeNode(endpoint, socket))
+                                if (isAuthoritativeNode(endpoint))
                                 {
                                     // Parse the data and update entries in the presence list
                                     PresenceList.updateFromBytes(data);
@@ -976,7 +954,7 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, data, socket);
+                                    broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, data, endpoint);
                                 }
                                 
                             }
@@ -993,15 +971,7 @@ namespace DLT
                                         Presence p = PresenceList.presences.Find(x => x.wallet == wallet);
                                         if (p != null)
                                         {
-                                            if (endpoint != null)
-                                            {
-                                                endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes());
-                                            }
-                                            else
-                                            {
-                                                byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.updatePresence, p.getBytes());
-                                                socket.Send(ba, SocketFlags.None);
-                                            }
+                                            endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes());
                                         }
                                         else
                                         {
@@ -1066,16 +1036,7 @@ namespace DLT
                                                         }
                                                     }
 
-                                                    if (endpoint != null)
-                                                    {
-                                                        endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                    }
-                                                    else
-                                                    {
-                                                        byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                        socket.Send(ba, SocketFlags.None);
-                                                    }
-                                                    
+                                                    endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
                                                 }
                                             }
                                         }
@@ -1104,15 +1065,7 @@ namespace DLT
                                                     writer.Write(txBytes);
                                                 }
 
-                                                if (endpoint != null)
-                                                {
-                                                    endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                }
-                                                else
-                                                {
-                                                    byte[] ba = ProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                    socket.Send(ba, SocketFlags.None);
-                                                }
+                                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
                                             }
                                         }
                                     }
@@ -1177,7 +1130,7 @@ namespace DLT
             }
 
             // Check if the remote endpoint provided is authoritative
-            private static bool isAuthoritativeNode(RemoteEndpoint endpoint, Socket socket)
+            private static bool isAuthoritativeNode(RemoteEndpoint endpoint)
             {
                 // Disabled for dev purposes.
                 // TODO: re-enable

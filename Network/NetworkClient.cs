@@ -11,27 +11,13 @@ using System.Threading.Tasks;
 
 namespace DLT
 {
-    class NetworkClient
+    public class NetworkClient : RemoteEndpoint
     {
         public TcpClient tcpClient = null;
-        public bool running = false;
-        public string address = "127.0.0.1:10000";
 
         private string tcpHostname = "";
         private int tcpPort = 0;
         private int failedReconnects = 0;
-
-        // Maintain two threads for handling data receiving and sending
-        private Thread recvThread = null;
-        private Thread sendThread = null;
-        private Thread parseThread = null;
-
-        // Maintain a queue of messages to send
-        private List<QueueMessage> sendQueueMessages = new List<QueueMessage>();
-
-        // Maintain a queue of raw received data
-        private List<QueueMessageRaw> recvRawQueueMessages = new List<QueueMessageRaw>();
-
 
         private object reconnectLock = new object();
 
@@ -45,22 +31,24 @@ namespace DLT
         {
             tcpClient = new TcpClient();
 
+            Socket tmpSocket = tcpClient.Client;
+
             // Don't allow another socket to bind to this port.
-            tcpClient.Client.ExclusiveAddressUse = true;
+            tmpSocket.ExclusiveAddressUse = true;
 
             // The socket will linger for 3 seconds after 
             // Socket.Close is called.
-            tcpClient.Client.LingerState = new LingerOption(true, 3);
+            tmpSocket.LingerState = new LingerOption(true, 3);
 
             // Disable the Nagle Algorithm for this tcp socket.
-            tcpClient.Client.NoDelay = true;
+            tmpSocket.NoDelay = true;
 
             //tcpClient.Client.ReceiveTimeout = 5000;
             //tcpClient.Client.ReceiveBufferSize = 1024 * 64;
             //tcpClient.Client.SendBufferSize = 1024 * 64;
             //tcpClient.Client.SendTimeout = 5000;
 
-            tcpClient.Client.Blocking = true;
+            tmpSocket.Blocking = true;
 
             // Reset the failed reconnects count
             failedReconnects = 0;
@@ -103,7 +91,7 @@ namespace DLT
                 // Todo: make this more elegant
                 try
                 {
-                    tcpClient.Client.Close();
+                    tcpClient.Close();
                 }
                 catch (Exception)
                 {
@@ -127,33 +115,7 @@ namespace DLT
             // Reset the failed reconnects count
             failedReconnects = 0;
 
-            running = true;
-
-            if (recvThread != null)
-            {
-                recvThread.Abort();
-            }
-            if (sendThread != null)
-            {
-                recvThread.Abort();
-            }
-            if (parseThread != null)
-            {
-                recvThread.Abort();
-            }
-
-            // Start receive thread
-            recvThread = new Thread(new ThreadStart(recvLoop));
-            recvThread.Start();
-
-            // Start send thread
-            sendThread = new Thread(new ThreadStart(sendLoop));
-            sendThread.Start();
-
-            // Start parse thread
-            parseThread = new Thread(new ThreadStart(parseLoop));
-            parseThread.Start();
-
+            start(tcpClient.Client);
             return true;
         }
 
@@ -173,17 +135,13 @@ namespace DLT
                 running = false;
 
                 // Check if socket already disconnected
-                if (tcpClient == null)
+                if (clientSocket == null)
                 {
                     // TODO: handle this scenario
                 }
-                else if (tcpClient.Client == null)
+                else if (clientSocket.Connected)
                 {
-                    // TODO: handle this scenario
-                }
-                else if (tcpClient.Client.Connected)
-                {
-                    tcpClient.Client.Shutdown(SocketShutdown.Both);
+                    clientSocket.Shutdown(SocketShutdown.Both);
                     tcpClient.Close();
                 }
 
@@ -192,292 +150,50 @@ namespace DLT
             }
         }
 
-
-        // Sends data over the network
-        public void sendData(ProtocolMessageCode code, byte[] data)
+        private void sendHello()
         {
-            if (data == null)
+            using (MemoryStream m = new MemoryStream())
             {
-                Logging.warn(string.Format("Invalid protocol message data for {0}", code));
-                return;
-            }
-
-            QueueMessage message = new QueueMessage();
-            message.code = code;
-            message.data = data;
-            message.checksum = Crypto.sha256(data);
-            message.skipSocket = null;
-
-            lock (sendQueueMessages)
-            {
-                if (message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
+                using (BinaryWriter writer = new BinaryWriter(m))
                 {
-                    Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
-                }
-                else
-                {
-                    if (sendQueueMessages.Count > 6)
-                    {
-                        // Prioritize certain messages if the queue is large
-                        if (message.code != ProtocolMessageCode.newTransaction)
-                        {
-                            sendQueueMessages.Insert(3, message);
-                        }
-                        else
-                        {
-                            sendQueueMessages.Add(message);
-                        }
-                    }
-                    else
-                    {
-                        sendQueueMessages.Add(message);
-                    }
-                }
-            }
+                    string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
+                    // Send the public IP address and port
+                    writer.Write(publicHostname);
 
-        }
+                    // Send the public node address
+                    string address = Node.walletStorage.address;
+                    writer.Write(address);
 
-        // Internal function that sends data through the socket
-        private void sendDataInternal(ProtocolMessageCode code, byte[] data, byte[] checksum)
-        {
-            byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data, checksum);
-            try
-            {
-                for (int sentBytes = 0; sentBytes < ba.Length;)
-                {
-                    int bytesToSendCount = ba.Length - sentBytes;
-                    if (bytesToSendCount > 8000)
-                    {
-                        bytesToSendCount = 8000;
-                    }
-                    int curSentBytes = tcpClient.Client.Send(ba, sentBytes, bytesToSendCount, SocketFlags.None);
-                    if (curSentBytes < bytesToSendCount)
-                    {
-                        Thread.Sleep(10);
-                    }else
-                    {
-                        // Sleep a bit to allow other threads to do their thing
-                        Thread.Yield();
-                    }
-                    sentBytes += curSentBytes;
-                    // TODO TODO TODO timeout
-                }
-                if (tcpClient.Client.Connected == false)
-                {
-                    Logging.warn(String.Format("Failed senddata to client: {0}. Reconnecting.", address));
-                    reconnect();
+                    // Send the testnet designator
+                    writer.Write(Config.isTestNet);
 
+                    // Send the node type
+                    char node_type = 'M'; // This is a Master node
+                    writer.Write(node_type);
+
+                    // Send the version
+                    writer.Write(Config.version);
+
+                    // Send the node device id
+                    writer.Write(Config.device_id);
+
+                    // Send the S2 public key
+                    writer.Write(Node.walletStorage.encPublicKey);
+
+                    // Send the wallet public key
+                    writer.Write(Node.walletStorage.publicKey);
+
+                    sendData(ProtocolMessageCode.hello, m.ToArray());
                 }
-            }
-            catch (Exception e)
-            {
-                Logging.warn(string.Format("CLN: Socket exception, attempting to reconnect. {0}", e.Message));
-                reconnect();
             }
         }
 
         // Receive thread
-        private void recvLoop()
+        protected override void recvLoop()
         {
-            // Send a hello message containing the public ip and port of this node
-            List<string> ips = CoreNetworkUtils.GetAllLocalIPAddresses();
+            sendHello();
 
-            foreach (string ip in ips)
-            {
-                using (MemoryStream m = new MemoryStream())
-                {
-                    using (BinaryWriter writer = new BinaryWriter(m))
-                    {
-                        string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
-                        // Send the public IP address and port
-                        writer.Write(publicHostname);
-
-                        // Send the public node address
-                        string address = Node.walletStorage.address;
-                        writer.Write(address);
-
-                        // Send the testnet designator
-                        writer.Write(Config.isTestNet);
-
-                        // Send the node type
-                        char node_type = 'M'; // This is a Master node
-                        writer.Write(node_type);
-
-                        // Send the version
-                        writer.Write(Config.version);
-
-                        // Send the node device id
-                        writer.Write(Config.device_id);
-
-                        // Send the S2 public key
-                        writer.Write(Node.walletStorage.encPublicKey);
-
-                        // Send the wallet public key
-                        writer.Write(Node.walletStorage.publicKey);
-
-                        sendData(ProtocolMessageCode.hello, m.ToArray());
-                    }
-                }
-                // TODO: multi-ip presence issue
-                // For now limit to first ip
-                break;
-            }
-
-            while (running)
-            {
-                try
-                {
-                    // Let the protocol handler receive and handle messages
-                    byte[] data = ProtocolMessage.readSocketData(tcpClient.Client, null);
-                    if (data != null)
-                    {
-                        //ProtocolMessage.readProtocolMessage(data, tcpClient.Client, null);
-                        parseDataInternal(data, tcpClient.Client, null);
-                    }
-                
-                }
-                catch(Exception)
-                {
-                    disconnect();
-                    Thread.Yield();
-                    return;
-                }
-
-                // Sleep a while to throttle the client
-                Thread.Sleep(1);
-            }
-
-            disconnect();
-            Thread.Yield();
-        }
-
-        // Send thread
-        private void sendLoop()
-        {
-            // Prepare an special message object to use while sending, without locking up the queue messages
-            QueueMessage active_message = new QueueMessage();
-
-            while (running)
-            {
-                bool message_found = false;
-                lock (sendQueueMessages)
-                {
-                    if (sendQueueMessages.Count > 0)
-                    {
-                        // Pick the oldest message
-                        QueueMessage candidate = sendQueueMessages[0];
-                        active_message.code = candidate.code;
-                        active_message.data = candidate.data;
-                        active_message.checksum = candidate.checksum;
-                        active_message.skipSocket = candidate.skipSocket;
-                        // Remove it from the queue
-                        sendQueueMessages.Remove(candidate);
-                        message_found = true;
-                    }
-                }
-
-                if (message_found)
-                {
-                    // Active message set, attempt to send it
-                    sendDataInternal(active_message.code, active_message.data, active_message.checksum);
-                    Thread.Sleep(1);
-                }
-                else
-                {
-                    // Sleep for 10ms to prevent cpu waste
-                    Thread.Sleep(10);
-                }
-            }
-
-            Thread.Yield();
-        }
-
-        // Parse thread
-        private void parseLoop()
-        {
-            // Prepare an special message object to use while sending, without locking up the queue messages
-            QueueMessageRaw active_message = new QueueMessageRaw();
-
-            while (running)
-            {
-                try
-                {
-                    bool message_found = false;
-                    lock (recvRawQueueMessages)
-                    {
-                        if (recvRawQueueMessages.Count > 0)
-                        {
-                            // Pick the oldest message
-                            QueueMessageRaw candidate = recvRawQueueMessages[0];
-                            active_message.data = candidate.data;
-                            active_message.socket = candidate.socket;
-                            active_message.endpoint = candidate.endpoint;
-                            // Remove it from the queue
-                            recvRawQueueMessages.Remove(candidate);
-                            message_found = true;
-                        }
-                    }
-
-                    if (message_found)
-                    {
-                        // Active message set, attempt to send it
-                        ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, null);
-                    }else
-                    {
-                        Thread.Sleep(10);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Logging.error("Exception occured in parseLoop: " + e);
-                }
-                // Sleep a bit to allow other threads to do their thing
-                Thread.Yield();
-            }
-        }
-
-        private void parseDataInternal(byte[] data, Socket socket, RemoteEndpoint endpoint)
-        {
-            QueueMessageRaw message = new QueueMessageRaw();
-            message.data = data;
-            message.socket = socket;
-            message.endpoint = endpoint;
-
-            lock (recvRawQueueMessages)
-            {
-                recvRawQueueMessages.Add(message);
-            }
-        }
-
-
-
-        public void disconnect()
-        {
-            // Check if socket already disconnected
-            if(tcpClient == null)
-            {
-                return;
-            }
-            if(tcpClient.Client == null)
-            {
-                return;
-            }
-
-            // Stop reading protocol messages
-            running = false;
-
-            if (tcpClient.Client.Connected)
-            {
-                tcpClient.Client.Shutdown(SocketShutdown.Both);
-                // tcpClient.Client.Disconnect(true);
-                tcpClient.Close();
-            }
-        }
-        
-        // Get the ip/hostname and port
-        public string getFullAddress()
-        {
-            return string.Format("{0}:{1}", tcpHostname, tcpPort);
+            base.recvLoop();
         }
 
         // Send a ping message to this server
@@ -487,40 +203,10 @@ namespace DLT
             sendData(ProtocolMessageCode.ping, tmp);
         }
 
-        public bool isConnected()
-        {
-            try
-            {
-                if (tcpClient == null)
-                {
-                    return false;
-                }
-
-                if (tcpClient.Client == null)
-                {
-                    return false;
-                }
-
-                return tcpClient.Connected && running;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
         // Returns the number of failed reconnects
         public int getFailedReconnectsCount()
         {
             return failedReconnects;
-        }
-
-        public int getQueuedMessageCount()
-        {
-            lock (sendQueueMessages)
-            {
-                return sendQueueMessages.Count;
-            }
         }
     }
 

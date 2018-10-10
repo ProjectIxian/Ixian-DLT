@@ -13,19 +13,21 @@ namespace DLT
 {
     public class RemoteEndpoint
     {
+        public string address = "127.0.0.1:10000";
+
         public IPEndPoint remoteIP;
         public Socket clientSocket;
         public RemoteEndpointState state;
         public bool inIO;
         // Maintain two threads for handling data receiving and sending
-        private Thread recvThread = null;
-        private Thread sendThread = null;
-        private Thread parseThread = null;
+        protected Thread recvThread = null;
+        protected Thread sendThread = null;
+        protected Thread parseThread = null;
 
         public Presence presence = null;
         public PresenceAddress presenceAddress = null;
 
-        public bool running = false;
+        protected bool running = false;
 
         // Maintain a queue of messages to send
         private List<QueueMessage> sendQueueMessages = new List<QueueMessage>();
@@ -34,15 +36,45 @@ namespace DLT
         private List<QueueMessageRaw> recvRawQueueMessages = new List<QueueMessageRaw>();
 
 
-        public void start()
+        public void start(Socket socket = null)
         {
+            if(running)
+            {
+                return;
+            }
 
+            if (socket != null)
+            {
+                clientSocket = socket;
+            }
+            if (clientSocket == null)
+            {
+                Logging.error("Could not start NetworkRemoteEndpoint, socket is null");
+                return;
+            }
+            remoteIP = (IPEndPoint)clientSocket.RemoteEndPoint;
+            address = remoteIP.Address + ":" + remoteIP.Port;
             presence = null;
             presenceAddress = null;
-            state = RemoteEndpointState.Initial;
+
+            state = RemoteEndpointState.Established;
 
             running = true;
             clientSocket.Blocking = true;
+
+            // Abort all related threads
+            if (recvThread != null)
+            {
+                recvThread.Abort();
+            }
+            if (sendThread != null)
+            {
+                sendThread.Abort();
+            }
+            if (parseThread != null)
+            {
+                parseThread.Abort();
+            }
 
             // Start receive thread
             recvThread = new Thread(new ThreadStart(recvLoop));
@@ -58,37 +90,53 @@ namespace DLT
         }
 
         // Aborts all related endpoint threads and data
-        public void abort()
-        {         
+        public void stop()
+        {
             state = RemoteEndpointState.Closed;
             running = false;
+
+            Thread.Yield();
+
             lock (sendQueueMessages)
             {
                 sendQueueMessages.Clear();
             }
 
-            lock(recvRawQueueMessages)
+            lock (recvRawQueueMessages)
             {
                 recvRawQueueMessages.Clear();
             }
+
             // Abort all related threads
-            recvThread.Abort();
-            sendThread.Abort();
-            parseThread.Abort();
+            if (recvThread != null)
+            {
+                recvThread.Abort();
+            }
+            if (sendThread != null)
+            {
+                sendThread.Abort();
+            }
+            if (parseThread != null)
+            {
+                parseThread.Abort();
+            }
+
+            disconnect();
         }
 
         // Receive thread
-        private void recvLoop()
+        protected virtual void recvLoop()
         {
-            while(running)
+            while (running)
             {
                 // Let the protocol handler receive and handle messages
                 try
                 {
-                    byte[] data = ProtocolMessage.readSocketData(clientSocket, this);
-                    if(data !=null )
-                        //ProtocolMessage.readProtocolMessage(data, clientSocket, this);
-                        parseDataInternal(data, clientSocket, this);
+                    byte[] data = ProtocolMessage.readSocketData(clientSocket);
+                    if (data != null)
+                    {
+                        parseDataInternal(data, this);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -106,6 +154,14 @@ namespace DLT
                 }
             }
 
+            disconnect();
+
+            // Remove this endpoint from the network server
+            NetworkServer.removeEndpoint(this);
+        }
+
+        public void disconnect()
+        {
             // Close the client socket
             if (clientSocket != null)
             {
@@ -113,22 +169,18 @@ namespace DLT
                 {
                     clientSocket.Shutdown(SocketShutdown.Both);
                     clientSocket.Close();
+                    clientSocket = null;
                 }
                 catch (Exception e)
                 {
                     Logging.warn(string.Format("recvRE: Could not shutdown client socket: {0}", e.ToString()));
                 }
             }
-
-            // Remove this endpoint from the network server
-            NetworkServer.removeEndpoint(this);
-
-            Thread.Yield();
         }
 
 
         // Send thread
-        private void sendLoop()
+        protected void sendLoop()
         {
             // Prepare an special message object to use while sending, without locking up the queue messages
             QueueMessage active_message = new QueueMessage();
@@ -145,7 +197,7 @@ namespace DLT
                         active_message.code = candidate.code;
                         active_message.data = candidate.data;
                         active_message.checksum = candidate.checksum;
-                        active_message.skipSocket = candidate.skipSocket;
+                        active_message.skipEndpoint = candidate.skipEndpoint;
                         // Remove it from the queue
                         sendQueueMessages.Remove(candidate);
                         message_found = true;
@@ -157,18 +209,17 @@ namespace DLT
                     // Active message set, attempt to send it
                     sendDataInternal(active_message.code, active_message.data, active_message.checksum);
                     Thread.Sleep(1);
-                }else
+                }
+                else
                 {
                     // Sleep for 10ms to prevent cpu waste
                     Thread.Sleep(10);
                 }
             }
-
-            Thread.Yield();
         }
 
         // Parse thread
-        private void parseLoop()
+        protected void parseLoop()
         {
             // Prepare an special message object to use while sending, without locking up the queue messages
             QueueMessageRaw active_message = new QueueMessageRaw();
@@ -185,7 +236,6 @@ namespace DLT
                             // Pick the oldest message
                             QueueMessageRaw candidate = recvRawQueueMessages[0];
                             active_message.data = candidate.data;
-                            active_message.socket = candidate.socket;
                             active_message.endpoint = candidate.endpoint;
                             // Remove it from the queue
                             recvRawQueueMessages.Remove(candidate);
@@ -195,9 +245,10 @@ namespace DLT
 
                     if (message_found)
                     {
-                        // Active message set, attempt to send it
-                        ProtocolMessage.readProtocolMessage(active_message.data, active_message.socket, this);
-                    }else
+                        // Active message set, add it to Network Queue
+                        ProtocolMessage.readProtocolMessage(active_message.data, this);
+                    }
+                    else
                     {
                         Thread.Sleep(10);
                     }
@@ -213,14 +264,13 @@ namespace DLT
 
         }
 
-        private void parseDataInternal(byte[] data, Socket socket, RemoteEndpoint endpoint)
+        protected void parseDataInternal(byte[] data, RemoteEndpoint endpoint)
         {
             QueueMessageRaw message = new QueueMessageRaw();
             message.data = data;
-            message.socket = socket;
             message.endpoint = endpoint;
 
-            lock(recvRawQueueMessages)
+            lock (recvRawQueueMessages)
             {
                 recvRawQueueMessages.Add(message);
             }
@@ -228,7 +278,7 @@ namespace DLT
 
 
         // Internal function that sends data through the socket
-        private void sendDataInternal(ProtocolMessageCode code, byte[] data, byte[] checksum)
+        protected void sendDataInternal(ProtocolMessageCode code, byte[] data, byte[] checksum)
         {
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data, checksum);
             try
@@ -244,7 +294,8 @@ namespace DLT
                     if (curSentBytes < bytesToSendCount)
                     {
                         Thread.Sleep(10);
-                    }else
+                    }
+                    else
                     {
                         // Sleep a bit to allow other threads to do their thing
                         Thread.Yield();
@@ -280,13 +331,13 @@ namespace DLT
             message.code = code;
             message.data = data;
             message.checksum = Crypto.sha256(data);
-            message.skipSocket = null;
+            message.skipEndpoint = null;
 
             lock (sendQueueMessages)
             {
                 if (message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
                 {
-                    Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));                
+                    Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                 }
                 else
                 {
@@ -317,6 +368,29 @@ namespace DLT
             {
                 return sendQueueMessages.Count;
             }
+        }
+
+        public bool isConnected()
+        {
+            try
+            {
+                if (clientSocket == null)
+                {
+                    return false;
+                }
+
+                return clientSocket.Connected && running;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        // Get the ip/hostname and port
+        public string getFullAddress()
+        {
+            return address;
         }
 
     }

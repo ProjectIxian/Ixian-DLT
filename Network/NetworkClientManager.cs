@@ -87,17 +87,13 @@ namespace DLT
         }
 
         // Connects to a specified node, with the syntax host:port
-        private static bool threadConnectTo(object data)
+        public static bool connectTo(string host)
         {
-            if (data is string)
+            if(host == null || host.Length < 3)
             {
-
+                Logging.error(String.Format("Invalid host address {0}", host));
+                return false;
             }
-            else
-            {
-                throw new Exception(String.Format("Exception in client connection thread {0}", data.GetType().ToString()));
-            }
-            string host = (string)data;
 
             string[] server = host.Split(':');
             if (server.Count() < 2)
@@ -144,12 +140,12 @@ namespace DLT
                 }
             }
 
-            // Check if nodes is already in the client list
+            // Check if node is already in the client list
             lock (networkClients)
             {
                 foreach (NetworkClient client in networkClients)
                 {
-                    if(client.address.Equals(resolved_host, StringComparison.Ordinal))
+                    if (client.address.Equals(resolved_host, StringComparison.Ordinal))
                     {
                         // Address is already in the client list
                         return false;
@@ -157,7 +153,18 @@ namespace DLT
                 }
             }
 
-            lock(connectingClients)
+            // Check if node is already in the server list
+            string[] connectedClients = NetworkServer.getConnectedClients();
+            for (int i = 0; i < connectedClients.Length; i++)
+            {
+                if (connectedClients[i].Equals(resolved_host, StringComparison.Ordinal))
+                {
+                    // Address is already in the client list
+                    return false;
+                }
+            }
+
+            lock (connectingClients)
             {
                 foreach (string client in connectingClients)
                 {
@@ -197,17 +204,8 @@ namespace DLT
             return result;
         }
 
-        // Connects to a specified node, with the syntax host:port
-        // It does so by spawning a temporary thread
-        public static bool connectTo(string host)
-        {
-            //Thread conn_thread = new Thread(threadConnectTo);
-            //conn_thread.Start(host);
-            return threadConnectTo(host);
-        }
-
         // Send data to all connected nodes
-        public static void broadcastData(ProtocolMessageCode code, byte[] data, Socket skipSocket = null)
+        public static void broadcastData(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
         {
             lock (networkClients)
             {
@@ -215,9 +213,9 @@ namespace DLT
                 {
                     if (client.isConnected())
                     {
-                        if (skipSocket != null)
+                        if (skipEndpoint != null)
                         {
-                            if (client.tcpClient.Client == skipSocket)
+                            if (client == skipEndpoint)
                                 continue;
                         }
 
@@ -234,7 +232,7 @@ namespace DLT
             {
                 foreach(NetworkClient c in networkClients)
                 {
-                    if(c.getFullAddress() == neighbor)
+                    if(c.address == neighbor)
                     {
                         client = c;
                         break;

@@ -18,13 +18,12 @@ namespace DLT
             public ProtocolMessageCode code;
             public byte[] data;
             public byte[] checksum;
-            public Socket skipSocket;
+            public RemoteEndpoint skipEndpoint;
         }
 
         struct QueueMessageRaw
         {
             public byte[] data;
-            public Socket socket;
             public RemoteEndpoint endpoint;
         }
 
@@ -38,7 +37,6 @@ namespace DLT
                 public ProtocolMessageCode code;
                 public byte[] data;
                 public string checksum;
-                public Socket socket;
                 public RemoteEndpoint endpoint;
             }
 
@@ -64,14 +62,13 @@ namespace DLT
             }
 
 
-            public static void receiveProtocolMessage(ProtocolMessageCode code, byte[] data, string checksum, Socket socket, RemoteEndpoint endpoint)
+            public static void receiveProtocolMessage(ProtocolMessageCode code, byte[] data, string checksum, RemoteEndpoint endpoint)
             {
                 QueueMessageRecv message = new QueueMessageRecv
                 {
                     code = code,
                     data = data,
                     checksum = checksum,
-                    socket = socket,
                     endpoint = endpoint
                 };
 
@@ -104,7 +101,7 @@ namespace DLT
                 lock (queueMessages)
                 {
                     // ignore duplicates
-                    if (queueMessages.Exists(x => x.code == message.code && x.checksum == message.checksum && x.socket == message.socket && x.endpoint == message.endpoint))
+                    if (queueMessages.Exists(x => x.code == message.code && x.checksum == message.checksum && x.endpoint == message.endpoint))
                     {
                         //Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                         return;
@@ -189,7 +186,6 @@ namespace DLT
                             active_message.code = candidate.code;
                             active_message.data = candidate.data;
                             active_message.checksum = candidate.checksum;
-                            active_message.socket = candidate.socket;
                             active_message.endpoint = candidate.endpoint;
                             message_found = true;
                         }
@@ -198,7 +194,7 @@ namespace DLT
                     if (message_found)
                     {
                         // Active message set, attempt to parse it
-                        ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
+                        ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.endpoint);
                         lock (queueMessages)
                         {
                             // Remove it from the queue
@@ -235,7 +231,6 @@ namespace DLT
                             active_message.code = candidate.code;
                             active_message.data = candidate.data;
                             active_message.checksum = candidate.checksum;
-                            active_message.socket = candidate.socket;
                             active_message.endpoint = candidate.endpoint;
                             message_found = true;
                         }
@@ -244,7 +239,7 @@ namespace DLT
                     if (message_found)
                     {
                         // Active message set, attempt to parse it
-                        ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.socket, active_message.endpoint);
+                        ProtocolMessage.parseProtocolMessage(active_message.code, active_message.data, active_message.endpoint);
                         lock (txqueueMessages)
                         {
                             // Remove it from the queue

@@ -243,7 +243,7 @@ namespace DLT
 
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, Socket skipSocket = null)
+        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint skipEndpoint = null)
         {
             if (Node.blockSync.synchronizing == false)
             {
@@ -309,7 +309,7 @@ namespace DLT
 
             // Broadcast this transaction to the network
             if (no_broadcast == false)
-                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes(), skipSocket);
+                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes(), skipEndpoint);
 
 
             return true;
