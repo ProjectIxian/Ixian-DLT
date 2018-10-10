@@ -162,7 +162,11 @@ namespace DLT
                 }
 
                 // Didn't find the block in storage, request it from the network
-                ProtocolMessage.broadcastGetBlock(blockNum);
+                if(ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                {
+                    Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
+                }
+
                 count++;
                 if (count >= maxBlockRequests) break;
             }
@@ -452,6 +456,7 @@ namespace DLT
                 {
                     Logging.info(String.Format("{0} WalletState chunks are missing before WalletState is synchronized...", missingWsChunks.Count));
                 }
+                Thread.Sleep(2000);
             }
         }
 
