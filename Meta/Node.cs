@@ -507,15 +507,21 @@ namespace DLT.Meta
                             string timestamp = Node.getCurrentTimestamp().ToString();
                             writer.Write(timestamp);
 
+                            string hostname = Node.getFullAddress();
+                            writer.Write(hostname);
+
                             // Add a verifiable signature
                             string private_key = Node.walletStorage.privateKey;
-                            string signature = CryptoManager.lib.getSignature(Config.device_id + "-" + timestamp, private_key);
+                            string signature = CryptoManager.lib.getSignature(Config.device_id + "-" + timestamp + "-" + hostname, private_key);
                             writer.Write(signature);
 
+                            PresenceList.curNodePresenceAddress.lastSeenTime = timestamp;
+                            PresenceList.curNodePresenceAddress.signature = signature;
                         }
 
+
                         // Update self presence
-                        PresenceList.receiveKeepAlive(m.ToArray(), Config.publicServerIP + ":" + Config.serverPort);
+                        PresenceList.receiveKeepAlive(m.ToArray());
 
                         // Send this keepalive message to all connected clients
                         ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, m.ToArray());
@@ -535,6 +541,11 @@ namespace DLT.Meta
         public static long getCurrentTimestamp()
         {
             return (long)(Clock.getTimestamp(DateTime.Now) - networkTimeDifference);
+        }
+
+        public static string getFullAddress()
+        {
+            return Config.publicServerIP + ":" + Config.serverPort;
         }
 
     }

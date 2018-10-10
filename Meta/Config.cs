@@ -32,7 +32,7 @@ namespace DLT
 
             public static readonly int maxLogFileSize = 50 * 1024 * 1024; // 50MB
 
-            public static readonly int nodeVersion = 4; // Ixian protocol version
+            public static readonly int protocolVersion = 5; // Ixian protocol version
             public static readonly int walletStateChunkSplit = 10000; // 10K wallets per chunk
             public static readonly int networkClientReconnectInterval = 10 * 1000; // Time in milliseconds
             public static readonly int keepAliveInterval = 45; // Number of seconds to wait until next keepalive ping

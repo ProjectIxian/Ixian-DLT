@@ -151,49 +151,10 @@ namespace DLT
             }
         }
 
-        private void sendHello()
-        {
-            using (MemoryStream m = new MemoryStream())
-            {
-                using (BinaryWriter writer = new BinaryWriter(m))
-                {
-                    string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
-
-                    // Send the public node address
-                    string address = Node.walletStorage.address;
-                    writer.Write(address);
-
-                    // Send the testnet designator
-                    writer.Write(Config.isTestNet);
-
-                    // Send the node type
-                    char node_type = 'M'; // This is a Master node
-                    writer.Write(node_type);
-
-                    // Send the version
-                    writer.Write(Config.version);
-
-                    // Send the node device id
-                    writer.Write(Config.device_id);
-
-                    // Send the S2 public key
-                    writer.Write(Node.walletStorage.encPublicKey);
-
-                    // Send the wallet public key
-                    writer.Write(Node.walletStorage.publicKey);
-
-                    // Send listening port
-                    writer.Write(Config.serverPort);
-
-                    sendData(ProtocolMessageCode.hello, m.ToArray());
-                }
-            }
-        }
-
         // Receive thread
         protected override void recvLoop()
         {
-            sendHello();
+            ProtocolMessage.sendHelloMessage(this, false);
 
             base.recvLoop();
         }
