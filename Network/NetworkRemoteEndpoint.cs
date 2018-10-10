@@ -278,6 +278,12 @@ namespace DLT
 
             lock (recvRawQueueMessages)
             {
+                // Check if there are too many messages
+                if (recvRawQueueMessages.Count > Config.maxReceiveQueue)
+                {
+                    recvRawQueueMessages.RemoveAt(0);
+                }
+
                 recvRawQueueMessages.Add(message);
             }
         }
@@ -356,6 +362,12 @@ namespace DLT
                         }
                         else
                         {
+                            // Check if there are too many messages
+                            if (sendQueueMessages.Count > Config.maxSendQueue)
+                            {
+                                sendQueueMessages.RemoveAt(0);
+                            }
+
                             sendQueueMessages.Add(message);
                         }
                     }

@@ -76,7 +76,7 @@ namespace DLT
                 return result;
             }
 
-            public static void broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null)
+            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -84,18 +84,18 @@ namespace DLT
                     {
                         writerw.Write(block_num);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint);
+                        return broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint);
                     }
                 }
             }
 
-            public static void broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null)
+            public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null)
             {
                 //Logging.info(String.Format("Broadcasting block #{0} : {1}.", b.blockNum, b.blockChecksum));
-                broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
+                return broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
             }
 
-            public static void broadcastGetTransaction(string txid)
+            public static bool broadcastGetTransaction(string txid)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -103,7 +103,7 @@ namespace DLT
                     {
                         writerw.Write(txid);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray());
+                        return broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray());
                     }
                 }
             }
@@ -128,16 +128,22 @@ namespace DLT
             }
 
             // Broadcast a protocol message across clients and nodes
-            public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
+            // Returns true if it sent the message at least one endpoint. Returns false if the message couldn't be sent to any endpoints
+            public static bool broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
             {
                 if(data == null)
                 {
                     Logging.warn(string.Format("Invalid protocol message data for {0}", code));
-                    return;
+                    return false;
                 }
 
-                NetworkClientManager.broadcastData(code, data, skipEndpoint);
-                NetworkServer.broadcastData(code, data, skipEndpoint);
+                bool c_result = NetworkClientManager.broadcastData(code, data, skipEndpoint);                
+                bool s_result = NetworkServer.broadcastData(code, data, skipEndpoint);
+
+                if (!c_result && !s_result)
+                    return false;
+
+                return true;
             }
 
             public static void syncWalletStateNeighbor(string neighbor)
