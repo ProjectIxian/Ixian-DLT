@@ -148,7 +148,9 @@ namespace DLT
                 }
             }
 
-            public static void getWalletStateChunkNeighbor(string neighbor, int chunk)
+            // Requests a specific wallet chunk from a specified neighbor
+            // Returns true if request was sent. Returns false if the request could not be sent (socket error, missing neighbor, etc)
+            public static bool getWalletStateChunkNeighbor(string neighbor, int chunk)
             {
                 using (MemoryStream m = new MemoryStream())
                 {
@@ -158,10 +160,12 @@ namespace DLT
 
                         if (NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray()) == false)
                         {
-                            NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray());
+                            if (NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray()) == false)
+                                return false;
                         }
                     }
                 }
+                return true;
             }
 
             public static void sendWalletStateChunk(RemoteEndpoint endpoint, WsChunk chunk)
