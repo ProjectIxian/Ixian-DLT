@@ -987,91 +987,13 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlockTransactions:
                             {
-                                // TODO TODO TODO split
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        ulong blockNum = reader.ReadUInt64();
-                                        bool requestAllTransactions = reader.ReadBoolean();
-                                        Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
-                                        using (MemoryStream mOut = new MemoryStream())
-                                        {
-                                            using (BinaryWriter writer = new BinaryWriter(mOut))
-                                            {
-                                                // TODO TODO TODO full history node
-                                                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
-                                                List<string> txIdArr = null;
-                                                if(b != null)
-                                                {
-                                                    txIdArr = new List<string>(b.transactions);
-                                                }
-                                                else
-                                                {
-                                                    lock(Node.blockProcessor.localBlockLock)
-                                                    {
-                                                        Block tmp = Node.blockProcessor.getLocalBlock();
-                                                        if(tmp != null && tmp.blockNum == blockNum)
-                                                        {
-                                                            txIdArr = new List<string>(tmp.transactions);
-                                                        }
-                                                    }
-                                                }
-                                                if (txIdArr != null)
-                                                {
-                                                    for (int i = 0; i < txIdArr.Count; i++)
-                                                    {
-                                                        if (!requestAllTransactions)
-                                                        {
-                                                            if (txIdArr[i].StartsWith("stk"))
-                                                            {
-                                                                continue;
-                                                            }
-                                                        }
-                                                        Transaction tx = TransactionPool.getTransaction(txIdArr[i], Config.storeFullHistory);
-                                                        if (tx != null)
-                                                        {
-                                                            byte[] txBytes = tx.getBytes();
-
-                                                            writer.Write(txBytes.Length);
-                                                            writer.Write(txBytes);
-                                                        }
-                                                    }
-
-                                                    endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                endpoint.handleGetBlockTransactions(data);                              
                             }
                             break;
 
                         case ProtocolMessageCode.getUnappliedTransactions:
                             {
-                                // TODO TODO TODO split
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        using (MemoryStream mOut = new MemoryStream())
-                                        {
-                                            using (BinaryWriter writer = new BinaryWriter(mOut))
-                                            {
-                                                Transaction[] txIdArr = TransactionPool.getUnappliedTransactions();
-                                                foreach(Transaction tx in txIdArr)
-                                                {
-                                                    byte[] txBytes = tx.getBytes();
-
-                                                    writer.Write(txBytes.Length);
-                                                    writer.Write(txBytes);
-                                                }
-
-                                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                            }
-                                        }
-                                    }
-                                }
+                                endpoint.handleGetUnappliedTransactions(data);
                             }
                             break;
 
