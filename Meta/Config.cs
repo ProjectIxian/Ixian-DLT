@@ -102,10 +102,12 @@ namespace DLT
                 // Check for clean parameter
                 cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = value).Required();
 
+                
+                //cmd_parser.Setup<string>('i', "ip").Callback(value => publicServerIP = value).Required();
                 cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
 
-                cmd_parser.Setup<string>('i').Callback(value => externalIp = value).SetDefault("");
+                cmd_parser.Setup<string>('i', "ip").Callback(value => externalIp = value).SetDefault("");
 
                 // Convert the genesis block funds to ulong, as only long is accepted with FCLP
                 cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();
