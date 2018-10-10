@@ -145,7 +145,7 @@ namespace DLT
             {
                 foreach (NetworkClient client in networkClients)
                 {
-                    if (client.address.Equals(resolved_host, StringComparison.Ordinal))
+                    if (client.getFullAddress(true).Equals(resolved_host, StringComparison.Ordinal))
                     {
                         // Address is already in the client list
                         return false;
@@ -154,7 +154,7 @@ namespace DLT
             }
 
             // Check if node is already in the server list
-            string[] connectedClients = NetworkServer.getConnectedClients();
+            string[] connectedClients = NetworkServer.getConnectedClients(true);
             for (int i = 0; i < connectedClients.Length; i++)
             {
                 if (connectedClients[i].Equals(resolved_host, StringComparison.Ordinal))
@@ -232,7 +232,7 @@ namespace DLT
             {
                 foreach(NetworkClient c in networkClients)
                 {
-                    if(c.address == neighbor)
+                    if(c.getFullAddress() == neighbor)
                     {
                         client = c;
                         break;
@@ -276,7 +276,7 @@ namespace DLT
             return result.ToArray();
         }
 
-        // Scans the Presence List for a new potential neighbor. Returns null if no new neighbor is found.
+        // Returns a random new potential neighbor. Returns null if no new neighbor is found.
         public static string scanForNeighbor()
         {
             string connectToAddress = null;
@@ -296,12 +296,24 @@ namespace DLT
                 {
                     foreach (NetworkClient client in networkClients)
                     {
-                        if (client.address.Equals(address, StringComparison.Ordinal))
+                        if (client.getFullAddress(true).Equals(address, StringComparison.Ordinal))
                         {
                             // Address is already in the client list
                             addr_valid = false;
                             break;
                         }
+                    }
+                }
+
+                // Check if node is already in the server list
+                string[] connectedClients = NetworkServer.getConnectedClients(true);
+                for (int i = 0; i < connectedClients.Length; i++)
+                {
+                    if (connectedClients[i].Equals(address, StringComparison.Ordinal))
+                    {
+                        // Address is already in the client list
+                        addr_valid = false;
+                        break;
                     }
                 }
 

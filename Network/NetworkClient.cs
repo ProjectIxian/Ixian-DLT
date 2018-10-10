@@ -60,6 +60,7 @@ namespace DLT
             tcpHostname = hostname;
             tcpPort = port;
             address = string.Format("{0}:{1}", hostname, port);
+            incomingPort = port;
 
             // Prepare the TCP client
             prepareClient();
@@ -145,7 +146,7 @@ namespace DLT
                     tcpClient.Close();
                 }
 
-                Logging.info(string.Format("--> Reconnecting to {0}", address));
+                Logging.info(string.Format("--> Reconnecting to {0}", getFullAddress(true)));
                 return connectToServer(tcpHostname, tcpPort);
             }
         }
@@ -157,8 +158,6 @@ namespace DLT
                 using (BinaryWriter writer = new BinaryWriter(m))
                 {
                     string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
-                    // Send the public IP address and port
-                    writer.Write(publicHostname);
 
                     // Send the public node address
                     string address = Node.walletStorage.address;
@@ -182,6 +181,9 @@ namespace DLT
 
                     // Send the wallet public key
                     writer.Write(Node.walletStorage.publicKey);
+
+                    // Send listening port
+                    writer.Write(Config.serverPort);
 
                     sendData(ProtocolMessageCode.hello, m.ToArray());
                 }

@@ -448,7 +448,6 @@ namespace DLT
                                         return;
                                     }
 
-                                    string hostname = reader.ReadString();
                                     /*Logging.info(String.Format("New node connected with advertised address {0}", hostname));
                                     if(CoreNetworkUtils.PingAddressReachable(hostname) == false)
                                     {
@@ -478,18 +477,20 @@ namespace DLT
                                         char node_type = reader.ReadChar();
                                         string node_version = reader.ReadString();
                                         string device_id = reader.ReadString();
+                                        string s2pubkey = reader.ReadString();
                                         string pubkey = reader.ReadString();
+                                        int port = reader.ReadInt32();
 
 
                                         // Check the testnet designator and disconnect on mismatch
-                                        if(test_net != Config.isTestNet)
+                                        if (test_net != Config.isTestNet)
                                         {
                                             using (MemoryStream m2 = new MemoryStream())
                                             {
                                                 using (BinaryWriter writer = new BinaryWriter(m2))
                                                 {
                                                     writer.Write(string.Format("Incorrect testnet designator: {0}. Should be {1}", test_net, Config.isTestNet));
-                                                    Logging.warn(string.Format("Rejected master node {0} due to incorrect testnet designator: {1}", hostname, test_net));
+                                                    Logging.warn(string.Format("Rejected master node {0} due to incorrect testnet designator: {1}", endpoint.fullAddress, test_net));
                                                     endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                                                     endpoint.stop();
                                                     return;
@@ -497,24 +498,15 @@ namespace DLT
                                             }
                                         }
 
-
-                                        // Read the metadata and provide backward compatibility with older nodes
-                                        string meta = " ";
-                                        try
-                                        {
-                                            meta = reader.ReadString();
-                                        }
-                                        catch (Exception)
-                                        {
-
-                                        }
                                         //Console.WriteLine("Received Address: {0} of type {1}", addr, node_type);
 
+                                        endpoint.incomingPort = port;
+
                                         // Store the presence address for this remote endpoint
-                                        endpoint.presenceAddress = new PresenceAddress(device_id, hostname, node_type, node_version);
+                                        endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version);
 
                                         // Create a temporary presence with the client's address and device id
-                                        Presence presence = new Presence(addr, pubkey, meta, endpoint.presenceAddress);
+                                        Presence presence = new Presence(addr, s2pubkey, pubkey, endpoint.presenceAddress);
 
 
 
@@ -530,7 +522,7 @@ namespace DLT
                                                     using (BinaryWriter writer = new BinaryWriter(m2))
                                                     {
                                                         writer.Write(string.Format("Insufficient funds. Minimum is {0}", Config.minimumMasterNodeFunds));
-                                                        Logging.warn(string.Format("Rejected master node {0} due to insufficient funds: {1}", hostname, balance.ToString()));
+                                                        Logging.warn(string.Format("Rejected master node {0} due to insufficient funds: {1}", endpoint.getFullAddress(), balance.ToString()));
                                                         endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                                                         endpoint.stop();
                                                         return;
@@ -950,7 +942,7 @@ namespace DLT
 
                         case ProtocolMessageCode.keepAlivePresence:
                             {
-                                bool updated = PresenceList.receiveKeepAlive(data);
+                                bool updated = PresenceList.receiveKeepAlive(data, endpoint.getFullAddress(true));
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {

@@ -499,12 +499,9 @@ namespace DLT.Meta
                     {
                         using (BinaryWriter writer = new BinaryWriter(m))
                         {
-
-                            string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
                             string wallet = Node.walletStorage.address;
                             writer.Write(wallet);
                             writer.Write(Config.device_id);
-                            writer.Write(publicHostname);
 
                             // Add the unix timestamp
                             string timestamp = Node.getCurrentTimestamp().ToString();
@@ -512,13 +509,13 @@ namespace DLT.Meta
 
                             // Add a verifiable signature
                             string private_key = Node.walletStorage.privateKey;
-                            string signature = CryptoManager.lib.getSignature(Config.device_id + "-" + timestamp + "-" + publicHostname, private_key);
+                            string signature = CryptoManager.lib.getSignature(Config.device_id + "-" + timestamp, private_key);
                             writer.Write(signature);
 
                         }
 
                         // Update self presence
-                        PresenceList.receiveKeepAlive(m.ToArray());
+                        PresenceList.receiveKeepAlive(m.ToArray(), Config.publicServerIP + ":" + Config.serverPort);
 
                         // Send this keepalive message to all connected clients
                         ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, m.ToArray());

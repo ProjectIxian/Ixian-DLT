@@ -184,7 +184,7 @@ namespace DLT
                 {
                     foreach (RemoteEndpoint ep in connectedClients)
                     {
-                        if(ep.address == neighbor)
+                        if(ep.getFullAddress() == neighbor)
                         {
                             client = ep;
                             break;
@@ -200,7 +200,7 @@ namespace DLT
             }
             
             // Returns all the connected clients
-            public static string[] getConnectedClients()
+            public static string[] getConnectedClients(bool useIncomingPort = false)
             {
                 List<String> result = new List<String>();
 
@@ -212,7 +212,7 @@ namespace DLT
                         {
                             try
                             {
-                                string client_name = client.getFullAddress();
+                                string client_name = client.getFullAddress(useIncomingPort);
                                 result.Add(client_name);
                             }
                             catch (Exception e)

@@ -13,7 +13,10 @@ namespace DLT
 {
     public class RemoteEndpoint
     {
-        public string address = "127.0.0.1:10000";
+        public string fullAddress = "127.0.0.1:10000";
+        public string address = "";
+        public int incomingPort = Config.serverPort;
+
 
         public IPEndPoint remoteIP;
         public Socket clientSocket;
@@ -53,7 +56,8 @@ namespace DLT
                 return;
             }
             remoteIP = (IPEndPoint)clientSocket.RemoteEndPoint;
-            address = remoteIP.Address + ":" + remoteIP.Port;
+            address = remoteIP.Address.ToString();
+            fullAddress = address + ":" + remoteIP.Port;
             presence = null;
             presenceAddress = null;
 
@@ -92,10 +96,12 @@ namespace DLT
         // Aborts all related endpoint threads and data
         public void stop()
         {
+            Thread.Sleep(50); // clear any last messages
+
             state = RemoteEndpointState.Closed;
             running = false;
 
-            Thread.Yield();
+            Thread.Sleep(50); // wait for threads to stop
 
             lock (sendQueueMessages)
             {
@@ -335,7 +341,7 @@ namespace DLT
 
             lock (sendQueueMessages)
             {
-                if (message.code != ProtocolMessageCode.keepAlivePresence && sendQueueMessages.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
+                if (sendQueueMessages.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
                 {
                     Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
                 }
@@ -388,10 +394,13 @@ namespace DLT
         }
 
         // Get the ip/hostname and port
-        public string getFullAddress()
+        public string getFullAddress(bool useIncomingPorts = false)
         {
-            return address;
+            if(useIncomingPorts)
+            {
+                return address + ":" + incomingPort;
+            }
+            return fullAddress;
         }
-
     }
 }

@@ -389,7 +389,7 @@ namespace DLT
 
         private void startWalletStateSync()
         {
-            HashSet<string> all_neighbors = new HashSet<string>(NetworkClientManager.getConnectedClients().Concat(NetworkServer.getConnectedClients()));
+            HashSet<string> all_neighbors = new HashSet<string>(NetworkClientManager.getConnectedClients().Concat(NetworkServer.getConnectedClients(true)));
             if (all_neighbors.Count < 1)
             {
                 Logging.info(String.Format("Wallet state synchronization from storage."));
