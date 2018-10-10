@@ -46,6 +46,10 @@ namespace DLT
 
             public static readonly int defaultRsaKeySize = 4096;
 
+            public static readonly int maxReceiveQueue    = 10000; // Maximum number of received raw messages in queue per endpoint
+            public static readonly int maxSendQueue       = 10000; // Maximum number of sent messages in queue per endpoint
+
+
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000"); // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
@@ -55,6 +59,7 @@ namespace DLT
             public static readonly IxiNumber powReward = new IxiNumber("12.5");
             public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block
             public static readonly ulong maximumTransactionsPerBlock = 3000; // Limit the maximum number of transactions in a newly generated block
+            public static readonly int maximumTransactionsPerChunk = 1000; // Limit the maximum number of transactions per transaction chunk
 
             private static Config singletonInstance;
             private Config()

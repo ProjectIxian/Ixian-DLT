@@ -162,7 +162,11 @@ namespace DLT
                 }
 
                 // Didn't find the block in storage, request it from the network
-                ProtocolMessage.broadcastGetBlock(blockNum);
+                if(ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                {
+                    Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
+                }
+
                 count++;
                 if (count >= maxBlockRequests) break;
             }
@@ -429,7 +433,7 @@ namespace DLT
             Node.blockProcessor.resumeOperation();
         }
 
-
+        // Request missing walletstate chunks from network
         private void requestWalletChunks()
         {
             lock(missingWsChunks)
@@ -437,11 +441,22 @@ namespace DLT
                 int count = 0;
                 foreach(int c in missingWsChunks)
                 {
-                    ProtocolMessage.getWalletStateChunkNeighbor(syncNeighbor, c);
+                    bool request_sent = ProtocolMessage.getWalletStateChunkNeighbor(syncNeighbor, c);
+                    if(request_sent == false)
+                    {
+                        Logging.warn(String.Format("Failed to request wallet chunk from {0}. Restarting WalletState synchronization.", syncNeighbor));
+                        startWalletStateSync();
+                        return;
+                    }
+
                     count += 1;
                     if (count > maxBlockRequests) break;
                 }
-                Logging.info(String.Format("{0} WalletState chunks are missing before WalletState is synchronized...", missingWsChunks.Count));
+                if (count > 0)
+                {
+                    Logging.info(String.Format("{0} WalletState chunks are missing before WalletState is synchronized...", missingWsChunks.Count));
+                }
+                Thread.Sleep(2000);
             }
         }
 
@@ -576,7 +591,7 @@ namespace DLT
                 {
                     chunks += 1;
                 }
-                Logging.info(String.Format("Starting Wallet State synchronization. Starting block: #{0}. Wallets: {1} ({2} chunks)", 
+                Logging.info(String.Format("WalletState Starting block: #{0}. Wallets: {1} ({2} chunks)", 
                     ws_block, ws_count, chunks));
                 wsSyncConfirmedBlockNum = ws_block;
                 lock (missingWsChunks)

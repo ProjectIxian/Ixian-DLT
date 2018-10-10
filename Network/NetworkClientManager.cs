@@ -205,8 +205,10 @@ namespace DLT
         }
 
         // Send data to all connected nodes
-        public static void broadcastData(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
+        // Returns true if the data was sent to at least one client
+        public static bool broadcastData(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
         {
+            bool result = false;
             lock (networkClients)
             {
                 foreach (NetworkClient client in networkClients)
@@ -220,9 +222,11 @@ namespace DLT
                         }
 
                         client.sendData(code, data);
+                        result = true;
                     }
                 }
             }
+            return result;
         }
 
         public static bool sendToClient(string neighbor, ProtocolMessageCode code, byte[] data)

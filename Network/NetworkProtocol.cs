@@ -76,7 +76,7 @@ namespace DLT
                 return result;
             }
 
-            public static void broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null)
+            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -84,18 +84,18 @@ namespace DLT
                     {
                         writerw.Write(block_num);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint);
+                        return broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint);
                     }
                 }
             }
 
-            public static void broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null)
+            public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null)
             {
                 //Logging.info(String.Format("Broadcasting block #{0} : {1}.", b.blockNum, b.blockChecksum));
-                broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
+                return broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
             }
 
-            public static void broadcastGetTransaction(string txid)
+            public static bool broadcastGetTransaction(string txid)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -103,7 +103,7 @@ namespace DLT
                     {
                         writerw.Write(txid);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray());
+                        return broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray());
                     }
                 }
             }
@@ -128,16 +128,22 @@ namespace DLT
             }
 
             // Broadcast a protocol message across clients and nodes
-            public static void broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
+            // Returns true if it sent the message at least one endpoint. Returns false if the message couldn't be sent to any endpoints
+            public static bool broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
             {
                 if(data == null)
                 {
                     Logging.warn(string.Format("Invalid protocol message data for {0}", code));
-                    return;
+                    return false;
                 }
 
-                NetworkClientManager.broadcastData(code, data, skipEndpoint);
-                NetworkServer.broadcastData(code, data, skipEndpoint);
+                bool c_result = NetworkClientManager.broadcastData(code, data, skipEndpoint);                
+                bool s_result = NetworkServer.broadcastData(code, data, skipEndpoint);
+
+                if (!c_result && !s_result)
+                    return false;
+
+                return true;
             }
 
             public static void syncWalletStateNeighbor(string neighbor)
@@ -148,7 +154,9 @@ namespace DLT
                 }
             }
 
-            public static void getWalletStateChunkNeighbor(string neighbor, int chunk)
+            // Requests a specific wallet chunk from a specified neighbor
+            // Returns true if request was sent. Returns false if the request could not be sent (socket error, missing neighbor, etc)
+            public static bool getWalletStateChunkNeighbor(string neighbor, int chunk)
             {
                 using (MemoryStream m = new MemoryStream())
                 {
@@ -158,10 +166,12 @@ namespace DLT
 
                         if (NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray()) == false)
                         {
-                            NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray());
+                            if (NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray()) == false)
+                                return false;
                         }
                     }
                 }
+                return true;
             }
 
             public static void sendWalletStateChunk(RemoteEndpoint endpoint, WsChunk chunk)
@@ -1060,91 +1070,13 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlockTransactions:
                             {
-                                // TODO TODO TODO split
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        ulong blockNum = reader.ReadUInt64();
-                                        bool requestAllTransactions = reader.ReadBoolean();
-                                        Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
-                                        using (MemoryStream mOut = new MemoryStream())
-                                        {
-                                            using (BinaryWriter writer = new BinaryWriter(mOut))
-                                            {
-                                                // TODO TODO TODO full history node
-                                                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
-                                                List<string> txIdArr = null;
-                                                if(b != null)
-                                                {
-                                                    txIdArr = new List<string>(b.transactions);
-                                                }
-                                                else
-                                                {
-                                                    lock(Node.blockProcessor.localBlockLock)
-                                                    {
-                                                        Block tmp = Node.blockProcessor.getLocalBlock();
-                                                        if(tmp != null && tmp.blockNum == blockNum)
-                                                        {
-                                                            txIdArr = new List<string>(tmp.transactions);
-                                                        }
-                                                    }
-                                                }
-                                                if (txIdArr != null)
-                                                {
-                                                    for (int i = 0; i < txIdArr.Count; i++)
-                                                    {
-                                                        if (!requestAllTransactions)
-                                                        {
-                                                            if (txIdArr[i].StartsWith("stk"))
-                                                            {
-                                                                continue;
-                                                            }
-                                                        }
-                                                        Transaction tx = TransactionPool.getTransaction(txIdArr[i], Config.storeFullHistory);
-                                                        if (tx != null)
-                                                        {
-                                                            byte[] txBytes = tx.getBytes();
-
-                                                            writer.Write(txBytes.Length);
-                                                            writer.Write(txBytes);
-                                                        }
-                                                    }
-
-                                                    endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                endpoint.handleGetBlockTransactions(data);                              
                             }
                             break;
 
                         case ProtocolMessageCode.getUnappliedTransactions:
                             {
-                                // TODO TODO TODO split
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        using (MemoryStream mOut = new MemoryStream())
-                                        {
-                                            using (BinaryWriter writer = new BinaryWriter(mOut))
-                                            {
-                                                Transaction[] txIdArr = TransactionPool.getUnappliedTransactions();
-                                                foreach(Transaction tx in txIdArr)
-                                                {
-                                                    byte[] txBytes = tx.getBytes();
-
-                                                    writer.Write(txBytes.Length);
-                                                    writer.Write(txBytes);
-                                                }
-
-                                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                                            }
-                                        }
-                                    }
-                                }
+                                endpoint.handleGetUnappliedTransactions(data);
                             }
                             break;
 
