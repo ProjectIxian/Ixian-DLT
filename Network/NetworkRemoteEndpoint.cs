@@ -570,6 +570,9 @@ namespace DLT
                             {
                                 // we have everything that we need, save the last byte and break
                                 message_found = true;
+                            }else if(big_buffer.Count < header_length)
+                            {
+                                bytesToRead = header_length - big_buffer.Count;
                             }
                             if (data_length > 0)
                             {
