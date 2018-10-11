@@ -857,6 +857,7 @@ namespace DLT
                                         // Retrieve the message
                                         string message = reader.ReadString();
                                         Logging.error(string.Format("Disconnected with message: {0}", message));
+                                        endpoint.stop();
                                     }
                                 }
                             }
