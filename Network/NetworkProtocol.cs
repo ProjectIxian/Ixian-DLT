@@ -1050,7 +1050,6 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    Logging.error("Updated keepalive, broadcasting");
                                     broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, data, endpoint);
                                 }
                                 
