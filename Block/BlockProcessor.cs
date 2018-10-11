@@ -615,7 +615,7 @@ namespace DLT
                 else // localNewBlock == null
                 {
                     if (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()))
-                        || b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()
+                        || b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO TODO think about /2 thing
                         || firstBlockAfterSync)
                     {
                         localNewBlock = b;
@@ -623,7 +623,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.warn(String.Format("Incoming block #{0} doesn't have elected nodes sig, waiting for a new block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                        Logging.warn(String.Format("Incoming block #{0} doesn't have elected node's sig, waiting for a new block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                     }
                 }
                 if (localNewBlock != null && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before

@@ -161,12 +161,13 @@ namespace DLT
 
                 // Sleep a while to throttle the client
                 // Check if there are too many messages
+                // TODO TODO TODO should we include txqueue here as well?
                 if (NetworkQueue.getQueuedMessageCount() > Config.maxNetworkQueue)
                 {
-                    Thread.Sleep(1);
+                    Thread.Sleep(50);
                 }else
                 {
-                    Thread.Sleep(50);
+                    Thread.Sleep(1);
                 }
 
                 // Check if the client disconnected
