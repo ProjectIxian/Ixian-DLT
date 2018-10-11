@@ -46,9 +46,12 @@ namespace DLT
 
             public static readonly int defaultRsaKeySize = 4096;
 
-            public static readonly int maxReceiveQueue    = 10000; // Maximum number of received raw messages in queue per endpoint
+            public static readonly int maxNetworkQueue    = 10000; // Maximum number of received messages in network queue before throttling starts
             public static readonly int maxSendQueue       = 10000; // Maximum number of sent messages in queue per endpoint
+            public static readonly int maxMessageSize = 10000000; // Maximum message size in bytes
 
+            public static readonly int pingInterval = 10; // how long to wait for data before sending ping
+            public static readonly int pingTimeout = 30; // how long to wait for data after sending ping 
 
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000"); // Limit master nodes to this amount or above

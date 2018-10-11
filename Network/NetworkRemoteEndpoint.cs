@@ -19,6 +19,9 @@ namespace DLT
         public int incomingPort = Config.serverPort;
 
 
+        protected long lastDataReceivedTime = 0;
+        protected long lastPing = 0;
+
         public IPEndPoint remoteIP;
         public Socket clientSocket;
         public RemoteEndpointState state;
@@ -61,6 +64,9 @@ namespace DLT
             fullAddress = address + ":" + remoteIP.Port;
             presence = null;
             presenceAddress = null;
+
+            lastPing = 0;
+            lastDataReceivedTime = Clock.getTimestamp(DateTime.Now);
 
             state = RemoteEndpointState.Established;
 
@@ -142,6 +148,8 @@ namespace DLT
                     byte[] data = ProtocolMessage.readSocketData(clientSocket);
                     if (data != null)
                     {
+                        lastDataReceivedTime = Clock.getTimestamp(DateTime.Now);
+                        lastPing = 0;
                         parseDataInternal(data, this);
                     }
                 }
@@ -152,7 +160,14 @@ namespace DLT
                 }
 
                 // Sleep a while to throttle the client
-                Thread.Sleep(1);
+                // Check if there are too many messages
+                if (NetworkQueue.getQueuedMessageCount() > Config.maxNetworkQueue)
+                {
+                    Thread.Sleep(1);
+                }else
+                {
+                    Thread.Sleep(50);
+                }
 
                 // Check if the client disconnected
                 if (state == RemoteEndpointState.Closed)
@@ -167,7 +182,7 @@ namespace DLT
             NetworkServer.removeEndpoint(this);
         }
 
-        public void disconnect()
+        public virtual void disconnect()
         {
             // Close the client socket
             if (clientSocket != null)
@@ -194,6 +209,25 @@ namespace DLT
 
             while (running)
             {
+                long curTime = Clock.getTimestamp(DateTime.Now);
+                if (curTime - lastDataReceivedTime > Config.pingInterval)
+                {
+                    if (lastPing == 0)
+                    {
+                        lastPing = curTime;
+                        byte[] pingBytes = new byte[1];
+                        sendDataInternal(ProtocolMessageCode.ping, pingBytes, Crypto.sha256(pingBytes));
+                        Thread.Sleep(1);
+                        continue;
+                    }else if(curTime - lastPing > Config.pingTimeout)
+                    {
+                        // haven't received any data for 30 seconds, stop running
+                        Logging.error("Node hasn't received any data from remote endpoint for over 30 seconds, disconnecting.");
+                        running = false;
+                        break;
+                    }
+                }
+
                 bool message_found = false;
                 lock (sendQueueMessages)
                 {
@@ -279,12 +313,6 @@ namespace DLT
 
             lock (recvRawQueueMessages)
             {
-                // Check if there are too many messages
-                if (recvRawQueueMessages.Count > Config.maxReceiveQueue)
-                {
-                    recvRawQueueMessages.RemoveAt(0);
-                }
-
                 recvRawQueueMessages.Add(message);
             }
         }
@@ -366,7 +394,7 @@ namespace DLT
                             // Check if there are too many messages
                             if (sendQueueMessages.Count > Config.maxSendQueue)
                             {
-                                sendQueueMessages.RemoveAt(0);
+                                sendQueueMessages.RemoveAt(1);
                             }
 
                             sendQueueMessages.Add(message);

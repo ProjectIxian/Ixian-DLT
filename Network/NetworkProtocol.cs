@@ -37,9 +37,9 @@ namespace DLT
                 // Prepare the protocol sections
                 int data_length = data.Length;
 
-                if (data_length > 10000000)
+                if (data_length > Config.maxMessageSize)
                 {
-                    Logging.error(String.Format("Tried to send data bigger than 10MB - {0} with code {1}.", data_length, code));
+                    Logging.error(String.Format("Tried to send data bigger than max allowed message size - {0} with code {1}.", data_length, code));
                     return null;
                 }
 
@@ -229,9 +229,9 @@ namespace DLT
                             return -1;
                         }
 
-                        if (data_length > 10000000)
+                        if (data_length > Config.maxMessageSize)
                         {
-                            Logging.warn(String.Format("Data length was bigger than 10MB - {0}, code {1}.", data_length, code));
+                            Logging.warn(String.Format("Received data length was bigger than max allowed message size - {0}, code {1}.", data_length, code));
                             return -1;
                         }
                     }
@@ -512,6 +512,7 @@ namespace DLT
                         }
                     }
 
+                    // TODO TODO TODO verify pubkey against address
 
 
                     //Console.WriteLine("Received Address: {0} of type {1}", addr, node_type);
@@ -521,8 +522,17 @@ namespace DLT
                     // Verify the signature
                     if (CryptoManager.lib.verifySignature(device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true), pubkey, signature) == false)
                     {
-                        Logging.warn(string.Format("[PL] KEEPALIVE tampering in hello message for {0} {1}, incorrect Sig.", addr, endpoint.getFullAddress(true)));
-                        return false;
+                        using (MemoryStream m2 = new MemoryStream())
+                        {
+                            using (BinaryWriter writer = new BinaryWriter(m2))
+                            {
+                                writer.Write(string.Format("Incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress()));
+                                Logging.warn(string.Format("[PL] KEEPALIVE tampering in hello message for {0} {1}, incorrect Sig.", addr, endpoint.getFullAddress(true)));
+                                endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
+                                endpoint.stop();
+                                return false;
+                            }
+                        }
                     }
 
                     // if we're a client update the network time difference
@@ -863,6 +873,7 @@ namespace DLT
                                 TransactionPool.addTransaction(transaction, true, endpoint);                               
                             }
                             break;
+
                         case ProtocolMessageCode.bye:
                             {
                                 using (MemoryStream m = new MemoryStream(data))
@@ -1039,6 +1050,7 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
+                                    Logging.error("Updated keepalive, broadcasting");
                                     broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, data, endpoint);
                                 }
                                 
@@ -1123,7 +1135,19 @@ namespace DLT
                                 }
                             }
                             break;
-                        
+
+                        case ProtocolMessageCode.ping:
+                            {
+                                endpoint.sendData(ProtocolMessageCode.pong, new byte[1]);
+                            }
+                            break;
+
+                        case ProtocolMessageCode.pong:
+                            {
+                                // do nothing
+                            }
+                            break;
+
                         default:
                             break;
                     }

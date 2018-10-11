@@ -408,7 +408,7 @@ namespace DLT
                 else if(netClients.Count > Config.simultaneousConnectedNeighbors)
                 {
                     // Disconnect the oldest connected node
-                    netClients[0].disconnect();
+                    netClients[0].stop();
                     lock (networkClients)
                     {
                         networkClients.Remove(netClients[0]);
@@ -426,16 +426,20 @@ namespace DLT
 
                 foreach (NetworkClient client in netClients)
                 {
+                    if (client.isConnected())
+                    {
+                        continue;
+                    }
                     // Check if we exceeded the maximum reconnect count
-                    if (client.getFailedReconnectsCount() >= Config.maximumNeighborReconnectCount)
+                    if (client.getTotalReconnectsCount() >= Config.maximumNeighborReconnectCount)
                     {
                         // Remove this client so we can search for a new neighbor
                         failed_clients.Add(client);
                     }
                     else
                     {
-                        // Everything is in order, send a ping message
-                        client.sendPing();
+                        // Everything is in order
+                        client.reconnect();
                     }
                 }
 
@@ -445,15 +449,6 @@ namespace DLT
                     lock (networkClients)
                     {
                         networkClients.Remove(client);
-                    }
-                }
-
-                // Go through list of disconnected servers and try to reconnect
-                foreach (NetworkClient client in netClients)
-                {
-                    if(!client.isConnected())
-                    {
-                        client.reconnect();
                     }
                 }
 

@@ -109,7 +109,8 @@ namespace DLT
 
                     // Handle normal messages, but prioritize block-related messages
                     if (code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence
-                        || code == ProtocolMessageCode.updatePresence)
+                        || code == ProtocolMessageCode.updatePresence || code == ProtocolMessageCode.ping
+                        || code == ProtocolMessageCode.pong)
                     {
 
                         // Prioritize if queue is large

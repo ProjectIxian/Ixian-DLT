@@ -17,7 +17,7 @@ namespace DLT
 
         private string tcpHostname = "";
         private int tcpPort = 0;
-        private int failedReconnects = 0;
+        private int totalReconnects = 0;
 
         private object reconnectLock = new object();
 
@@ -50,9 +50,6 @@ namespace DLT
 
             tmpSocket.Blocking = true;
 
-            // Reset the failed reconnects count
-            failedReconnects = 0;
-
         }
 
         public bool connectToServer(string hostname, int port)
@@ -67,6 +64,7 @@ namespace DLT
 
             try
             {
+                totalReconnects++;
                 tcpClient.Connect(hostname, port);
             }
             catch (SocketException se)
@@ -89,32 +87,19 @@ namespace DLT
                         break;
                 }
 
-                // Todo: make this more elegant
-                try
-                {
-                    tcpClient.Close();
-                }
-                catch (Exception)
-                {
-                    Logging.warn(string.Format("Socket exception for {0}:{1} when closing.", hostname, port));
-                }
+                disconnect();
 
                 running = false;
-                failedReconnects++;
                 return false;
             }
             catch (Exception)
             {
                 Logging.warn(string.Format("Network client connection to {0}:{1} has failed.", hostname, port));
                 running = false;
-                failedReconnects++;
                 return false;
             }
 
             Logging.info(string.Format("Network client connected to {0}:{1}", hostname, port));
-
-            // Reset the failed reconnects count
-            failedReconnects = 0;
 
             start(tcpClient.Client);
             return true;
@@ -128,25 +113,15 @@ namespace DLT
                 if (tcpHostname.Length < 1)
                 {
                     Logging.warn("Network client reconnect failed due to invalid hostname.");
-                    failedReconnects++;
                     return false;
                 }
 
                 // Safely close the threads
                 running = false;
 
-                // Check if socket already disconnected
-                if (clientSocket == null)
-                {
-                    // TODO: handle this scenario
-                }
-                else if (clientSocket.Connected)
-                {
-                    clientSocket.Shutdown(SocketShutdown.Both);
-                    tcpClient.Close();
-                }
+                disconnect();
 
-                Logging.info(string.Format("--> Reconnecting to {0}", getFullAddress(true)));
+                Logging.info(string.Format("--> Reconnecting to {0}, total reconnects: {1}", getFullAddress(true), totalReconnects));
                 return connectToServer(tcpHostname, tcpPort);
             }
         }
@@ -159,17 +134,16 @@ namespace DLT
             base.recvLoop();
         }
 
-        // Send a ping message to this server
-        public void sendPing()
+        public override void disconnect()
         {
-            byte[] tmp = new byte[1];
-            sendData(ProtocolMessageCode.ping, tmp);
+            base.disconnect();
+            tcpClient.Close();
         }
 
         // Returns the number of failed reconnects
-        public int getFailedReconnectsCount()
+        public int getTotalReconnectsCount()
         {
-            return failedReconnects;
+            return totalReconnects;
         }
     }
 
