@@ -86,8 +86,15 @@ namespace DLT
                     blockGenerationInterval = 30;
                 }
 
+                bool forceNextBlock = Node.forceNextBlock;
+                Random rnd = new Random();
+                if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
+                {
+                    forceNextBlock = true;
+                }
+
                 //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
-                if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds > blockGenerationInterval)) || Node.forceNextBlock)
+                if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)) || forceNextBlock)
                 {
                     if (Node.forceNextBlock)
                     {
@@ -108,12 +115,13 @@ namespace DLT
             return;
         }
 
+        // returns offset depending on time since last block and block generation interval. This function will return -1 if more than 10 block generation intervals have passed
         public int getElectedNodeOffset()
         {
             TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
-            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 15) // edge case, if network is stuck for more than 15 blocks always return 0 as the node offset.
+            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
             {
-                return 0;
+                return -1;
             }
             return (int)(timeSinceLastBlock.TotalSeconds / (blockGenerationInterval*3));
         }
@@ -614,7 +622,12 @@ namespace DLT
                 }
                 else // localNewBlock == null
                 {
-                    if (b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()))
+                    bool hasNodeSig = true;
+                    if(getElectedNodeOffset() != -1)
+                    {
+                        hasNodeSig = b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()));
+                    }
+                    if (hasNodeSig
                         || b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO TODO think about /2 thing
                         || firstBlockAfterSync)
                     {
