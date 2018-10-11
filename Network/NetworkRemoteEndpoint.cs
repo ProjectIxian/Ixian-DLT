@@ -170,8 +170,6 @@ namespace DLT
                     byte[] data = readSocketData();
                     if (data != null)
                     {
-                        lastDataReceivedTime = Clock.getTimestamp(DateTime.Now);
-                        lastPing = 0;
                         parseDataInternal(data, this);
                     }
                 }
@@ -553,6 +551,8 @@ namespace DLT
                     NetDump.Instance.appendReceived(socketReadBuffer, byteCounter);
                     if (byteCounter > 0)
                     {
+                        lastDataReceivedTime = Clock.getTimestamp(DateTime.Now);
+                        lastPing = 0;
                         if (big_buffer.Count > 0)
                         {
                             big_buffer.AddRange(socketReadBuffer.Take(byteCounter));
