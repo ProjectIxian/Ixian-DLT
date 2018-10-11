@@ -15,21 +15,18 @@ namespace DLT
     {
         public class ProtocolMessage
         {
-
-            [ThreadStatic] static byte[] currentBuffer = null;
             public static readonly ulong[] recvByteHist = new ulong[100];
-
 
             public static byte getHeaderChecksum(byte[] header)
             {
                 byte sum = 0x7F;
-                for(int i = 0; i < header.Length; i++)
+                for (int i = 0; i < header.Length; i++)
                 {
                     sum ^= header[i];
                 }
                 return sum;
             }
-
+            
             // Prepare a network protocol message. Works for both client-side and server-side
             public static byte[] prepareProtocolMessage(ProtocolMessageCode code, byte[] data, byte[] checksum = null)
             {
@@ -195,151 +192,6 @@ namespace DLT
                         endpoint.sendData(ProtocolMessageCode.walletStateChunk, m.ToArray());
                     }
                 }
-            }
-
-            private static int getDataLengthFromMessageHeader(List<byte> header)
-            {
-                int data_length = -1;
-                // we should have the full header, save the data length
-                using (MemoryStream m = new MemoryStream(header.ToArray()))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        reader.ReadByte(); // skip start byte
-                        int code = reader.ReadInt32(); // skip message code
-                        data_length = reader.ReadInt32(); // finally read data length
-                        byte[] data_checksum = reader.ReadBytes(32); // skip checksum sha256, 32 bytes
-                        byte checksum = reader.ReadByte(); // header checksum byte
-                        byte endByte = reader.ReadByte(); // end byte
-
-                        if (endByte != 'I')
-                        {
-                            Logging.warn("Header end byte was not 'I'");
-                            return -1;
-                        }
-
-                        if(getHeaderChecksum(header.Take(41).ToArray()) != checksum)
-                        {
-                            Logging.warn(String.Format("Header checksum mismatch"));
-                            return -1;
-                        }
-
-                        if (data_length <= 0)
-                        {
-                            Logging.warn(String.Format("Data length was {0}, code {1}", data_length, code));
-                            return -1;
-                        }
-
-                        if (data_length > Config.maxMessageSize)
-                        {
-                            Logging.warn(String.Format("Received data length was bigger than max allowed message size - {0}, code {1}.", data_length, code));
-                            return -1;
-                        }
-                    }
-                }
-                return data_length;
-            }
-
-            // Reads data from a socket and returns a byte array
-            public static byte[] readSocketData(Socket socket)
-            {
-                if(currentBuffer == null)
-                {
-                    currentBuffer = new byte[8192];
-                }
-
-                byte[] data = null;
-
-                // Check for socket availability
-                if (socket.Connected == false)
-                {
-                    throw new Exception("Socket already disconnected at other end");
-                }
-
-                if (socket.Available < 1)
-                {
-                    // Sleep a while to prevent cpu cycle waste
-                    Thread.Sleep(10);
-                    return data;
-                }
-
-                // Read multi-packet messages
-                // TODO: optimize this as it's not very efficient
-                List<byte> big_buffer = new List<byte>();
-
-                bool message_found = false;
-
-                try
-                {
-                    int data_length = 0;
-                    int header_length = 43; // start byte + int32 (4 bytes) + int32 (4 bytes) + checksum (32 bytes) + header checksum (1 byte) + end byte
-                    int bytesToRead = 1;
-                    while (message_found == false && socket.Connected)
-                    {
-                        //int pos = bytesToRead > recvByteHist.Length ? recvByteHist.Length - 1 : bytesToRead;
-                        /*lock (recvByteHist)
-                        {
-                            recvByteHist[pos]++;
-                        }*/
-                        int byteCounter = socket.Receive(currentBuffer, bytesToRead, SocketFlags.None);
-                        NetDump.Instance.appendReceived(currentBuffer, byteCounter);
-                        if (byteCounter > 0)
-                        {
-                            if (big_buffer.Count > 0)
-                            {
-                                big_buffer.AddRange(currentBuffer.Take(byteCounter));
-                                if (big_buffer.Count == header_length)
-                                {
-                                    data_length = getDataLengthFromMessageHeader(big_buffer);
-                                    if (data_length <= 0)
-                                    {
-                                        data_length = 0;
-                                        big_buffer.Clear();
-                                        bytesToRead = 1;
-                                    }
-                                }
-                                else if (big_buffer.Count == data_length + header_length)
-                                {
-                                    // we have everything that we need, save the last byte and break
-                                    message_found = true;
-                                }
-                                if (data_length > 0)
-                                {
-                                    bytesToRead = data_length + header_length - big_buffer.Count;
-                                    if (bytesToRead > 8000)
-                                    {
-                                        bytesToRead = 8000;
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                if (currentBuffer[0] == 'X') // X is the message start byte
-                                {
-                                    big_buffer.Add(currentBuffer[0]);
-                                    bytesToRead = header_length - 1; // header length - start byte
-                                }
-                            }
-                            Thread.Yield();
-                        }
-                        else
-                        {
-                            // sleep a litte while waiting for bytes
-                            Thread.Sleep(10);
-                            // TODO TODO TODO, should reset the big_buffer if a timeout occurs
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Logging.error(String.Format("NET: endpoint disconnected {0}", e));
-                    throw;
-                }
-                if (message_found)
-                {
-                    data = big_buffer.ToArray();
-                }
-                return data;
             }
 
             // Read a protocol message from a byte array
