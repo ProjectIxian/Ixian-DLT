@@ -160,7 +160,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Logging.warn(string.Format("recvRE: Disconnected client: {0}", e.ToString()));
+                    Logging.warn(string.Format("recvRE: Disconnected client {0} with exception {1}", getFullAddress(), e.ToString()));
                     state = RemoteEndpointState.Closed;
                 }
 
@@ -228,7 +228,7 @@ namespace DLT
                     }else if(curTime - lastPing > Config.pingTimeout)
                     {
                         // haven't received any data for 30 seconds, stop running
-                        Logging.error("Node hasn't received any data from remote endpoint for over 30 seconds, disconnecting.");
+                        Logging.error(String.Format("Node {0} hasn't received any data from remote endpoint for over 30 seconds, disconnecting.", getFullAddress()));
                         running = false;
                         break;
                     }
@@ -303,7 +303,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Logging.error("Exception occured in parseLoopRE: " + e);
+                    Logging.error(String.Format("Exception occured for client {0} in parseLoopRE: {1} ", getFullAddress(), e));
                 }
                 // Sleep a bit to prevent cpu waste
                 Thread.Yield();
@@ -451,127 +451,6 @@ namespace DLT
             return fullAddress;
         }
 
-
-        // Handle the getBlockTransactions message
-        // This is called from NetworkProtocol
-        public void handleGetBlockTransactions(byte[] data)
-        {
-            using (MemoryStream m = new MemoryStream(data))
-            {
-                using (BinaryReader reader = new BinaryReader(m))
-                {
-                    ulong blockNum = reader.ReadUInt64();
-                    bool requestAllTransactions = reader.ReadBoolean();
-                    Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
-
-                    // Get the requested block and corresponding transactions
-                    Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
-                    List<string> txIdArr = null;
-                    if (b != null)
-                    {
-                        txIdArr = new List<string>(b.transactions);
-                    }
-                    else
-                    {
-                        // Block is likely local, fetch the transactions
-                        lock (Node.blockProcessor.localBlockLock)
-                        {
-                            Block tmp = Node.blockProcessor.getLocalBlock();
-                            if (tmp != null && tmp.blockNum == blockNum)
-                            {
-                                txIdArr = new List<string>(tmp.transactions);
-                            }
-                        }
-                    }
-
-                    if (txIdArr == null)
-                        return;
-
-                    int tx_count = txIdArr.Count();
-
-                    if (tx_count == 0)
-                        return;
-
-                    int num_chunks = tx_count / Config.maximumTransactionsPerChunk + 1;
-
-                    // Go through each chunk
-                    for (int i = 0; i < num_chunks; i++)
-                    {
-                        using (MemoryStream mOut = new MemoryStream())
-                        {
-                            using (BinaryWriter writer = new BinaryWriter(mOut))
-                            {
-                                // Generate a chunk of transactions
-                                for (int j = 0; j < Config.maximumTransactionsPerChunk; j++)
-                                {
-                                    int tx_index = i * Config.maximumTransactionsPerChunk + j;
-                                    if (tx_index > tx_count - 1)
-                                        break;
-
-                                    if (!requestAllTransactions)
-                                    {
-                                        if (txIdArr[tx_index].StartsWith("stk"))
-                                        {
-                                            continue;
-                                        }
-                                    }
-                                    Transaction tx = TransactionPool.getTransaction(txIdArr[tx_index], Config.storeFullHistory);
-                                    if (tx != null)
-                                    {
-                                        byte[] txBytes = tx.getBytes();
-
-                                        writer.Write(txBytes.Length);
-                                        writer.Write(txBytes);
-                                    }
-                                }
-
-                                // Send a chunk
-                                sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Handle the getUnappliedTransactions message
-        // This is called from NetworkProtocol
-        public void handleGetUnappliedTransactions(byte[] data)
-        {
-            Transaction[] txIdArr = TransactionPool.getUnappliedTransactions();
-            int tx_count = txIdArr.Count();
-
-            if (tx_count == 0)
-                return;
-
-            int num_chunks = tx_count / Config.maximumTransactionsPerChunk + 1;
-
-            // Go through each chunk
-            for (int i = 0; i < num_chunks; i++)
-            {
-                using (MemoryStream mOut = new MemoryStream())
-                {
-                    using (BinaryWriter writer = new BinaryWriter(mOut))
-                    {
-                        // Generate a chunk of transactions
-                        for (int j = 0; j < Config.maximumTransactionsPerChunk; j++)
-                        {
-                            int tx_index = i * Config.maximumTransactionsPerChunk + j;
-                            if (tx_index > tx_count - 1)
-                                break;
-
-                            byte[] txBytes = txIdArr[tx_index].getBytes();
-                            writer.Write(txBytes.Length);
-                            writer.Write(txBytes);                         
-                        }
-
-                        // Send a chunk
-                        sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                    }
-                }
-            }            
-        }
-
         private int getDataLengthFromMessageHeader(List<byte> header)
         {
             int data_length = -1;
@@ -704,7 +583,7 @@ namespace DLT
             }
             catch (Exception e)
             {
-                Logging.error(String.Format("NET: endpoint disconnected {0}", e));
+                Logging.error(String.Format("NET: endpoint {0} disconnected {1}", getFullAddress(), e));
                 throw;
             }
             if (message_found)

@@ -26,7 +26,128 @@ namespace DLT
                 }
                 return sum;
             }
-            
+
+
+
+            // Handle the getBlockTransactions message
+            // This is called from NetworkProtocol
+            private static void handleGetBlockTransactions(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong blockNum = reader.ReadUInt64();
+                        bool requestAllTransactions = reader.ReadBoolean();
+                        Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
+
+                        // Get the requested block and corresponding transactions
+                        Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                        List<string> txIdArr = null;
+                        if (b != null)
+                        {
+                            txIdArr = new List<string>(b.transactions);
+                        }
+                        else
+                        {
+                            // Block is likely local, fetch the transactions
+                            lock (Node.blockProcessor.localBlockLock)
+                            {
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == blockNum)
+                                {
+                                    txIdArr = new List<string>(tmp.transactions);
+                                }
+                            }
+                        }
+
+                        if (txIdArr == null)
+                            return;
+
+                        int tx_count = txIdArr.Count();
+
+                        if (tx_count == 0)
+                            return;
+
+                        int num_chunks = tx_count / Config.maximumTransactionsPerChunk + 1;
+
+                        // Go through each chunk
+                        for (int i = 0; i < num_chunks; i++)
+                        {
+                            using (MemoryStream mOut = new MemoryStream())
+                            {
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
+                                {
+                                    // Generate a chunk of transactions
+                                    for (int j = 0; j < Config.maximumTransactionsPerChunk; j++)
+                                    {
+                                        int tx_index = i * Config.maximumTransactionsPerChunk + j;
+                                        if (tx_index > tx_count - 1)
+                                            break;
+
+                                        if (!requestAllTransactions)
+                                        {
+                                            if (txIdArr[tx_index].StartsWith("stk"))
+                                            {
+                                                continue;
+                                            }
+                                        }
+                                        Transaction tx = TransactionPool.getTransaction(txIdArr[tx_index], Config.storeFullHistory);
+                                        if (tx != null)
+                                        {
+                                            byte[] txBytes = tx.getBytes();
+
+                                            writer.Write(txBytes.Length);
+                                            writer.Write(txBytes);
+                                        }
+                                    }
+
+                                    // Send a chunk
+                                    endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Handle the getUnappliedTransactions message
+            // This is called from NetworkProtocol
+            private static void handleGetUnappliedTransactions(byte[] data, RemoteEndpoint endpoint)
+            {
+                Transaction[] txIdArr = TransactionPool.getUnappliedTransactions();
+                int tx_count = txIdArr.Count();
+
+                if (tx_count == 0)
+                    return;
+
+                int num_chunks = tx_count / Config.maximumTransactionsPerChunk + 1;
+
+                // Go through each chunk
+                for (int i = 0; i < num_chunks; i++)
+                {
+                    using (MemoryStream mOut = new MemoryStream())
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            // Generate a chunk of transactions
+                            for (int j = 0; j < Config.maximumTransactionsPerChunk; j++)
+                            {
+                                int tx_index = i * Config.maximumTransactionsPerChunk + j;
+                                if (tx_index > tx_count - 1)
+                                    break;
+
+                                byte[] txBytes = txIdArr[tx_index].getBytes();
+                                writer.Write(txBytes.Length);
+                                writer.Write(txBytes);
+                            }
+
+                            // Send a chunk
+                            endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                        }
+                    }
+                }
+            }
             // Prepare a network protocol message. Works for both client-side and server-side
             public static byte[] prepareProtocolMessage(ProtocolMessageCode code, byte[] data, byte[] checksum = null)
             {
@@ -934,13 +1055,13 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlockTransactions:
                             {
-                                endpoint.handleGetBlockTransactions(data);                              
+                                handleGetBlockTransactions(data, endpoint);                              
                             }
                             break;
 
                         case ProtocolMessageCode.getUnappliedTransactions:
                             {
-                                endpoint.handleGetUnappliedTransactions(data);
+                                handleGetUnappliedTransactions(data, endpoint);
                             }
                             break;
 
