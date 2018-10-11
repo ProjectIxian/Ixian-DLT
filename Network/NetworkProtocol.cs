@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Linq;
+using DLTNode.Network;
 
 namespace DLT
 {
@@ -281,7 +282,7 @@ namespace DLT
                             recvByteHist[pos]++;
                         }*/
                         int byteCounter = socket.Receive(currentBuffer, bytesToRead, SocketFlags.None);
-
+                        NetDump.Instance.appendReceived(currentBuffer, byteCounter);
                         if (byteCounter > 0)
                         {
                             if (big_buffer.Count > 0)

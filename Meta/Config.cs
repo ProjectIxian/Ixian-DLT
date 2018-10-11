@@ -64,6 +64,9 @@ namespace DLT
             public static readonly ulong maximumTransactionsPerBlock = 3000; // Limit the maximum number of transactions in a newly generated block
             public static readonly int maximumTransactionsPerChunk = 1000; // Limit the maximum number of transactions per transaction chunk
 
+            // Debugging values
+            public static string networkDumpFile = "";
+
             private static Config singletonInstance;
             private Config()
             {
@@ -116,6 +119,9 @@ namespace DLT
                 cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
+
+                // Debug
+                cmd_parser.Setup<string>('d', "netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
                 cmd_parser.SetupHelp("h", "help").Callback(text => Console.WriteLine("DLT Help"));
 

@@ -1,4 +1,5 @@
 ﻿using DLT.Network;
+using DLTNode.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -44,6 +45,15 @@ namespace DLT.Meta
 
             // Initialize the wallet state
             walletState = new WalletState();
+
+            // debug
+            if (Config.networkDumpFile != "")
+            {
+                FileStream out_receive = File.Open(Config.networkDumpFile + "_recv.dat", FileMode.Create);
+                FileStream out_send = File.Open(Config.networkDumpFile + "_send.dat", FileMode.Create);
+                //
+                NetDump.Instance.start(out_receive, out_send);
+            }
 
             // Network configuration
             upnp = new UPnP();
@@ -256,6 +266,8 @@ namespace DLT.Meta
 
             // Stop the storage thread
             Storage.stopStorage();
+
+            NetDump.Instance.shutdown();
 
             presenceListActive = false;
         }

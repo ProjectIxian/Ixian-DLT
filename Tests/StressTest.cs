@@ -1,6 +1,7 @@
 ﻿using DLT;
 using DLT.Meta;
 using DLT.Network;
+using DLTNode.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -337,6 +338,7 @@ namespace DLTNode
         public static void sendData(ProtocolMessageCode code, byte[] data)
         {
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data);
+            NetDump.Instance.appendSent(ba);
             try
             {
                 tcpClient.Client.Send(ba, SocketFlags.None);

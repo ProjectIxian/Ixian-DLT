@@ -88,6 +88,7 @@
     <Compile Include="Meta\Node.cs" />
     <Compile Include="Meta\Storage.cs" />
     <Compile Include="Miner\Miner.cs" />
+    <Compile Include="Network\NetDump.cs" />
     <Compile Include="Network\NetworkClient.cs" />
     <Compile Include="Network\NetworkClientManager.cs" />
     <Compile Include="Network\NetworkQueue.cs" />

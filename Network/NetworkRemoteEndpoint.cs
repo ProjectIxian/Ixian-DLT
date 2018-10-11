@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using DLTNode.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -323,6 +324,7 @@ namespace DLT
         protected void sendDataInternal(ProtocolMessageCode code, byte[] data, byte[] checksum)
         {
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data, checksum);
+            NetDump.Instance.appendSent(ba);
             try
             {
                 for (int sentBytes = 0; sentBytes < ba.Length;)
