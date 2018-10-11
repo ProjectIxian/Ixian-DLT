@@ -45,7 +45,22 @@ namespace DLT
 
         private byte[] socketReadBuffer = null;
 
+        protected void prepareSocket(Socket socket)
+        {
+            // The socket will linger for 3 seconds after 
+            // Socket.Close is called.
+            socket.LingerState = new LingerOption(true, 3);
 
+            // Disable the Nagle Algorithm for this tcp socket.
+            socket.NoDelay = true;
+
+            //tcpClient.Client.ReceiveTimeout = 5000;
+            socket.ReceiveBufferSize = 1024 * 64;
+            socket.SendBufferSize = 1024 * 64;
+            //tcpClient.Client.SendTimeout = 5000;
+
+            socket.Blocking = true;
+        }
 
         public void start(Socket socket = null)
         {
@@ -63,6 +78,9 @@ namespace DLT
                 Logging.error("Could not start NetworkRemoteEndpoint, socket is null");
                 return;
             }
+
+            prepareSocket(clientSocket);
+
             remoteIP = (IPEndPoint)clientSocket.RemoteEndPoint;
             address = remoteIP.Address.ToString();
             fullAddress = address + ":" + remoteIP.Port;
@@ -75,7 +93,6 @@ namespace DLT
             state = RemoteEndpointState.Established;
 
             running = true;
-            clientSocket.Blocking = true;
 
             // Abort all related threads
             if (recvThread != null)

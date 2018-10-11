@@ -31,25 +31,13 @@ namespace DLT
         {
             tcpClient = new TcpClient();
 
+
             Socket tmpSocket = tcpClient.Client;
 
             // Don't allow another socket to bind to this port.
             tmpSocket.ExclusiveAddressUse = true;
 
-            // The socket will linger for 3 seconds after 
-            // Socket.Close is called.
-            tmpSocket.LingerState = new LingerOption(true, 3);
-
-            // Disable the Nagle Algorithm for this tcp socket.
-            tmpSocket.NoDelay = true;
-
-            //tcpClient.Client.ReceiveTimeout = 5000;
-            //tcpClient.Client.ReceiveBufferSize = 1024 * 64;
-            //tcpClient.Client.SendBufferSize = 1024 * 64;
-            //tcpClient.Client.SendTimeout = 5000;
-
-            tmpSocket.Blocking = true;
-
+            prepareSocket(tmpSocket);
         }
 
         public bool connectToServer(string hostname, int port)
