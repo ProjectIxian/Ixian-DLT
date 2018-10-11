@@ -74,7 +74,10 @@ namespace DLTNode.Network
         {
             Logging.info("Stopping network dump thread...");
             running = false;
-            outputWriter.Join();
+            if (outputWriter != null && outputWriter.ThreadState == ThreadState.Running)
+            {
+                outputWriter.Join();
+            }
             Logging.info("Network dump thread stopped, flushing remaining messages.");
             lock(outputBufferLock)
             {
