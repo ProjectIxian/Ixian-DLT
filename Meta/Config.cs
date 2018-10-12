@@ -48,24 +48,27 @@ namespace DLT
 
             public static readonly int maxNetworkQueue    = 10000; // Maximum number of received messages in network queue before throttling starts
             public static readonly int maxSendQueue       = 10000; // Maximum number of sent messages in queue per endpoint
-            public static readonly int maxMessageSize = 10000000; // Maximum message size in bytes
+            public static readonly int maxMessageSize = 5000000; // Maximum message size in bytes
 
-            public static readonly int pingInterval = 10; // how long to wait for data before sending ping
-            public static readonly int pingTimeout = 30; // how long to wait for data after sending ping 
+            public static readonly int pingInterval = 5; // how long to wait for data before sending ping
+            public static readonly int pingTimeout = 5; // how long to wait for data after sending ping 
 
             // Transactions and fees
-            public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("2000"); // Limit master nodes to this amount or above
+            public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("40000"); // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
             public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
             public static readonly string foundationAddress = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481"; // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly IxiNumber powReward = new IxiNumber("12.5");
             public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block
-            public static readonly ulong maximumTransactionsPerBlock = 3000; // Limit the maximum number of transactions in a newly generated block
-            public static readonly int maximumTransactionsPerChunk = 1000; // Limit the maximum number of transactions per transaction chunk
+            public static readonly ulong maximumTransactionsPerBlock = 2000; // Limit the maximum number of transactions in a newly generated block
+            public static readonly int maximumTransactionsPerChunk = 500; // Limit the maximum number of transactions per transaction chunk
 
             // Debugging values
             public static string networkDumpFile = "";
+
+            // internal
+            public static bool noStart = false;
 
             private static Config singletonInstance;
             private Config()
@@ -85,9 +88,32 @@ namespace DLT
                 }
             }
 
+            private static string outputHelp()
+            {
+                noStart = true;
+
+                Console.WriteLine("Starts a new instance of Ixian DLT Node");
+                Console.WriteLine("");
+                Console.WriteLine("ixiandlt.exe [-h] [-s] [-m] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-d]");
+                Console.WriteLine("");
+                Console.WriteLine("   -h\t\t Displays this help");
+                Console.WriteLine("   -s\t\t Saves full history");
+                Console.WriteLine("   -m\t\t Disables mining");
+                Console.WriteLine("   -r\t\t Recovers from file (to be used only when recovering the network)");
+                Console.WriteLine("   -c\t\t Removes blockchain.dat, peers.dat and ixian.log files before starting");
+                Console.WriteLine("   -p\t\t Port to listen on");
+                Console.WriteLine("   -a\t\t HTTP/API port to listen on");
+                Console.WriteLine("   -i\t\t External IP Address to use");
+                Console.WriteLine("   -g\t\t Start node in genesis mode");
+                Console.WriteLine("   -w\t\t Specify location of the wallet.dat file");
+                Console.WriteLine("   -d\t\t Enable netdump for debugging purposes");
+
+                return "";
+            }
+
             public static void readFromCommandLine(string[] args)
             {
-                Logging.log(LogSeverity.info, "Reading config...");
+                //Logging.log(LogSeverity.info, "Reading config...");
                 var cmd_parser = new FluentCommandLineParser();
 
                 bool start_clean = false; // Flag to determine if node should delete cache+logs
@@ -123,15 +149,10 @@ namespace DLT
                 // Debug
                 cmd_parser.Setup<string>('d', "netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
-                cmd_parser.SetupHelp("h", "help").Callback(text => Console.WriteLine("DLT Help"));
+                cmd_parser.SetupHelp("h", "help").Callback(text => outputHelp());
 
 
                 cmd_parser.Parse(args);
-
-                // Log the parameters to notice any changes
-                Logging.log(LogSeverity.info, String.Format("Server Port: {0}", serverPort));
-                Logging.log(LogSeverity.info, String.Format("API Port: {0}", apiPort));
-                Logging.log(LogSeverity.info, String.Format("Wallet File: {0}", walletFile));
 
                 if(start_clean)
                 {
