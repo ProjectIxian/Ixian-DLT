@@ -72,6 +72,7 @@ namespace DLT
 
             // internal
             public static bool noStart = false;
+            public static bool changePass = false;
 
             private Config()
             {
@@ -90,6 +91,7 @@ namespace DLT
                 Console.WriteLine("   -v\t\t Displays version");
                 Console.WriteLine("   -s\t\t Saves full history");
                 Console.WriteLine("   -m\t\t Disables mining");
+                Console.WriteLine("   -x\t\t Change password of an existing wallet");
                 Console.WriteLine("   -r\t\t Recovers from file (to be used only when recovering the network)");
                 Console.WriteLine("   -c\t\t Removes blockchain.dat, peers.dat and ixian.log files before starting");
                 Console.WriteLine("   -p\t\t Port to listen on");
@@ -123,6 +125,9 @@ namespace DLT
 
                 // Toggle between mining and no mining mode
                 cmd_parser.Setup<bool>('m', "no-mining").Callback(value => disableMiner = value).Required();
+
+                // Check for password change
+                cmd_parser.Setup<bool>('x', "changepass").Callback(value => changePass = value).Required();
 
                 // Check for recovery parameter
                 cmd_parser.Setup<bool>('r', "recover").Callback(value => recoverFromFile = value).Required();
