@@ -141,7 +141,6 @@ namespace DLTNode
             // Start logging
             Logging.start();
 
-            Logging.info(string.Format("IXIAN DLT Node {0} started", Config.version));
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
             /*if(runTests(args) == false)
@@ -151,27 +150,20 @@ namespace DLTNode
             
             onStart(args);
 
-            // For testing purposes, wait for the Escape key to be pressed before stopping execution
-            // In production this will be changed, as the dlt will run in the background
-            /*     while (Console.ReadKey().Key != ConsoleKey.Escape)
-                 {
-
-                 }
-                 */
-
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
                 e.Cancel = true;
                 apiServer.forceShutdown = true;
             };
 
-            while (apiServer.forceShutdown == false)
-            {
-                Thread.Sleep(1000);
+            if(apiServer != null)
+            { 
+                while (apiServer.forceShutdown == false)
+                {
+                    Thread.Sleep(1000);
+                }
             }
-
             onStop();
 
-            Logging.log(LogSeverity.info, "DLT Node stopped");
         }
 
         static void onStart(string[] args)
@@ -183,6 +175,18 @@ namespace DLTNode
             // Read configuration from command line
             Config.readFromCommandLine(args);
 
+            if(Config.noStart)
+            {
+                Thread.Sleep(100);
+                return;
+            }
+
+            Logging.info(string.Format("IXIAN DLT Node {0} started", Config.version));
+
+            // Log the parameters to notice any changes
+            Logging.log(LogSeverity.info, String.Format("Server Port: {0}", Config.serverPort));
+            Logging.log(LogSeverity.info, String.Format("API Port: {0}", Config.apiPort));
+            Logging.log(LogSeverity.info, String.Format("Wallet File: {0}", Config.walletFile));
 
             // Initialize the crypto manager
             CryptoManager.initLib();
@@ -258,18 +262,31 @@ namespace DLTNode
 
         static void onStop()
         {
-            mainLoopTimer.Stop();
+            if (mainLoopTimer != null)
+            {
+                mainLoopTimer.Stop();
+            }
 
             // Stop the API server
-            apiServer.stop();
+            if (apiServer != null)
+            {
+                apiServer.stop();
+            }
 
-            // Stop the DLT
-            Node.stop();
+            if (Config.noStart == false)
+            {
+                // Stop the DLT
+                Node.stop();
+            }
 
             // Stop logging
             Logging.stop();
 
-            Console.WriteLine("\n");
+            if (Config.noStart == false)
+            {
+                Console.WriteLine("");
+                Console.WriteLine("Ixian DLT Node stopped.");
+            }
         }
 
 

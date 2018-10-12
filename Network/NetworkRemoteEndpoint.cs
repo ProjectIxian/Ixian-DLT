@@ -247,8 +247,8 @@ namespace DLT
                         continue;
                     }else if(curTime - lastPing > Config.pingTimeout)
                     {
-                        // haven't received any data for 30 seconds, stop running
-                        Logging.error(String.Format("Node {0} hasn't received any data from remote endpoint for over 30 seconds, disconnecting.", getFullAddress()));
+                        // haven't received any data for 10 seconds, stop running
+                        Logging.error(String.Format("Node {0} hasn't received any data from remote endpoint for over {1} seconds, disconnecting.", getFullAddress(), Config.pingInterval + Config.pingTimeout));
                         running = false;
                         break;
                     }

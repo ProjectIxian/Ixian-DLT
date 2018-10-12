@@ -25,7 +25,6 @@ namespace DLT
             private static Thread netControllerThread = null;
             private static TcpListener listener;
             private static List<RemoteEndpoint> connectedClients = new List<RemoteEndpoint>();
-            private static NetworkServer singletonInstance = new NetworkServer();
 
             static NetworkServer()
             {
@@ -34,15 +33,6 @@ namespace DLT
             private NetworkServer()
             {
             }
-
-            public static NetworkServer singleton
-            {
-                get
-                {
-                    return singletonInstance;
-                }
-            }
-
 
             public static void beginNetworkOperations()
             {
