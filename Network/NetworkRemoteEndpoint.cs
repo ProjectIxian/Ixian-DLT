@@ -281,6 +281,12 @@ namespace DLT
                 {
                     // Active message set, attempt to send it
                     sendDataInternal(active_message.code, active_message.data, active_message.checksum);
+                    if(active_message.code == ProtocolMessageCode.bye)
+                    {
+                        running = false;
+                        fullyStopped = true;
+                        Thread.Sleep(1000); // grace sleep to get the message through
+                    }
                     Thread.Sleep(1);
                 }
                 else

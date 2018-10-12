@@ -447,7 +447,6 @@ namespace DLT
                                 Logging.warn(String.Format("Hello: Connected node version ({0}) is too old! Upgrade the node.", protocol_version));
                                 writer.Write(string.Format("Your node version is too old. Should be at least {0} is {1}", Config.protocolVersion, protocol_version));
                                 endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                                endpoint.stop();
                                 return false;
                             }
                         }
@@ -474,7 +473,6 @@ namespace DLT
                                 writer.Write(string.Format("Incorrect testnet designator: {0}. Should be {1}", test_net, Config.isTestNet));
                                 Logging.warn(string.Format("Rejected node {0} due to incorrect testnet designator: {1}", endpoint.fullAddress, test_net));
                                 endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                                endpoint.stop();
                                 return false;
                             }
                         }
@@ -497,7 +495,6 @@ namespace DLT
                                 writer.Write(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress(true)));
                                 Logging.warn(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress(true)));
                                 endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                                endpoint.stop();
                                 return false;
                             }
                         }
@@ -533,7 +530,6 @@ namespace DLT
                                         writer.Write(string.Format("Insufficient funds. Minimum is {0}", Config.minimumMasterNodeFunds));
                                         Logging.warn(string.Format("Rejected master node {0} due to insufficient funds: {1}", endpoint.getFullAddress(), balance.ToString()));
                                         endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                                        endpoint.stop();
                                         return false;
                                     }
                                 }
@@ -574,7 +570,6 @@ namespace DLT
                         {
                             writer.Write(string.Format("Please update your Ixian node to connect."));
                             endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                            endpoint.stop();
                             return false;
                         }
                     }
@@ -701,7 +696,14 @@ namespace DLT
 
                                         if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                         {
-                                            endpoint.stop();
+                                            using (MemoryStream m2 = new MemoryStream())
+                                            {
+                                                using (BinaryWriter writer = new BinaryWriter(m2))
+                                                {
+                                                    writer.Write(string.Format("Please update your Ixian node to connect."));
+                                                    endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
+                                                }
+                                            }
                                             return;
                                         }
 

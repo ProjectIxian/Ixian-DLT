@@ -533,23 +533,23 @@ namespace DLT
                     }
                 }
 
-                // ignore wallet state check if it isn't the current block
-                if (b.blockNum < Node.blockChain.getLastBlockNum())
+                lock (localBlockLock)
                 {
-                    Logging.info(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
-                }else if(b.blockNum == Node.blockChain.getLastBlockNum())
-                {
-                    ws_checksum = Node.walletState.calculateWalletStateChecksum();
-                    // this should always be the same anyway, but just in case
-                    if (b.walletStateChecksum != ws_checksum)
+                    // ignore wallet state check if it isn't the current block
+                    if (b.blockNum < Node.blockChain.getLastBlockNum())
                     {
-                        Logging.error(String.Format("Incorrect current wallet state checksum for the last block #{0} Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
-                        return BlockVerifyStatus.Invalid;
+                        Logging.info(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
+                    }else if(b.blockNum == Node.blockChain.getLastBlockNum())
+                    {
+                        ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                        // this should always be the same anyway, but just in case
+                        if (b.walletStateChecksum != ws_checksum)
+                        {
+                            Logging.error(String.Format("Incorrect current wallet state checksum for the last block #{0} Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
+                            return BlockVerifyStatus.Invalid;
+                        }
                     }
-                }
-                else
-                {
-                    lock (localBlockLock)
+                    else
                     {
                         Node.walletState.snapshot();
                         if (applyAcceptedBlock(b, true))
@@ -557,11 +557,11 @@ namespace DLT
                             ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
                         }
                         Node.walletState.revert();
-                    }
-                    if (ws_checksum != b.walletStateChecksum)
-                    {
-                        Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
-                        return BlockVerifyStatus.Invalid;
+                        if (ws_checksum != b.walletStateChecksum)
+                        {
+                            Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
+                            return BlockVerifyStatus.Invalid;
+                        }
                     }
                 }
             }

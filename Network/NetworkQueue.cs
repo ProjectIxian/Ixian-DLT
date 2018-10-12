@@ -108,11 +108,14 @@ namespace DLT
                     }
 
                     // Handle normal messages, but prioritize block-related messages
-                    if (code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence
+                    if(code == ProtocolMessageCode.bye)
+                    {
+                        queueMessages.Insert(0, message);
+                        return;
+                    }else if (code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence
                         || code == ProtocolMessageCode.updatePresence || code == ProtocolMessageCode.ping
                         || code == ProtocolMessageCode.pong)
                     {
-
                         // Prioritize if queue is large
                         if (queueMessages.Count > 6)
                         {
