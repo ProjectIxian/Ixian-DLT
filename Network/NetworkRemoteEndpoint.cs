@@ -132,12 +132,6 @@ namespace DLT
         // Aborts all related endpoint threads and data
         public void stop()
         {
-            if(fullyStopped)
-            {
-                // already stopped
-                return;
-            }
-
             fullyStopped = true;
 
             Thread.Sleep(50); // clear any last messages
@@ -283,9 +277,9 @@ namespace DLT
                     sendDataInternal(active_message.code, active_message.data, active_message.checksum);
                     if(active_message.code == ProtocolMessageCode.bye)
                     {
+                        Thread.Sleep(2000); // grace sleep to get the message through
                         running = false;
                         fullyStopped = true;
-                        Thread.Sleep(1000); // grace sleep to get the message through
                     }
                     Thread.Sleep(1);
                 }
