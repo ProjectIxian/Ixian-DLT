@@ -68,7 +68,7 @@ namespace DLT
                 // Disconnect each client
                 foreach (NetworkClient client in networkClients)
                 {
-                    client.disconnect();
+                    client.stop();
                 }
 
                 // Empty the client list
@@ -399,13 +399,18 @@ namespace DLT
 
             while (autoReconnect)
             {
+
+                handleDisconnectedClients();
+                NetworkServer.handleDisconnectedClients();
+
                 List<NetworkClient> netClients = null;
                 lock (networkClients)
                 {
                     netClients = new List<NetworkClient>(networkClients);
                 }
+
                 // Check if we need to connect to more neighbors
-                if(netClients.Count < Config.simultaneousConnectedNeighbors)
+                if (netClients.Count < Config.simultaneousConnectedNeighbors)
                 {
                     // Scan for and connect to a new neighbor
                     connectToRandomNeighbor();
@@ -426,42 +431,50 @@ namespace DLT
                     connectToRandomNeighbor();
                 }
 
-                // Prepare a list of failed clients
-                List<NetworkClient> failed_clients = new List<NetworkClient>();
-
-                foreach (NetworkClient client in netClients)
-                {
-                    if (client.isConnected())
-                    {
-                        continue;
-                    }
-                    // Check if we exceeded the maximum reconnect count
-                    if (client.getTotalReconnectsCount() >= Config.maximumNeighborReconnectCount)
-                    {
-                        // Remove this client so we can search for a new neighbor
-                        failed_clients.Add(client);
-                    }
-                    else
-                    {
-                        // Everything is in order
-                        client.reconnect();
-                    }
-                }
-
-                // Go through the list of failed clients and remove them
-                foreach (NetworkClient client in failed_clients)
-                {
-                    lock (networkClients)
-                    {
-                        networkClients.Remove(client);
-                    }
-                }
-
                 // Wait 5 seconds before rechecking
                 Thread.Sleep(Config.networkClientReconnectInterval);
             }
+        }
 
-            Thread.Yield();
+        private static void handleDisconnectedClients()
+        {
+            List<NetworkClient> netClients = null;
+            lock (networkClients)
+            {
+                netClients = new List<NetworkClient>(networkClients);
+            }
+
+            // Prepare a list of failed clients
+            List<NetworkClient> failed_clients = new List<NetworkClient>();
+
+            foreach (NetworkClient client in netClients)
+            {
+                if (client.isConnected())
+                {
+                    continue;
+                }
+                // Check if we exceeded the maximum reconnect count
+                if (client.getTotalReconnectsCount() >= Config.maximumNeighborReconnectCount)
+                {
+                    // Remove this client so we can search for a new neighbor
+                    failed_clients.Add(client);
+                }
+                else
+                {
+                    // Everything is in order
+                    client.reconnect();
+                }
+            }
+
+            // Go through the list of failed clients and remove them
+            foreach (NetworkClient client in failed_clients)
+            {
+                client.stop();
+                lock (networkClients)
+                {
+                    networkClients.Remove(client);
+                }
+            }
         }
 
 

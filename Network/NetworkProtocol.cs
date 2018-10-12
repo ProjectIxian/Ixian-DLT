@@ -403,14 +403,8 @@ namespace DLT
 
             public static bool processHelloMessage(RemoteEndpoint endpoint, BinaryReader reader)
             {
-                // Check for hello messages that don't originate from RemoteEndpoints
-                if (endpoint == null)
-                {
-                    return false;
-                }
-
                 // Node already has a presence
-                if (endpoint != null && endpoint.presence != null)
+                if (endpoint.presence != null)
                 {
                     // Ignore the hello message in this case
                     return false;
@@ -500,8 +494,8 @@ namespace DLT
                         {
                             using (BinaryWriter writer = new BinaryWriter(m2))
                             {
-                                writer.Write(string.Format("Incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress()));
-                                Logging.warn(string.Format("[PL] KEEPALIVE tampering in hello message for {0} {1}, incorrect Sig.", addr, endpoint.getFullAddress(true)));
+                                writer.Write(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress(true)));
+                                Logging.warn(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress(true)));
                                 endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                                 endpoint.stop();
                                 return false;

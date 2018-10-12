@@ -102,6 +102,38 @@ namespace DLT
                 netControllerThread = null;
             }
 
+            public static void handleDisconnectedClients()
+            {
+                List<RemoteEndpoint> netClients = null;
+                lock (connectedClients)
+                {
+                    netClients = new List<RemoteEndpoint>(connectedClients);
+                }
+
+                // Prepare a list of failed clients
+                List<RemoteEndpoint> failed_clients = new List<RemoteEndpoint>();
+
+                foreach (RemoteEndpoint client in netClients)
+                {
+                    if (client.isConnected())
+                    {
+                        continue;
+                    }
+                    failed_clients.Add(client);
+                }
+
+                // Go through the list of failed clients and remove them
+                foreach (RemoteEndpoint client in failed_clients)
+                {
+                    client.stop();
+                    lock (connectedClients)
+                    {
+                        // Remove this endpoint from the network server
+                        connectedClients.Remove(client);
+                    }
+                }
+            }
+
             // Restart the network server
             public static void restartNetworkOperations()
             {

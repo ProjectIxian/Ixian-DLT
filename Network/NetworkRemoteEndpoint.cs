@@ -196,11 +196,6 @@ namespace DLT
                     running = false;
                 }
             }
-
-            disconnect();
-
-            // Remove this endpoint from the network server
-            NetworkServer.removeEndpoint(this);
         }
 
         public virtual void disconnect()
