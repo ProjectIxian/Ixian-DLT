@@ -94,9 +94,10 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine("ixiandlt.exe [-h] [-s] [-m] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-d]");
+                Console.WriteLine("ixiandlt.exe [-h] [-v] [-s] [-m] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-d]");
                 Console.WriteLine("");
                 Console.WriteLine("   -h\t\t Displays this help");
+                Console.WriteLine("   -v\t\t Displays version");
                 Console.WriteLine("   -s\t\t Saves full history");
                 Console.WriteLine("   -m\t\t Disables mining");
                 Console.WriteLine("   -r\t\t Recovers from file (to be used only when recovering the network)");
@@ -111,16 +112,21 @@ namespace DLT
                 return "";
             }
 
+            private static string outputVersion()
+            {
+                noStart = true;
+
+                Console.WriteLine(String.Format("IXIAN DLT Node {0}", Config.version));
+
+                return "";
+            }
+
             public static void readFromCommandLine(string[] args)
             {
                 //Logging.log(LogSeverity.info, "Reading config...");
                 var cmd_parser = new FluentCommandLineParser();
 
                 bool start_clean = false; // Flag to determine if node should delete cache+logs
-
-                // Read the parameters from the command line and overwrite values if necessary
-                string new_value = "";
-                cmd_parser.Setup<string>('v').Callback(value => new_value = value).Required();
 
                 // Toggle between full history node and no history
                 cmd_parser.Setup<bool>('s', "save-history").Callback(value => storeFullHistory = value).Required();
@@ -135,8 +141,8 @@ namespace DLT
                 cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = value).Required();
 
                 
-                //cmd_parser.Setup<string>('i', "ip").Callback(value => publicServerIP = value).Required();
                 cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
+
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
 
                 cmd_parser.Setup<string>('i', "ip").Callback(value => externalIp = value).SetDefault("");
@@ -149,8 +155,12 @@ namespace DLT
                 // Debug
                 cmd_parser.Setup<string>('d', "netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
-                cmd_parser.SetupHelp("h", "help").Callback(text => outputHelp());
+                // version
+                cmd_parser.Setup<bool>('v', "version").Callback(text => outputVersion());
 
+                // help
+                cmd_parser.SetupHelp("h", "help").Callback(text => outputHelp());
+                
 
                 cmd_parser.Parse(args);
 

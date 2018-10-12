@@ -49,7 +49,6 @@ namespace DLTNode
             }
             onStop();
 
-            Console.WriteLine("Ixian DLT Node stopped.");
         }
 
         static void onStart(string[] args)
@@ -164,7 +163,11 @@ namespace DLTNode
             // Stop logging
             Logging.stop();
 
-            Console.WriteLine("\n");
+            if (Config.noStart == false)
+            {
+                Console.WriteLine("");
+                Console.WriteLine("Ixian DLT Node stopped.");
+            }
         }
 
 
