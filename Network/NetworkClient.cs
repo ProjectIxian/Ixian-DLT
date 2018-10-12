@@ -27,7 +27,7 @@ namespace DLT
         }
 
         // Prepare the client socket
-        public void prepareClient()
+        private void prepareClient()
         {
             tcpClient = new TcpClient();
 
@@ -42,6 +42,12 @@ namespace DLT
 
         public bool connectToServer(string hostname, int port)
         {
+            if (fullyStopped)
+            {
+                Logging.error("Can't start a fully stopped RemoteEndpoint");
+                return false;
+            }
+
             tcpHostname = hostname;
             tcpPort = port;
             address = string.Format("{0}:{1}", hostname, port);

@@ -454,14 +454,14 @@ namespace DLT
                     continue;
                 }
                 // Check if we exceeded the maximum reconnect count
-                if (client.getTotalReconnectsCount() >= Config.maximumNeighborReconnectCount)
+                if (client.getTotalReconnectsCount() >= Config.maximumNeighborReconnectCount || client.fullyStopped)
                 {
                     // Remove this client so we can search for a new neighbor
                     failed_clients.Add(client);
                 }
                 else
                 {
-                    // Everything is in order
+                    // Reconnect
                     client.reconnect();
                 }
             }

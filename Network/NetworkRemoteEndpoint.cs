@@ -23,6 +23,8 @@ namespace DLT
         protected long lastDataReceivedTime = 0;
         protected long lastPing = 0;
 
+        public bool fullyStopped = false;
+
         public IPEndPoint remoteIP;
         public Socket clientSocket;
         public RemoteEndpointState state;
@@ -64,7 +66,13 @@ namespace DLT
 
         public void start(Socket socket = null)
         {
-            if(running)
+            if (fullyStopped)
+            {
+                Logging.error("Can't start a fully stopped RemoteEndpoint");
+                return;
+            }
+
+            if (running)
             {
                 return;
             }
@@ -124,6 +132,14 @@ namespace DLT
         // Aborts all related endpoint threads and data
         public void stop()
         {
+            if(fullyStopped)
+            {
+                // already stopped
+                return;
+            }
+
+            fullyStopped = true;
+
             Thread.Sleep(50); // clear any last messages
 
             state = RemoteEndpointState.Closed;
@@ -399,7 +415,11 @@ namespace DLT
                 }
                 else
                 {
-                    if (sendQueueMessages.Count > 6)
+                    if(code == ProtocolMessageCode.bye)
+                    {
+                        sendQueueMessages.Insert(0, message);
+                    }
+                    else if (sendQueueMessages.Count > 6)
                     {
                         // Prioritize certain messages if the queue is large
                         if (message.code != ProtocolMessageCode.newTransaction)
@@ -505,7 +525,7 @@ namespace DLT
         }
 
         // Reads data from a socket and returns a byte array
-        public byte[] readSocketData()
+        protected byte[] readSocketData()
         {
             Socket socket = clientSocket;
 
