@@ -14,6 +14,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Rebracer.xml = Rebracer.xml
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Argon2_C", "..\Argon2_C\Argon2_C.vcxproj", "{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		..\IxianCore\IXICore.projitems*{80487c64-619a-4b60-97bd-ed7670bf45b3}*SharedItemsImports = 13
@@ -22,16 +24,30 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Debug|x64.Build.0 = Debug|Any CPU
 		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Release|x64.ActiveCfg = Release|Any CPU
+		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Release|x64.Build.0 = Release|Any CPU
 		{F408F9F2-C3A1-4FE2-8443-6D9E251924A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F408F9F2-C3A1-4FE2-8443-6D9E251924A8}.Debug|x64.ActiveCfg = Debug|Any CPU
 		{F408F9F2-C3A1-4FE2-8443-6D9E251924A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F408F9F2-C3A1-4FE2-8443-6D9E251924A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F408F9F2-C3A1-4FE2-8443-6D9E251924A8}.Release|x64.ActiveCfg = Release|Any CPU
+		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|x64.ActiveCfg = Debug|x64
+		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|x64.Build.0 = Debug|x64
+		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|Any CPU.ActiveCfg = Release|x64
+		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|x64.ActiveCfg = Release|x64
+		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -10,11 +10,126 @@ using DLT.Network;
 using System.Threading;
 using Newtonsoft.Json;
 using System.Numerics;
+using System.Diagnostics;
+using System.IO;
 
 namespace DLTNode
 {
     class Program
     {
+
+        static void CheckRequiredFiles()
+        {
+            string[] critical_dlls =
+            {
+                "Argon2_C.dll",
+                "BouncyCastle.Crypto.dll",
+                "FluentCommandLineParser.dll",
+                "Newtonsoft.Json.dll",
+                "SQLite-net.dll",
+                "SQLitePCLRaw.batteries_green.dll",
+                "SQLitePCLRaw.batteries_v2.dll",
+                "SQLitePCLRaw.core.dll",
+                "SQLitePCLRaw.provider.e_sqlite3.dll",
+                "System.Console.dll",
+                "System.Reflection.TypeExtensions.dll"
+            };
+            foreach(string critical_dll in critical_dlls)
+            {
+                if(!File.Exists(critical_dll))
+                {
+                    Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download from http://www.ixian.io!", critical_dll));
+                    Logging.info("Press ENTER to exit.");
+                    Console.ReadLine();
+                    Environment.Exit(-1);
+                }
+            }
+        }
+        static void CheckVCRedist()
+        {
+            object installed_vc_redist = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64", "Installed", 0);
+            bool success = false;
+            if (installed_vc_redist is int && (int)installed_vc_redist > 0)
+            {
+                Logging.info("Visual C++ 2017 (v141) redistributable is already installed.");
+                success = true;
+            }
+            else
+            {
+                if (!File.Exists("vc_redist.x64.exe"))
+                {
+                    Logging.warn("The VC++2017 redistributable file is not found. Please download the v141 version of the Visual C++ 2017 redistributable and install it manually!");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine("NOTICE: In order to run this IXIAN node, Visual Studio 2017 Redistributable (v141) must be installed. This can be done automatically by IXIAN,");
+                    Console.Write("or, you can install it manually from this URL:");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("https://visualstudio.microsoft.com/downloads/");
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+                    Console.WriteLine("The installer may open a UAC (User Account Control) prompt. Please verify that the executable is signed by Microsoft Corporation before allowing it to install!");
+                    Console.ResetColor();
+                    Console.WriteLine();
+                    Console.WriteLine("Automatically install Visual C++ 2017 redistributable? (Y/N): ");
+                    ConsoleKeyInfo k = Console.ReadKey();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    if (k.Key == ConsoleKey.Y)
+                    {
+                        Logging.info("Installing Visual C++ 2017 (v141) redistributable...");
+                        ProcessStartInfo installer = new ProcessStartInfo("vc_redist.x64.exe");
+                        installer.Arguments = "/install /passive /norestart";
+                        installer.LoadUserProfile = false;
+                        installer.RedirectStandardError = true;
+                        installer.RedirectStandardInput = true;
+                        installer.RedirectStandardOutput = true;
+                        installer.UseShellExecute = false;
+                        Logging.info("Starting installer. Please allow up to one minute for installation...");
+                        Process p = Process.Start(installer);
+                        while (!p.HasExited)
+                        {
+                            if (!p.WaitForExit(60000))
+                            {
+                                Logging.info("The install process seems to be stuck. Terminate? (Y/N): ");
+                                k = Console.ReadKey();
+                                if (k.Key == ConsoleKey.Y)
+                                {
+                                    Logging.warn("Terminating installer process...");
+                                    p.Kill();
+                                    Logging.warn(String.Format("Process output: {0}", p.StandardOutput.ReadToEnd()));
+                                    Logging.warn(String.Format("Process error output: {0}", p.StandardError.ReadToEnd()));
+                                }
+                            }
+                        }
+                        installed_vc_redist = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64", "Installed", 0);
+                        if (installed_vc_redist is int && (int)installed_vc_redist > 0)
+                        {
+                            Logging.info("Visual C++ 2017 (v141) redistributable has installed successfully.");
+                            success = true;
+                        }
+                        else
+                        {
+                            Logging.info("Visual C++ 2017 has failed to install. Please review the error text (if any) and install manually:");
+                            Logging.warn(String.Format("Process exit code: {0}.", p.ExitCode));
+                            Logging.warn(String.Format("Process output: {0}", p.StandardOutput.ReadToEnd()));
+                            Logging.warn(String.Format("Process error output: {0}", p.StandardError.ReadToEnd()));
+                        }
+                    }
+                }
+            }
+            if (!success)
+            {
+                Logging.info("IXIAN requires the Visual Studio 2017 runtime for normal operation. Please ensure it is installed and then restart the program!");
+                Logging.info("Press ENTER to exit.");
+                Console.ReadLine();
+                Environment.Exit(-1);
+            }
+        }
+
         private static System.Timers.Timer mainLoopTimer;
         private static APIServer apiServer;
 
@@ -61,8 +176,13 @@ namespace DLTNode
 
         static void onStart(string[] args)
         {
+            // check for critical files in the exe dir
+            CheckRequiredFiles();
+            // check for the right vc++ redist for the argon miner
+            CheckVCRedist();
             // Read configuration from command line
             Config.readFromCommandLine(args);
+
 
             // Initialize the crypto manager
             CryptoManager.initLib();
