@@ -170,18 +170,19 @@ namespace DLTNode
 
         static void onStart(string[] args)
         {
-            // check for critical files in the exe dir
-            CheckRequiredFiles();
-            // check for the right vc++ redist for the argon miner
-            CheckVCRedist();
             // Read configuration from command line
             Config.readFromCommandLine(args);
 
-            if(Config.noStart)
+            if (noStart)
             {
                 Thread.Sleep(100);
                 return;
             }
+
+            // check for critical files in the exe dir
+            CheckRequiredFiles();
+            // check for the right vc++ redist for the argon miner
+            CheckVCRedist();
 
             Logging.info(string.Format("IXIAN DLT Node {0} started", Config.version));
 
@@ -275,7 +276,7 @@ namespace DLTNode
                 apiServer.stop();
             }
 
-            if (Config.noStart == false)
+            if (noStart == false)
             {
                 // Stop the DLT
                 Node.stop();
@@ -284,7 +285,7 @@ namespace DLTNode
             // Stop logging
             Logging.stop();
 
-            if (Config.noStart == false)
+            if (noStart == false)
             {
                 Console.WriteLine("");
                 Console.WriteLine("Ixian DLT Node stopped.");

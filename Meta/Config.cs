@@ -71,7 +71,6 @@ namespace DLT
             public static string networkDumpFile = "";
 
             // internal
-            public static bool noStart = false;
             public static bool changePass = false;
 
             private Config()
