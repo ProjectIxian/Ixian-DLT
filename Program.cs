@@ -170,6 +170,8 @@ namespace DLTNode
 
         static void onStart(string[] args)
         {
+            Logging.info(string.Format("IXIAN DLT Node {0}", Config.version));
+
             // Read configuration from command line
             Config.readFromCommandLine(args);
 
@@ -179,13 +181,12 @@ namespace DLTNode
                 return;
             }
 
-            // check for critical files in the exe dir
+            // Check for critical files in the exe dir
             CheckRequiredFiles();
-            // check for the right vc++ redist for the argon miner
+
+            // Check for the right vc++ redist for the argon miner
             CheckVCRedist();
-
-            Logging.info(string.Format("IXIAN DLT Node {0} started", Config.version));
-
+            
             // Log the parameters to notice any changes
             Logging.log(LogSeverity.info, String.Format("Server Port: {0}", Config.serverPort));
             Logging.log(LogSeverity.info, String.Format("API Port: {0}", Config.apiPort));
