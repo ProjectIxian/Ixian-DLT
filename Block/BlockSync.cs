@@ -123,7 +123,7 @@ namespace DLT
                 syncToBlock = wsSyncConfirmedBlockNum;
             }
 
-            ulong firstBlock = Node.blockChain.redactedWindow > syncToBlock ? 1 : syncToBlock - Node.blockChain.redactedWindow + 1;
+            ulong firstBlock = Config.redactedWindowSize > syncToBlock ? 1 : syncToBlock - Config.redactedWindowSize + 1;
             ulong lastBlock = syncToBlock;
             List<ulong> missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
 
@@ -222,9 +222,9 @@ namespace DLT
                 syncToBlock = wsSyncConfirmedBlockNum;
             }
 
-            if (Node.blockChain.redactedWindowSize < syncToBlock)
+            if (Config.redactedWindowSize < syncToBlock)
             {
-                lowestBlockNum = syncToBlock - Node.blockChain.redactedWindowSize + 1;
+                lowestBlockNum = syncToBlock - Config.redactedWindowSize + 1;
             }
             if (Node.blockChain.Count > 0)
             {

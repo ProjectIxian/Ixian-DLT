@@ -380,14 +380,14 @@ namespace DLT
                     return false;
                 }
 
-                if (blockheight < Node.blockChain.redactedWindow)
+                if (blockheight < Config.redactedWindowSize)
                 {
                     // Nothing to redact yet
                     return false;
                 }
 
                 // Calculate the window
-                ulong redactedWindow = blockheight - Node.blockChain.redactedWindow;
+                ulong redactedWindow = blockheight - Config.redactedWindowSize;
 
                 Logging.info(string.Format("Redacting storage below block #{0}", redactedWindow));
 

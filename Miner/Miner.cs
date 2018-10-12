@@ -136,8 +136,8 @@ namespace DLT
         {
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
             ulong oldestRedactedBlock = 0;
-            if (lastBlockNum > Node.blockChain.redactedWindowSize)
-                oldestRedactedBlock = lastBlockNum - Node.blockChain.redactedWindowSize;
+            if (lastBlockNum > Config.redactedWindowSize)
+                oldestRedactedBlock = lastBlockNum - Config.redactedWindowSize;
 
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {

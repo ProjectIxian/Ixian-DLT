@@ -53,6 +53,9 @@ namespace DLT
             public static readonly int pingInterval = 5; // how long to wait for data before sending ping
             public static readonly int pingTimeout = 5; // how long to wait for data after sending ping 
 
+            public static readonly ulong redactedWindowSize = 43200; // approx 15 days
+
+
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("40000"); // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
@@ -60,7 +63,7 @@ namespace DLT
             public static readonly string foundationAddress = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481"; // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly IxiNumber powReward = new IxiNumber("12.5");
-            public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block
+            public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block TODO TODO TODO deprecate soon, we have other systems in place for throttling
             public static readonly ulong maximumTransactionsPerBlock = 2000; // Limit the maximum number of transactions in a newly generated block
             public static readonly int maximumTransactionsPerChunk = 500; // Limit the maximum number of transactions per transaction chunk
 
@@ -70,22 +73,9 @@ namespace DLT
             // internal
             public static bool noStart = false;
 
-            private static Config singletonInstance;
             private Config()
             {
 
-            }
-
-            public static Config singleton
-            {
-                get
-                {
-                    if (singletonInstance == null)
-                    {
-                        singletonInstance = new Config();
-                    }
-                    return singletonInstance;
-                }
             }
 
             private static string outputHelp()
