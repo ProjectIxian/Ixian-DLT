@@ -80,7 +80,7 @@ namespace DLT
 
             private static string outputHelp()
             {
-                noStart = true;
+                DLTNode.Program.noStart = true;
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
@@ -104,7 +104,7 @@ namespace DLT
 
             private static string outputVersion()
             {
-                noStart = true;
+                DLTNode.Program.noStart = true;
 
                 Console.WriteLine(String.Format("IXIAN DLT Node {0}", Config.version));
 

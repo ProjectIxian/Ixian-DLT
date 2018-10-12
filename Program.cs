@@ -133,6 +133,8 @@ namespace DLTNode
         private static System.Timers.Timer mainLoopTimer;
         private static APIServer apiServer;
 
+        public static bool noStart = false;
+
         static void Main(string[] args)
         {
             // Clear the console first
