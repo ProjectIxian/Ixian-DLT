@@ -354,7 +354,7 @@ namespace DLT
         protected void sendDataInternal(ProtocolMessageCode code, byte[] data, byte[] checksum)
         {
             byte[] ba = ProtocolMessage.prepareProtocolMessage(code, data, checksum);
-            NetDump.Instance.appendSent(ba);
+            NetDump.Instance.appendSent(clientSocket, ba, ba.Length);
             try
             {
                 for (int sentBytes = 0; sentBytes < ba.Length;)
@@ -563,7 +563,7 @@ namespace DLT
                         NetworkProtocol.recvByteHist[pos]++;
                     }*/
                     int byteCounter = socket.Receive(socketReadBuffer, bytesToRead, SocketFlags.None);
-                    NetDump.Instance.appendReceived(socketReadBuffer, byteCounter);
+                    NetDump.Instance.appendReceived(socket, socketReadBuffer, byteCounter);
                     if (byteCounter > 0)
                     {
                         lastDataReceivedTime = Clock.getTimestamp(DateTime.Now);

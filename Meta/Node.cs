@@ -49,10 +49,7 @@ namespace DLT.Meta
             // debug
             if (Config.networkDumpFile != "")
             {
-                FileStream out_receive = File.Open(Config.networkDumpFile + "_recv.dat", FileMode.Create);
-                FileStream out_send = File.Open(Config.networkDumpFile + "_send.dat", FileMode.Create);
-                //
-                NetDump.Instance.start(out_receive, out_send);
+                NetDump.Instance.start(Config.networkDumpFile);
             }
 
             // Network configuration
