@@ -137,14 +137,17 @@ namespace DLT
                         writer.Write(txid);
                     }
 
-                    // Write the number of signatures
-                    int num_signatures = signatures.Count;
-                    writer.Write(num_signatures);
-
-                    // Write each signature
-                    foreach (string signature in signatures)
+                    lock (signatures)
                     {
-                        writer.Write(signature);
+                        // Write the number of signatures
+                        int num_signatures = signatures.Count;
+                        writer.Write(num_signatures);
+
+                        // Write each signature
+                        foreach (string signature in signatures)
+                        {
+                            writer.Write(signature);
+                        }
                     }
 
                     writer.Write(blockChecksum);
@@ -191,7 +194,11 @@ namespace DLT
         public string calculateSignatureChecksum()
         {
             // Sort the signature first
-            List<string> sortedSigs = new List<string>(signatures);
+            List<string> sortedSigs = null;
+            lock (signatures)
+            {
+               sortedSigs = new List<string>(signatures);
+            }
             sortedSigs.Sort();
 
             // Merge the sorted signatures
@@ -279,21 +286,24 @@ namespace DLT
 
         public bool verifySignatures()
         {
-            foreach(string sig in signatures)
+            lock (signatures)
             {
-                string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                if(parts.Length != 2)
+                foreach (string sig in signatures)
                 {
-                    return false;
+                    string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length != 2)
+                    {
+                        return false;
+                    }
+                    string signature = parts[0];
+                    string signerPubkey = parts[1];
+                    if (CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature) == false)
+                    {
+                        return false;
+                    }
                 }
-                string signature = parts[0];
-                string signerPubkey = parts[1];
-                if(CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature) == false)
-                {
-                    return false;
-                }
+                return true;
             }
-            return true;
         }
 
         // Goes through all signatures and verifies if the block is already signed with this node's pubkey
@@ -303,31 +313,32 @@ namespace DLT
             {
                 public_key = Node.walletStorage.publicKey;
             }
-
-            foreach (string merged_signature in signatures)
+            lock (signatures)
             {
-                string[] signature_parts = merged_signature.Split(splitter,StringSplitOptions.None);
-                if (signature_parts.Length < 2)
-                    continue;
-
-                // Check if public key matches
-                if (public_key.Equals(signature_parts[1], StringComparison.Ordinal))
+                foreach (string merged_signature in signatures)
                 {
-                    // Check if signature is actually valid
-                    if(CryptoManager.lib.verifySignature(blockChecksum, public_key, signature_parts[0]))
+                    string[] signature_parts = merged_signature.Split(splitter, StringSplitOptions.None);
+                    if (signature_parts.Length < 2)
+                        continue;
+
+                    // Check if public key matches
+                    if (public_key.Equals(signature_parts[1], StringComparison.Ordinal))
                     {
-                        return true;
-                    }
-                    else
-                    {
-                        // Somebody tampered this block. Show a warning and do not broadcast it further
-                        // TODO: Possibly denounce the tampered block's origin node
-                        Logging.warn(string.Format("Possible tampering on received block: {0}", blockNum));
-                        return false;
+                        // Check if signature is actually valid
+                        if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature_parts[0]))
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            // Somebody tampered this block. Show a warning and do not broadcast it further
+                            // TODO: Possibly denounce the tampered block's origin node
+                            Logging.warn(string.Format("Possible tampering on received block: {0}", blockNum));
+                            return false;
+                        }
                     }
                 }
             }
-
             return false;
         }
 
@@ -336,31 +347,35 @@ namespace DLT
         {
             List<string> result = new List<string>();
 
-            foreach(string merged_signature in signatures)
+            lock (signatures)
             {
-                string[] signature_parts = merged_signature.Split(splitter, StringSplitOptions.None);
-                if (signature_parts.Length < 2)
-                    continue;
 
-                string signature = signature_parts[0];
-                string public_key = signature_parts[1];
-
-                // Check if signature is actually valid
-                if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature) == false)
+                foreach (string merged_signature in signatures)
                 {
-                    // Signature is not valid, don't extract the wallet address
-                    // TODO: maybe do something else here as well. Perhaps reject the block?
-                    continue;
-                }
-                
-                Address address = new Address(public_key);
-                string address_string = address.ToString();
-                // TODO: check if it's it worth it validating the address again here
+                    string[] signature_parts = merged_signature.Split(splitter, StringSplitOptions.None);
+                    if (signature_parts.Length < 2)
+                        continue;
 
-                // Add the address to the list
-                result.Add(address_string);
+                    string signature = signature_parts[0];
+                    string public_key = signature_parts[1];
+
+                    // Check if signature is actually valid
+                    if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature) == false)
+                    {
+                        // Signature is not valid, don't extract the wallet address
+                        // TODO: maybe do something else here as well. Perhaps reject the block?
+                        continue;
+                    }
+
+                    Address address = new Address(public_key);
+                    string address_string = address.ToString();
+                    // TODO: check if it's it worth it validating the address again here
+
+                    // Add the address to the list
+                    result.Add(address_string);
+                }
+                result.Sort();
             }
-            result.Sort();
             return result;
         }
 
@@ -371,31 +386,35 @@ namespace DLT
 
             // TODO: optimize this section to handle a large amount of signatures efficiently
             int sindex1 = 0;
-            foreach (string signature in signatures)
+
+            lock (signatures)
             {
-                bool duplicate = false;
-                int sindex2 = 0;
-                foreach (string signature_check in signatures)
-                {
-                    if (sindex1 == sindex2)
-                        continue;
 
-                    string[] partsSignature_check = signature_check.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    string[] partsSignature = signature.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    if (partsSignature[1].Equals(partsSignature_check[1], StringComparison.Ordinal))
+                foreach (string signature in signatures)
+                {
+                    bool duplicate = false;
+                    int sindex2 = 0;
+                    foreach (string signature_check in signatures)
                     {
-                        duplicate = true;
+                        if (sindex1 == sindex2)
+                            continue;
+
+                        string[] partsSignature_check = signature_check.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                        string[] partsSignature = signature.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                        if (partsSignature[1].Equals(partsSignature_check[1], StringComparison.Ordinal))
+                        {
+                            duplicate = true;
+                        }
+                        sindex2++;
                     }
-                    sindex2++;
-                }
 
-                if(duplicate == false)
-                {
-                    signature_count++;
+                    if (duplicate == false)
+                    {
+                        signature_count++;
+                    }
+                    sindex1++;
                 }
-                sindex1++;
             }
-
             return signature_count;
         }
 

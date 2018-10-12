@@ -37,7 +37,7 @@ namespace DLT
             bool firstSeedConnected = false;
             while (firstSeedConnected == false)
             {
-                firstSeedConnected = connectTo(PeerStorage.getRandomMasterNodeIp());
+                firstSeedConnected = connectTo(PeerStorage.getRandomMasterNodeAddress());
             }
 
             // Start the reconnect thread
@@ -288,19 +288,31 @@ namespace DLT
             while (connectToAddress == null)
             {
                 bool addr_valid = true;
-                string address = PeerStorage.getRandomMasterNodeIp();
+                string address = PeerStorage.getRandomMasterNodeAddress();
 
                 if(address == "")
                 {
                     break;
                 }
 
+                // Next, check if we're connecting to a self address of this node
+                string[] server = address.Split(':');
+
+                if(server.Length < 2)
+                {
+                    break;
+                }
+
+                // Resolve the hostname first
+                string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
+                string resolved_server_name_with_port = resolved_server_name + ":" + server[1];
+
                 // Check if we are already connected to this address
                 lock (networkClients)
                 {
                     foreach (NetworkClient client in networkClients)
                     {
-                        if (client.getFullAddress(true).Equals(address, StringComparison.Ordinal))
+                        if (client.getFullAddress(true).Equals(resolved_server_name_with_port, StringComparison.Ordinal))
                         {
                             // Address is already in the client list
                             addr_valid = false;
@@ -313,7 +325,7 @@ namespace DLT
                 string[] connectedClients = NetworkServer.getConnectedClients(true);
                 for (int i = 0; i < connectedClients.Length; i++)
                 {
-                    if (connectedClients[i].Equals(address, StringComparison.Ordinal))
+                    if (connectedClients[i].Equals(resolved_server_name_with_port, StringComparison.Ordinal))
                     {
                         // Address is already in the client list
                         addr_valid = false;
@@ -329,7 +341,7 @@ namespace DLT
                 {
                     foreach (string client in connectingClients)
                     {
-                        if (address.Equals(client, StringComparison.Ordinal))
+                        if (resolved_server_name_with_port.Equals(client, StringComparison.Ordinal))
                         {
                             // Address is already in the connecting client list
                             addr_valid = false;
@@ -341,13 +353,6 @@ namespace DLT
 
                 if (addr_valid == false)
                     continue;
-
-                // Next, check if we're connecting to a self address of this node
-
-                string[] server = address.Split(':');
-
-                // Resolve the hostname first
-                string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
 
                 // Get all self addresses and run through them
                 List<string> self_addresses = CoreNetworkUtils.GetAllLocalIPAddresses();

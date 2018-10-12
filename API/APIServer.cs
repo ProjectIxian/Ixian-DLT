@@ -700,7 +700,7 @@ namespace DLTNode
                 networkArray.Add("My time", Clock.getTimestamp(DateTime.Now));
                 networkArray.Add("Network time difference", Node.networkTimeDifference);
                 networkArray.Add("My External IP", Config.publicServerIP);
-                networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
+                //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
                 networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
                     + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
                     + ", Storage: " + Storage.getQueuedQueryCount());
@@ -717,10 +717,11 @@ namespace DLTNode
                 networkArray.Add("Block Processor Status", bpStatus);
 
                 networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
+                networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());
                 networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
-                networkArray.Add("TX Count", TransactionPool.getAllTransactions().Count());
+                networkArray.Add("Applied TX Count", TransactionPool.getAllTransactions().Count() - TransactionPool.getUnappliedTransactions().Count());
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
 
                 networkArray.Add("WS Checksum", Node.walletState.calculateWalletStateChecksum());
@@ -742,14 +743,6 @@ namespace DLTNode
                 return true;
             }
             
-            if (methodName.Equals("myip", StringComparison.OrdinalIgnoreCase))
-            {
-                string clientIp = context.Request.RemoteEndPoint.Address.ToString();
-                string responseString = clientIp;
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
             if (methodName.Equals("chkaddress", StringComparison.OrdinalIgnoreCase))
             {
                 string address = request.QueryString["address"];

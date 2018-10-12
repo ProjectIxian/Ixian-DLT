@@ -181,8 +181,8 @@ namespace DLT
 
                 // Sleep a while to throttle the client
                 // Check if there are too many messages
-                // TODO TODO TODO should we include txqueue here as well?
-                if (NetworkQueue.getQueuedMessageCount() > Config.maxNetworkQueue)
+                // TODO TODO TODO this can be handled way better
+                if (NetworkQueue.getQueuedMessageCount() + NetworkQueue.getTxQueuedMessageCount() > Config.maxNetworkQueue)
                 {
                     Thread.Sleep(50);
                 }else
