@@ -57,10 +57,10 @@ namespace DLT
 
 
             // Transactions and fees
-            public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("40000"); // Limit master nodes to this amount or above
+            public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("20000"); // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
             public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
-            public static readonly string foundationAddress = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481"; // Foundation wallet address
+            public static readonly string foundationAddress = "018902fd36a0541fa6f95eb8fd15fbee02976979553488098216fc69e686604a56c0"; // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly IxiNumber powReward = new IxiNumber("12.5");
             public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block TODO TODO TODO deprecate soon, we have other systems in place for throttling

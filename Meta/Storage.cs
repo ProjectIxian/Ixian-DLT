@@ -57,7 +57,7 @@ namespace DLT
                 if (prepare_database)
                 {
                     // Create the blocks table
-                    string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` TEXT, `lastBlockChecksum` TEXT, `walletStateChecksum`	TEXT, `sigFreezeChecksum` TEXT, `difficulty` INTEGER, `powField` TEXT, `transactions` TEXT, `signatures` TEXT, PRIMARY KEY(`blockNum`));";
+                    string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` TEXT, `lastBlockChecksum` TEXT, `walletStateChecksum`	TEXT, `sigFreezeChecksum` TEXT, `difficulty` INTEGER, `powField` TEXT, `transactions` TEXT, `signatures` TEXT, `timestamp` TEXT, PRIMARY KEY(`blockNum`));";
                     executeSQL(sql);
 
                     sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
@@ -98,6 +98,7 @@ namespace DLT
                 public string powField { get; set; }
                 public string signatures { get; set; }
                 public string transactions { get; set; }
+                public string timestamp { get; set; }
             }
 
             public class _storage_Transaction
@@ -174,15 +175,15 @@ namespace DLT
                 bool result = false;
                 if (getBlock(block.blockNum) == null)
                 {
-                    string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures);
+                    string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp);
                 }
                 else
                 {
                     // Likely already have the block stored, update the old entry
-                    string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ? WHERE `blockNum` = ?";
+                    string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ? WHERE `blockNum` = ?";
                     //Console.WriteLine("SQL: {0}", sql);
-                    result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, (long)block.blockNum);
+                    result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, (long)block.blockNum, block.timestamp);
                 }
 
 
@@ -254,7 +255,8 @@ namespace DLT
                     difficulty = (ulong)blk.difficulty,
                     powField = blk.powField,
                     transactions = new List<string>(),
-                    signatures = new List<string>()
+                    signatures = new List<string>(),
+                    timestamp = blk.timestamp
                 };
 
                 // Add signatures

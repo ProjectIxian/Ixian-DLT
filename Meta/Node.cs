@@ -138,7 +138,8 @@ namespace DLT.Meta
                 tx.signature = Transaction.getSignature(tx.checksum);
                 TransactionPool.addTransaction(tx);
 
-                Transaction tx2 = new Transaction(new IxiNumber("1000000"), 0, "b0052ef5407605f9bd668fc699a550ca2dc5de4720017f1ad813c8e06b6235697849", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                // seed2
+                Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, "810eae79b4c5cdc6c119137f56362f436df36edf148a31531c397da2a9101446e7c7", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
                 tx2.type = (int)Transaction.Type.Genesis;
                 tx2.data = "";
                 tx2.timeStamp = getCurrentTimestamp().ToString();
@@ -147,7 +148,8 @@ namespace DLT.Meta
                 tx2.signature = Transaction.getSignature(tx2.checksum);
                 TransactionPool.addTransaction(tx2);
 
-                Transaction tx3 = new Transaction(new IxiNumber("1000000"), 0, "2bd883f4db2535879132e67d762f8871708927beb2a0fcc8f9f715125fc9a6c4b567", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                // seed3
+                Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, "7f0068bbbd0656d2d1eba0a8ac97e7611fff38eaf7879f8b822d010cdb97eb619d44", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
                 tx3.type = (int)Transaction.Type.Genesis;
                 tx3.data = "";
                 tx3.timeStamp = getCurrentTimestamp().ToString();
@@ -156,7 +158,8 @@ namespace DLT.Meta
                 tx3.signature = Transaction.getSignature(tx3.checksum);
                 TransactionPool.addTransaction(tx3);
 
-                Transaction tx4 = new Transaction(new IxiNumber("1000000"), 0, "9f51590772405d88278c160df993892148cb44ba40ab0785fd5afbba7a0ddce0bdc9", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                // seed4
+                Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, "e9bd0c5d111913175713066fc31785ec8e609f86720531b195c04f20bed53a3984c4", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
                 tx4.type = (int)Transaction.Type.Genesis;
                 tx4.data = "";
                 tx4.timeStamp = getCurrentTimestamp().ToString();
@@ -164,6 +167,36 @@ namespace DLT.Meta
                 tx4.checksum = Transaction.calculateChecksum(tx4);
                 tx4.signature = Transaction.getSignature(tx4.checksum);
                 TransactionPool.addTransaction(tx4);
+
+                // seed5
+                Transaction tx5 = new Transaction(Config.minimumMasterNodeFunds, 0, "38db54c2713cf20ce0e7e76781c71d0196b7407c9c1e7d95fe0d21e2bfd283710ba3", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                tx5.type = (int)Transaction.Type.Genesis;
+                tx5.data = "";
+                tx5.timeStamp = getCurrentTimestamp().ToString();
+                tx5.id = tx5.generateID();
+                tx5.checksum = Transaction.calculateChecksum(tx5);
+                tx5.signature = Transaction.getSignature(tx5.checksum);
+                TransactionPool.addTransaction(tx5);
+
+                // Team Reward
+                Transaction tx6 = new Transaction(new IxiNumber("1000000000"), 0, "e4014e75dfff822d24f2e74c8e5e7212114d0b140154c327dc7b2621fff3a2484339", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                tx6.type = (int)Transaction.Type.Genesis;
+                tx6.data = "";
+                tx6.timeStamp = getCurrentTimestamp().ToString();
+                tx6.id = tx6.generateID();
+                tx6.checksum = Transaction.calculateChecksum(tx6);
+                tx6.signature = Transaction.getSignature(tx6.checksum);
+                TransactionPool.addTransaction(tx6);
+
+                // Development
+                Transaction tx7 = new Transaction(new IxiNumber("1000000000"), 0, "85871f25721ca4a3f1016feedb00ea7c51165947d36039c779fd3a1759606c0cf693", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32");
+                tx7.type = (int)Transaction.Type.Genesis;
+                tx7.data = "";
+                tx7.timeStamp = getCurrentTimestamp().ToString();
+                tx7.id = tx7.generateID();
+                tx7.checksum = Transaction.calculateChecksum(tx7);
+                tx7.signature = Transaction.getSignature(tx7.checksum);
+                TransactionPool.addTransaction(tx7);
 
                 genesisNode = true;
                 Node.blockProcessor.resumeOperation();
