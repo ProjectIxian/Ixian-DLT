@@ -183,7 +183,7 @@ namespace DLT
                     // Likely already have the block stored, update the old entry
                     string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ? WHERE `blockNum` = ?";
                     //Console.WriteLine("SQL: {0}", sql);
-                    result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, (long)block.blockNum, block.timestamp);
+                    result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, (long)block.blockNum);
                 }
 
 

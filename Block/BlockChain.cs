@@ -182,7 +182,6 @@ namespace DLT
                     if (forceRefresh)
                     {
                         blocks[idx].signatures = b.signatures;
-                        updatestorage_block = blocks[idx];
                     }
                     else
                     {
