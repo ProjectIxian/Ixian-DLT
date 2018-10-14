@@ -11,7 +11,9 @@ namespace DLT
             // Providing pre-defined values
             // Can be read from a file later, or read from the command line
             public static int serverPort = 10234;
+            public static int testnetServerPort = 11234;
             public static int apiPort = 8081;
+            public static int testnetApiPort = 8181;
             public static string publicServerIP = "127.0.0.1";
 
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
@@ -84,10 +86,11 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine("ixiandlt.exe [-h] [-v] [-s] [-m] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-d]");
+                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-d]");
                 Console.WriteLine("");
                 Console.WriteLine("   -h\t\t Displays this help");
                 Console.WriteLine("   -v\t\t Displays version");
+                Console.WriteLine("   -t\t\t Starts node in testnet mode");
                 Console.WriteLine("   -s\t\t Saves full history");
                 Console.WriteLine("   -m\t\t Disables mining");
                 Console.WriteLine("   -x\t\t Change password of an existing wallet");
@@ -107,7 +110,7 @@ namespace DLT
             {
                 DLTNode.Program.noStart = true;
 
-                Console.WriteLine(String.Format("IXIAN DLT Node {0}", Config.version));
+                // Do nothing since version is the first thing displayed
 
                 return "";
             }
@@ -115,9 +118,32 @@ namespace DLT
             public static void readFromCommandLine(string[] args)
             {
                 //Logging.log(LogSeverity.info, "Reading config...");
+
+                // first pass
                 var cmd_parser = new FluentCommandLineParser();
 
+                // testnet
+                cmd_parser.Setup<bool>('t', "testnet").Callback(value => isTestNet = true).Required();
+
+                cmd_parser.Parse(args);
+
+                if(isTestNet)
+                {
+                    serverPort = testnetServerPort;
+                    apiPort = testnetApiPort;
+                }
+
+
+                // second pass
+                cmd_parser = new FluentCommandLineParser();
+
                 bool start_clean = false; // Flag to determine if node should delete cache+logs
+
+                // help
+                cmd_parser.SetupHelp("h", "help").Callback(text => outputHelp());
+
+                // version
+                cmd_parser.Setup<bool>('v', "version").Callback(text => outputVersion());
 
                 // Toggle between full history node and no history
                 cmd_parser.Setup<bool>('s', "save-history").Callback(value => storeFullHistory = value).Required();
@@ -146,18 +172,8 @@ namespace DLT
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 
-                // testnet
-                cmd_parser.Setup<bool>('t', "testnet").Callback(value => isTestNet = true).Required();
-
                 // Debug
                 cmd_parser.Setup<string>('d', "netdump").Callback(value => networkDumpFile = value).SetDefault("");
-
-                // version
-                cmd_parser.Setup<bool>('v', "version").Callback(text => outputVersion());
-
-                // help
-                cmd_parser.SetupHelp("h", "help").Callback(text => outputHelp());
-                
 
                 cmd_parser.Parse(args);
 
