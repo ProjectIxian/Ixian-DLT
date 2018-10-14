@@ -114,7 +114,7 @@ namespace DLT
                         return;
                     }else if (code == ProtocolMessageCode.keepAlivePresence || code == ProtocolMessageCode.getPresence
                         || code == ProtocolMessageCode.updatePresence || code == ProtocolMessageCode.ping
-                        || code == ProtocolMessageCode.pong)
+                        || code == ProtocolMessageCode.pong || code == ProtocolMessageCode.hello || code == ProtocolMessageCode.helloData)
                     {
                         // Prioritize if queue is large
                         if (queueMessages.Count > 6)
