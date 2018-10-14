@@ -81,6 +81,10 @@ namespace DLT
                 {
                     blockGenerationInterval = 5;
                 }
+                else if(Config.isTestNet)
+                {
+                    blockGenerationInterval = 20;
+                }
                 else
                 {
                     blockGenerationInterval = 30;

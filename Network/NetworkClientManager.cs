@@ -28,7 +28,7 @@ namespace DLT
             PeerStorage.readPeersFile();
 
             // Now add the seed nodes to the list
-            foreach(string addr in CoreNetworkUtils.seedNodes)
+            foreach(string addr in CoreNetworkUtils.getSeedNodes(Config.isTestNet))
             {
                 PeerStorage.addPeerToPeerList(addr, addr, false);
             }
