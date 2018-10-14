@@ -697,13 +697,19 @@ namespace DLTNode
                 Dictionary<string, Object> networkArray = new Dictionary<string, Object>();
 
                 networkArray.Add("Node Version", Config.version);
+                string netType = "mainnet";
+                if(Config.isTestNet)
+                {
+                    netType = "testnet";
+                }
+                networkArray.Add("Network type", netType);
                 networkArray.Add("My time", Clock.getTimestamp(DateTime.Now));
                 networkArray.Add("Network time difference", Node.networkTimeDifference);
                 networkArray.Add("My External IP", Config.publicServerIP);
                 //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
                 networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
                     + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                    + ", Storage: " + Storage.getQueuedQueryCount());
+                    + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount());
                 networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
 
                 string dltStatus = "Active";

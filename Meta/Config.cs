@@ -28,7 +28,7 @@ namespace DLT
 
             // Read-only values
             public static readonly string version = "xdc-0.4.5"; // DLT Node version
-            public static readonly bool isTestNet = true; // Testnet designator
+            public static bool isTestNet = false; // Testnet designator
 
             public static readonly int maxLogFileSize = 50 * 1024 * 1024; // 50MB
 
@@ -145,6 +145,9 @@ namespace DLT
                 cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
+
+                // testnet
+                cmd_parser.Setup<bool>('t', "testnet").Callback(value => isTestNet = true).Required();
 
                 // Debug
                 cmd_parser.Setup<string>('d', "netdump").Callback(value => networkDumpFile = value).SetDefault("");
