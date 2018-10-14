@@ -503,7 +503,16 @@ namespace DLT
                     // if we're a client update the network time difference
                     if(endpoint.GetType() == typeof(NetworkClient))
                     {
-                        Node.networkTimeDifference = Clock.getTimestamp(DateTime.Now) - timestamp;
+                        long curTime = Clock.getTimestamp(DateTime.Now);
+                        // amortize +- 5 seconds
+                        if (curTime - timestamp < -5 || curTime - timestamp > 5)
+                        {
+                            Node.networkTimeDifference = curTime - timestamp;
+                        }else
+                        {
+                            Node.networkTimeDifference = 0;
+                        }
+
                     }
 
                     // Store the presence address for this remote endpoint
