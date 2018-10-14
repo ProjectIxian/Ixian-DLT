@@ -266,7 +266,7 @@ namespace DLT.Meta
             // Check for node deprecation
             if (checkCurrentBlockDeprecation(Node.blockChain.getLastBlockNum()) == false)
             {
-                Logging.error(string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", block_limit));
+                Logging.error(string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.compileTimeBlockNumber + Config.deprecationBlockOffset));
                 running = false;
                 return running;
             }
