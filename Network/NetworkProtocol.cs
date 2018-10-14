@@ -700,7 +700,7 @@ namespace DLT
                                             {
                                                 using (BinaryWriter writer = new BinaryWriter(m2))
                                                 {
-                                                    writer.Write(string.Format("Please update your Ixian node to connect."));
+                                                    writer.Write(string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.compileTimeBlockNumber + Config.deprecationBlockOffset, last_block_num));
                                                     endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                                                 }
                                             }
