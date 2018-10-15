@@ -176,7 +176,7 @@ namespace DLT
             string hash = findHash(p1, nonce);
             if(hash.Length < 1)
             {
-                Logging.warn("Stopping miner due to invalid hash.");
+                Logging.error("Stopping miner due to invalid hash.");
                 stop();
                 return;
             }
@@ -272,6 +272,11 @@ namespace DLT
             tx.from = Node.walletStorage.getWalletAddress();
             tx.to = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
             tx.amount = "0";
+            tx.fee = "0";
+
+            // Increase the txpool intenal nonce
+            TransactionPool.internalNonce++;
+            tx.nonce = TransactionPool.internalNonce;
 
             string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, activeBlock.blockNum, nonce);
             tx.data = data;
@@ -311,7 +316,7 @@ namespace DLT
             }
             catch(Exception e)
             {
-                Logging.warn(string.Format("Error during mining: {0}", e.Message));
+                Logging.error(string.Format("Error during mining: {0}", e.Message));
             }
             return ret;
         }
