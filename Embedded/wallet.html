@@ -21,7 +21,7 @@
 		    <nav class="navbar navbar-default navbar-fixed-top">
                 <div class="row">
                     <div class="col-xs-10"><img src="https://resources.ixian.io/img/logofull.png" /></div> 
-                    <div class="col-xs-2 navbar-version">v 0.1</div>
+                    <div class="col-xs-2 navbar-version" id="version"></div>
                 </div>
 		    </nav>
             
@@ -174,7 +174,7 @@
                     // Assign relevant wallet information
                     document.getElementById("activity_balance_number").innerHTML = balance;
                     document.getElementById("send_balance_number").innerHTML = balance;
-                    document.getElementById("receive_own_address").innerHTML = balance;
+                    document.getElementById("receive_own_address").innerHTML = address;
 
                 if(sync_status == "sync")
                 {
@@ -193,6 +193,14 @@
 				
 
 				});
+        }
+
+        function getNodeStatus() {
+            var dltAPI = "#IXIAN#NODE#URL#";
+            $.getJSON(dltAPI + "status", {})
+                .done(function (data) {
+
+                });
         }
 		
             
