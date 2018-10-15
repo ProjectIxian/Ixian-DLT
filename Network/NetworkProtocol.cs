@@ -606,6 +606,10 @@ namespace DLT
 
                         // Send the node type
                         char node_type = 'M'; // This is a Master node
+
+                        if (Node.isWorkerNode())
+                            node_type = 'W'; // This is a Worker node
+
                         writer.Write(node_type);
 
                         // Send the version
@@ -861,8 +865,23 @@ namespace DLT
                                     {
                                         // Retrieve the message
                                         string message = reader.ReadString();
-                                        Logging.error(string.Format("Disconnected with message: {0}", message));
                                         endpoint.stop();
+
+                                        // Convert to Worker node if possible
+                                        if(message.StartsWith("Insufficient funds"))
+                                        {
+                                            Logging.warn(string.Format("Disconnected with message: {0}", message));
+
+                                            if (Config.disableMiner == false)
+                                            {
+                                                Logging.info("Reconnecting in Worker mode.");
+                                                Node.convertToWorkerNode();
+                                            }
+                                            return;
+                                        }
+
+                                        Logging.error(string.Format("Disconnected with message: {0}", message));
+                                        
                                     }
                                 }
                             }

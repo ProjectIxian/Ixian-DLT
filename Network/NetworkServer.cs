@@ -43,6 +43,12 @@ namespace DLT
                     return;
                 }
 
+                if(Node.isWorkerNode())
+                {
+                    Logging.info("Network server is not enabled when in Worker mode.");
+                    return;
+                }
+
                 netControllerThread = new Thread(networkOpsLoop);
                 connectedClients = new List<RemoteEndpoint>();
                 continueRunning = true;

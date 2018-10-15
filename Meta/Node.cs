@@ -11,7 +11,7 @@ namespace DLT.Meta
 {
     class Node
     {
-
+        // Public
         public static BlockChain blockChain;
         public static BlockProcessor blockProcessor;
         public static BlockSync blockSync;
@@ -24,16 +24,17 @@ namespace DLT.Meta
         public static bool genesisNode = false;
         public static bool forceNextBlock = false;
 
-
         public static bool serverStarted = false;
         public static bool presenceListActive = false;
 
+        public static long networkTimeDifference = 0;
         private static bool running = false;
 
+        // Private
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
-
-        public static long networkTimeDifference = 0;
+        private static bool workerMode = false;
+        
 
         static public void start()
         {
@@ -450,6 +451,15 @@ namespace DLT.Meta
                 if (Node.blockChain.getLastBlockNum() > 2)
                 {
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.address);
+                    if(isWorkerNode())
+                    {
+                        if (nodeBalance > Config.minimumMasterNodeFunds)
+                        {
+                            Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode."));                           
+                            convertToMasterNode();
+                        }
+                    }
+                    else
                     if (nodeBalance < Config.minimumMasterNodeFunds)
                     {
                         Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", Config.minimumMasterNodeFunds, walletStorage.address));
@@ -601,6 +611,36 @@ namespace DLT.Meta
         public static string getFullAddress()
         {
             return Config.publicServerIP + ":" + Config.serverPort;
+        }
+
+        // Convert this masternode to a worker node
+        public static void convertToWorkerNode()
+        {
+            if (workerMode)
+                return;
+
+            workerMode = true;
+
+            NetworkClientManager.restartClients();
+            NetworkServer.stopNetworkOperations();
+        }
+
+        // Convert this worker node to a masternode
+        public static void convertToMasterNode()
+        {
+            if (!workerMode)
+                return;
+
+            workerMode = false;
+
+            NetworkClientManager.restartClients();
+            NetworkServer.restartNetworkOperations();
+            
+        }
+
+        public static bool isWorkerNode()
+        {
+            return workerMode;
         }
 
     }

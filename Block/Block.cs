@@ -216,6 +216,11 @@ namespace DLT
         // Applies this node's signature to this block
         public bool applySignature()
         {
+            if(Node.isWorkerNode())
+            {
+                return true;
+            }
+
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
             string public_key = Node.walletStorage.publicKey;
 
