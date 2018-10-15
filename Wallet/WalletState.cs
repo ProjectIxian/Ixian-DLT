@@ -194,6 +194,7 @@ namespace DLT
             }
         }
 
+        // Sets the wallet nonce
         public void setWalletNonce(string id, ulong nonce, bool snapshot = false)
         {
             lock (stateLock)
@@ -207,6 +208,42 @@ namespace DLT
                 }
 
                 setWalletBalance(id, wallet.balance, snapshot, nonce);
+            }
+        }
+
+        // Sets the wallet public key for a specified wallet
+        public void setWalletPublicKey(string id, string public_key, bool snapshot = false)
+        {
+            lock(stateLock)
+            {
+                Wallet wallet = getWallet(id, snapshot);
+
+                if (wallet == null)
+                {
+                    Logging.warn(String.Format("Attempted to set public key for wallet {0} that does not exist.", id));
+                    return;
+                }
+
+                // TODO: perhaps check if the public key is already set
+                wallet.publicKey = public_key;
+
+                if (snapshot == false)
+                {
+                    walletState.AddOrReplace(id, wallet);
+                    cachedChecksum = "";
+                    cachedTotalSupply = new IxiNumber(0);
+                    cachedDeltaChecksum = "";
+                }
+                else
+                {
+                    if (wsDelta == null)
+                    {
+                        Logging.warn(String.Format("Attempted to apply wallet state to the snapshot, but it does not exist."));
+                        return;
+                    }
+                    wsDelta.AddOrReplace(id, wallet);
+                    cachedDeltaChecksum = "";
+                }
             }
         }
 
