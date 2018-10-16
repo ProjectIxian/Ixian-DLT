@@ -168,7 +168,19 @@ namespace DLT
         {
             lock (stateLock)
             {
-                Wallet wallet = new Wallet(id, balance);
+                // Check if wallet exists first
+                Wallet wallet = getWallet(id, snapshot);
+
+                if (wallet == null)
+                {
+                    // Create a new wallet if it doesn't exist
+                    wallet = new Wallet(id, balance);
+                }
+                else
+                {
+                    // Set the balance
+                    wallet.balance = balance;
+                }
 
                 // Apply nonce if needed
                 if (nonce > 0)

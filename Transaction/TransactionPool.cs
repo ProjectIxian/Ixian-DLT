@@ -75,6 +75,7 @@ namespace DLT
 
             // Prevent transaction spamming
             // Note: transactions that change multisig wallet parameters may have amount zero, since it will be ignored anyway
+           // if(transaction.type != (int)Transaction.Type.PoWSolution)
             if (transaction.amount == 0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
             {
                 return false;
@@ -172,6 +173,32 @@ namespace DLT
             }
             /*var sw = new System.Diagnostics.Stopwatch();
             sw.Start();*/
+
+            // TODO: check pubkey walletstate support
+            string pubkey = "";
+
+            if (transaction.type == (int)Transaction.Type.Genesis ||
+                transaction.type == (int)Transaction.Type.StakingReward ||
+                transaction.type == (int)Transaction.Type.PoWSolution)
+            {
+                if (transaction.type == (int)Transaction.Type.StakingReward)
+                    pubkey = Node.walletStorage.publicKey;
+
+            }
+            else
+            {
+                pubkey = Node.walletState.getWallet(transaction.from).publicKey;
+                // Generate an address from the public key and compare it with the sender
+                if (pubkey.Length < 1)
+                {
+                    // There is no supplied public key, extract it from the data section
+                    pubkey = transaction.data;
+
+                    // Update the walletstate public key
+                    Node.walletState.setWalletPublicKey(transaction.from, pubkey);
+                }
+            }
+
             // Finally, verify the signature
             if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
@@ -211,7 +238,7 @@ namespace DLT
                         transaction.id, transaction.from));
                     return false;
                 }
-            } else if (transaction.verifySignature() == false)
+            } else if (transaction.verifySignature(pubkey) == false)
             {
                 // Transaction signature is invalid
                 Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
@@ -305,7 +332,39 @@ namespace DLT
             Console.Write("$");
 
             if (Node.blockSync.synchronizing == true)
+            {
+                // TODO: check pubkey walletstate support
+                if (transaction.type == (int)Transaction.Type.Genesis ||
+                    transaction.type == (int)Transaction.Type.StakingReward ||
+                    transaction.type == (int)Transaction.Type.PoWSolution)
+                {
+                    // Ignore storage of public key for these transactions
+                    return true;
+                }
+
+                
+                string pubkey = Node.walletState.getWallet(transaction.from).publicKey;
+                // Generate an address from the public key and compare it with the sender
+                if (pubkey.Length < 1)
+                {
+                    // There is no supplied public key, extract it from the data section
+                    pubkey = transaction.data;
+
+                    // If this is a PoWSolution transaction, extract the public key from the data section first
+                    if (transaction.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        string[] split = transaction.data.Split(new string[] { "||" }, StringSplitOptions.None);
+                        if (split.Length < 1)
+                            return false;
+
+                        pubkey = split[0];
+                    }
+
+                    // Update the walletstate public key
+                    Node.walletState.setWalletPublicKey(transaction.from, pubkey);
+                }
                 return true;
+            }
 
             // Broadcast this transaction to the network
             if (no_broadcast == false)
@@ -724,10 +783,8 @@ namespace DLT
             {
                 return false;
             }
-
             Logging.warn("Trying to apply PoW transaction before mining is enabled.");
             return false;
-
             // Update the block's applied field
             if (!ws_snapshot)
             {
@@ -745,6 +802,7 @@ namespace DLT
                 // Add the miner to the block number dictionary reward list
                 blockSolutionsDictionary[powBlockNum].Add(tx.from);
             }
+
             return true;
         }
 
@@ -817,13 +875,7 @@ namespace DLT
 
             // Check if the transaction is in the sigfreeze
             // TODO: refactor this and make it more efficient
-            string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
-            if (split.Length < 1)
-            {
-                //failed_transactions.Add(tx);
-                return true;
-            }
-            string blocknum = split[1];
+            string blocknum = tx.data;
             // Verify the staking transaction is accurate
             Block targetBlock = Node.blockChain.getBlock(Convert.ToUInt64(blocknum));
             if (targetBlock == null)

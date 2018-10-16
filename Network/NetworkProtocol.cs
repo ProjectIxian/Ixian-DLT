@@ -293,6 +293,7 @@ namespace DLT
                 return true;
             }
 
+            // Sends a single wallet chunk
             public static void sendWalletStateChunk(RemoteEndpoint endpoint, WsChunk chunk)
             {
                 using (MemoryStream m = new MemoryStream())
@@ -308,6 +309,7 @@ namespace DLT
                             writer.Write(w.balance.ToString());
                             writer.Write(w.data);
                             writer.Write(w.nonce);
+                            writer.Write(w.publicKey);
                         }
                         //
                         endpoint.sendData(ProtocolMessageCode.walletStateChunk, m.ToArray());
@@ -991,9 +993,11 @@ namespace DLT
                                             IxiNumber w_balance = new IxiNumber(reader.ReadString());
                                             string w_data = reader.ReadString();
                                             ulong w_nonce = reader.ReadUInt64();
+                                            string w_publickey = reader.ReadString();
                                             wallets[i] = new Wallet(w_id, w_balance);
                                             wallets[i].data = w_data;
                                             wallets[i].nonce = w_nonce;
+                                            wallets[i].publicKey = w_publickey;
                                         }
                                         WsChunk c = new WsChunk
                                         {

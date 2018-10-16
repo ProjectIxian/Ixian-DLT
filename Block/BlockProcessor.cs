@@ -1300,10 +1300,9 @@ namespace DLT
                     tx.type = (int)Transaction.Type.StakingReward;
                     tx.to = wallet_addr;
                     tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
-
                     tx.amount = award;
 
-                    string data = string.Format("{0}||{1}", Node.walletStorage.publicKey, targetBlock.blockNum);
+                    string data = string.Format("{0}", targetBlock.blockNum);
                     tx.data = data;
                     tx.timeStamp = Node.getCurrentTimestamp().ToString();
                     tx.id = tx.generateID(); // Staking-specific txid

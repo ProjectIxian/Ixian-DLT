@@ -229,7 +229,17 @@ namespace DLTNode
                     }
                     else
                     {
-                        Transaction transaction = new Transaction(amount, fee, to, from, nonce);
+                        string data = Node.walletStorage.publicKey;
+
+                        // Check if this wallet's public key is already in the WalletState
+                        Wallet mywallet = Node.walletState.getWallet(from, true);
+                        if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                        {
+                            // Walletstate public key matches, we don't need to send the public key in the transaction
+                            data = "";
+                        }
+
+                        Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -271,7 +281,17 @@ namespace DLTNode
                     }
                     else
                     {
-                        Transaction transaction = new Transaction(amount, fee, to, from, nonce);
+                        string data = Node.walletStorage.publicKey;
+
+                        // Check if this wallet's public key is already in the WalletState
+                        Wallet mywallet = Node.walletState.getWallet(from, true);
+                        if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                        {
+                            // Walletstate public key matches, we don't need to send the public key in the transaction
+                            data = "";
+                        }
+                        
+                        Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
