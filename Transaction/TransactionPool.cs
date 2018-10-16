@@ -174,6 +174,7 @@ namespace DLT
             /*var sw = new System.Diagnostics.Stopwatch();
             sw.Start();*/
 
+            // Extract the public key if found. Used for transaction verification.
             // TODO: check pubkey walletstate support
             string pubkey = "";
 
@@ -183,7 +184,6 @@ namespace DLT
             {
                 if (transaction.type == (int)Transaction.Type.StakingReward)
                     pubkey = Node.walletStorage.publicKey;
-
             }
             else
             {
@@ -193,9 +193,6 @@ namespace DLT
                 {
                     // There is no supplied public key, extract it from the data section
                     pubkey = transaction.data;
-
-                    // Update the walletstate public key
-                    Node.walletState.setWalletPublicKey(transaction.from, pubkey);
                 }
             }
 
@@ -333,36 +330,6 @@ namespace DLT
 
             if (Node.blockSync.synchronizing == true)
             {
-                // TODO: check pubkey walletstate support
-                if (transaction.type == (int)Transaction.Type.Genesis ||
-                    transaction.type == (int)Transaction.Type.StakingReward ||
-                    transaction.type == (int)Transaction.Type.PoWSolution)
-                {
-                    // Ignore storage of public key for these transactions
-                    return true;
-                }
-
-                
-                string pubkey = Node.walletState.getWallet(transaction.from).publicKey;
-                // Generate an address from the public key and compare it with the sender
-                if (pubkey.Length < 1)
-                {
-                    // There is no supplied public key, extract it from the data section
-                    pubkey = transaction.data;
-
-                    // If this is a PoWSolution transaction, extract the public key from the data section first
-                    if (transaction.type == (int)Transaction.Type.PoWSolution)
-                    {
-                        string[] split = transaction.data.Split(new string[] { "||" }, StringSplitOptions.None);
-                        if (split.Length < 1)
-                            return false;
-
-                        pubkey = split[0];
-                    }
-
-                    // Update the walletstate public key
-                    Node.walletState.setWalletPublicKey(transaction.from, pubkey);
-                }
                 return true;
             }
 
@@ -700,8 +667,22 @@ namespace DLT
                         continue;
                     }
 
+                    // Update the walletstate public key
+                    // TODO: check pubkey walletstate support
+                    string pubkey = Node.walletState.getWallet(tx.from, ws_snapshot).publicKey;
+                    // Generate an address from the public key and compare it with the sender
+                    if (pubkey.Length < 1)
+                    {
+                        // There is no supplied public key, extract it from the data section
+                        pubkey = tx.data;
+
+                        // Update the walletstate public key
+                        Node.walletState.setWalletPublicKey(tx.from, pubkey, ws_snapshot);
+                    }
+
+
                     // Special case for Multisig
-                    if(tx.type == (int)Transaction.Type.MultisigTX)
+                    if (tx.type == (int)Transaction.Type.MultisigTX)
                     {
                         applyMultisigTransaction(tx, block, failed_transactions, ws_snapshot);
                         continue;

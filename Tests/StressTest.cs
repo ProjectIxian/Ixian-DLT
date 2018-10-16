@@ -216,7 +216,6 @@ namespace DLTNode
             Logging.info("Starting tx spam test");
 
             ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
-            string data = Node.walletStorage.publicKey;
 
             for (int i = 0; i < txspamNum; i++)
             {
@@ -224,12 +223,20 @@ namespace DLTNode
                 IxiNumber fee = Config.transactionPrice;
                 string to = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481";
                 string from = Node.walletStorage.getWalletAddress();
-                
+
+                string data = Node.walletStorage.publicKey;
+                // Check if this wallet's public key is already in the WalletState
+                Wallet mywallet = Node.walletState.getWallet(from, true);
+                if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                {
+                    // Walletstate public key matches, we don't need to send the public key in the transaction
+                    data = "";
+                }
+
                 Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
                 // Console.WriteLine("> sending {0}", transaction.id);
                 TransactionPool.addTransaction(transaction);
                 nonce++;
-                data = "";
             }
 
             Console.ForegroundColor = ConsoleColor.DarkYellow;
@@ -255,7 +262,6 @@ namespace DLTNode
             }
 
             ulong nonce = 0; // Set the starting nonce
-            string data = Node.walletStorage.publicKey;
 
             writer.Write(txspamNum);
             for (int i = 0; i < txspamNum; i++)
@@ -265,6 +271,15 @@ namespace DLTNode
                 string to = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481";
                 string from = Node.walletStorage.getWalletAddress();
 
+                string data = Node.walletStorage.publicKey;
+                // Check if this wallet's public key is already in the WalletState
+                Wallet mywallet = Node.walletState.getWallet(from, true);
+                if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                {
+                    // Walletstate public key matches, we don't need to send the public key in the transaction
+                    data = "";
+                }
+
                 Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
                 byte[] bytes = transaction.getBytes();
                 
@@ -273,7 +288,6 @@ namespace DLTNode
                 writer.Write(bytes);
 
                 nonce++;
-                data = "";
             }
 
             writer.Close();
