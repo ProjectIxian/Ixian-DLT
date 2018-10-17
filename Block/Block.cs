@@ -216,13 +216,19 @@ namespace DLT
         // Applies this node's signature to this block
         public bool applySignature()
         {
-            if(Node.isWorkerNode())
+            if (Node.isWorkerNode())
             {
                 return true;
             }
 
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
             string address = Node.walletStorage.getWalletAddress();
+
+            // Use public key when applying signature to legacy block
+            if (Legacy.isLegacy(blockNum))
+            {
+                address = Node.walletStorage.publicKey;
+            }
 
             // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
             string private_key = Node.walletStorage.privateKey;
@@ -241,13 +247,6 @@ namespace DLT
                 }
 
                 string merged_signature = signature + splitter[0] + address;
-
-                // Use public key when applying signature to legacy block
-                if (Legacy.isLegacy(blockNum))
-                {
-                    merged_signature = signature + splitter[0] + Node.walletStorage.publicKey;
-                }
-
                 signatures.Add(merged_signature);               
             }
 
@@ -426,9 +425,8 @@ namespace DLT
                     {
                         Address address = new Address(public_key);
                         address_string = address.ToString();
+                        // TODO: check if it's it worth it validating the address again here
                     }
-
-                    // TODO: check if it's it worth it validating the address again here
 
                     // Add the address to the list
                     result.Add(address_string);
