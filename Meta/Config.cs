@@ -18,7 +18,7 @@ namespace DLT
 
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
-            public static bool disableMiner = false; // Flag to disable miner
+            public static bool disableMiner = true; // Flag to disable miner
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
             public static string genesis2Address = ""; // For a secondary genesis node
@@ -93,7 +93,7 @@ namespace DLT
                 Console.WriteLine("   -v\t\t Displays version");
                 Console.WriteLine("   -t\t\t Starts node in testnet mode");
                 Console.WriteLine("   -s\t\t Saves full history");
-                Console.WriteLine("   -m\t\t Disables mining");
+                Console.WriteLine("   -m\t\t Enables mining");
                 Console.WriteLine("   -x\t\t Change password of an existing wallet");
                 Console.WriteLine("   -r\t\t Recovers from file (to be used only when recovering the network)");
                 Console.WriteLine("   -c\t\t Removes blockchain.dat, peers.dat and ixian.log files before starting");
@@ -153,7 +153,7 @@ namespace DLT
                 cmd_parser.Setup<bool>('s', "save-history").Callback(value => storeFullHistory = value).Required();
 
                 // Toggle between mining and no mining mode
-                cmd_parser.Setup<bool>('m', "no-mining").Callback(value => disableMiner = value).Required();
+                cmd_parser.Setup<bool>('m', "miner").Callback(value => disableMiner = false).Required();
 
                 // Check for password change
                 cmd_parser.Setup<bool>('x', "changepass").Callback(value => changePass = value).Required();

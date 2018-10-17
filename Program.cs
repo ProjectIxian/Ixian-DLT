@@ -186,11 +186,13 @@ namespace DLTNode
 
             // Check for the right vc++ redist for the argon miner
             CheckVCRedist();
-            
+
             // Log the parameters to notice any changes
-            Logging.log(LogSeverity.info, String.Format("Server Port: {0}", Config.serverPort));
-            Logging.log(LogSeverity.info, String.Format("API Port: {0}", Config.apiPort));
-            Logging.log(LogSeverity.info, String.Format("Wallet File: {0}", Config.walletFile));
+            Logging.info(String.Format("Mainnet: {0}", !Config.isTestNet));
+            Logging.info(String.Format("Miner: {0}", !Config.disableMiner));
+            Logging.info(String.Format("Server Port: {0}", Config.serverPort));
+            Logging.info(String.Format("API Port: {0}", Config.apiPort));
+            Logging.info(String.Format("Wallet File: {0}", Config.walletFile));
 
             // Initialize the crypto manager
             CryptoManager.initLib();
