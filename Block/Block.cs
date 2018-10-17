@@ -224,8 +224,10 @@ namespace DLT
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
             string address = Node.walletStorage.getWalletAddress();
 
+            Wallet signerWallet = Node.walletState.getWallet(address);
+
             // Use public key when applying signature to legacy block
-            if (Legacy.isLegacy(blockNum))
+            if (Legacy.isLegacy(blockNum) || signerWallet.publicKey.Length < 1)
             {
                 address = Node.walletStorage.publicKey;
             }
