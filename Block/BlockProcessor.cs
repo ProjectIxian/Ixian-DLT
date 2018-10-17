@@ -1268,14 +1268,22 @@ namespace DLT
                     tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
                     tx.amount = award;
 
+                    
+                    tx.blockHeight = Node.blockChain.getLastBlockNum();
+                    // Handle legacy staking transactions
+                    if (tx.blockHeight < Legacy.up20181017)
+                        tx.blockHeight = 0;
+
                     string data = string.Format("{0}", targetBlock.blockNum);
                     tx.data = data;
+
                     tx.timeStamp = Node.getCurrentTimestamp().ToString();
                     tx.id = tx.generateID(); // Staking-specific txid
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = "Stake";
 
                     transactions.Add(tx);
+
                 }
 
             }

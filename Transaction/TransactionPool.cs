@@ -81,7 +81,7 @@ namespace DLT
             }
 
             // Check the block height
-            if (blocknum > Config.redactedWindowSize)
+            if (blocknum > Config.redactedWindowSize && transaction.blockHeight > Legacy.up20181017)
             {
                 if (blocknum - Config.redactedWindowSize > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
                 {
@@ -554,7 +554,7 @@ namespace DLT
             {
                 if (tx.applied > 0)
                     continue;
-
+              
                 string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
                 ulong txbnum = Convert.ToUInt64(split_str[1]);
 
@@ -566,7 +566,7 @@ namespace DLT
                 // TODO: note that this can backfire when recovering completely from a file
                 if (Node.blockSync.synchronizing && Config.recoverFromFile == false)
                     continue;
-
+               
                 if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
                 {
                     //Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
@@ -847,6 +847,7 @@ namespace DLT
                     break;
                 }
             }
+            
             // If there's another staking transaction for the staker in this block, ignore
             if (valid == false)
             {
@@ -877,7 +878,7 @@ namespace DLT
                 failed_transactions.Add(tx);
                 return true;
             }
-
+            
             valid = false;
             List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
             foreach (string wallet_addr in signatureWallets)
@@ -902,7 +903,7 @@ namespace DLT
             }
 
             blockStakers.Add(tx.to);
-
+            
             return true;
         }
 
@@ -1152,12 +1153,16 @@ namespace DLT
             }
 
             // Check the block height
-            if (block.blockNum - Config.redactedWindowSize > tx.blockHeight || tx.blockHeight > block.blockNum)
+            if (block.blockNum > Config.redactedWindowSize && tx.blockHeight > Legacy.up20181017)
             {
-                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", tx.id, tx.blockHeight, block.blockNum - Config.redactedWindowSize));
-                failed_transactions.Add(tx);
-                return false;
+                if (block.blockNum - Config.redactedWindowSize > tx.blockHeight || tx.blockHeight > block.blockNum)
+                {
+                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", tx.id, tx.blockHeight, block.blockNum - Config.redactedWindowSize));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
             }
+
 
             // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
             IxiNumber dest_balance_after = dest_balance_before + tx.amount;
