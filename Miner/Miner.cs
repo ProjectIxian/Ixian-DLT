@@ -35,6 +35,8 @@ namespace DLT
         public static int currentDificulty { get; private set; } // 14 to 256
         private static byte[] hashStartDifficulty = { 0xff, 0xfc }; // minimum = 14
 
+        private static List<ulong> solvedBlocks = new List<ulong>(); // Maintain a list of solved blocks to prevent duplicate work
+
         public Miner()
         {
             lastStatTime = DateTime.Now;
@@ -141,11 +143,20 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(i);
                 if (block.powField.Length < 1)
                 {
-                    blockNum = block.blockNum;
-                    activeBlock = block;
-                    setDifficulty((int)block.difficulty);
-                    blockFound = true;
-                    return;
+                    // Check if this block is in the solved list
+                    if (solvedBlocks.Find(x => x == block.blockNum) > 0)
+                    {
+                        // Do nothing at this point
+                    }
+                    else
+                    {
+                        // Block is not solved, select it
+                        blockNum = block.blockNum;
+                        activeBlock = block;
+                        setDifficulty((int)block.difficulty);
+                        blockFound = true;
+                        return;
+                    }
                 }
 
             }
@@ -183,14 +194,15 @@ namespace DLT
             // We have a valid hash, update the corresponding block
             if (Miner.validateHash(hash) == true)
             {
-                Console.ForegroundColor = ConsoleColor.Green;
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash));
-                Console.ResetColor();
 
                 // Broadcast the nonce to the network
                 sendSolution(nonce);
 
-                activeBlock.powField = hash;
+                // Add this block number to the list of solved blocks
+                solvedBlocks.Add(activeBlock.blockNum);
+
+                // Reset the block found flag so we can search for another block
                 blockFound = false;
             }
         }
@@ -293,6 +305,7 @@ namespace DLT
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);
 
+            Logging.error(string.Format("Broadcasting mining tx: {0}", tx.id));
             // Broadcast this transaction to the network
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
         }

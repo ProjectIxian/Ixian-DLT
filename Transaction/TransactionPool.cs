@@ -1211,13 +1211,12 @@ namespace DLT
                 if (block == null)
                     continue;
 
-
                 List<string> miners_to_reward = blockSolutionsDictionary[blockNum];
 
                 IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
                 IxiNumber powRewardPart = Config.powReward / miners_count;
 
-                Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
+                //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
 
                 string checksum_source = "MINERS";
                 foreach (string miner in miners_to_reward)
@@ -1232,8 +1231,12 @@ namespace DLT
                     checksum_source += miner;
                 }
 
-                // Set the powField as a checksum of all miners for this block
-                block.powField = Crypto.sha256(checksum_source);
+                // Ignore rewards during snapshot
+                if (ws_snapshot == false)
+                {
+                    // Set the powField as a checksum of all miners for this block
+                    block.powField = Crypto.sha256(checksum_source);
+                }
 
             }
         }
