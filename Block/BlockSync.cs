@@ -395,7 +395,7 @@ namespace DLT
 
             Random r = new Random();
             syncNeighbor = all_neighbors.ElementAt(r.Next(all_neighbors.Count));
-            Logging.info(String.Format("Starting wallet state synchronization from {0}", syncNeighbor));6       
+            Logging.info(String.Format("Starting wallet state synchronization from {0}", syncNeighbor));       
             ProtocolMessage.syncWalletStateNeighbor(syncNeighbor);
         }
 
