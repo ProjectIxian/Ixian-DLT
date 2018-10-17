@@ -194,7 +194,7 @@ namespace DLT
 
                 if (Node.walletState.getWalletBalance(address) < Config.minimumMasterNodeFunds)
                 {
-                    //Logging.info(String.Format("Searching for {0}", parts[1]));
+                    Logging.error(String.Format("LOW BALANCE ADDRESS: {0} FUNDS: {1}", address, Node.walletState.getWalletBalance(address)));
                     sigs.Add(b.signatures[i]);
                     continue;
                 }
