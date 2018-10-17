@@ -138,8 +138,18 @@ namespace DLT
                     sigs.Add(b.signatures[i]);
                     continue;
                 }
-                //Logging.info(String.Format("Searching for {0}", parts[1]));
-                Presence p = PresenceList.presences.Find(x => x.metadata == parts[1]);
+
+                Presence p = null;
+                if (Legacy.isLegacy(b.blockNum))
+                {
+                    p = PresenceList.presences.Find(x => x.metadata == parts[1]);
+                }
+                else
+                {
+                    p = PresenceList.presences.Find(x => x.wallet == parts[1]);
+                }
+
+                //Logging.info(String.Format("Searching for {0}", parts[1]));                 
                 if (p == null)
                 {
                     sigs.Add(b.signatures[i]);
@@ -175,12 +185,20 @@ namespace DLT
                     sigs.Add(b.signatures[i]);
                     continue;
                 }
-                //Logging.info(String.Format("Searching for {0}", parts[1]));
-                if(Node.walletState.getWalletBalance((new Address(parts[1])).ToString()) < Config.minimumMasterNodeFunds)
+
+                string address = parts[1];
+                if (Legacy.isLegacy(b.blockNum))
                 {
+                    address = (new Address(parts[1])).ToString();
+                }
+
+                if (Node.walletState.getWalletBalance(address) < Config.minimumMasterNodeFunds)
+                {
+                    //Logging.info(String.Format("Searching for {0}", parts[1]));
                     sigs.Add(b.signatures[i]);
                     continue;
                 }
+                
             }
             return sigs;
         }
