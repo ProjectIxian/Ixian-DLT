@@ -86,7 +86,7 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-d]");
+                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-n seed1.ixian.io:10234] [-d]");
                 Console.WriteLine("");
                 Console.WriteLine("   -h\t\t Displays this help");
                 Console.WriteLine("   -v\t\t Displays version");
@@ -101,6 +101,7 @@ namespace DLT
                 Console.WriteLine("   -i\t\t External IP Address to use");
                 Console.WriteLine("   -g\t\t Start node in genesis mode");
                 Console.WriteLine("   -w\t\t Specify location of the wallet.dat file");
+                Console.WriteLine("   -n\t\t Specify which seed node to use");
                 Console.WriteLine("   -d\t\t Enable netdump for debugging purposes");
 
                 return "";
@@ -127,11 +128,13 @@ namespace DLT
 
                 cmd_parser.Parse(args);
 
-                if(isTestNet)
+                if (isTestNet)
                 {
                     serverPort = testnetServerPort;
                     apiPort = testnetApiPort;
                 }
+
+                string seedNode = "";
 
 
                 // second pass
@@ -160,7 +163,7 @@ namespace DLT
                 // Check for clean parameter
                 cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = value).Required();
 
-                
+
                 cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
 
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
@@ -172,19 +175,36 @@ namespace DLT
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 
+                cmd_parser.Setup<string>('n', "node").Callback(value => seedNode = value).Required();
+
                 // Debug
                 cmd_parser.Setup<string>('d', "netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
                 cmd_parser.Parse(args);
 
-                if(start_clean)
+                if (start_clean)
                 {
                     Node.cleanCacheAndLogs();
                 }
 
+                if (seedNode != "")
+                {
+                    if (isTestNet)
+                    {
+                        Network.CoreNetworkUtils.seedTestNetNodes = new string[]
+                        {
+                            seedNode
+                        };
+                    }
+                    else
+                    {
+                        Network.CoreNetworkUtils.seedNodes = new string[]
+                        {
+                            seedNode
+                        };
+                    }
+                }
             }
-
         }
-
     }
 }
