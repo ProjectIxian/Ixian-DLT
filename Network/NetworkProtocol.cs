@@ -656,6 +656,9 @@ namespace DLT
                             writer.Write(block.walletStateChecksum);
                             writer.Write(Node.blockChain.getRequiredConsensus());
 
+                            // Write the legacy level
+                            writer.Write(Legacy.getLegacyLevel());
+
                             endpoint.sendData(ProtocolMessageCode.helloData, m.ToArray());
 
                         }
@@ -722,9 +725,20 @@ namespace DLT
                                             return;
                                         }
 
+                                        // Check for legacy level
+                                        ulong legacy_level = last_block_num;
+                                        try
+                                        {
+                                            ulong level = reader.ReadUInt64();
+                                            legacy_level = level;
+                                        }
+                                        catch(Exception)
+                                        {
+                                            legacy_level = 0;
+                                        }
+
                                         // Check for legacy node
-                                        // TODO: maybe use other data as well in determining if this node is legacy
-                                        if(Legacy.isLegacy(last_block_num))
+                                        if(Legacy.isLegacy(legacy_level))
                                         {
                                             endpoint.setLegacy(true);
                                         }

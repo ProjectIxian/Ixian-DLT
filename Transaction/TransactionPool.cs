@@ -81,10 +81,13 @@ namespace DLT
             }
 
             // Check the block height
-            if (blocknum - Config.redactedWindowSize > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
+            if (blocknum > Config.redactedWindowSize)
             {
-                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", transaction.id, transaction.blockHeight, blocknum - Config.redactedWindowSize));
-                return false;
+                if (blocknum - Config.redactedWindowSize > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
+                {
+                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", transaction.id, transaction.blockHeight, blocknum - Config.redactedWindowSize));
+                    return false;
+                }
             }
 
             // Prevent transaction spamming
