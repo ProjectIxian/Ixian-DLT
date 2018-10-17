@@ -274,6 +274,8 @@ namespace DLT
             tx.amount = "0";
             tx.fee = "0";
 
+            tx.blockHeight = activeBlock.blockNum; // TODO TODO TODO C please verify this
+
             // Increase the txpool intenal nonce
             TransactionPool.internalNonce++;
             tx.nonce = TransactionPool.internalNonce;
