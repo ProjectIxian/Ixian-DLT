@@ -73,6 +73,13 @@ namespace DLT
                 return false;
             }
 
+            // reject any transaction with block height 0, except for legacy transactions before new nonce
+            if(blocknum > Config.compileTimeBlockNumber && transaction.blockHeight == 0)
+            {
+                Logging.warn(String.Format("Transaction without block height specified on block #{0} skipped. TXid: {1}.", blocknum, transaction.id));
+                return false;
+            }
+
             // Check the block height
             if (blocknum - Config.redactedWindowSize > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
             {
@@ -325,10 +332,6 @@ namespace DLT
                 {
                     transactions.Add(transaction.id, transaction);
                 }
-
-                // Sort the transactions by nonce ascending
-                // TODO: this will be replaced when the new nonce mechanism is implemented
-                //transactions.Sort((x, y) => x.nonce.CompareTo(y.nonce));
             }
 
             //   Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
