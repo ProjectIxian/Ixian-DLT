@@ -142,6 +142,21 @@ namespace DLT.Meta
                 tx.signature = Transaction.getSignature(tx.checksum);
                 TransactionPool.addTransaction(tx);
 
+                if(Config.genesis2Address != "")
+                {
+                    Transaction txGen2 = new Transaction();
+                    txGen2.type = (int)Transaction.Type.Genesis;
+                    txGen2.to = Config.genesis2Address;
+                    txGen2.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+                    txGen2.amount = genesisFunds;
+                    txGen2.data = "";
+                    txGen2.timeStamp = getCurrentTimestamp().ToString();
+                    txGen2.id = txGen2.generateID();
+                    txGen2.checksum = Transaction.calculateChecksum(txGen2);
+                    txGen2.signature = Transaction.getSignature(txGen2.checksum);
+                    TransactionPool.addTransaction(txGen2);
+                }
+
                 if (Config.isTestNet)
                 {
                     // testnet seed2
