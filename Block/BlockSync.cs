@@ -395,9 +395,7 @@ namespace DLT
 
             Random r = new Random();
             syncNeighbor = all_neighbors.ElementAt(r.Next(all_neighbors.Count));
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Logging.info(String.Format("Starting wallet state synchronization from {0}", syncNeighbor));
-            Console.ResetColor();
+            Logging.info(String.Format("Starting wallet state synchronization from {0}", syncNeighbor));6       
             ProtocolMessage.syncWalletStateNeighbor(syncNeighbor);
         }
 

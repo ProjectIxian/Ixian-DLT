@@ -127,7 +127,6 @@ namespace DLTNode
 
         public static void startSpamConnectTest()
         {
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Starting spam connect test");
 
             for (int i = 0; i < 100; i++)
@@ -138,14 +137,11 @@ namespace DLTNode
             //    disconnect();
             }
 
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Ending spam connect test");
-            Console.ResetColor();
         }
      
         public static void startProtocolTest()
         {
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Starting spam connect test");
 
             if(connect())
@@ -205,14 +201,11 @@ namespace DLTNode
             disconnect();
             
 
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Ending spam connect test");
-            Console.ResetColor();
         }
 
         public static void startTxSpamTest()
         {
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Starting tx spam test");
 
             int nonce = 0;
@@ -239,16 +232,12 @@ namespace DLTNode
                 nonce++;
             }
 
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Ending tx spam test");
-            Console.ResetColor();
         }
 
         public static void startTxFileGenTest()
         {
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Starting tx file gen test");
-            Console.ResetColor();
 
             BinaryWriter writer;
             try
@@ -292,16 +281,12 @@ namespace DLTNode
 
             writer.Close();
 
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Ending tx file gen test");
-            Console.ResetColor();
         }
 
         public static void startTxFileSpamTest()
         {
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Starting tx file spam test");
-            Console.ResetColor();
 
             if (File.Exists(txfilename) == false)
             {
@@ -347,9 +332,7 @@ namespace DLTNode
             }
             reader.Close();
 
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Ending tx file spam test");
-            Console.ResetColor();
         }
 
 
