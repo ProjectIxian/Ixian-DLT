@@ -164,6 +164,7 @@ namespace DLT
                 // housekeeping tasks
                 while (continueRunning)
                 {
+                    handleDisconnectedClients();
                     if (connectedClients.Count < Config.maximumServerClients)
                     {
                         // Use a blocking mechanism

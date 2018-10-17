@@ -401,7 +401,6 @@ namespace DLT
             {
 
                 handleDisconnectedClients();
-                NetworkServer.handleDisconnectedClients();
 
                 List<NetworkClient> netClients = null;
                 lock (networkClients)
