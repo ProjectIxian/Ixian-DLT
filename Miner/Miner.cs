@@ -47,9 +47,6 @@ namespace DLT
             if(Config.disableMiner)
                 return false;
 
-            Logging.warn("Mining is disabled in this version.");
-            return false;
-
             shouldStop = false;
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
@@ -273,14 +270,22 @@ namespace DLT
             tx.to = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
             tx.amount = "0";
             tx.fee = "0";
-
-            tx.blockHeight = activeBlock.blockNum; // TODO TODO TODO C please verify this
+            tx.blockHeight = Node.blockChain.getLastBlockNum();
 
             // Increase the txpool intenal nonce
             TransactionPool.internalNonce++;
             tx.nonce = TransactionPool.internalNonce;
 
-            string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, activeBlock.blockNum, nonce);
+            string pubkey = Node.walletStorage.publicKey;
+            // Check if this wallet's public key is already in the WalletState
+            Wallet mywallet = Node.walletState.getWallet(tx.from, true);
+            if (mywallet.publicKey.Equals(pubkey, StringComparison.Ordinal))
+            {
+                // Walletstate public key matches, we don't need to send the public key in the transaction
+                pubkey = "";
+            }
+
+            string data = string.Format("{0}||{1}||{2}", pubkey, activeBlock.blockNum, nonce);
             tx.data = data;
 
             tx.timeStamp = Node.getCurrentTimestamp().ToString();

@@ -92,7 +92,7 @@ namespace DLT
 
             // Prevent transaction spamming
             // Note: transactions that change multisig wallet parameters may have amount zero, since it will be ignored anyway
-            // if(transaction.type != (int)Transaction.Type.PoWSolution)
+            if(transaction.type != (int)Transaction.Type.PoWSolution)
             if (transaction.amount == 0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
             {
                 return false;
@@ -145,8 +145,9 @@ namespace DLT
             if (transaction.type == (int)Transaction.Type.PoWSolution)
             {
                 // TODO: pre-validate the transaction in such a way it doesn't affect performance
-                Logging.warn("Denied mining transaction before mining is enabled.");
-                return false;
+                //Logging.warn("Denied mining transaction before mining is enabled.");
+                //return false;
+                Logging.error(string.Format("RECEIVED MINING TX: {0}", transaction.id));
             }
             // Special case for Staking Reward transaction
             else if (transaction.type == (int)Transaction.Type.StakingReward)
@@ -196,8 +197,7 @@ namespace DLT
             string pubkey = "";
 
             if (transaction.type == (int)Transaction.Type.Genesis ||
-                transaction.type == (int)Transaction.Type.StakingReward ||
-                transaction.type == (int)Transaction.Type.PoWSolution)
+                transaction.type == (int)Transaction.Type.StakingReward)
             {
                 if (transaction.type == (int)Transaction.Type.StakingReward)
                     pubkey = Node.walletStorage.publicKey;
@@ -208,8 +208,19 @@ namespace DLT
                 // Generate an address from the public key and compare it with the sender
                 if (pubkey.Length < 1)
                 {
-                    // There is no supplied public key, extract it from the data section
-                    pubkey = transaction.data;
+                    // If this is a PoWSolution transaction, extract the public key from the data section first
+                    if (transaction.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        string[] split = transaction.data.Split(new string[] { "||" }, StringSplitOptions.None);
+                        if (split.Length < 1)
+                            return false;
+                        pubkey = split[0];
+                    }
+                    else
+                    {
+                        // There is no supplied public key, extract it from the data section
+                        pubkey = transaction.data;
+                    }
                 }
             }
 
@@ -489,6 +500,7 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(block_num);
                 if(block.powField.Length > 0)
                 {
+                    Logging.error("POW already applied");
                     return false;
                 }
 
@@ -777,8 +789,9 @@ namespace DLT
             {
                 return false;
             }
-            Logging.warn("Trying to apply PoW transaction before mining is enabled.");
-            return false;
+            //   Logging.warn("Trying to apply PoW transaction before mining is enabled.");
+            //   return false;
+            Logging.error(string.Format("Applying POW: {0}", tx.id));
             // Update the block's applied field
             if (!ws_snapshot)
             {
