@@ -241,6 +241,13 @@ namespace DLT
                 }
 
                 string merged_signature = signature + splitter[0] + address;
+
+                // Use public key when applying signature to legacy block
+                if (Legacy.isLegacy(blockNum))
+                {
+                    merged_signature = signature + splitter[0] + Node.walletStorage.publicKey;
+                }
+
                 signatures.Add(merged_signature);               
             }
 
