@@ -399,14 +399,17 @@ namespace DLT
 
                     string signature = signature_parts[0];
                     string public_key = signature_parts[1];
-
+                    bool found_public_key = false;
                     if (Legacy.isLegacy(blockNum) == false)
                     {
                         // Extract the public key from the walletstate
                         string signer_address = signature_parts[1];
                         Wallet signerWallet = Node.walletState.getWallet(signer_address);
                         if (signerWallet.publicKey.Length > 0)
+                        {
+                            found_public_key = true;
                             public_key = signerWallet.publicKey;
+                        }
 
                         // Failed to find signer publickey in walletstate
                         if (public_key.Length < 1)
@@ -425,7 +428,7 @@ namespace DLT
 
                     string address_string = signature_parts[1];
 
-                    if (Legacy.isLegacy(blockNum))
+                    if (found_public_key == false)
                     {
                         Address address = new Address(public_key);
                         address_string = address.ToString();
