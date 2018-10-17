@@ -1231,7 +1231,7 @@ namespace DLT
                     checksum_source += miner;
                 }
 
-                // Ignore rewards during snapshot
+                // Ignore during snapshot
                 if (ws_snapshot == false)
                 {
                     // Set the powField as a checksum of all miners for this block

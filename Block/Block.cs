@@ -222,7 +222,7 @@ namespace DLT
             }
 
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-            string public_key = Node.walletStorage.publicKey;
+            string address = Node.walletStorage.getWalletAddress();
 
             // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
             string private_key = Node.walletStorage.privateKey;
@@ -233,14 +233,14 @@ namespace DLT
                 foreach (string sig in signatures)
                 {
                     string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts[1].Equals(public_key, StringComparison.Ordinal))
+                    if (parts[1].Equals(address, StringComparison.Ordinal))
                     {
                         // we have already signed it
                         return false;
                     }
                 }
 
-                string merged_signature = signature + splitter[0] + public_key;
+                string merged_signature = signature + splitter[0] + address;
                 signatures.Add(merged_signature);               
             }
 
@@ -300,8 +300,22 @@ namespace DLT
                     {
                         return false;
                     }
-                    string signature = parts[0];
+                    string signature = parts[0];                    
                     string signerPubkey = parts[1];
+
+                    if (Legacy.isLegacy(blockNum) == false)
+                    {
+                        // Extract the public key from the walletstate
+                        string signer_address = parts[1];
+                        Wallet signerWallet = Node.walletState.getWallet(signer_address);
+                        if (signerWallet.publicKey.Length > 0)
+                            signerPubkey = signerWallet.publicKey;
+
+                        // Failed to find signer publickey in walletstate
+                        if (signerPubkey.Length < 1)
+                            return false;
+                    }
+
                     if (CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature) == false)
                     {
                         return false;
@@ -326,8 +340,20 @@ namespace DLT
                     if (signature_parts.Length < 2)
                         continue;
 
-                    // Check if public key matches
-                    if (public_key.Equals(signature_parts[1], StringComparison.Ordinal))
+                    bool condition = false;
+                    if (Legacy.isLegacy(blockNum))
+                    {
+                        // Legacy, compare public key
+                        condition = public_key.Equals(signature_parts[1], StringComparison.Ordinal);
+                    }
+                    else
+                    {
+                        // Compare wallet address
+                        condition = Node.walletStorage.address.Equals(signature_parts[1], StringComparison.Ordinal);
+                    }
+
+                    // Check if it matches
+                    if (condition)
                     {
                         // Check if signature is actually valid
                         if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature_parts[0]))
@@ -364,6 +390,21 @@ namespace DLT
                     string signature = signature_parts[0];
                     string public_key = signature_parts[1];
 
+                    if (Legacy.isLegacy(blockNum) == false)
+                    {
+                        // Extract the public key from the walletstate
+                        string signer_address = signature_parts[1];
+                        Wallet signerWallet = Node.walletState.getWallet(signer_address);
+                        if (signerWallet.publicKey.Length > 0)
+                            public_key = signerWallet.publicKey;
+
+                        // Failed to find signer publickey in walletstate
+                        if (public_key.Length < 1)
+                            continue;
+                    }
+
+
+
                     // Check if signature is actually valid
                     if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature) == false)
                     {
@@ -372,8 +413,14 @@ namespace DLT
                         continue;
                     }
 
-                    Address address = new Address(public_key);
-                    string address_string = address.ToString();
+                    string address_string = signature_parts[1];
+
+                    if (Legacy.isLegacy(blockNum))
+                    {
+                        Address address = new Address(public_key);
+                        address_string = address.ToString();
+                    }
+
                     // TODO: check if it's it worth it validating the address again here
 
                     // Add the address to the list
