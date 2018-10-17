@@ -321,7 +321,7 @@ namespace DLT
 
                         // Failed to find signer publickey in walletstate
                         if (signerPubkey.Length < 1)
-                            return false;
+                            return false;                                                 
                     }
 
                     if (CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature) == false)
@@ -348,8 +348,10 @@ namespace DLT
                     if (signature_parts.Length < 2)
                         continue;
 
+                    Wallet signerWallet = Node.walletState.getWallet(Node.walletStorage.getWalletAddress());
+
                     bool condition = false;
-                    if (Legacy.isLegacy(blockNum))
+                    if (Legacy.isLegacy(blockNum) || signerWallet.publicKey.Length < 1)
                     {
                         // Legacy, compare public key
                         condition = public_key.Equals(signature_parts[1], StringComparison.Ordinal);
