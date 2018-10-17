@@ -460,6 +460,7 @@ namespace DLT
 
                 Dictionary<string, string> tDic = new Dictionary<string, string>();
                 tDic.Add("id", t.id);
+                tDic.Add("blockHeight", t.blockHeight.ToString());
                 tDic.Add("nonce", t.nonce.ToString());
                 tDic.Add("signature", t.signature);
                 tDic.Add("data", t.data);

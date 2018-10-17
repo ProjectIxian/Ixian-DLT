@@ -191,7 +191,7 @@ namespace DLT
                             }
                             pendingWsChunks.Clear();
                             wsSynced = true;
-                            TransactionPool.internalNonce = Node.walletState.getWallet(Node.walletStorage.address).nonce;
+                            TransactionPool.internalNonce = 0;
                         }
                     }
                 }

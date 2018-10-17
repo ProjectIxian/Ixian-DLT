@@ -848,7 +848,7 @@ namespace DLT
             // Reset the internal nonce
             if (!ws_snapshot)
             {
-                TransactionPool.internalNonce = Node.walletState.getWallet(Node.walletStorage.address, ws_snapshot).nonce;
+                TransactionPool.internalNonce = 0;
             }
 
             return true;
@@ -1053,37 +1053,7 @@ namespace DLT
                 staking_transactions.Clear();
 
                 List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
-                pool_transactions.OrderBy(x => x.nonce);
-                // TODO TODO TODO this will not be needed after new nonce
-                //------------ nOnce fix section ------------
-                List<Transaction> removeTransactionArr = new List<Transaction>();
-                SortedList<string, ulong> fromNonceArr = new SortedList<string, ulong>();
-                foreach (var transaction in pool_transactions)
-                {
-                    if (transaction.type == (int)Transaction.Type.Genesis || transaction.type == (int)Transaction.Type.PoWSolution || transaction.type == (int)Transaction.Type.StakingReward)
-                    {
-                        continue;
-                    }
-                    if (!fromNonceArr.ContainsKey(transaction.from))
-                    {
-                        fromNonceArr.Add(transaction.from, Node.walletState.getWallet(transaction.from).nonce);
-                    }
-                    if (transaction.nonce != fromNonceArr[transaction.from] + 1)
-                    {
-                        removeTransactionArr.Add(transaction);
-                    }
-                    else
-                    {
-                        fromNonceArr.AddOrReplace(transaction.from, transaction.nonce);
-                    }
-                }
-                fromNonceArr.Clear();
-                foreach(var transaction in removeTransactionArr)
-                {
-                    pool_transactions.Remove(transaction);
-                }
-                removeTransactionArr.Clear();
-                //------------ end of nOnce fix section ------------
+                pool_transactions.OrderBy(x => x.blockHeight); // TODO add fee
 
                 ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
 

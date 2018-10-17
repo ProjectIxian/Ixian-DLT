@@ -60,7 +60,7 @@ namespace DLT
                     string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` TEXT, `lastBlockChecksum` TEXT, `walletStateChecksum`	TEXT, `sigFreezeChecksum` TEXT, `difficulty` INTEGER, `powField` TEXT, `transactions` TEXT, `signatures` TEXT, `timestamp` TEXT, PRIMARY KEY(`blockNum`));";
                     executeSQL(sql);
 
-                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
+                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
                     executeSQL(sql);
                     sql = "CREATE INDEX `type` ON `transactions` (`type`);";
                     executeSQL(sql);
@@ -110,7 +110,8 @@ namespace DLT
                 public string to { get; set; }
                 public string from { get; set; }
                 public string data { get; set; }
-                public long nonce { get; set; }
+                public long blockHeight { get; set; }
+                public int nonce { get; set; }
                 public string timestamp { get; set; }
                 public string checksum { get; set; }
                 public string signature { get; set; }
@@ -195,14 +196,14 @@ namespace DLT
                 bool result = false;
                 if (getTransaction(transaction.id) == null)
                 {
-                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied);
+                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied);
                 }
                 else
                 {
                     // Likely already have the tx stored, update the old entry
-                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `applied` = ? WHERE `id` = ?";
-                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied, transaction.id);
+                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `applied` = ? WHERE `id` = ?";
+                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied, transaction.id);
                 }
 
                 return result;
@@ -325,7 +326,8 @@ namespace DLT
                 transaction.from = tx.from;
                 transaction.to = tx.to;
                 transaction.data = tx.data;
-                transaction.nonce = (ulong)tx.nonce;
+                transaction.blockHeight = (ulong)tx.blockHeight;
+                transaction.nonce = tx.nonce;
                 transaction.timeStamp = tx.timestamp;
                 transaction.checksum = tx.checksum;
                 transaction.signature = tx.signature;

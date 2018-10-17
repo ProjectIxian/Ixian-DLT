@@ -221,7 +221,7 @@ namespace DLTNode
                     string from = Node.walletStorage.address;
 
                     TransactionPool.internalNonce++;
-                    ulong nonce = TransactionPool.internalNonce;
+                    int nonce = TransactionPool.internalNonce;
 
                     if (!Address.validateChecksum(to))
                     {
@@ -239,7 +239,7 @@ namespace DLTNode
                             data = "";
                         }
 
-                        Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
+                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -273,7 +273,7 @@ namespace DLTNode
                     string from = Node.walletStorage.address;
 
                     TransactionPool.internalNonce++;
-                    ulong nonce = TransactionPool.internalNonce;
+                    int nonce = TransactionPool.internalNonce;
 
                     if (!Address.validateChecksum(to))
                     {
@@ -290,8 +290,8 @@ namespace DLTNode
                             // Walletstate public key matches, we don't need to send the public key in the transaction
                             data = "";
                         }
-                        
-                        Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
+
+                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -319,9 +319,9 @@ namespace DLTNode
                 IxiNumber fee = Config.transactionPrice;
 
                 TransactionPool.internalNonce++;
-                ulong nonce = TransactionPool.internalNonce;
+                int nonce = TransactionPool.internalNonce;
 
-                Transaction transaction = Transaction.multisigAddKeyTransaction(signer, fee, destWallet, nonce);
+                Transaction transaction = Transaction.multisigAddKeyTransaction(signer, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
@@ -347,9 +347,9 @@ namespace DLTNode
                 IxiNumber fee = Config.transactionPrice;
 
                 TransactionPool.internalNonce++;
-                ulong nonce = TransactionPool.internalNonce;
+                int nonce = TransactionPool.internalNonce;
 
-                Transaction transaction = Transaction.multisigDelKeyTransaction(signer, fee, destWallet, nonce);
+                Transaction transaction = Transaction.multisigDelKeyTransaction(signer, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
@@ -377,9 +377,9 @@ namespace DLTNode
                 {
 
                     TransactionPool.internalNonce++;
-                    ulong nonce = TransactionPool.internalNonce;
+                    int nonce = TransactionPool.internalNonce;
 
-                    Transaction transaction = Transaction.multisigChangeReqSigs(reqSigs, fee, destWallet, nonce);
+                    Transaction transaction = Transaction.multisigChangeReqSigs(reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                     if (TransactionPool.addTransaction(transaction))
                     {
                         responseString = JsonConvert.SerializeObject(transaction);

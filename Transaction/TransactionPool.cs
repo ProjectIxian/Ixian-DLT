@@ -38,7 +38,7 @@ namespace DLT
 
         public static int numTransactions { get => activeTransactions; }
 
-        public static ulong internalNonce = 0;  // Used to calculate the nonce when sending transactions from this node
+        public static int internalNonce = 0;  // Used to calculate the nonce when sending transactions from this node
                                                 // TODO: move this to a more suitable location while still being able to reset it every block
 
         static TransactionPool()
@@ -73,9 +73,16 @@ namespace DLT
                 return false;
             }
 
+            // Check the block height
+            if (blocknum - Config.redactedWindowSize > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
+            {
+                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", transaction.id, transaction.blockHeight, blocknum - Config.redactedWindowSize));
+                return false;
+            }
+
             // Prevent transaction spamming
             // Note: transactions that change multisig wallet parameters may have amount zero, since it will be ignored anyway
-           // if(transaction.type != (int)Transaction.Type.PoWSolution)
+            // if(transaction.type != (int)Transaction.Type.PoWSolution)
             if (transaction.amount == 0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
             {
                 return false;
@@ -908,9 +915,6 @@ namespace DLT
             // Withdraw the full amount, including fee
             IxiNumber source_balance_after = source_balance_before + tx.amount + tx.fee;
 
-            // Increase the source wallet nonce to match the transaction nonce
-            source_wallet.nonce = tx.nonce - 1; // TODO TODO TODO will this work with the new nonce?
-
             // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
             IxiNumber dest_balance_after = dest_balance_before - tx.amount;
 
@@ -1141,16 +1145,13 @@ namespace DLT
                 return false;
             }
 
-            // Check the nonce
-            if (source_wallet.nonce + 1 != tx.nonce)
+            // Check the block height
+            if (block.blockNum - Config.redactedWindowSize > tx.blockHeight || tx.blockHeight > block.blockNum)
             {
-                Logging.warn(String.Format("Incorrect nonce for transaction {0}. Tx nonce is {1}, expecting {2}", tx.id, tx.nonce, source_wallet.nonce + 1));
+                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", tx.id, tx.blockHeight, block.blockNum - Config.redactedWindowSize));
                 failed_transactions.Add(tx);
                 return false;
             }
-
-            // Increase the source wallet nonce to match the transaction nonce
-            source_wallet.nonce = tx.nonce;
 
             // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
             IxiNumber dest_balance_after = dest_balance_before + tx.amount;

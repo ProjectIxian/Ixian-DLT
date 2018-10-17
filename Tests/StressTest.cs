@@ -215,7 +215,7 @@ namespace DLTNode
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Logging.info("Starting tx spam test");
 
-            ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
+            int nonce = 0;
 
             for (int i = 0; i < txspamNum; i++)
             {
@@ -233,7 +233,7 @@ namespace DLTNode
                     data = "";
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
+                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
                 // Console.WriteLine("> sending {0}", transaction.id);
                 TransactionPool.addTransaction(transaction);
                 nonce++;
@@ -261,7 +261,7 @@ namespace DLTNode
                 return;
             }
 
-            ulong nonce = 0; // Set the starting nonce
+            int nonce = 0; // Set the starting nonce
 
             writer.Write(txspamNum);
             for (int i = 0; i < txspamNum; i++)
@@ -280,7 +280,7 @@ namespace DLTNode
                     data = "";
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, data, nonce);
+                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
                 byte[] bytes = transaction.getBytes();
                 
                 Console.WriteLine("> writing tx {0}", transaction.id);
