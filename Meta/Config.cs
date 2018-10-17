@@ -21,6 +21,7 @@ namespace DLT
             public static bool disableMiner = false; // Flag to disable miner
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
+            public static string genesis2Address = ""; // For a secondary genesis node
 
             public static string walletFile = "wallet.dat";
 
@@ -172,6 +173,8 @@ namespace DLT
 
                 // Convert the genesis block funds to ulong, as only long is accepted with FCLP
                 cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();
+
+                cmd_parser.Setup<string>("genesis2").Callback(value => genesis2Address = value).Required();
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 
