@@ -722,6 +722,14 @@ namespace DLT
                                             return;
                                         }
 
+                                        // Check for legacy node
+                                        // TODO: maybe use other data as well in determining if this node is legacy
+                                        if(Legacy.isLegacy(last_block_num))
+                                        {
+                                            endpoint.setLegacy(true);
+                                        }
+
+                                        // Process the hello data
                                         Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum, consensus);
                                     }
                                 }
@@ -824,7 +832,7 @@ namespace DLT
                                     return;
                                 }*/
 
-                                Transaction transaction = new Transaction(data);
+                                Transaction transaction = new Transaction(data, endpoint.isLegacy());
                                 if (transaction == null)
                                     return;
                                 TransactionPool.addTransaction(transaction, false, endpoint);
@@ -840,7 +848,7 @@ namespace DLT
 
                         case ProtocolMessageCode.transactionData:
                             {
-                                Transaction transaction = new Transaction(data);
+                                Transaction transaction = new Transaction(data, endpoint.isLegacy());
                                 if (transaction == null)
                                     return;
 
@@ -1113,7 +1121,7 @@ namespace DLT
                                                 break;
                                             }
                                             byte[] txData = reader.ReadBytes(len);
-                                            Transaction tx = new Transaction(txData);
+                                            Transaction tx = new Transaction(txData, endpoint.isLegacy());
                                             if(tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                                             {
                                                 continue;

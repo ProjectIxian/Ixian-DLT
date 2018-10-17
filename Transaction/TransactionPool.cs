@@ -74,7 +74,7 @@ namespace DLT
             }
 
             // reject any transaction with block height 0, except for legacy transactions before new nonce
-            if(blocknum > Config.compileTimeBlockNumber && transaction.blockHeight == 0)
+            if(blocknum > Legacy.up20181017 && transaction.blockHeight == 0)
             {
                 Logging.warn(String.Format("Transaction without block height specified on block #{0} skipped. TXid: {1}.", blocknum, transaction.id));
                 return false;

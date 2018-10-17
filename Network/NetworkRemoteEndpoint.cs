@@ -47,6 +47,9 @@ namespace DLT
 
         private byte[] socketReadBuffer = null;
 
+        // Flag to determine if the connected node is running legacy code
+        private bool legacyNode = false;    
+
         protected void prepareSocket(Socket socket)
         {
             // The socket will linger for 3 seconds after 
@@ -628,5 +631,19 @@ namespace DLT
             return data;
         }
 
+
+
+        // Set this node's legacy status
+        // Later on handle any specific upgrade paths for networking
+        public void setLegacy(bool legacy)
+        {
+            legacyNode = legacy;
+        }
+
+        // Check if this is a legacy node
+        public bool isLegacy()
+        {
+            return legacyNode;
+        }
     }
 }

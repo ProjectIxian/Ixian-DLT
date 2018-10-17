@@ -86,6 +86,7 @@
     <Compile Include="Block\BlockChain.cs" />
     <Compile Include="Block\BlockProcessor.cs" />
     <Compile Include="Block\BlockSync.cs" />
+    <Compile Include="Legacy\NodeLegacy.cs" />
     <Compile Include="Meta\Config.cs" />
     <Compile Include="Meta\Node.cs" />
     <Compile Include="Meta\Storage.cs" />
