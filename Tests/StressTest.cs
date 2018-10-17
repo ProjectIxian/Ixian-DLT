@@ -233,7 +233,7 @@ namespace DLTNode
                     data = "";
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
                 // Console.WriteLine("> sending {0}", transaction.id);
                 TransactionPool.addTransaction(transaction);
                 nonce++;
@@ -280,7 +280,7 @@ namespace DLTNode
                     data = "";
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
                 byte[] bytes = transaction.getBytes();
                 
                 Console.WriteLine("> writing tx {0}", transaction.id);

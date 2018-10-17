@@ -239,7 +239,7 @@ namespace DLTNode
                             data = "";
                         }
 
-                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
+                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -291,7 +291,7 @@ namespace DLTNode
                             data = "";
                         }
 
-                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum(), nonce);
+                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
