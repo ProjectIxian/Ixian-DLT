@@ -1201,7 +1201,7 @@ namespace DLT
                 ulong blockNum = blockSolutionsDictionary.Keys.ElementAt(i);
 
                 // Stop rewarding miners after 5th year
-                if(blockNum > 5256000)
+                if(blockNum >= 5256000)
                 {
                     continue;
                 }
@@ -1214,7 +1214,9 @@ namespace DLT
                 List<string> miners_to_reward = blockSolutionsDictionary[blockNum];
 
                 IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
-                IxiNumber powRewardPart = Config.powReward / miners_count;
+
+                IxiNumber pow_reward = Miner.calculateRewardForBlock(blockNum);
+                IxiNumber powRewardPart = pow_reward / miners_count;
 
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
 

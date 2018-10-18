@@ -349,5 +349,44 @@ namespace DLT
             hashesPerSecond = 0;
         }
 
+        // Calculates the reward amount for a certain block
+        public static IxiNumber calculateRewardForBlock(ulong blockNum)
+        {
+            ulong pow_reward = 1000 * 10; // 10 IXI represented as a ulong for faster calculation
+
+            // Go through each 2nd block, assuming a 50% block coverage
+            for (ulong i = 0; i < blockNum; i += 2)
+            {
+                // Increase the pow reward accordingly
+
+                // First year
+                pow_reward = pow_reward + 9; // + 0.009 IXI
+                if (i < 1051200)
+                    continue;
+
+                // Second year
+                // Same as first year
+                if (i < 2102400)
+                    continue;
+
+                // Third year
+                pow_reward = pow_reward + 9; // + 0.009 IXI
+                if (i < 3153600)
+                    continue;
+
+                // Fourth year
+                pow_reward = pow_reward + 20; // + 0.020 IXI
+                if (i < 4204800)
+                    continue;
+
+                // Fifth year
+                pow_reward = pow_reward + 9; // + 0.009 IXI
+                if (i < 5256000)
+                    continue;
+            }
+
+            pow_reward = pow_reward * 100000; // Add the full amount of 0s to cover IxiNumber decimals
+            return new IxiNumber(pow_reward); // Generate the corresponding IxiNumber, including decimals
+        }
     }
 }

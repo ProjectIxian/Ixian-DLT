@@ -56,7 +56,8 @@ namespace DLT
             public static readonly int pingInterval = 5; // how long to wait for data before sending ping
             public static readonly int pingTimeout = 5; // how long to wait for data after sending ping 
 
-            public static readonly ulong redactedWindowSize = 43200; // approx 15 days
+            public static readonly ulong redactedWindowSize = 43200; // approx 15 days. Represents the redacted window size of this node
+            public static readonly ulong minimumRedactedWindowSize = 43200; // Represents the minimum redacted window size on any node
 
 
             // Transactions and fees
@@ -65,7 +66,6 @@ namespace DLT
             public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
             public static readonly string foundationAddress = "018902fd36a0541fa6f95eb8fd15fbee02976979553488098216fc69e686604a56c0"; // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
-            public static readonly IxiNumber powReward = new IxiNumber("12.5");
             public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block TODO TODO TODO deprecate soon, we have other systems in place for throttling
             public static readonly ulong maximumTransactionsPerBlock = 2000; // Limit the maximum number of transactions in a newly generated block
             public static readonly int maximumTransactionsPerChunk = 500; // Limit the maximum number of transactions per transaction chunk
