@@ -37,7 +37,15 @@ namespace DLT
             bool firstSeedConnected = false;
             while (firstSeedConnected == false)
             {
-                firstSeedConnected = connectTo(PeerStorage.getRandomMasterNodeAddress());
+                string address = PeerStorage.getRandomMasterNodeAddress();
+                if(address != "")
+                {
+                    firstSeedConnected = connectTo(address);
+                }
+                if (firstSeedConnected == false)
+                {
+                    Thread.Sleep(1000);
+                }
             }
 
             // Start the reconnect thread
