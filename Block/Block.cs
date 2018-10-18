@@ -318,6 +318,10 @@ namespace DLT
                         Wallet signerWallet = Node.walletState.getWallet(signer_address);
                         if (signerWallet.publicKey.Length > 0)
                             signerPubkey = signerWallet.publicKey;
+                        else
+                        {
+                            // No public key in wallet state                        
+                        }
 
                         // Failed to find signer publickey in walletstate
                         if (signerPubkey.Length < 1)
@@ -328,9 +332,63 @@ namespace DLT
                     {
                         return false;
                     }
+
+
                 }
                 return true;
             }
+        }
+
+        // Updates the walletstate public keys. Called from BlockProcessor applyAcceptedBlock()
+        // TODO: perform this in verifySignatures()? check the implications of it, particularly WS mismatches
+        public bool updateWalletStatePublicKeys()
+        {
+            lock(signatures)
+            {
+                foreach (string sig in signatures)
+                {
+                    string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length != 2)
+                    {
+                        return false;
+                    }
+                    string signature = parts[0];
+                    string signerPubkey = parts[1];
+                    bool should_store_pkey = false;
+                    if (Legacy.isLegacy(blockNum) == false)
+                    {
+                        // Extract the public key from the walletstate
+                        string signer_address = parts[1];
+                        Wallet signerWallet = Node.walletState.getWallet(signer_address);
+                        if (signerWallet.publicKey.Length > 0)
+                            signerPubkey = signerWallet.publicKey;
+                        else
+                        {
+                            // No public key in wallet state
+                            should_store_pkey = true;
+                        }
+
+                        // Failed to find signer publickey in walletstate
+                        if (signerPubkey.Length < 1)
+                            return false;
+
+                    }
+
+                    // TODO: check if we should verify the signature again at this point
+
+                    // Check if we should store this public key
+                    // TODO: check if this should be moved to getSignaturesWalletAddresses
+                    if (should_store_pkey)
+                    {
+                        // Generate an address
+                        Address p_address = new Address(signerPubkey);
+                        // Set the WS public key
+                        Node.walletState.setWalletPublicKey(p_address.ToString(), signerPubkey);
+                    }
+                }
+            }
+
+            return true;
         }
 
         // Goes through all signatures and verifies if the block is already signed with this node's pubkey

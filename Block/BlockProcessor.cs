@@ -860,6 +860,9 @@ namespace DLT
             // Apply transaction fees
             applyTransactionFeeRewards(b, ws_snapshot);
 
+            // Update wallet state public keys
+            b.updateWalletStatePublicKeys();
+
             // Reset the internal nonce
             if (!ws_snapshot)
             {
