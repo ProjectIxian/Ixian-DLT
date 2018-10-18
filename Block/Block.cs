@@ -409,15 +409,17 @@ namespace DLT
                     Wallet signerWallet = Node.walletState.getWallet(Node.walletStorage.getWalletAddress());
 
                     bool condition = false;
-                    if (Legacy.isLegacy(blockNum) || signerWallet.publicKey.Length < 1)
-                    {
-                        // Legacy, compare public key
-                        condition = public_key.Equals(signature_parts[1], StringComparison.Ordinal);
-                    }
-                    else
+
+                    // Check if we have an address instead of a public key
+                    if (signature_parts[1].Length < 70)
                     {
                         // Compare wallet address
                         condition = Node.walletStorage.address.Equals(signature_parts[1], StringComparison.Ordinal);
+                    }
+                    else
+                    {
+                        // Legacy, compare public key
+                        condition = public_key.Equals(signature_parts[1], StringComparison.Ordinal);
                     }
 
                     // Check if it matches
@@ -457,8 +459,11 @@ namespace DLT
 
                     string signature = signature_parts[0];
                     string public_key = signature_parts[1];
+
                     bool found_public_key = false;
-                    if (Legacy.isLegacy(blockNum) == false)
+
+                    // Check if we have an address instead of a public key
+                    if (public_key.Length < 70)
                     {
                         // Extract the public key from the walletstate
                         string signer_address = signature_parts[1];
@@ -468,13 +473,10 @@ namespace DLT
                             found_public_key = true;
                             public_key = signerWallet.publicKey;
                         }
-
                         // Failed to find signer publickey in walletstate
                         if (public_key.Length < 1)
                             continue;
                     }
-
-
 
                     // Check if signature is actually valid
                     if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature) == false)

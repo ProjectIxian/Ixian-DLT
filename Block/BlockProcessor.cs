@@ -140,7 +140,8 @@ namespace DLT
                 }
 
                 Presence p = null;
-                if (Legacy.isLegacy(b.blockNum) || parts[1].Length > 70)
+                // Check if we have a public key instead of an address
+                if (parts[1].Length > 70)
                 {
                     p = PresenceList.presences.Find(x => x.metadata == parts[1]);
                 }
@@ -187,8 +188,8 @@ namespace DLT
                 }
 
                 string address = parts[1];
-
-                if (Legacy.isLegacy(b.blockNum) || address.Length > 70)
+                // Check if we have a public key instead of an address
+                if (address.Length > 70)
                 {
                     address = (new Address(parts[1])).ToString();
                 }

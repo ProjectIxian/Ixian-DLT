@@ -230,18 +230,16 @@ namespace DLT
                     return null;
                 }
 
-
                 // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
                 string address = parts[1];
 
-                Wallet signerWallet = Node.walletState.getWallet(address);
-
-                // Use public key when applying signature to legacy block
-                if (Legacy.isLegacy(curBlock.blockNum) || signerWallet.publicKey.Length < 1)
+                // Check if we have a public key instead of an address
+                if (address.Length > 70)
                 {
                     return address;
                 }
 
+                Wallet signerWallet = Node.walletState.getWallet(address);
                 return signerWallet.publicKey; // signer pub key
             }
             return null;
