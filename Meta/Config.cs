@@ -63,6 +63,7 @@ namespace DLT
             public static readonly byte[] ixianInfiniMineAddress = Crypto.stringToHash("497869616e496e66696e694d696e652342342342342342342342342342342342dbb0");
 
             public static readonly byte[] ixianChecksumLock = Encoding.UTF8.GetBytes("Ixian");
+            public static readonly string ixianChecksumLockString = "Ixian";
 
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("20000"); // Limit master nodes to this amount or above

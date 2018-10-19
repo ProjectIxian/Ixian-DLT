@@ -511,7 +511,7 @@ namespace DLT
                     endpoint.incomingPort = port;
 
                     // Verify the signature
-                    if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLock + "-" + device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
+                    if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLockString + "-" + device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
                     {
                         using (MemoryStream m2 = new MemoryStream())
                         {
@@ -660,7 +660,7 @@ namespace DLT
                         writer.Write(timestamp);
 
                         // send signature
-                        byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLock + "-" + Config.device_id + "-" + timestamp + "-" + publicHostname), Node.walletStorage.privateKey);
+                        byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + publicHostname), Node.walletStorage.privateKey);
                         writer.Write(signature.Length);
                         writer.Write(signature);
 

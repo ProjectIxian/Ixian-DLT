@@ -620,7 +620,7 @@ namespace DLT.Meta
 
                             // Add a verifiable signature
                             byte[] private_key = walletStorage.privateKey;
-                            byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLock + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
+                            byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
                             writer.Write(signature.Length);
                             writer.Write(signature);
 
