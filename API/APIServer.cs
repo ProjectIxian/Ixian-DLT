@@ -314,12 +314,13 @@ namespace DLTNode
 
                 byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
+                byte[] signer_address = Node.walletState.getWallet(Crypto.stringToHash(signer)).id;
                 IxiNumber fee = Config.transactionPrice;
 
                 TransactionPool.internalNonce++;
                 int nonce = TransactionPool.internalNonce;
 
-                Transaction transaction = Transaction.multisigAddKeyTransaction(signer, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = Transaction.multisigAddKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
@@ -342,12 +343,14 @@ namespace DLTNode
 
                 byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
+                byte[] signer_address = Node.walletState.getWallet(Crypto.stringToHash(signer)).id;
+
                 IxiNumber fee = Config.transactionPrice;
 
                 TransactionPool.internalNonce++;
                 int nonce = TransactionPool.internalNonce;
 
-                Transaction transaction = Transaction.multisigDelKeyTransaction(signer, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = Transaction.multisigDelKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
