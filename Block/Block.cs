@@ -534,41 +534,37 @@ namespace DLT
                 foreach (byte[][] merged_signature in signatures)
                 {
                     byte[] signature = merged_signature[0];
-                    byte[] public_key = merged_signature[1];
-
-                    bool found_public_key = false;
+                    byte[] keyOrAddress = merged_signature[1];
+                    byte[] addressBytes = null;
+                    byte[] pubKeyBytes = null;
 
                     // Check if we have an address instead of a public key
-                    if (public_key.Length < 70)
+                    if (keyOrAddress.Length < 70)
                     {
+                        addressBytes = keyOrAddress;
                         // Extract the public key from the walletstate
-                        byte[] signer_address = public_key;
-                        Wallet signerWallet = Node.walletState.getWallet(signer_address);
-                        if (signerWallet.publicKey != null)
+                        Wallet signerWallet = Node.walletState.getWallet(addressBytes);
+                        if (signerWallet != null && signerWallet.publicKey != null)
                         {
-                            found_public_key = true;
-                            public_key = signerWallet.publicKey;
-                        }
-                        // Failed to find signer publickey in walletstate
-                        if (public_key.Length < 1)
+                            pubKeyBytes = signerWallet.publicKey;
+                        }else
+                        {
+                            // Failed to find signer publickey in walletstate
                             continue;
+                        }
+                    }else
+                    {
+                        pubKeyBytes = keyOrAddress;
+                        Address address = new Address(pubKeyBytes);
+                        addressBytes = address.address;
                     }
 
                     // Check if signature is actually valid
-                    if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature) == false)
+                    if (CryptoManager.lib.verifySignature(blockChecksum, pubKeyBytes, signature) == false)
                     {
                         // Signature is not valid, don't extract the wallet address
                         // TODO: maybe do something else here as well. Perhaps reject the block?
                         continue;
-                    }
-
-                    byte[] addressBytes = public_key;
-
-                    if (found_public_key == false)
-                    {
-                        Address address = new Address(public_key);
-                        addressBytes = address.address;
-                        // TODO: check if it's it worth it validating the address again here
                     }
 
                     // Add the address to the list
