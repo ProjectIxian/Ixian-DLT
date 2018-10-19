@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace DLT
 {
@@ -141,7 +142,7 @@ namespace DLT
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {
                 Block block = Node.blockChain.getBlock(i);
-                if (block.powField.Length < 1)
+                if (block.powField == null)
                 {
                     // Check if this block is in the solved list
                     if (solvedBlocks.Find(x => x == block.blockNum) > 0)
@@ -160,7 +161,7 @@ namespace DLT
                 }
 
             }
-
+            
             // No blocks with empty PoW field found, wait a bit
             Thread.Sleep(1000);
             return;
@@ -179,7 +180,11 @@ namespace DLT
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] block_checksum = activeBlock.blockChecksum;
             byte[] solver_address = Node.walletStorage.address;
-            string p1 = string.Format("{0}{1}", block_checksum, solver_address);
+            Byte[] p1 = new Byte[block_checksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block_checksum, 0, p1, 0, block_checksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
+
+
             string nonce = randomNonce(128);
             string hash = findHash(p1, nonce);
             if(hash.Length < 1)
@@ -252,7 +257,7 @@ namespace DLT
         }
 
         // Verify nonce
-        public static bool verifyNonce(string nonce, ulong block_num, string solver_address, ulong difficulty)
+        public static bool verifyNonce(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
             Block block = Node.blockChain.getBlock(block_num);
             if (block == null)
@@ -260,8 +265,9 @@ namespace DLT
 
             // TODO checksum the solver_address just in case it's not valid
             // also protect against spamming with invalid nonce/block_num
-
-            string p1 = string.Format("{0}{1}", block.blockChecksum, solver_address);
+            Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
             string hash = Miner.findHash(p1, nonce);
 
             if (Miner.validateHash(hash, difficulty) == true)
@@ -291,14 +297,22 @@ namespace DLT
             byte[] pubkey = Node.walletStorage.publicKey;
             // Check if this wallet's public key is already in the WalletState
             Wallet mywallet = Node.walletState.getWallet(tx.from, true);
-            if (mywallet.publicKey.SequenceEqual(pubkey))
+            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
                 pubkey = null;
             }
 
-            string data = string.Format("{0}||{1}", activeBlock.blockNum, nonce);
-            tx.data = Encoding.UTF8.GetBytes(data);
+
+            using (MemoryStream mw = new MemoryStream())
+            {
+                using (BinaryWriter writerw = new BinaryWriter(mw))
+                {
+                    writerw.Write(activeBlock.blockNum);
+                    writerw.Write(nonce);
+                    tx.data = mw.ToArray();
+                }
+            }
 
             tx.pubKey = pubkey;
 
@@ -312,16 +326,16 @@ namespace DLT
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
         }
 
-        private static string findHash(string p1, string p2)
+        private static string findHash(byte[] p1, string p2)
         {
             string ret = "";
             try
             {
                 byte[] hash = new byte[32];
-                byte[] sdata = ASCIIEncoding.ASCII.GetBytes(p1);
+                byte[] sdata = p1;
                 byte[] salt = ASCIIEncoding.ASCII.GetBytes(p2);
                 IntPtr data_ptr = Marshal.AllocHGlobal(sdata.Length);
-                IntPtr salt_ptr = Marshal.AllocHGlobal(sdata.Length);
+                IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
                 Marshal.Copy(sdata, 0, data_ptr, sdata.Length);
                 Marshal.Copy(salt, 0, salt_ptr, salt.Length);
                 UIntPtr data_len = (UIntPtr)sdata.Length;

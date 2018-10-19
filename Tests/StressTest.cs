@@ -220,7 +220,7 @@ namespace DLTNode
                 byte[] pubKey = Node.walletStorage.publicKey;
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from, true);
-                if (mywallet.publicKey.SequenceEqual(pubKey))
+                if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
                 {
                     // Walletstate public key matches, we don't need to send the public key in the transaction
                     pubKey = null;
@@ -263,7 +263,7 @@ namespace DLTNode
                 byte[] pubKey = Node.walletStorage.publicKey;
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from, true);
-                if (mywallet.publicKey.SequenceEqual(pubKey))
+                if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
                 {
                     // Walletstate public key matches, we don't need to send the public key in the transaction
                     pubKey = null;

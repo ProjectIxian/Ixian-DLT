@@ -145,9 +145,6 @@ namespace DLT
             if (transaction.type == (int)Transaction.Type.PoWSolution)
             {
                 // TODO: pre-validate the transaction in such a way it doesn't affect performance
-                //Logging.warn("Denied mining transaction before mining is enabled.");
-                //return false;
-                Logging.error(string.Format("RECEIVED MINING TX: {0}", transaction.id));
             }
             // Special case for Staking Reward transaction
             else if (transaction.type == (int)Transaction.Type.StakingReward)
@@ -472,33 +469,35 @@ namespace DLT
         // Verify if a PoW transaction is valid
         public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum)
         {
-            // TODO TODO TODO TODO fix this
-
             blocknum = 0;
-            /*if (tx.type != (int)Transaction.Type.PoWSolution)
+
+            if (tx.type != (int)Transaction.Type.PoWSolution)
                 return false;
 
-            // Split the transaction data field
-            string[] split = tx.data.Split(new string[] { "||" }, StringSplitOptions.None);
-            if (split.Length < 3)
-                return false;
-            try
+            string nonce = "";
+
+            // Extract the block number and nonce
+            using (MemoryStream m = new MemoryStream(tx.data))
             {
-                // Extract the block number and nonce
-                ulong block_num = Convert.ToUInt64(split[1]);
-                blocknum = block_num;
-                string nonce = split[2];
+                using (BinaryReader reader = new BinaryReader(m))
+                {
+                    blocknum = reader.ReadUInt64();
+                    nonce = reader.ReadString();
+                }
+            }
 
+            try
+            {                
                 // Check if the block has an empty PoW field
-                Block block = Node.blockChain.getBlock(block_num);
-                if(block.powField.Length > 0)
+                Block block = Node.blockChain.getBlock(blocknum);
+                if(block.powField != null)
                 {
                     Logging.error("POW already applied");
                     return false;
                 }
 
                 // Verify the nonce
-                if (Miner.verifyNonce(nonce, block_num, tx.from, block.difficulty))
+                if (Miner.verifyNonce(nonce, blocknum, tx.from, block.difficulty))
                 {
                     return true;
                 }
@@ -506,7 +505,7 @@ namespace DLT
             catch(Exception e)
             {
                 Logging.warn(string.Format("Error verifying PoW Transaction: {0}. Message: {1}", tx.id, e.Message));
-            }*/
+            }
 
             return false;
         }
@@ -719,8 +718,7 @@ namespace DLT
                 // Finally, Check if we have any miners to reward
                 if (blockSolutionsDictionary.Count > 0)
                 {
-                    // TODO TODO TODO TODO re-enable this
-                    //rewardMiners(blockSolutionsDictionary, ws_snapshot);
+                    rewardMiners(blockSolutionsDictionary, ws_snapshot);
                 }
 
                 // Clear the solutions dictionary
@@ -783,9 +781,7 @@ namespace DLT
             {
                 return false;
             }
-            //   Logging.warn("Trying to apply PoW transaction before mining is enabled.");
-            //   return false;
-            Logging.error(string.Format("Applying POW: {0}", tx.id));
+
             // Update the block's applied field
             if (!ws_snapshot)
             {
