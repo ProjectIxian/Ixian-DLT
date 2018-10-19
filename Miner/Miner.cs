@@ -54,7 +54,7 @@ namespace DLT
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
 
-            Logging.info("MINER STARTED");
+            Logging.info("Miner started");
             return true;
         }
 
@@ -129,6 +129,8 @@ namespace DLT
                     printMinerStatus();
                 }
             }
+
+            Logging.info("Miner stopped");
         }
 
         // Returns the most recent block without a PoW flag in the redacted blockchain
@@ -303,7 +305,6 @@ namespace DLT
                 pubkey = null;
             }
 
-
             using (MemoryStream mw = new MemoryStream())
             {
                 using (BinaryWriter writerw = new BinaryWriter(mw))
@@ -321,7 +322,6 @@ namespace DLT
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);
 
-            Logging.error(string.Format("Broadcasting mining tx: {0}", tx.id));
             // Broadcast this transaction to the network
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
         }
