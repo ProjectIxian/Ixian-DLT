@@ -1149,7 +1149,7 @@ namespace DLT
                                         else
                                         {
                                             // TODO blacklisting point
-                                            Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", wallet));
+                                            Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Crypto.hashToString(wallet)));
                                         }
                                     }
                                 }
