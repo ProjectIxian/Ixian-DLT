@@ -1002,13 +1002,17 @@ namespace DLT
             foreach (byte[][] sig in targetBlock.signatures)
             {
                 // Generate the corresponding Ixian address
-                Address addr = new Address(sig[1]);
+                byte[] addressBytes = sig[1];
+                if (sig[1].Length > 70)
+                {
+                    addressBytes = (new Address(sig[1])).address;
+                }
 
                 // Update the walletstate and deposit the award
-                Wallet signer_wallet = Node.walletState.getWallet(addr.address, ws_snapshot);
+                Wallet signer_wallet = Node.walletState.getWallet(addressBytes, ws_snapshot);
                 IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
-                Node.walletState.setWalletBalance(addr.address, balance_after, ws_snapshot, signer_wallet.nonce);
+                Node.walletState.setWalletBalance(addressBytes, balance_after, ws_snapshot, signer_wallet.nonce);
 
                 //Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
             }
