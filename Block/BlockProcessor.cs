@@ -1132,7 +1132,13 @@ namespace DLT
 
                 // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
                 ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
-                if (solved_blocks > Config.redactedWindowSize / 2)
+                ulong window_size = Config.redactedWindowSize;
+
+                // Special consideration for early blocks
+                if (Node.blockChain.getLastBlockNum() < window_size)
+                    window_size = Node.blockChain.getLastBlockNum();
+
+                if (solved_blocks > window_size / 2)
                 {
                     current_difficulty++;
                 }

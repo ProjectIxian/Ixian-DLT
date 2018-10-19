@@ -1159,7 +1159,7 @@ namespace DLT
 
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
 
-                List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes("MINERS"));
+                List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes(string.Format("MINERS-{0}-",blockNum)));
                 foreach (byte[] miner in miners_to_reward)
                 {
                     // TODO add another address checksum here, just in case
