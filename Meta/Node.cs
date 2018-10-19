@@ -664,6 +664,7 @@ namespace DLT.Meta
                 return;
 
             workerMode = true;
+            PresenceList.curNodePresenceAddress.type = 'W';
 
             NetworkClientManager.restartClients();
             NetworkServer.stopNetworkOperations();
@@ -676,6 +677,7 @@ namespace DLT.Meta
                 return;
 
             workerMode = false;
+            PresenceList.curNodePresenceAddress.type = 'M';
 
             NetworkClientManager.restartClients();
             NetworkServer.restartNetworkOperations();
