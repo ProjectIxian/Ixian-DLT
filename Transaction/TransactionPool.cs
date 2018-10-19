@@ -473,7 +473,7 @@ namespace DLT
         public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum)
         {
             // TODO TODO TODO TODO fix this
-            
+
             blocknum = 0;
             /*if (tx.type != (int)Transaction.Type.PoWSolution)
                 return false;
@@ -526,7 +526,7 @@ namespace DLT
                     if (tx == null)
                     {
                         Logging.error(String.Format("Attempted to set applied to transaction from block #{0} ({1}), but transaction {{ {2} }} was missing.",
-                            b.blockNum, b.blockChecksum, txid));
+                            b.blockNum, Crypto.hashToString(b.blockChecksum), txid));
                         return false;
                     }
                     setAppliedFlag(txid, b.blockNum);
@@ -649,7 +649,7 @@ namespace DLT
                     if (tx == null)
                     {
                         Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
-                            block.blockNum, block.blockChecksum, txid));
+                            block.blockNum, Crypto.hashToString(block.blockChecksum), txid));
                         return false;
                     }
 
@@ -1156,7 +1156,7 @@ namespace DLT
             if (source_balance_after < (long)0)
             {
                 Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
-                    tx.id, block.blockNum, block.lastBlockChecksum, tx.from));
+                    tx.id, block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tx.from));
                 failed_transactions.Add(tx);
                 return false;
             }

@@ -186,7 +186,7 @@ namespace DLT
 
                 if (Node.walletState.getWalletBalance(address) < Config.minimumMasterNodeFunds)
                 {
-                    Logging.error(String.Format("LOW BALANCE ADDRESS: {0} FUNDS: {1}", address, Node.walletState.getWalletBalance(address)));
+                    Logging.error(String.Format("LOW BALANCE ADDRESS: {0} FUNDS: {1}", Crypto.hashToString(address), Node.walletState.getWalletBalance(address)));
                     sigs.Add(b.signatures[i]);
                     continue;
                 }
@@ -242,7 +242,7 @@ namespace DLT
                 }
                 if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
                 {
-                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, b.blockChecksum));
+                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                     // this is likely the correct block, update and broadcast to others
                     Node.blockChain.refreshSignatures(b, true);
                     ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
@@ -250,7 +250,7 @@ namespace DLT
                 }
                 else
                 {
-                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, b.blockChecksum));
+                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                     ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint);
                     return false;
                 }
@@ -261,7 +261,7 @@ namespace DLT
         public void onBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
             if (operating == false) return;
-            Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, b.blockChecksum, b.getUniqueSignatureCount()));
+            Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getUniqueSignatureCount()));
 
             // if historic block, only the sigs should be updated if not older than 5 blocks in history
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
@@ -296,24 +296,24 @@ namespace DLT
 
             if (verifyBlock(b) != BlockVerifyStatus.Valid)
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, b.blockChecksum));
+                Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
                 return;
             }
             // remove signatures without PL entry but not if we're catching up with the network
             if (b.blockNum > highestNetworkBlockNum - 5 && removeSignaturesWithoutPlEntry(b))
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
+                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
             }
             if (removeSignaturesWithLowBalance(b))
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, b.blockChecksum));
+                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
             }
             if (b.signatures.Count == 0)
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which has no valid signatures!", b.blockNum, b.blockChecksum));
+                Logging.warn(String.Format("Received block #{0} ({1}) which has no valid signatures!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
                 return;
             }
@@ -345,7 +345,7 @@ namespace DLT
             if (!b.blockChecksum.SequenceEqual(checksum))
             {
                 Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
-                    b.blockNum, b.blockChecksum, checksum));
+                    b.blockNum, Crypto.hashToString(b.blockChecksum), Crypto.hashToString(checksum)));
                 return BlockVerifyStatus.Invalid;
             }
 
@@ -365,12 +365,12 @@ namespace DLT
                     {
                         if (removeSignaturesWithLowBalance(b))
                         {
-                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, b.blockChecksum));
+                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                             // TODO: Blacklisting point
                         }
                         if (removeSignaturesWithoutPlEntry(b))
                         {
-                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, b.blockChecksum));
+                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                             // TODO: Blacklisting point
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if full consensus is reached on the block
@@ -489,7 +489,7 @@ namespace DLT
                     // someone is doing something bad with this transaction, so we invalidate the block
                     // TODO: Blacklisting for the transaction originator node
                     Logging.warn(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}, to: {3}",
-                        t.id, t.amount, t.from, t.to));
+                        t.id, t.amount, Crypto.hashToString(t.from), Crypto.hashToString(t.to)));
                     return BlockVerifyStatus.Invalid;
                 }
             }
@@ -538,7 +538,7 @@ namespace DLT
                     if (initial_balance < minusBalances[addr])
                     {
                         Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
-                            addr, initial_balance, minusBalances[addr]));
+                            Crypto.hashToString(addr), initial_balance, minusBalances[addr]));
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -555,7 +555,7 @@ namespace DLT
                         // this should always be the same anyway, but just in case
                         if (!b.walletStateChecksum.SequenceEqual(ws_checksum))
                         {
-                            Logging.error(String.Format("Incorrect current wallet state checksum for the last block #{0} Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
+                            Logging.error(String.Format("Incorrect current wallet state checksum for the last block #{0} Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
                             return BlockVerifyStatus.Invalid;
                         }
                     }
@@ -569,7 +569,7 @@ namespace DLT
                         Node.walletState.revert();
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {
-                            Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
+                            Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
                             return BlockVerifyStatus.Invalid;
                         }
                     }
@@ -702,7 +702,8 @@ namespace DLT
                             byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                             if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
                             {
-                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum, localNewBlock.walletStateChecksum, wsChecksum));
+                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum, 
+                                    Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                                 rollBackAcceptedBlock(localNewBlock);
                                 if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
                                 {
@@ -812,7 +813,7 @@ namespace DLT
                 if (!b.signatureFreezeChecksum.SequenceEqual(sigFreezeChecksum))
                 {
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
-                        b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum - 5));
+                        b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
                     ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
                     return false;
                 }
@@ -821,7 +822,7 @@ namespace DLT
             {
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
-                    b.blockNum, targetBlock.calculateSignatureChecksum(), b.blockNum - 5));
+                    b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5));
                 ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
                 return false;
             }

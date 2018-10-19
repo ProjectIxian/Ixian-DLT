@@ -173,7 +173,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx2);
 
                     // test1
-                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("251c16b56555e5ce1b5b5d73d9add6dab58bb6e0255f7399340b6a2a51a4ab9836e0"), from, null, null, 1);
+                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("f467cd843aa4856048a9697d78ac969aa6b2204d532126e2b5497c343d4ddeab13ea"), from, null, null, 1);
                     tx3.type = (int)Transaction.Type.Genesis;
                     tx3.data = null;
                     tx3.timeStamp = getCurrentTimestamp();
@@ -183,7 +183,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx3);
 
                     // test2 
-                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("d255cc1c2de499c867bf65ce4c8aec09b5eacc381399307c27195176cef2457a6aef"), from, null, null, 1);
+                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("a6b6593d06fe77695276cf58d2c05203816996d7e11ac0fece5ced84eaf36c717bd1"), from, null, null, 1);
                     tx4.type = (int)Transaction.Type.Genesis;
                     tx4.data = null;
                     tx4.timeStamp = getCurrentTimestamp();
@@ -537,7 +537,7 @@ namespace DLT.Meta
             Console.ForegroundColor = ConsoleColor.Yellow;
             Logging.trace("===================== Dumping Node State: =====================");
             Logging.trace(String.Format(" -> Current blockchain height: #{0}. In redacted chain: #{1}.", Node.blockChain.getLastBlockNum(), Node.blockChain.Count));
-            Logging.trace(String.Format(" -> Last Block Checksum: {0}.", Node.blockChain.getLastBlockChecksum()));
+            Logging.trace(String.Format(" -> Last Block Checksum: {0}.", Crypto.hashToString(Node.blockChain.getLastBlockChecksum())));
             Logging.trace("Last five signature counts:");
             for (int i = 0; i < 6; i++)
             {
@@ -545,7 +545,8 @@ namespace DLT.Meta
                 Block block = Node.blockChain.getBlock(blockNum);
 
                 if(block != null)
-                    Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlockSignaturesReverse(i), block.blockChecksum, block.walletStateChecksum));
+                    Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlockSignaturesReverse(i), 
+                        Crypto.hashToString(block.blockChecksum), Crypto.hashToString(block.walletStateChecksum)));
             }
             Logging.trace(String.Format(" -> Block processor is operating: {0}.", Node.blockProcessor.operating));
             Logging.trace(String.Format(" -> Block processor is synchronizing: {0}.", Node.blockSync.synchronizing));

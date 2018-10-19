@@ -800,7 +800,7 @@ namespace DLT
                                             Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
                                             return;
                                         }
-                                        Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Take(4)));
+                                        Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
                                         // Send the block
                                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
 
@@ -866,7 +866,7 @@ namespace DLT
                                             return;
                                         }
 
-                                        Logging.info(String.Format("Sending transaction {0} - {1} - {2} - {3}.", txid, transaction.id, transaction.checksum, transaction.amount));
+                                        Logging.info(String.Format("Sending transaction {0} - {1} - {2} - {3}.", txid, transaction.id, Crypto.hashToString(transaction.checksum), transaction.amount));
 
                                         endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
                                     }

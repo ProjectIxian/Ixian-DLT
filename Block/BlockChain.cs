@@ -64,12 +64,12 @@ namespace DLT
                 }
                 if (!b.lastBlockChecksum.SequenceEqual(blocks[blocks.Count - 1].blockChecksum))
                 {
-                    Logging.error(String.Format("Attempting to add a block #{0}with invalid lastBlockChecksum!", b.blockNum));
+                    Logging.error(String.Format("Attempting to add a block #{0} with invalid lastBlockChecksum!", b.blockNum));
                     return false;
                 }
                 if (b.signatureFreezeChecksum != null && blocks.Count > 5 && !blocks[blocks.Count - 5].calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
                 {
-                    Logging.error(String.Format("Attempting to add a block #{0}with invalid sigFreezeChecksum!", b.blockNum));
+                    Logging.error(String.Format("Attempting to add a block #{0} with invalid sigFreezeChecksum!", b.blockNum));
                     return false;
                 }
                 blocks.Add(b);
