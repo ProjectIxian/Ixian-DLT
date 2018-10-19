@@ -140,8 +140,6 @@ namespace DLTNode
             // Clear the console first
             Console.Clear();
 
-            Console.WriteLine(Crypto.hashToString(Crypto.sha256(Config.ixianInfiniMineAddress)));
-
             // Start logging
             Logging.start();
 

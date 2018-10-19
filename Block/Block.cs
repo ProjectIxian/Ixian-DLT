@@ -258,6 +258,7 @@ namespace DLT
             }
 
             List<byte> rawData = new List<byte>();
+            rawData.AddRange(Config.ixianChecksumLock);
             rawData.AddRange(BitConverter.GetBytes(blockNum));
             rawData.AddRange(Encoding.UTF8.GetBytes(merged_txids.ToString()));
             if (lastBlockChecksum != null)
