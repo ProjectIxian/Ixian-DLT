@@ -4,6 +4,9 @@ using SQLite;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Linq;
+using IXICore.Utils;
 
 namespace DLT
 {
@@ -14,17 +17,17 @@ namespace DLT
         public ulong blockNum { get; set; }
 
         public List<string> transactions = new List<string> { };
-        public List<string> signatures = new List<string> { };
+        public List<byte[][]> signatures = new List<byte[][]> { };
 
-        public string blockChecksum = "0";
-        public string lastBlockChecksum = "0";
-        public string walletStateChecksum = "0";
-        public string signatureFreezeChecksum = "0";
+        public byte[] blockChecksum = null;
+        public byte[] lastBlockChecksum = null;
+        public byte[] walletStateChecksum = null;
+        public byte[] signatureFreezeChecksum = null;
         public string timestamp = "";
         public ulong difficulty = 0;
 
         // Locally calculated
-        public string powField = "";
+        public byte[] powField = null;
 
         public static string[] splitter = { "::" };
 
@@ -56,11 +59,16 @@ namespace DLT
                 transactions.Add(txid);
             }
 
-            foreach (string signature in block.signatures)
+            foreach (byte[][] signature in block.signatures)
             {
-                if (!containsSignature(signature))
+                if (!containsSignature(signature[0]))
                 {
-                    signatures.Add(signature);
+                    byte[][] newSig = new byte[2][];
+                    newSig[0] = new byte[signature[0].Length];
+                    Array.Copy(signature[0], newSig[0], newSig[0].Length);
+                    newSig[1] = new byte[signature[1].Length];
+                    Array.Copy(signature[1], newSig[1], newSig[1].Length);
+                    signatures.Add(newSig);
                 }
             }
 
@@ -95,19 +103,47 @@ namespace DLT
                         int num_signatures = reader.ReadInt32();
                         for (int i = 0; i < num_signatures; i++)
                         {
-                            string signature = reader.ReadString();
-                            if (!containsSignature(signature))
+                            int sigLen = reader.ReadInt32();
+                            byte[] sig = reader.ReadBytes(sigLen);
+                            int sigAddresLen = reader.ReadInt32();
+                            byte[] sigAddress = reader.ReadBytes(sigAddresLen);
+                            if (!containsSignature(sigAddress))
                             {
-                                signatures.Add(signature);
+                                byte[][] newSig = new byte[2][];
+                                newSig[0] = sig;
+                                newSig[1] = sigAddress;
+                                signatures.Add(newSig);
                             }
                         }
+                        int dataLen = reader.ReadInt32();
+                        blockChecksum = reader.ReadBytes(dataLen);
 
-                        blockChecksum = reader.ReadString();
-                        lastBlockChecksum = reader.ReadString();
-                        walletStateChecksum = reader.ReadString();
-                        signatureFreezeChecksum = reader.ReadString();
+                        dataLen = reader.ReadInt32();
+                        if (dataLen > 0)
+                        {
+                            lastBlockChecksum = reader.ReadBytes(dataLen);
+                        }
+
+                        dataLen = reader.ReadInt32();
+                        if (dataLen > 0)
+                        {
+                            walletStateChecksum = reader.ReadBytes(dataLen);
+                        }
+
+                        dataLen = reader.ReadInt32();
+                        if (dataLen > 0)
+                        {
+                            signatureFreezeChecksum = reader.ReadBytes(dataLen);
+                        }
+
                         difficulty = reader.ReadUInt64();
-                        powField = reader.ReadString();
+
+                        dataLen = reader.ReadInt32();
+                        if (dataLen > 0)
+                        {
+                            powField = reader.ReadBytes(dataLen);
+                        }
+
                         timestamp = reader.ReadString();
                     }
                 }
@@ -144,18 +180,53 @@ namespace DLT
                         writer.Write(num_signatures);
 
                         // Write each signature
-                        foreach (string signature in signatures)
+                        foreach (byte[][] signature in signatures)
                         {
-                            writer.Write(signature);
+                            writer.Write(signature[0].Length);
+                            writer.Write(signature[0]);
+                            writer.Write(signature[1].Length);
+                            writer.Write(signature[1]);
                         }
                     }
 
+                    writer.Write(blockChecksum.Length);
                     writer.Write(blockChecksum);
-                    writer.Write(lastBlockChecksum);
-                    writer.Write(walletStateChecksum);
-                    writer.Write(signatureFreezeChecksum);
+                    if (lastBlockChecksum != null)
+                    {
+                        writer.Write(lastBlockChecksum.Length);
+                        writer.Write(lastBlockChecksum);
+                    }else
+                    {
+                        writer.Write((int)0);
+                    }
+                    if (walletStateChecksum != null)
+                    {
+                        writer.Write(walletStateChecksum.Length);
+                        writer.Write(walletStateChecksum);
+                    }
+                    else
+                    {
+                        writer.Write((int)0);
+                    }
+                    if (signatureFreezeChecksum != null)
+                    {
+                        writer.Write(signatureFreezeChecksum.Length);
+                        writer.Write(signatureFreezeChecksum);
+                    }
+                    else
+                    {
+                        writer.Write((int)0);
+                    }
                     writer.Write(difficulty);
-                    writer.Write(powField);
+                    if (powField != null)
+                    {
+                        writer.Write(powField.Length);
+                        writer.Write(powField);
+                    }
+                    else
+                    {
+                        writer.Write((int)0);
+                    }
                     writer.Write(timestamp);
                 }
                 return m.ToArray();
@@ -178,38 +249,53 @@ namespace DLT
         }
 
         // Returns the checksum of this block, without considering signatures
-        public string calculateChecksum()
+        public byte[] calculateChecksum()
         {
-            System.Text.StringBuilder merged_txids = new System.Text.StringBuilder();
+            StringBuilder merged_txids = new StringBuilder();
             foreach (string txid in transactions)
             {
                 merged_txids.Append(txid);
             }
 
-            string checksum = Crypto.sha256(blockNum + merged_txids.ToString() + lastBlockChecksum + walletStateChecksum + signatureFreezeChecksum + difficulty);
-            return checksum;
+            List<byte> rawData = new List<byte>();
+            rawData.AddRange(BitConverter.GetBytes(blockNum));
+            rawData.AddRange(Encoding.UTF8.GetBytes(merged_txids.ToString()));
+            if (lastBlockChecksum != null)
+            {
+                rawData.AddRange(lastBlockChecksum);
+            }
+            if (walletStateChecksum != null)
+            {
+                rawData.AddRange(walletStateChecksum);
+            }
+            if (signatureFreezeChecksum != null)
+            {
+                rawData.AddRange(signatureFreezeChecksum);
+            }
+            rawData.AddRange(BitConverter.GetBytes(difficulty));
+            return Crypto.sha256(rawData.ToArray());
         }
 
         // Returns the checksum of all signatures of this block
-        public string calculateSignatureChecksum()
+        public byte[] calculateSignatureChecksum()
         {
             // Sort the signature first
-            List<string> sortedSigs = null;
+            List<byte[][]> sortedSigs = null;
             lock (signatures)
             {
-               sortedSigs = new List<string>(signatures);
+               sortedSigs = new List<byte[][]>(signatures);
             }
-            sortedSigs.Sort();
+            sortedSigs.OrderBy(x => x[1], new ByteArrayComparer());
 
             // Merge the sorted signatures
-            System.Text.StringBuilder merged_sigs = new System.Text.StringBuilder();
-            foreach (string sig in sortedSigs)
+            List<byte> merged_sigs = new List<byte>();
+            foreach (byte[][] sig in sortedSigs)
             {
-                merged_sigs.Append(sig);
+                merged_sigs.AddRange(sig[0]);
             }
 
             // Generate a checksum from the merged sorted signatures
-            string checksum = Crypto.sha256(merged_sigs.ToString());
+            byte[] checksum = Crypto.sha256(merged_sigs.ToArray());
             return checksum;
         }
 
@@ -222,34 +308,35 @@ namespace DLT
             }
 
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-            string address = Node.walletStorage.getWalletAddress();
+            byte[] address = Node.walletStorage.getWalletAddress();
 
             Wallet signerWallet = Node.walletState.getWallet(address);
 
             // Use public key when applying signature to legacy block
-            if (Legacy.isLegacy(blockNum) || signerWallet.publicKey.Length < 1)
+            if (signerWallet.publicKey == null)
             {
                 address = Node.walletStorage.publicKey;
             }
 
             // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
-            string private_key = Node.walletStorage.privateKey;
-            string signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
+            byte[] private_key = Node.walletStorage.privateKey;
+            byte[] signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
 
             lock (signatures)
             {
-                foreach (string sig in signatures)
+                foreach (byte[][] sig in signatures)
                 {
-                    string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts[1].Equals(address, StringComparison.Ordinal))
+                    if (sig[1].SequenceEqual(address))
                     {
                         // we have already signed it
                         return false;
                     }
                 }
 
-                string merged_signature = signature + splitter[0] + address;
-                signatures.Add(merged_signature);               
+                byte[][] newSig = new byte[2][];
+                newSig[0] = signature;
+                newSig[1] = address;
+                signatures.Add(newSig);               
             }
 
             Logging.info(String.Format("Signed block #{0}.", blockNum));
@@ -257,15 +344,13 @@ namespace DLT
             return true;
         }
 
-        public bool containsSignature(String verifiedSig)
+        public bool containsSignature(byte[] address)
         {
             lock (signatures)
             {
-                foreach (string sig in signatures)
+                foreach (byte[][] sig in signatures)
                 {
-                    string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    string[] parts2 = verifiedSig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts[1] == parts2[1])
+                    if (address.SequenceEqual(sig[1]))
                     {
                         return true;
                     }
@@ -280,9 +365,9 @@ namespace DLT
             lock (signatures)
             {
                 int count = 0;
-                foreach (String sig in other.signatures)
+                foreach (byte[][] sig in other.signatures)
                 {
-                    if(!containsSignature(sig))
+                    if(!containsSignature(sig[1]))
                     {
                         count++;
                         signatures.Add(sig);
@@ -301,34 +386,33 @@ namespace DLT
         {
             lock (signatures)
             {
-                foreach (string sig in signatures)
+                foreach (byte[][] sig in signatures)
                 {
-                    string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length != 2)
-                    {
-                        return false;
-                    }
-                    string signature = parts[0];                    
-                    string signerPubkey = parts[1];
+                    byte[] signature = sig[0];
+                    byte[] address = sig[1];
 
-                    if (Legacy.isLegacy(blockNum) == false)
+                    byte[] signerPubKey = sig[1];
+
+
+                    if (signerPubKey.Length < 70)
                     {
                         // Extract the public key from the walletstate
-                        string signer_address = parts[1];
-                        Wallet signerWallet = Node.walletState.getWallet(signer_address);
+                        Wallet signerWallet = Node.walletState.getWallet(address);
                         if (signerWallet.publicKey.Length > 0)
-                            signerPubkey = signerWallet.publicKey;
+                        {
+                            signerPubKey = signerWallet.publicKey;
+                        }
                         else
                         {
                             // No public key in wallet state                        
                         }
-
-                        // Failed to find signer publickey in walletstate
-                        if (signerPubkey.Length < 1)
-                            return false;                                                 
                     }
 
-                    if (CryptoManager.lib.verifySignature(blockChecksum, signerPubkey, signature) == false)
+                    // Failed to find signer publickey in walletstate
+                    if (signerPubKey.Length < 1)
+                        return false;                                                 
+
+                    if (CryptoManager.lib.verifySignature(blockChecksum, signerPubKey, signature) == false)
                     {
                         return false;
                     }
@@ -347,23 +431,19 @@ namespace DLT
             {
                 return false;
             }
-            List<string> sigs = targetBlock.signatures;
-            foreach (string sig in sigs)
+            List<byte[][]> sigs = targetBlock.signatures;
+            foreach (byte[][] sig in sigs)
             {
-                string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length != 2)
-                {
-                    return false;
-                }
-                string signature = parts[0];
-                string signerPubkey = parts[1];
+                byte[] signature = sig[0];
+                byte[] signerPubkey = sig[1];
                 bool should_store_pkey = false;
-                if (Legacy.isLegacy(blockNum) == false)
+
+                // Extract the public key from the walletstate
+                byte[] signer_address = signerPubkey;
+                if (signerPubkey.Length < 70)
                 {
-                    // Extract the public key from the walletstate
-                    string signer_address = parts[1];
                     Wallet signerWallet = Node.walletState.getWallet(signer_address);
-                    if (signerWallet.publicKey.Length > 0)
+                    if (signerWallet.publicKey != null)
                         signerPubkey = signerWallet.publicKey;
                     else
                     {
@@ -372,11 +452,12 @@ namespace DLT
                     }
 
                     // Failed to find signer publickey in walletstate
-                    if (signerPubkey.Length < 1)
+                    if (signerPubkey == null)
                         return false;
-
+                }else
+                {
+                    should_store_pkey = true;
                 }
-
                 // TODO: check if we should verify the signature again at this point
 
                 // Check if we should store this public key
@@ -386,7 +467,7 @@ namespace DLT
                     // Generate an address
                     Address p_address = new Address(signerPubkey);
                     // Set the WS public key
-                    Node.walletState.setWalletPublicKey(p_address.ToString(), signerPubkey, ws_snapshot);
+                    Node.walletState.setWalletPublicKey(p_address.address, signerPubkey, ws_snapshot);
                 }
             }
 
@@ -394,7 +475,7 @@ namespace DLT
         }
 
         // Goes through all signatures and verifies if the block is already signed with this node's pubkey
-        public bool hasNodeSignature(string public_key = null)
+        public bool hasNodeSignature(byte[] public_key = null)
         {
             if (public_key == null)
             {
@@ -402,33 +483,29 @@ namespace DLT
             }
             lock (signatures)
             {
-                foreach (string merged_signature in signatures)
+                foreach (byte[][] merged_signature in signatures)
                 {
-                    string[] signature_parts = merged_signature.Split(splitter, StringSplitOptions.None);
-                    if (signature_parts.Length < 2)
-                        continue;
-
                     Wallet signerWallet = Node.walletState.getWallet(Node.walletStorage.getWalletAddress());
 
                     bool condition = false;
 
                     // Check if we have an address instead of a public key
-                    if (signature_parts[1].Length < 70)
+                    if (merged_signature[1].Length < 70)
                     {
                         // Compare wallet address
-                        condition = Node.walletStorage.address.Equals(signature_parts[1], StringComparison.Ordinal);
+                        condition = Node.walletStorage.address.SequenceEqual(merged_signature[1]);
                     }
                     else
                     {
                         // Legacy, compare public key
-                        condition = public_key.Equals(signature_parts[1], StringComparison.Ordinal);
+                        condition = public_key.SequenceEqual(merged_signature[1]);
                     }
 
                     // Check if it matches
                     if (condition)
                     {
                         // Check if signature is actually valid
-                        if (CryptoManager.lib.verifySignature(blockChecksum, public_key, signature_parts[0]))
+                        if (CryptoManager.lib.verifySignature(blockChecksum, public_key, merged_signature[0]))
                         {
                             return true;
                         }
@@ -446,21 +523,17 @@ namespace DLT
         }
 
         // Goes through all signatures and generates the corresponding Ixian wallet addresses
-        public List<string> getSignaturesWalletAddresses()
+        public List<byte[]> getSignaturesWalletAddresses()
         {
-            List<string> result = new List<string>();
+            List<byte[]> result = new List<byte[]>();
 
             lock (signatures)
             {
 
-                foreach (string merged_signature in signatures)
+                foreach (byte[][] merged_signature in signatures)
                 {
-                    string[] signature_parts = merged_signature.Split(splitter, StringSplitOptions.None);
-                    if (signature_parts.Length < 2)
-                        continue;
-
-                    string signature = signature_parts[0];
-                    string public_key = signature_parts[1];
+                    byte[] signature = merged_signature[0];
+                    byte[] public_key = merged_signature[1];
 
                     bool found_public_key = false;
 
@@ -468,7 +541,7 @@ namespace DLT
                     if (public_key.Length < 70)
                     {
                         // Extract the public key from the walletstate
-                        string signer_address = signature_parts[1];
+                        byte[] signer_address = public_key;
                         Wallet signerWallet = Node.walletState.getWallet(signer_address);
                         if (signerWallet.publicKey.Length > 0)
                         {
@@ -488,19 +561,19 @@ namespace DLT
                         continue;
                     }
 
-                    string address_string = signature_parts[1];
+                    byte[] addressBytes = public_key;
 
                     if (found_public_key == false)
                     {
                         Address address = new Address(public_key);
-                        address_string = address.ToString();
+                        addressBytes = address.address;
                         // TODO: check if it's it worth it validating the address again here
                     }
 
                     // Add the address to the list
-                    result.Add(address_string);
+                    result.Add(addressBytes);
                 }
-                result.Sort();
+                result.OrderBy(x => x, new ByteArrayComparer());
             }
             return result;
         }
@@ -516,18 +589,16 @@ namespace DLT
             lock (signatures)
             {
 
-                foreach (string signature in signatures)
+                foreach (byte[][] signature in signatures)
                 {
                     bool duplicate = false;
                     int sindex2 = 0;
-                    foreach (string signature_check in signatures)
+                    foreach (byte[][] signature_check in signatures)
                     {
                         if (sindex1 == sindex2)
                             continue;
 
-                        string[] partsSignature_check = signature_check.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        string[] partsSignature = signature.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        if (partsSignature[1].Equals(partsSignature_check[1], StringComparison.Ordinal))
+                        if (signature[1].SequenceEqual(signature_check[1]))
                         {
                             duplicate = true;
                         }
@@ -544,9 +615,10 @@ namespace DLT
             return signature_count;
         }
 
-        public void setWalletStateChecksum(string checksum)
+        public void setWalletStateChecksum(byte[] checksum)
         {
-            walletStateChecksum = string.Copy(checksum);
+            walletStateChecksum = new byte[checksum.Length];
+            Array.Copy(checksum, walletStateChecksum, walletStateChecksum.Length);
         }
 
         // Returs a list of transactions connected to this block 
@@ -583,15 +655,15 @@ namespace DLT
                 tDic.Add("id", t.id);
                 tDic.Add("blockHeight", t.blockHeight.ToString());
                 tDic.Add("nonce", t.nonce.ToString());
-                tDic.Add("signature", t.signature);
-                tDic.Add("data", t.data);
-                tDic.Add("timeStamp", t.timeStamp);
+                tDic.Add("signature", Crypto.hashToString(t.signature) + ":" + Crypto.hashToString(t.pubKey));
+                tDic.Add("data", t.data.ToString());
+                tDic.Add("timeStamp", t.timeStamp.ToString());
                 tDic.Add("type", t.type.ToString());
                 tDic.Add("amount", t.amount.ToString());
                 tDic.Add("applied", t.applied.ToString());
-                tDic.Add("checksum", t.checksum);
-                tDic.Add("from", t.from);
-                tDic.Add("to", t.to);
+                tDic.Add("checksum", Crypto.hashToString(t.checksum));
+                tDic.Add("from", Crypto.hashToString(t.from));
+                tDic.Add("to", Crypto.hashToString(t.to));
                 tDic.Add("fee", t.fee.ToString());
                 txList.Add(tDic);
 
@@ -616,17 +688,21 @@ namespace DLT
 
         public void logBlockDetails()
         {
-            string last_block_chksum = lastBlockChecksum;
+            string last_block_chksum = "";
+            if (lastBlockChecksum != null)
+            {
+               last_block_chksum = Crypto.hashToString(lastBlockChecksum);
+            }
             if(last_block_chksum.Length == 0)
             {
                 last_block_chksum = "G E N E S I S  B L O C K";
             }
             Logging.info(String.Format("\t\t|- Block Number:\t\t {0}", blockNum));
             Logging.info(String.Format("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockChain.getRequiredConsensus()));
-            Logging.info(String.Format("\t\t|- Block Checksum:\t\t {0}", blockChecksum));
+            Logging.info(String.Format("\t\t|- Block Checksum:\t\t {0}", Crypto.hashToString(blockChecksum)));
             Logging.info(String.Format("\t\t|- Last Block Checksum: \t {0}", last_block_chksum));
-            Logging.info(String.Format("\t\t|- WalletState Checksum:\t {0}", walletStateChecksum));
-            Logging.info(String.Format("\t\t|- Sig Freeze Checksum: \t {0}", signatureFreezeChecksum));
+            Logging.info(String.Format("\t\t|- WalletState Checksum:\t {0}", Crypto.hashToString(walletStateChecksum)));
+            Logging.info(String.Format("\t\t|- Sig Freeze Checksum: \t {0}", Crypto.hashToString(signatureFreezeChecksum)));
             Logging.info(String.Format("\t\t|- Difficulty:\t\t\t {0}", difficulty));
             Logging.info(String.Format("\t\t|- Transaction Count:\t {0}", transactions.Count));
         }

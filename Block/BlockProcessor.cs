@@ -1,10 +1,12 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Numerics;
+using System.Text;
 using System.Threading;
 
 namespace DLT
@@ -126,34 +128,29 @@ namespace DLT
             return (int)(timeSinceLastBlock.TotalSeconds / (blockGenerationInterval*3));
         }
 
-        public List<string> getSignaturesWithoutPlEntry(Block b)
+        public List<byte[][]> getSignaturesWithoutPlEntry(Block b)
         {
-            List<string> sigs = new List<string>();
+            List<byte[][]> sigs = new List<byte[][]>();
 
             for (int i = 0; i < b.signatures.Count; i++)
             {
-                string[] parts = b.signatures[i].Split(Block.splitter, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length != 2)
-                {
-                    sigs.Add(b.signatures[i]);
-                    continue;
-                }
+                byte[][] sig = b.signatures[i];
 
                 Presence p = null;
                 // Check if we have a public key instead of an address
-                if (parts[1].Length > 70)
+                if (sig[1].Length > 70)
                 {
-                    p = PresenceList.presences.Find(x => x.metadata == parts[1]);
+                    p = PresenceList.presences.Find(x => x.pubkey.SequenceEqual(sig[1]));
                 }
                 else
                 {
-                    p = PresenceList.presences.Find(x => x.wallet == parts[1]);
+                    p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(sig[1]));
                 }
 
                 //Logging.info(String.Format("Searching for {0}", parts[1]));                 
                 if (p == null)
                 {
-                    sigs.Add(b.signatures[i]);
+                    sigs.Add(sig);
                     continue;
                 }
             }
@@ -162,7 +159,7 @@ namespace DLT
 
         public bool removeSignaturesWithoutPlEntry(Block b)
         {
-            List<string> sigs = getSignaturesWithoutPlEntry(b);
+            List<byte[][]> sigs = getSignaturesWithoutPlEntry(b);
             for (int i = 0; i < sigs.Count; i++)
             {
                 b.signatures.Remove(sigs[i]);
@@ -174,24 +171,17 @@ namespace DLT
             return false;
         }
 
-        public List<string> getSignaturesWithLowBalance(Block b)
+        public List<byte[][]> getSignaturesWithLowBalance(Block b)
         {
-            List<string> sigs = new List<string>();
+            List<byte[][]> sigs = new List<byte[][]>();
 
             for (int i = 0; i < b.signatures.Count; i++)
             {
-                string[] parts = b.signatures[i].Split(Block.splitter, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length != 2)
-                {
-                    sigs.Add(b.signatures[i]);
-                    continue;
-                }
-
-                string address = parts[1];
+                byte[] address = b.signatures[i][1];
                 // Check if we have a public key instead of an address
                 if (address.Length > 70)
                 {
-                    address = (new Address(parts[1])).ToString();
+                    address = (new Address(address)).address;
                 }
 
                 if (Node.walletState.getWalletBalance(address) < Config.minimumMasterNodeFunds)
@@ -207,7 +197,7 @@ namespace DLT
 
         public bool removeSignaturesWithLowBalance(Block b)
         {
-            List<string> sigs = getSignaturesWithLowBalance(b);
+            List<byte[][]> sigs = getSignaturesWithLowBalance(b);
             for (int i = 0; i < sigs.Count; i++)
             {
                 b.signatures.Remove(sigs[i]);
@@ -223,7 +213,7 @@ namespace DLT
         public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null, RemoteEndpoint skipEndpoint = null)
         {
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
-            string sigFreezeChecksum = null;
+            byte[] sigFreezeChecksum = null;
             lock (localBlockLock)
             {
                 if (sigFreezingBlock == null && localNewBlock != null && localNewBlock.blockNum == b.blockNum + 5)
@@ -239,10 +229,10 @@ namespace DLT
                 }
                 // this block already has a sigfreeze, don't tamper with the signatures
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum);
-                if (targetBlock != null && sigFreezeChecksum == targetBlock.calculateSignatureChecksum())
+                if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()))
                 {
                     // we already have the correct block
-                    if (b.calculateSignatureChecksum() != sigFreezeChecksum)
+                    if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
                     {
                         // we already have the correct block but the sender does not, broadcast our block
                         //ProtocolMessage.broadcastNewBlock(targetBlock);
@@ -250,7 +240,7 @@ namespace DLT
                     }
                     return false;
                 }
-                if (sigFreezeChecksum == b.calculateSignatureChecksum())
+                if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
                 {
                     Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, b.blockChecksum));
                     // this is likely the correct block, update and broadcast to others
@@ -280,7 +270,7 @@ namespace DLT
                 {
                     Logging.info(String.Format("Already processed block #{0}, doing basic verification and collecting only sigs if relevant!", b.blockNum));
                     Block localBlock = Node.blockChain.getBlock(b.blockNum);
-                    if (b.blockChecksum == localBlock.blockChecksum && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
+                    if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
                     {
                         if (handleSigFreezedBlock(b, endpoint))
                         {
@@ -343,7 +333,7 @@ namespace DLT
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
 
-            if (prevBlock != null && b.lastBlockChecksum != prevBlock.blockChecksum) // block found but checksum doesn't match
+            if (prevBlock != null && !b.lastBlockChecksum.SequenceEqual(prevBlock.blockChecksum)) // block found but checksum doesn't match
             {
                 Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
                 // TODO Blacklisting point?
@@ -351,8 +341,8 @@ namespace DLT
             }
 
             // Verify checksums
-            string checksum = b.calculateChecksum();
-            if (b.blockChecksum != checksum)
+            byte[] checksum = b.calculateChecksum();
+            if (!b.blockChecksum.SequenceEqual(checksum))
             {
                 Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
                     b.blockNum, b.blockChecksum, checksum));
@@ -446,7 +436,7 @@ namespace DLT
             }
             int txCount = 0;
             int missing = 0;
-            Dictionary<string, IxiNumber> minusBalances = new Dictionary<string, IxiNumber>();
+            Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
             foreach (string txid in b.transactions)
             {
                 // Skip fetching staking txids if we're not synchronizing
@@ -538,11 +528,11 @@ namespace DLT
             // Note: This function is also called from BlockSync, which uses it to determine if the blocks it is syncing
             // from neighbors are OK.  However, BlockSync applies blocks before the current WS, so sometimes it doesn't
             // want to check WS checksums
-            string ws_checksum = "";
+            byte[] ws_checksum = null;
             if (ignore_walletstate == false)
             {
                 // overspending
-                foreach (string addr in minusBalances.Keys)
+                foreach (byte[] addr in minusBalances.Keys)
                 {
                     IxiNumber initial_balance = Node.walletState.getWalletBalance(addr);
                     if (initial_balance < minusBalances[addr])
@@ -563,7 +553,7 @@ namespace DLT
                     {
                         ws_checksum = Node.walletState.calculateWalletStateChecksum();
                         // this should always be the same anyway, but just in case
-                        if (b.walletStateChecksum != ws_checksum)
+                        if (!b.walletStateChecksum.SequenceEqual(ws_checksum))
                         {
                             Logging.error(String.Format("Incorrect current wallet state checksum for the last block #{0} Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
                             return BlockVerifyStatus.Invalid;
@@ -577,7 +567,7 @@ namespace DLT
                             ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
                         }
                         Node.walletState.revert();
-                        if (ws_checksum != b.walletStateChecksum)
+                        if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {
                             Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, b.walletStateChecksum, ws_checksum));
                             return BlockVerifyStatus.Invalid;
@@ -609,7 +599,7 @@ namespace DLT
             {
                 if (localNewBlock != null)
                 {
-                    if(localNewBlock.blockChecksum == b.blockChecksum)
+                    if(localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                     {
                         Logging.info("This is the block we are currently working on. Merging signatures.");
                         if(localNewBlock.addSignaturesFrom(b))
@@ -709,12 +699,12 @@ namespace DLT
                         // accept this block, apply its transactions, recalc consensus, etc
                         if (applyAcceptedBlock(localNewBlock) == true)
                         {
-                            string wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                            if (wsChecksum != localNewBlock.walletStateChecksum)
+                            byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                            if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
                             {
                                 Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum, localNewBlock.walletStateChecksum, wsChecksum));
                                 rollBackAcceptedBlock(localNewBlock);
-                                if (Node.walletState.calculateWalletStateChecksum() != Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum)
+                                if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
                                 {
                                     Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
                                     // TODO TODO TODO maybe do something else instead?
@@ -808,7 +798,7 @@ namespace DLT
 
         public bool verifySignatureFreezeChecksum(Block b)
         {
-            if (b.signatureFreezeChecksum.Length > 3)
+            if (b.signatureFreezeChecksum != null)
             {
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 if (targetBlock == null)
@@ -818,8 +808,8 @@ namespace DLT
                     Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
                     return false;
                 }
-                string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
-                if (b.signatureFreezeChecksum != sigFreezeChecksum)
+                byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+                if (!b.signatureFreezeChecksum.SequenceEqual(sigFreezeChecksum))
                 {
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
                         b.blockNum, b.signatureFreezeChecksum, sigFreezeChecksum, b.blockNum - 5));
@@ -899,7 +889,7 @@ namespace DLT
 
         public void applyTransactionFeeRewards(Block b, bool ws_snapshot = false)
         {
-            string sigfreezechecksum = "0";
+            byte[] sigfreezechecksum = null;
             lock (localBlockLock)
             {
                 // Should never happen
@@ -920,7 +910,7 @@ namespace DLT
                 return;
             }
 
-            if (sigfreezechecksum.Length < 3)
+            if (sigfreezechecksum == null)
             {
                 Logging.warn("Current block does not have sigfreeze checksum.");
                 return;
@@ -933,9 +923,9 @@ namespace DLT
             if (targetBlock == null)
                 return;
 
-            string targetSigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+            byte[] targetSigFreezeChecksum = targetBlock.calculateSignatureChecksum();
 
-            if (sigfreezechecksum.Equals(targetSigFreezeChecksum, StringComparison.Ordinal) == false)
+            if (sigfreezechecksum.SequenceEqual(targetSigFreezeChecksum) == false)
             {
                 Logging.warn(string.Format("Signature freeze mismatch for block {0}. Current block height: {1}", targetBlock.blockNum, b.blockNum));
                 // TODO: fetch the block again or re-sync
@@ -1008,25 +998,16 @@ namespace DLT
             }
 
             // Go through each signature in the block
-            foreach (string sig in targetBlock.signatures)
+            foreach (byte[][] sig in targetBlock.signatures)
             {
-                // Extract the public key
-                string[] parts = sig.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                string pubkey = parts[1];
-                if(pubkey.Length < 1)
-                {
-                    // TODO: find out what to do here. Perhaps send fee to the foundation wallet?
-                    continue;
-                }
-
                 // Generate the corresponding Ixian address
-                Address addr = new Address(pubkey);
+                Address addr = new Address(sig[1]);
 
                 // Update the walletstate and deposit the award
-                Wallet signer_wallet = Node.walletState.getWallet(addr.ToString(), ws_snapshot);
+                Wallet signer_wallet = Node.walletState.getWallet(addr.address, ws_snapshot);
                 IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
-                Node.walletState.setWalletBalance(addr.ToString(), balance_after, ws_snapshot, signer_wallet.nonce);
+                Node.walletState.setWalletBalance(addr.address, balance_after, ws_snapshot, signer_wallet.nonce);
 
                 //Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
             }
@@ -1167,23 +1148,23 @@ namespace DLT
         }
 
         // Retrieve the signature freeze of the 5th last block
-        public string getSignatureFreeze()
+        public byte[] getSignatureFreeze()
         {
             // Prevent calculations if we don't have 5 fully generated blocks yet
             if(Node.blockChain.getLastBlockNum() < 5)
             {
-                return "0";
+                return null;
             }
 
             // Last block num - 4 gets us the 5th last block
             Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
             if (targetBlock == null)
             {
-                return "0";
+                return null;
             }
 
             // Calculate the signature checksum
-            string sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
+            byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
             return sigFreezeChecksum;
         }
 
@@ -1220,16 +1201,16 @@ namespace DLT
             //Console.ForegroundColor = ConsoleColor.Magenta;
             //Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
             // Retrieve the list of signature wallets
-            List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+            List<byte[]> signatureWallets = targetBlock.getSignaturesWalletAddresses();
 
             IxiNumber totalIxisStaked = new IxiNumber(0);
-            string[] stakeWallets = new string[signatureWallets.Count];
+            byte[][] stakeWallets = new byte[signatureWallets.Count][];
             BigInteger[] stakes = new BigInteger[signatureWallets.Count];
             BigInteger[] awards = new BigInteger[signatureWallets.Count];
             BigInteger[] awardRemainders = new BigInteger[signatureWallets.Count];
             // First pass, go through each wallet to find its balance
             int stakers = 0;
-            foreach (string wallet_addr in signatureWallets)
+            foreach (byte[] wallet_addr in signatureWallets)
             {
                 Wallet wallet = Node.walletState.getWallet(wallet_addr, ws_snapshot);
                 if (wallet.balance.getAmount() > 0)
@@ -1282,13 +1263,13 @@ namespace DLT
                 IxiNumber award = new IxiNumber(awards[i]);
                 if (award > (long)0)
                 {
-                    string wallet_addr = stakeWallets[i];
+                    byte[] wallet_addr = stakeWallets[i];
                     //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
                     Transaction tx = new Transaction();
                     tx.type = (int)Transaction.Type.StakingReward;
                     tx.to = wallet_addr;
-                    tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+                    tx.from = Config.ixianInfiniMineAddress;
                     tx.amount = award;
 
                     
@@ -1297,13 +1278,12 @@ namespace DLT
                     if (tx.blockHeight < Legacy.up20181017)
                         tx.blockHeight = 0;
 
-                    string data = string.Format("{0}", targetBlock.blockNum);
-                    tx.data = data;
+                    tx.data = BitConverter.GetBytes(targetBlock.blockNum);
 
-                    tx.timeStamp = Node.getCurrentTimestamp().ToString();
+                    tx.timeStamp = Node.getCurrentTimestamp();
                     tx.id = tx.generateID(); // Staking-specific txid
                     tx.checksum = Transaction.calculateChecksum(tx);
-                    tx.signature = "Stake";
+                    tx.signature = Encoding.UTF8.GetBytes("Stake");
 
                     transactions.Add(tx);
 

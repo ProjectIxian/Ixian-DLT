@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,12 +62,12 @@ namespace DLT
                         blocks[blocks.Count - 1].blockNum));
                     return false;
                 }
-                if (b.lastBlockChecksum != blocks[blocks.Count - 1].blockChecksum)
+                if (!b.lastBlockChecksum.SequenceEqual(blocks[blocks.Count - 1].blockChecksum))
                 {
                     Logging.error(String.Format("Attempting to add a block #{0}with invalid lastBlockChecksum!", b.blockNum));
                     return false;
                 }
-                if (b.signatureFreezeChecksum.Length > 3 && blocks.Count > 5 && blocks[blocks.Count - 5].calculateSignatureChecksum() != b.signatureFreezeChecksum)
+                if (b.signatureFreezeChecksum != null && blocks.Count > 5 && !blocks[blocks.Count - 5].calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
                 {
                     Logging.error(String.Format("Attempting to add a block #{0}with invalid sigFreezeChecksum!", b.blockNum));
                     return false;
@@ -130,18 +131,18 @@ namespace DLT
             }
         }
 
-        public string getLastBlockChecksum()
+        public byte[] getLastBlockChecksum()
         {
-            if (blocks.Count == 0) return "";
+            if (blocks.Count == 0) return null;
             lock(blocks)
             {
                 return blocks[blocks.Count - 1].blockChecksum;
             }
         }
 
-        public string getCurrentWalletState()
+        public byte[] getCurrentWalletState()
         {
-            if (blocks.Count == 0) return "";
+            if (blocks.Count == 0) return null;
             lock(blocks)
             {
                 return blocks[blocks.Count - 1].walletStateChecksum;
@@ -174,10 +175,10 @@ namespace DLT
 
             lock (blocks)
             {
-                int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum == b.blockChecksum);
+                int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum.SequenceEqual(b.blockChecksum));
                 if (idx > 0)
                 {
-                    string beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
+                    byte[] beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     beforeSigs = blocks[idx].signatures.Count;
                     if (forceRefresh)
                     {
@@ -187,9 +188,9 @@ namespace DLT
                     {
                         blocks[idx].addSignaturesFrom(b);
                     }
-                    string afterSigsChecksum = blocks[idx].calculateSignatureChecksum();
+                    byte[] afterSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     afterSigs = blocks[idx].signatures.Count;
-                    if (beforeSigsChecksum != afterSigsChecksum)
+                    if (!beforeSigsChecksum.SequenceEqual(afterSigsChecksum))
                     {
                         updatestorage_block = blocks[idx];
                     }
@@ -209,29 +210,23 @@ namespace DLT
         }
 
         // Gets the elected node's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
-        public string getLastElectedNodePubKey(int offset = 0)
+        public byte[] getLastElectedNodePubKey(int offset = 0)
         {
             Block targetBlock = getBlock(getLastBlockNum() - 6);
             Block curBlock = getBlock(getLastBlockNum());
             if (targetBlock != null && curBlock != null)
             {
-                string sigFreezeChecksum = curBlock.signatureFreezeChecksum;
-                int sigNr = BitConverter.ToInt32(Encoding.UTF8.GetBytes(sigFreezeChecksum), 0) + offset;
+                byte[] sigFreezeChecksum = curBlock.signatureFreezeChecksum;
+                int sigNr = BitConverter.ToInt32(sigFreezeChecksum, 0) + offset;
 
                 // Sort the signatures first
-                List<string> sortedSigs = new List<string>(targetBlock.signatures);
-                sortedSigs.Sort();
+                List<byte[][]> sortedSigs = new List<byte[][]>(targetBlock.signatures);
+                sortedSigs.OrderBy(x => x[1], new ByteArrayComparer());
 
-                string sig = sortedSigs[sigNr % sortedSigs.Count];
-
-                string[] parts = sig.Split(Block.splitter, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length != 2)
-                {
-                    return null;
-                }
+                byte[][] sig = sortedSigs[(int)((uint)sigNr % sortedSigs.Count)];
 
                 // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-                string address = parts[1];
+                byte[] address = sig[1];
 
                 // Check if we have a public key instead of an address
                 if (address.Length > 70)
@@ -254,7 +249,7 @@ namespace DLT
             {
                 foreach (Block block in blocks)
                 {
-                    if(block.powField.Length > 0)
+                    if(block.powField != null)
                     {
                         // TODO: an additional verification would be nice
                         solved_blocks++;

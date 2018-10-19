@@ -140,6 +140,8 @@ namespace DLTNode
             // Clear the console first
             Console.Clear();
 
+            Console.WriteLine(Crypto.hashToString(Crypto.sha256(Config.ixianInfiniMineAddress)));
+
             // Start logging
             Logging.start();
 
@@ -238,7 +240,7 @@ namespace DLTNode
                 }*/
                 if (key.Key == ConsoleKey.W)
                 {
-                    string ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                    string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
                     Logging.info(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
                         Node.walletState.numWallets, Node.walletState.hasSnapshot, ws_checksum));
                 }
@@ -310,17 +312,17 @@ namespace DLTNode
 
             /// ECDSA Signature test
             // Generate a new signature
-            string signature = crypto_lib.getSignature("Hello There!", crypto_lib.getPrivateKey());
+            byte[] signature = crypto_lib.getSignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPrivateKey());
             Logging.log(LogSeverity.info, String.Format("Signature: {0}", signature));
 
             // Verify the signature
-            if(crypto_lib.verifySignature("Hello There!", crypto_lib.getPublicKey(), signature))
+            if(crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPublicKey(), signature))
             {
                 Logging.log(LogSeverity.info, "SIGNATURE IS VALID");
             }
 
             // Try a tamper test
-            if (crypto_lib.verifySignature("Hello Tamper!", crypto_lib.getPublicKey(), signature))
+            if (crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello Tamper!"), crypto_lib.getPublicKey(), signature))
             {
                 Logging.log(LogSeverity.info, "SIGNATURE IS VALID AND MATCHES ORIGINAL TEXT");
             }
@@ -330,11 +332,11 @@ namespace DLTNode
             }
 
             // Generate a new signature for the same text
-            string signature2 = crypto_lib.getSignature("Hello There!", crypto_lib.getPrivateKey());
+            byte[] signature2 = crypto_lib.getSignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPrivateKey());
             Logging.log(LogSeverity.info, String.Format("Signature Again: {0}", signature2));
 
             // Verify the signature again
-            if (crypto_lib.verifySignature("Hello There!", crypto_lib.getPublicKey(), signature2))
+            if (crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPublicKey(), signature2))
             {
                 Logging.log(LogSeverity.info, "SIGNATURE IS VALID");
             }

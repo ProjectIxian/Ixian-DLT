@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 
 namespace DLT.Meta
@@ -130,13 +131,15 @@ namespace DLT.Meta
             {
                 Logging.info(String.Format("Genesis {0} specified. Starting operation.", genesisFunds));
 
+                byte[] from = Config.ixianInfiniMineAddress;
+
                 Transaction tx = new Transaction();
                 tx.type = (int)Transaction.Type.Genesis;
                 tx.to = walletStorage.address;
-                tx.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+                tx.from = from;
                 tx.amount = genesisFunds;
-                tx.data = "";
-                tx.timeStamp = getCurrentTimestamp().ToString();
+                tx.data = null;
+                tx.timeStamp = getCurrentTimestamp();
                 tx.id = tx.generateID();
                 tx.checksum = Transaction.calculateChecksum(tx);
                 tx.signature = Transaction.getSignature(tx.checksum);
@@ -146,11 +149,11 @@ namespace DLT.Meta
                 {
                     Transaction txGen2 = new Transaction();
                     txGen2.type = (int)Transaction.Type.Genesis;
-                    txGen2.to = Config.genesis2Address;
-                    txGen2.from = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+                    txGen2.to = Crypto.stringToHash(Config.genesis2Address);
+                    txGen2.from = from;
                     txGen2.amount = genesisFunds;
-                    txGen2.data = "";
-                    txGen2.timeStamp = getCurrentTimestamp().ToString();
+                    txGen2.data = null;
+                    txGen2.timeStamp = getCurrentTimestamp();
                     txGen2.id = txGen2.generateID();
                     txGen2.checksum = Transaction.calculateChecksum(txGen2);
                     txGen2.signature = Transaction.getSignature(txGen2.checksum);
@@ -160,30 +163,30 @@ namespace DLT.Meta
                 if (Config.isTestNet)
                 {
                     // testnet seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, "887db956072794a10f66ce691566bda6b5899eb4d4b8e4249a9ef7c747c05bc9de07", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32","", 1);
+                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("887db956072794a10f66ce691566bda6b5899eb4d4b8e4249a9ef7c747c05bc9de07"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
-                    tx2.data = "";
-                    tx2.timeStamp = getCurrentTimestamp().ToString();
+                    tx2.data = null;
+                    tx2.timeStamp = getCurrentTimestamp();
                     tx2.id = tx2.generateID();
                     tx2.checksum = Transaction.calculateChecksum(tx2);
                     tx2.signature = Transaction.getSignature(tx2.checksum);
                     TransactionPool.addTransaction(tx2);
 
                     // test1
-                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, "251c16b56555e5ce1b5b5d73d9add6dab58bb6e0255f7399340b6a2a51a4ab9836e0", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("251c16b56555e5ce1b5b5d73d9add6dab58bb6e0255f7399340b6a2a51a4ab9836e0"), from, null, null, 1);
                     tx3.type = (int)Transaction.Type.Genesis;
-                    tx3.data = "";
-                    tx3.timeStamp = getCurrentTimestamp().ToString();
+                    tx3.data = null;
+                    tx3.timeStamp = getCurrentTimestamp();
                     tx3.id = tx3.generateID();
                     tx3.checksum = Transaction.calculateChecksum(tx3);
                     tx3.signature = Transaction.getSignature(tx3.checksum);
                     TransactionPool.addTransaction(tx3);
 
                     // test2 
-                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, "d255cc1c2de499c867bf65ce4c8aec09b5eacc381399307c27195176cef2457a6aef", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("d255cc1c2de499c867bf65ce4c8aec09b5eacc381399307c27195176cef2457a6aef"), from, null, null, 1);
                     tx4.type = (int)Transaction.Type.Genesis;
-                    tx4.data = "";
-                    tx4.timeStamp = getCurrentTimestamp().ToString();
+                    tx4.data = null;
+                    tx4.timeStamp = getCurrentTimestamp();
                     tx4.id = tx4.generateID();
                     tx4.checksum = Transaction.calculateChecksum(tx4);
                     tx4.signature = Transaction.getSignature(tx4.checksum);
@@ -192,60 +195,60 @@ namespace DLT.Meta
                 else
                 {
                     // seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, "810eae79b4c5cdc6c119137f56362f436df36edf148a31531c397da2a9101446e7c7", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("810eae79b4c5cdc6c119137f56362f436df36edf148a31531c397da2a9101446e7c7"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
-                    tx2.data = "";
-                    tx2.timeStamp = getCurrentTimestamp().ToString();
+                    tx2.data = null;
+                    tx2.timeStamp = getCurrentTimestamp();
                     tx2.id = tx2.generateID();
                     tx2.checksum = Transaction.calculateChecksum(tx2);
                     tx2.signature = Transaction.getSignature(tx2.checksum);
                     TransactionPool.addTransaction(tx2);
 
                     // seed3
-                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, "7f0068bbbd0656d2d1eba0a8ac97e7611fff38eaf7879f8b822d010cdb97eb619d44", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("7f0068bbbd0656d2d1eba0a8ac97e7611fff38eaf7879f8b822d010cdb97eb619d44"), from, null, null, 1);
                     tx3.type = (int)Transaction.Type.Genesis;
-                    tx3.data = "";
-                    tx3.timeStamp = getCurrentTimestamp().ToString();
+                    tx3.data = null;
+                    tx3.timeStamp = getCurrentTimestamp();
                     tx3.id = tx3.generateID();
                     tx3.checksum = Transaction.calculateChecksum(tx3);
                     tx3.signature = Transaction.getSignature(tx3.checksum);
                     TransactionPool.addTransaction(tx3);
 
                     // seed4
-                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, "e9bd0c5d111913175713066fc31785ec8e609f86720531b195c04f20bed53a3984c4", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("e9bd0c5d111913175713066fc31785ec8e609f86720531b195c04f20bed53a3984c4"), from, null, null, 1);
                     tx4.type = (int)Transaction.Type.Genesis;
-                    tx4.data = "";
-                    tx4.timeStamp = getCurrentTimestamp().ToString();
+                    tx4.data = null;
+                    tx4.timeStamp = getCurrentTimestamp();
                     tx4.id = tx4.generateID();
                     tx4.checksum = Transaction.calculateChecksum(tx4);
                     tx4.signature = Transaction.getSignature(tx4.checksum);
                     TransactionPool.addTransaction(tx4);
 
                     // seed5
-                    Transaction tx5 = new Transaction(Config.minimumMasterNodeFunds, 0, "38db54c2713cf20ce0e7e76781c71d0196b7407c9c1e7d95fe0d21e2bfd283710ba3", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx5 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("38db54c2713cf20ce0e7e76781c71d0196b7407c9c1e7d95fe0d21e2bfd283710ba3"), from, null, null, 1);
                     tx5.type = (int)Transaction.Type.Genesis;
-                    tx5.data = "";
-                    tx5.timeStamp = getCurrentTimestamp().ToString();
+                    tx5.data = null;
+                    tx5.timeStamp = getCurrentTimestamp();
                     tx5.id = tx5.generateID();
                     tx5.checksum = Transaction.calculateChecksum(tx5);
                     tx5.signature = Transaction.getSignature(tx5.checksum);
                     TransactionPool.addTransaction(tx5);
 
                     // Team Reward
-                    Transaction tx6 = new Transaction(new IxiNumber("1000000000"), 0, "e4014e75dfff822d24f2e74c8e5e7212114d0b140154c327dc7b2621fff3a2484339", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx6 = new Transaction(new IxiNumber("1000000000"), 0, Crypto.stringToHash("e4014e75dfff822d24f2e74c8e5e7212114d0b140154c327dc7b2621fff3a2484339"), from, null, null, 1);
                     tx6.type = (int)Transaction.Type.Genesis;
-                    tx6.data = "";
-                    tx6.timeStamp = getCurrentTimestamp().ToString();
+                    tx6.data = null;
+                    tx6.timeStamp = getCurrentTimestamp();
                     tx6.id = tx6.generateID();
                     tx6.checksum = Transaction.calculateChecksum(tx6);
                     tx6.signature = Transaction.getSignature(tx6.checksum);
                     TransactionPool.addTransaction(tx6);
 
                     // Development
-                    Transaction tx7 = new Transaction(new IxiNumber("1000000000"), 0, "85871f25721ca4a3f1016feedb00ea7c51165947d36039c779fd3a1759606c0cf693", "IxianInfiniMine2342342342342342342342342342342342342342342342342db32", "", 1);
+                    Transaction tx7 = new Transaction(new IxiNumber("1000000000"), 0, Crypto.stringToHash("85871f25721ca4a3f1016feedb00ea7c51165947d36039c779fd3a1759606c0cf693"), from, null, null, 1);
                     tx7.type = (int)Transaction.Type.Genesis;
-                    tx7.data = "";
-                    tx7.timeStamp = getCurrentTimestamp().ToString();
+                    tx7.data = null;
+                    tx7.timeStamp = getCurrentTimestamp();
                     tx7.id = tx7.generateID();
                     tx7.checksum = Transaction.calculateChecksum(tx7);
                     tx7.signature = Transaction.getSignature(tx7.checksum);
@@ -253,7 +256,7 @@ namespace DLT.Meta
                 }
 
                 genesisNode = true;
-                Node.blockProcessor.resumeOperation();
+                blockProcessor.resumeOperation();
                 serverStarted = true;
                 NetworkServer.beginNetworkOperations();
             }
@@ -552,8 +555,8 @@ namespace DLT.Meta
 
         public static bool isElectedToGenerateNextBlock(int offset = 0)
         {
-            string pubKey = blockChain.getLastElectedNodePubKey(offset);
-            if(pubKey == null || pubKey == walletStorage.publicKey)
+            byte[] pubKey = blockChain.getLastElectedNodePubKey(offset);
+            if(pubKey == null || pubKey.SequenceEqual(walletStorage.publicKey))
             {
                 return true;
             }
@@ -602,20 +605,22 @@ namespace DLT.Meta
                     {
                         using (BinaryWriter writer = new BinaryWriter(m))
                         {
-                            string wallet = Node.walletStorage.address;
+                            byte[] wallet = walletStorage.address;
+                            writer.Write(wallet.Length);
                             writer.Write(wallet);
                             writer.Write(Config.device_id);
 
                             // Add the unix timestamp
-                            string timestamp = Node.getCurrentTimestamp().ToString();
+                            long timestamp = Node.getCurrentTimestamp();
                             writer.Write(timestamp);
 
                             string hostname = Node.getFullAddress();
                             writer.Write(hostname);
 
                             // Add a verifiable signature
-                            string private_key = Node.walletStorage.privateKey;
-                            string signature = CryptoManager.lib.getSignature(Config.device_id + "-" + timestamp + "-" + hostname, private_key);
+                            byte[] private_key = walletStorage.privateKey;
+                            byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.device_id + "-" + timestamp + "-" + hostname), private_key);
+                            writer.Write(signature.Length);
                             writer.Write(signature);
 
                             PresenceList.curNodePresenceAddress.lastSeenTime = timestamp;

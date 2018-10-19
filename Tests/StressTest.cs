@@ -158,7 +158,7 @@ namespace DLTNode
                            writer.Write(publicHostname);
 
                            // Send the public node address
-                           string address = Node.walletStorage.address;
+                           byte[] address = Node.walletStorage.address;
                            writer.Write(address);
 
                            // Send the testnet designator
@@ -184,13 +184,13 @@ namespace DLTNode
             Transaction tx = new Transaction();
             tx.type = (int)Transaction.Type.PoWSolution;
             tx.from = Node.walletStorage.getWalletAddress();
-            tx.to = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+            tx.to = Config.ixianInfiniMineAddress;
             tx.amount = "0";
 
-            string data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
-            tx.data = data;
+            //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
+            //tx.data = data;
 
-            tx.timeStamp = Node.getCurrentTimestamp().ToString();
+            tx.timeStamp = Node.getCurrentTimestamp();
             tx.id = tx.generateID();
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);
@@ -214,19 +214,19 @@ namespace DLTNode
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = Config.transactionPrice;
-                string to = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481";
-                string from = Node.walletStorage.getWalletAddress();
+                byte[] to = Config.foundationAddress;
+                byte[] from = Node.walletStorage.getWalletAddress();
 
-                string data = Node.walletStorage.publicKey;
+                byte[] pubKey = Node.walletStorage.publicKey;
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from, true);
-                if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                if (mywallet.publicKey.SequenceEqual(pubKey))
                 {
                     // Walletstate public key matches, we don't need to send the public key in the transaction
-                    data = "";
+                    pubKey = null;
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
+                Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                 // Console.WriteLine("> sending {0}", transaction.id);
                 TransactionPool.addTransaction(transaction);
                 nonce++;
@@ -257,19 +257,19 @@ namespace DLTNode
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = Config.transactionPrice;
-                string to = "08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481";
-                string from = Node.walletStorage.getWalletAddress();
+                byte[] to = Encoding.UTF8.GetBytes("08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481");
+                byte[] from = Node.walletStorage.getWalletAddress();
 
-                string data = Node.walletStorage.publicKey;
+                byte[] pubKey = Node.walletStorage.publicKey;
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from, true);
-                if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                if (mywallet.publicKey.SequenceEqual(pubKey))
                 {
                     // Walletstate public key matches, we don't need to send the public key in the transaction
-                    data = "";
+                    pubKey = null;
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
+                Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                 byte[] bytes = transaction.getBytes();
                 
                 Console.WriteLine("> writing tx {0}", transaction.id);

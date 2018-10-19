@@ -1,5 +1,6 @@
 using Fclp;
 using System;
+using System.Text;
 
 namespace DLT
 {
@@ -59,12 +60,14 @@ namespace DLT
             public static readonly ulong redactedWindowSize = 43200; // approx 15 days. Represents the redacted window size of this node
             public static readonly ulong minimumRedactedWindowSize = 43200; // Represents the minimum redacted window size on any node
 
+            public static readonly byte[] ixianInfiniMineAddress = Crypto.stringToHash("497869616e496e66696e694d696e652342342342342342342342342342342342dbb0");
+
 
             // Transactions and fees
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("20000"); // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
             public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
-            public static readonly string foundationAddress = "018902fd36a0541fa6f95eb8fd15fbee02976979553488098216fc69e686604a56c0"; // Foundation wallet address
+            public static readonly byte[] foundationAddress = Crypto.stringToHash("018902fd36a0541fa6f95eb8fd15fbee02976979553488098216fc69e686604a56c0"); // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block TODO TODO TODO deprecate soon, we have other systems in place for throttling
             public static readonly ulong maximumTransactionsPerBlock = 2000; // Limit the maximum number of transactions in a newly generated block

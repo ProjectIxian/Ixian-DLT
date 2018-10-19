@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLTNode;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,10 +13,10 @@ namespace DLT
     class WalletState
     {
         private readonly object stateLock = new object();
-        private readonly Dictionary<string, Wallet> walletState = new Dictionary<string, Wallet>(); // The entire wallet list
-        private string cachedChecksum = "";
-        private Dictionary<string, Wallet> wsDelta = null;
-        private string cachedDeltaChecksum = "";
+        private readonly Dictionary<byte[], Wallet> walletState = new Dictionary<byte[], Wallet>(new ByteArrayComparer()); // The entire wallet list
+        private byte[] cachedChecksum = null;
+        private Dictionary<byte[], Wallet> wsDelta = null;
+        private byte[] cachedDeltaChecksum = null;
 
         private IxiNumber cachedTotalSupply = new IxiNumber(0);
 
@@ -49,10 +50,10 @@ namespace DLT
         // Construct the walletstate from and older one
         public WalletState(WalletState oldWS)
         {
-            walletState = new Dictionary<string, Wallet>(oldWS.walletState);
+            walletState = new Dictionary<byte[], Wallet>(oldWS.walletState);
             cachedChecksum = oldWS.cachedChecksum;
             cachedTotalSupply = oldWS.cachedTotalSupply;
-            wsDelta = new Dictionary<string, Wallet>(oldWS.wsDelta);
+            wsDelta = new Dictionary<byte[], Wallet>(oldWS.wsDelta, new ByteArrayComparer());
             cachedDeltaChecksum = oldWS.cachedDeltaChecksum;
         }
 
@@ -62,10 +63,10 @@ namespace DLT
             lock(stateLock)
             {
                 walletState.Clear();
-                cachedChecksum = "";
+                cachedChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
                 wsDelta = null;
-                cachedDeltaChecksum = "";
+                cachedDeltaChecksum = null;
 
             }
         }
@@ -80,7 +81,7 @@ namespace DLT
                     return false;
                 }
                 Logging.info("Creating a WalletState snapshot.");
-                wsDelta = new Dictionary<string, Wallet>();
+                wsDelta = new Dictionary<byte[], Wallet>(new ByteArrayComparer());
                 return true;
             }
         }
@@ -93,7 +94,7 @@ namespace DLT
                 {
                     Logging.info(String.Format("Reverting WalletState snapshot ({0} wallets).", wsDelta.Count));
                     wsDelta = null;
-                    cachedDeltaChecksum = "";
+                    cachedDeltaChecksum = null;
                 }
             }
         }
@@ -110,21 +111,21 @@ namespace DLT
                         walletState.AddOrReplace(wallet.Key, wallet.Value);
                     }
                     wsDelta = null;
-                    cachedDeltaChecksum = "";
-                    cachedChecksum = "";
+                    cachedDeltaChecksum = null;
+                    cachedChecksum = null;
                     cachedTotalSupply = new IxiNumber(0);
                 }
             }
         }
 
-        public IxiNumber getWalletBalance(string id, bool snapshot = false)
+        public IxiNumber getWalletBalance(byte[] id, bool snapshot = false)
         {
             return getWallet(id, snapshot).balance;
         }
 
 
 
-        public Wallet getWallet(string id, bool snapshot = false)
+        public Wallet getWallet(byte[] id, bool snapshot = false)
         {
             lock (stateLock)
             {
@@ -164,7 +165,7 @@ namespace DLT
 
 
         // Sets the wallet balance for a specified wallet
-        public void setWalletBalance(string id, IxiNumber balance, bool snapshot = false, ulong nonce = 0)
+        public void setWalletBalance(byte[] id, IxiNumber balance, bool snapshot = false, ulong nonce = 0)
         {
             lock (stateLock)
             {
@@ -189,9 +190,9 @@ namespace DLT
                 if (snapshot == false)
                 {
                     walletState.AddOrReplace(id, wallet);
-                    cachedChecksum = "";
+                    cachedChecksum = null;
                     cachedTotalSupply = new IxiNumber(0);
-                    cachedDeltaChecksum = "";
+                    cachedDeltaChecksum = null;
                 }
                 else
                 {
@@ -201,13 +202,13 @@ namespace DLT
                         return;
                     }
                     wsDelta.AddOrReplace(id, wallet);
-                    cachedDeltaChecksum = "";
+                    cachedDeltaChecksum = null;
                 }
             }
         }
 
         // Sets the wallet nonce
-        public void setWalletNonce(string id, ulong nonce, bool snapshot = false)
+        public void setWalletNonce(byte[] id, ulong nonce, bool snapshot = false)
         {
             lock (stateLock)
             {
@@ -224,7 +225,7 @@ namespace DLT
         }
 
         // Sets the wallet public key for a specified wallet
-        public void setWalletPublicKey(string id, string public_key, bool snapshot = false)
+        public void setWalletPublicKey(byte[] id, byte[] public_key, bool snapshot = false)
         {
             lock(stateLock)
             {
@@ -242,9 +243,9 @@ namespace DLT
                 if (snapshot == false)
                 {
                     walletState.AddOrReplace(id, wallet);
-                    cachedChecksum = "";
+                    cachedChecksum = null;
                     cachedTotalSupply = new IxiNumber(0);
-                    cachedDeltaChecksum = "";
+                    cachedDeltaChecksum = null;
                 }
                 else
                 {
@@ -254,30 +255,30 @@ namespace DLT
                         return;
                     }
                     wsDelta.AddOrReplace(id, wallet);
-                    cachedDeltaChecksum = "";
+                    cachedDeltaChecksum = null;
                 }
             }
         }
 
-        public string calculateWalletStateChecksum(bool snapshot = false)
+        public byte[] calculateWalletStateChecksum(bool snapshot = false)
         {
             lock (stateLock)
             {
-                if (snapshot == false && cachedChecksum != "")
+                if (snapshot == false && cachedChecksum != null)
                 {
                     return cachedChecksum;
                 }
-                else if (snapshot == true && cachedDeltaChecksum != "")
+                else if (snapshot == true && cachedDeltaChecksum != null)
                 {
                     return cachedDeltaChecksum;
                 }
                 // TODO: This could get unwieldy above ~100M wallet addresses. We have to implement sharding by then.
-                SortedSet<string> eligible_addresses = new SortedSet<string>(walletState.Keys);
+                SortedSet<byte[]> eligible_addresses = new SortedSet<byte[]>(walletState.Keys, new ByteArrayComparer());
                 if (snapshot == true)
                 {
                     if (wsDelta != null)
                     {
-                        foreach (string addr in wsDelta.Keys)
+                        foreach (byte[] addr in wsDelta.Keys)
                         {
                             eligible_addresses.Add(addr);
                         }
@@ -285,11 +286,11 @@ namespace DLT
                 }
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
                 // Note: addresses are fixed size
-                string checksum = Crypto.sha256("IXIAN-DLT");
-                foreach (string addr in eligible_addresses)
+                byte[] checksum = Crypto.sha256(Encoding.UTF8.GetBytes("IXIAN-DLT"));
+                foreach (byte[] addr in eligible_addresses)
                 {
-                    string wallet_checksum = getWallet(addr, snapshot).calculateChecksum();
-                    checksum = Crypto.sha256(checksum + wallet_checksum);
+                    byte[] wallet_checksum = getWallet(addr, snapshot).calculateChecksum();
+                    checksum = Crypto.sha256(Encoding.UTF8.GetBytes(Crypto.hashToString(checksum) + Crypto.hashToString(wallet_checksum)));
                 }
                 if (snapshot == false)
                 {
@@ -341,8 +342,8 @@ namespace DLT
                 {
                     walletState.AddOrReplace(w.id, w);
                 }
-                cachedChecksum = "";
-                cachedDeltaChecksum = "";
+                cachedChecksum = null;
+                cachedDeltaChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
             }
         }

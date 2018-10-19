@@ -305,11 +305,30 @@ namespace DLT
                         writer.Write(chunk.wallets.Length);
                         foreach(Wallet w in chunk.wallets)
                         {
+                            writer.Write(w.id.Length);
                             writer.Write(w.id);
                             writer.Write(w.balance.ToString());
-                            writer.Write(w.data);
+
+                            if (w.data != null)
+                            {
+                                writer.Write(w.data.Length);
+                                writer.Write(w.data);
+                            }else
+                            {
+                                writer.Write((int)0);
+                            }
+
                             writer.Write(w.nonce);
-                            writer.Write(w.publicKey);
+
+                            if (w.publicKey != null)
+                            {
+                                writer.Write(w.publicKey.Length);
+                                writer.Write(w.publicKey);
+                            }
+                            else
+                            {
+                                writer.Write((int)0);
+                            }
                         }
                         //
                         endpoint.sendData(ProtocolMessageCode.walletStateChunk, m.ToArray());
@@ -454,16 +473,20 @@ namespace DLT
                         }
                     }
 
-                    string addr = reader.ReadString();
+                    int addrLen = reader.ReadInt32();
+                    byte[] addr = reader.ReadBytes(addrLen);
                     bool test_net = reader.ReadBoolean();
                     char node_type = reader.ReadChar();
                     string node_version = reader.ReadString();
                     string device_id = reader.ReadString();
-                    string s2pubkey = reader.ReadString();
-                    string pubkey = reader.ReadString();
+                    int s2pkLen = reader.ReadInt32();
+                    byte[] s2pubkey = reader.ReadBytes(s2pkLen);
+                    int pkLen = reader.ReadInt32();
+                    byte[] pubkey = reader.ReadBytes(pkLen);
                     int port = reader.ReadInt32();
                     long timestamp = reader.ReadInt64();
-                    string signature = reader.ReadString();
+                    int sigLen = reader.ReadInt32();
+                    byte[] signature = reader.ReadBytes(sigLen);
 
                     // Check the testnet designator and disconnect on mismatch
                     if (test_net != Config.isTestNet)
@@ -488,7 +511,7 @@ namespace DLT
                     endpoint.incomingPort = port;
 
                     // Verify the signature
-                    if (CryptoManager.lib.verifySignature(device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true), pubkey, signature) == false)
+                    if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
                     {
                         using (MemoryStream m2 = new MemoryStream())
                         {
@@ -518,10 +541,10 @@ namespace DLT
                     }
 
                     // Store the presence address for this remote endpoint
-                    endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version, timestamp.ToString(), signature);
+                    endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version, timestamp, signature);
 
                     // Create a temporary presence with the client's address and device id
-                    Presence presence = new Presence(addr, s2pubkey, pubkey, endpoint.presenceAddress);
+                    Presence presence = new Presence(addr, pubkey, pubkey, endpoint.presenceAddress);
 
 
 
@@ -600,7 +623,8 @@ namespace DLT
                         writer.Write(Config.protocolVersion);
 
                         // Send the public node address
-                        string address = Node.walletStorage.address;
+                        byte[] address = Node.walletStorage.address;
+                        writer.Write(address.Length);
                         writer.Write(address);
 
                         // Send the testnet designator
@@ -621,9 +645,11 @@ namespace DLT
                         writer.Write(Config.device_id);
 
                         // Send the S2 public key
+                        writer.Write(Node.walletStorage.encPublicKey.Length);
                         writer.Write(Node.walletStorage.encPublicKey);
 
                         // Send the wallet public key
+                        writer.Write(Node.walletStorage.publicKey.Length);
                         writer.Write(Node.walletStorage.publicKey);
 
                         // Send listening port
@@ -634,7 +660,8 @@ namespace DLT
                         writer.Write(timestamp);
 
                         // send signature
-                        string signature = CryptoManager.lib.getSignature(Config.device_id + "-" + timestamp + "-" + publicHostname, Node.walletStorage.privateKey);
+                        byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.device_id + "-" + timestamp + "-" + publicHostname), Node.walletStorage.privateKey);
+                        writer.Write(signature.Length);
                         writer.Write(signature);
 
 
@@ -652,8 +679,12 @@ namespace DLT
                             lastBlock = block.blockNum;
                             writer.Write(lastBlock);
 
+                            writer.Write(block.blockChecksum.Length);
                             writer.Write(block.blockChecksum);
+
+                            writer.Write(block.walletStateChecksum.Length);
                             writer.Write(block.walletStateChecksum);
+
                             writer.Write(Node.blockChain.getRequiredConsensus());
 
                             // Write the legacy level
@@ -705,8 +736,10 @@ namespace DLT
                                     if (processHelloMessage(endpoint, reader))
                                     {
                                         ulong last_block_num = reader.ReadUInt64();
-                                        string block_checksum = reader.ReadString();
-                                        string walletstate_checksum = reader.ReadString();
+                                        int bcLen = reader.ReadInt32();
+                                        byte[] block_checksum = reader.ReadBytes(bcLen);
+                                        int wsLen = reader.ReadInt32();
+                                        byte[] walletstate_checksum = reader.ReadBytes(wsLen);
                                         int consensus = reader.ReadInt32();
 
                                         long myTimestamp = Node.getCurrentTimestamp();
@@ -740,7 +773,8 @@ namespace DLT
                                         // Check for legacy node
                                         if(Legacy.isLegacy(legacy_level))
                                         {
-                                            endpoint.setLegacy(true);
+                                            // TODO TODO TODO TODO check this out
+                                            //endpoint.setLegacy(true);
                                         }
 
                                         // Process the hello data
@@ -766,7 +800,7 @@ namespace DLT
                                             Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
                                             return;
                                         }
-                                        Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Substring(4)));
+                                        Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, block.blockChecksum.Take(4)));
                                         // Send the block
                                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
 
@@ -791,7 +825,8 @@ namespace DLT
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
-                                        string address = reader.ReadString();
+                                        int addrLen = reader.ReadInt32();
+                                        byte[] address = reader.ReadBytes(addrLen);
 
                                         // Retrieve the latest balance
                                         IxiNumber balance = Node.walletState.getWalletBalance(address);
@@ -801,6 +836,7 @@ namespace DLT
                                         {
                                             using (BinaryWriter writerw = new BinaryWriter(mw))
                                             {
+                                                writerw.Write(address.Length);
                                                 writerw.Write(address);
                                                 writerw.Write(balance.ToString());
 
@@ -846,7 +882,7 @@ namespace DLT
                                     return;
                                 }*/
 
-                                Transaction transaction = new Transaction(data, endpoint.isLegacy());
+                                Transaction transaction = new Transaction(data);
                                 if (transaction == null)
                                     return;
                                 TransactionPool.addTransaction(transaction, false, endpoint);
@@ -862,7 +898,7 @@ namespace DLT
 
                         case ProtocolMessageCode.transactionData:
                             {
-                                Transaction transaction = new Transaction(data, endpoint.isLegacy());
+                                Transaction transaction = new Transaction(data);
                                 if (transaction == null)
                                     return;
 
@@ -1011,15 +1047,30 @@ namespace DLT
                                         Wallet[] wallets = new Wallet[num_wallets];
                                         for(int i =0;i<num_wallets;i++)
                                         {
-                                            string w_id = reader.ReadString();
+                                            int w_idLen = reader.ReadInt32();
+                                            byte[] w_id = reader.ReadBytes(w_idLen);
+
                                             IxiNumber w_balance = new IxiNumber(reader.ReadString());
-                                            string w_data = reader.ReadString();
-                                            ulong w_nonce = reader.ReadUInt64();
-                                            string w_publickey = reader.ReadString();
+
                                             wallets[i] = new Wallet(w_id, w_balance);
-                                            wallets[i].data = w_data;
+
+                                            int w_dataLen = reader.ReadInt32();
+                                            if (w_dataLen > 0)
+                                            {
+                                                byte[] w_data = reader.ReadBytes(w_dataLen);
+                                                wallets[i].data = w_data;
+                                            }
+
+                                            ulong w_nonce = reader.ReadUInt64();
                                             wallets[i].nonce = w_nonce;
-                                            wallets[i].publicKey = w_publickey;
+
+                                            int w_publickeyLen = reader.ReadInt32();
+                                            if (w_publickeyLen > 0)
+                                            {
+                                                byte[] w_publickey = reader.ReadBytes(w_publickeyLen);
+                                                wallets[i].publicKey = w_publickey;
+                                            }
+
                                         }
                                         WsChunk c = new WsChunk
                                         {
@@ -1087,9 +1138,10 @@ namespace DLT
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
-                                        string wallet = reader.ReadString();
+                                        int walletLen = reader.ReadInt32();
+                                        byte[] wallet = reader.ReadBytes(walletLen);
                                         // TODO re-verify this
-                                        Presence p = PresenceList.presences.Find(x => x.wallet == wallet);
+                                        Presence p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(wallet));
                                         if (p != null)
                                         {
                                             endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes());
@@ -1135,7 +1187,7 @@ namespace DLT
                                                 break;
                                             }
                                             byte[] txData = reader.ReadBytes(len);
-                                            Transaction tx = new Transaction(txData, endpoint.isLegacy());
+                                            Transaction tx = new Transaction(txData);
                                             if(tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                                             {
                                                 continue;

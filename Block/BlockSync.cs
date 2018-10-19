@@ -289,7 +289,7 @@ namespace DLT
                 if (tb != null)
                 {
                     Node.blockChain.refreshSignatures(tb, true);
-                    if (tb.blockChecksum == Node.blockChain.getBlock(tb.blockNum).blockChecksum && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                    if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                     {
                         Node.blockProcessor.handleSigFreezedBlock(tb);
                     }
@@ -328,8 +328,8 @@ namespace DLT
                 if (Config.recoverFromFile)
                 {
                     Node.blockProcessor.applyAcceptedBlock(b);
-                    string wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                    if (wsChecksum != b.walletStateChecksum)
+                    byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                    if (!wsChecksum.SequenceEqual(b.walletStateChecksum))
                     {
                         Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actualy WS: {2}", b.blockNum, b.walletStateChecksum, wsChecksum));
                         synchronizing = false;
@@ -339,8 +339,8 @@ namespace DLT
                 {
                     if (syncToBlock == b.blockNum)
                     {
-                        string wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                        if (wsChecksum != b.walletStateChecksum)
+                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                        if (!wsChecksum.SequenceEqual(b.walletStateChecksum))
                         {
                             Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
                             lock (pendingBlocks)
@@ -403,7 +403,7 @@ namespace DLT
         private bool verifyLastBlock()
         {
             Block b = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
-            if(b.walletStateChecksum != Node.walletState.calculateWalletStateChecksum())
+            if(!b.walletStateChecksum.SequenceEqual(Node.walletState.calculateWalletStateChecksum()))
             {
                 // TODO TODO TODO resync?
                 Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, b.walletStateChecksum, Node.walletState.calculateWalletStateChecksum()));
@@ -605,7 +605,7 @@ namespace DLT
             }
         }
 
-        public void onHelloDataReceived(ulong block_height, string block_checksum, string walletstate_checksum, int consensus)
+        public void onHelloDataReceived(ulong block_height, byte[] block_checksum, byte[] walletstate_checksum, int consensus)
         {
             Logging.info("SYNC HEADER DATA");
             Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));

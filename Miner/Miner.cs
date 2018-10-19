@@ -177,8 +177,8 @@ namespace DLT
         private void calculatePow()
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
-            string block_checksum = activeBlock.blockChecksum;
-            string solver_address = Node.walletStorage.address;
+            byte[] block_checksum = activeBlock.blockChecksum;
+            byte[] solver_address = Node.walletStorage.address;
             string p1 = string.Format("{0}{1}", block_checksum, solver_address);
             string nonce = randomNonce(128);
             string hash = findHash(p1, nonce);
@@ -279,7 +279,7 @@ namespace DLT
             Transaction tx = new Transaction();
             tx.type = (int)Transaction.Type.PoWSolution;
             tx.from = Node.walletStorage.getWalletAddress();
-            tx.to = "IxianInfiniMine2342342342342342342342342342342342342342342342342db32";
+            tx.to = Config.ixianInfiniMineAddress;
             tx.amount = "0";
             tx.fee = "0";
             tx.blockHeight = Node.blockChain.getLastBlockNum();
@@ -288,19 +288,21 @@ namespace DLT
             TransactionPool.internalNonce++;
             tx.nonce = TransactionPool.internalNonce;
 
-            string pubkey = Node.walletStorage.publicKey;
+            byte[] pubkey = Node.walletStorage.publicKey;
             // Check if this wallet's public key is already in the WalletState
             Wallet mywallet = Node.walletState.getWallet(tx.from, true);
-            if (mywallet.publicKey.Equals(pubkey, StringComparison.Ordinal))
+            if (mywallet.publicKey.SequenceEqual(pubkey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
-                pubkey = "";
+                pubkey = null;
             }
 
-            string data = string.Format("{0}||{1}||{2}", pubkey, activeBlock.blockNum, nonce);
-            tx.data = data;
+            string data = string.Format("{0}||{1}", activeBlock.blockNum, nonce);
+            tx.data = Encoding.UTF8.GetBytes(data);
 
-            tx.timeStamp = Node.getCurrentTimestamp().ToString();
+            tx.pubKey = pubkey;
+
+            tx.timeStamp = Node.getCurrentTimestamp();
             tx.id = tx.generateID();
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);

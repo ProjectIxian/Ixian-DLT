@@ -210,7 +210,7 @@ namespace DLTNode
                 // Add a new transaction. This test allows sending and receiving from arbitrary addresses
                 string responseString = "Incorrect transaction parameters.";
 
-                string to = request.QueryString["to"];
+                byte[] to = Crypto.stringToHash(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
                 IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
                 IxiNumber fee = Config.transactionPrice;
@@ -218,10 +218,7 @@ namespace DLTNode
                 // Only create a transaction if there is a valid amount
                 if(amount > (long)0)
                 {
-                    string from = Node.walletStorage.address;
-
-                    TransactionPool.internalNonce++;
-                    int nonce = TransactionPool.internalNonce;
+                    byte[] from = Node.walletStorage.address;
 
                     if (!Address.validateChecksum(to))
                     {
@@ -229,17 +226,18 @@ namespace DLTNode
                     }
                     else
                     {
-                        string data = Node.walletStorage.publicKey;
+                        byte[] pubKey = Node.walletStorage.publicKey;
+
 
                         // Check if this wallet's public key is already in the WalletState
                         Wallet mywallet = Node.walletState.getWallet(from, true);
-                        if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                        if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(Node.walletStorage.publicKey))
                         {
                             // Walletstate public key matches, we don't need to send the public key in the transaction
-                            data = "";
+                            pubKey = null;
                         }
 
-                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
+                        Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -262,7 +260,7 @@ namespace DLTNode
                 // Add a new transaction. This test allows sending and receiving from arbitrary addresses
                 string responseString = "Incorrect transaction parameters.";
 
-                string to = request.QueryString["to"];
+                byte[] to = Crypto.stringToHash(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
                 IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
                 IxiNumber fee = Config.transactionPrice;
@@ -270,7 +268,7 @@ namespace DLTNode
                 // Only create a transaction if there is a valid amount
                 if (amount > (long)0)
                 {
-                    string from = Node.walletStorage.address;
+                    byte[] from = Node.walletStorage.address;
 
                     TransactionPool.internalNonce++;
                     int nonce = TransactionPool.internalNonce;
@@ -281,17 +279,17 @@ namespace DLTNode
                     }
                     else
                     {
-                        string data = Node.walletStorage.publicKey;
+                        byte[] pubKey = Node.walletStorage.publicKey;
 
                         // Check if this wallet's public key is already in the WalletState
                         Wallet mywallet = Node.walletState.getWallet(from, true);
-                        if (mywallet.publicKey.Equals(data, StringComparison.Ordinal))
+                        if (mywallet.publicKey.SequenceEqual(pubKey))
                         {
                             // Walletstate public key matches, we don't need to send the public key in the transaction
-                            data = "";
+                            pubKey = null;
                         }
 
-                        Transaction transaction = new Transaction(amount, fee, to, from, data, Node.blockChain.getLastBlockNum());
+                        Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -314,7 +312,7 @@ namespace DLTNode
                 // transaction which alters a multisig wallet
                 string responseString = "Incorrect transaction parameters.";
 
-                string destWallet = request.QueryString["wallet"];
+                byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
                 IxiNumber fee = Config.transactionPrice;
 
@@ -342,7 +340,7 @@ namespace DLTNode
                 // transaction which alters a multisig wallet
                 string responseString = "Incorrect transaction parameters.";
 
-                string destWallet = request.QueryString["wallet"];
+                byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
                 IxiNumber fee = Config.transactionPrice;
 
@@ -370,7 +368,7 @@ namespace DLTNode
                 // transaction which alters a multisig wallet
                 string responseString = "Incorrect transaction parameters.";
 
-                string destWallet = request.QueryString["wallet"];
+                byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string sigs = request.QueryString["sigs"];
                 IxiNumber fee = Config.transactionPrice;
                 if (byte.TryParse(sigs, out byte reqSigs))
@@ -398,7 +396,7 @@ namespace DLTNode
 
             if (methodName.Equals("getbalance", StringComparison.OrdinalIgnoreCase))
             {
-                string address = request.QueryString["address"];
+                byte[] address = Crypto.stringToHash(request.QueryString["address"]);
 
                 IxiNumber balance = Node.walletState.getWalletBalance(address);
 
@@ -429,11 +427,11 @@ namespace DLTNode
                 Dictionary<string, string> blockData = new Dictionary<string, string>();
 
                 blockData.Add("Block Number", block.blockNum.ToString());
-                blockData.Add("Block Checksum", block.blockChecksum);
-                blockData.Add("Last Block Checksum", block.lastBlockChecksum);
-                blockData.Add("Wallet State Checksum", block.walletStateChecksum);
-                blockData.Add("Sig freeze Checksum", block.signatureFreezeChecksum);
-                blockData.Add("PoW field", block.powField);
+                blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
+                blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
+                blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
+                blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
+                blockData.Add("PoW field", Crypto.hashToString(block.powField));
                 blockData.Add("Timestamp", block.timestamp);
                 blockData.Add("Difficulty", block.difficulty.ToString());
                 blockData.Add("Signature count", block.signatures.Count.ToString());
@@ -461,11 +459,11 @@ namespace DLTNode
                     Dictionary<string, string> blockData = new Dictionary<string, string>();
 
                     blockData.Add("Block Number", block.blockNum.ToString());
-                    blockData.Add("Block Checksum", block.blockChecksum);
-                    blockData.Add("Last Block Checksum", block.lastBlockChecksum);
-                    blockData.Add("Wallet State Checksum", block.walletStateChecksum);
-                    blockData.Add("Sig freeze Checksum", block.signatureFreezeChecksum);
-                    blockData.Add("PoW field", block.powField);
+                    blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
+                    blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
+                    blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
+                    blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
+                    blockData.Add("PoW field", Crypto.hashToString(block.powField));
                     blockData.Add("Timestamp", block.timestamp);
                     blockData.Add("Difficulty", block.difficulty.ToString());
                     blockData.Add("Signature count", block.signatures.Count.ToString());
@@ -502,11 +500,11 @@ namespace DLTNode
                 Dictionary<string, string> blockData = new Dictionary<string, string>();
 
                 blockData.Add("Block Number", block.blockNum.ToString());
-                blockData.Add("Block Checksum", block.blockChecksum);
-                blockData.Add("Last Block Checksum", block.lastBlockChecksum);
-                blockData.Add("Wallet State Checksum", block.walletStateChecksum);
-                blockData.Add("Sig freeze Checksum", block.signatureFreezeChecksum);
-                blockData.Add("PoW field", block.powField);
+                blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
+                blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
+                blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
+                blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
+                blockData.Add("PoW field", Crypto.hashToString(block.powField));
                 blockData.Add("Timestamp", block.timestamp);
                 blockData.Add("Difficulty", block.difficulty.ToString());
                 blockData.Add("Signature count", block.signatures.Count.ToString());
@@ -556,14 +554,14 @@ namespace DLTNode
             if (methodName.Equals("mywallet", StringComparison.OrdinalIgnoreCase))
             {
                 // Show own address, balance and blockchain synchronization status
-                string address = Node.walletStorage.getWalletAddress();
+                byte[] address = Node.walletStorage.getWalletAddress();
                 IxiNumber balance = Node.walletState.getWalletBalance(address);
                 string sync_status = "ready";
                 if (Node.blockSync.synchronizing)
                     sync_status = "sync";
 
                 string[] statArray = new String[3];
-                statArray[0] = address;
+                statArray[0] = Crypto.hashToString(address);
                 statArray[1] = balance.ToString();
                 statArray[2] = sync_status;
 
@@ -575,10 +573,10 @@ namespace DLTNode
             if (methodName.Equals("mypubkey", StringComparison.OrdinalIgnoreCase))
             {
                 // Show own address, balance and blockchain synchronization status
-                string pubkey = Node.walletStorage.publicKey;
+                byte[] pubkey = Node.walletStorage.publicKey;
 
                 string[] statArray = new String[1];
-                statArray[0] = pubkey;
+                statArray[0] = Crypto.hashToString(pubkey);
 
                 string responseString = JsonConvert.SerializeObject(statArray);
                 sendResponse(context.Response, responseString);
@@ -588,23 +586,25 @@ namespace DLTNode
             if (methodName.Equals("getwallet", StringComparison.OrdinalIgnoreCase))
             {
                 // Show own address, balance and blockchain synchronization status
-                string address = request.QueryString["id"];
+                byte[] address = Crypto.stringToHash(request.QueryString["id"]);
                 Wallet w = Node.walletState.getWallet(address);
 
                 Dictionary<string, string> walletData = new Dictionary<string, string>();
-                walletData.Add("id", w.id);
+                walletData.Add("id", Crypto.hashToString(w.id));
                 walletData.Add("balance", w.balance.ToString());
                 walletData.Add("type", w.type.ToString());
                 walletData.Add("requiredSigs", w.requiredSigs.ToString());
                 if (w.allowedSigners != null)
                 {
-                    walletData.Add("allowedSigners", "(" + w.allowedSigners.Length + " keys): " + string.Join(",", w.allowedSigners));
+                    // TODO TODO TODO TODO fix this
+                    //walletData.Add("allowedSigners", "(" + w.allowedSigners.Length + " keys): " + string.Join(",", w.allowedSigners));
+                    walletData.Add("allowedSigners", "!! Needs fixing !!");
                 }
                 else
                 {
                     walletData.Add("allowedSigners", "null");
                 }
-                walletData.Add("extraData", w.data);
+                walletData.Add("extraData", w.data.ToString());
                 walletData.Add("nonce", w.nonce.ToString());
 
                 string responseString = JsonConvert.SerializeObject(walletData);
@@ -621,10 +621,10 @@ namespace DLTNode
                 foreach (Wallet w in wallets)
                 {
                     walletStates[count] = new string[4];
-                    walletStates[count][0] = w.id;
+                    walletStates[count][0] = Crypto.hashToString(w.id);
                     walletStates[count][1] = w.balance.ToString();
                     walletStates[count][2] = w.nonce.ToString();
-                    walletStates[count][3] = w.publicKey;
+                    walletStates[count][3] = Crypto.hashToString(w.publicKey);
                     count++;
                 }
 
@@ -676,7 +676,7 @@ namespace DLTNode
                     formattedTransactions[count] = new string[5];
                     formattedTransactions[count][0] = t.id;
                     formattedTransactions[count][1] = string.Format("{0}", t.amount);
-                    formattedTransactions[count][2] = t.timeStamp;
+                    formattedTransactions[count][2] = t.timeStamp.ToString();
                     formattedTransactions[count][3] = t.applied.ToString();
                     formattedTransactions[count][4] = ((Transaction.Type)t.type).ToString();
 
@@ -700,7 +700,7 @@ namespace DLTNode
                     formattedTransactions[count] = new string[5];
                     formattedTransactions[count][0] = t.id;
                     formattedTransactions[count][1] = string.Format("{0}", t.amount);
-                    formattedTransactions[count][2] = t.timeStamp;
+                    formattedTransactions[count][2] = t.timeStamp.ToString();
                     formattedTransactions[count][3] = t.applied.ToString();
                     formattedTransactions[count][4] = ((Transaction.Type)t.type).ToString();
 
@@ -751,8 +751,8 @@ namespace DLTNode
                 networkArray.Add("Applied TX Count", TransactionPool.getAllTransactions().Count() - TransactionPool.getUnappliedTransactions().Count());
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
 
-                networkArray.Add("WS Checksum", Node.walletState.calculateWalletStateChecksum());
-                networkArray.Add("WS Delta Checksum", Node.walletState.calculateWalletStateChecksum(true));
+                networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
+                networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
 
                 networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
                 networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
@@ -770,19 +770,6 @@ namespace DLTNode
                 return true;
             }
             
-            if (methodName.Equals("chkaddress", StringComparison.OrdinalIgnoreCase))
-            {
-                string address = request.QueryString["address"];
-
-                string chkaddress = Address.generateChecksumAddress(address);
-
-                // Respond with the transaction details
-                string responseString = JsonConvert.SerializeObject(chkaddress);
-                sendResponse(context.Response, responseString);
-
-                return true;
-            }
-
             if (methodName.Equals("supply", StringComparison.OrdinalIgnoreCase))
             {
                 string supply = Node.walletState.calculateTotalSupply().ToString();

@@ -57,10 +57,10 @@ namespace DLT
                 if (prepare_database)
                 {
                     // Create the blocks table
-                    string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` TEXT, `lastBlockChecksum` TEXT, `walletStateChecksum`	TEXT, `sigFreezeChecksum` TEXT, `difficulty` INTEGER, `powField` TEXT, `transactions` TEXT, `signatures` TEXT, `timestamp` TEXT, PRIMARY KEY(`blockNum`));";
+                    string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` TEXT, PRIMARY KEY(`blockNum`));";
                     executeSQL(sql);
 
-                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` TEXT, `from` TEXT,  `data` TEXT, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` TEXT, `checksum` TEXT, `signature` TEXT, `applied` INTEGER, PRIMARY KEY(`id`));";
+                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` BLOB, `from` BLOB,  `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` TEXT, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, PRIMARY KEY(`id`));";
                     executeSQL(sql);
                     sql = "CREATE INDEX `type` ON `transactions` (`type`);";
                     executeSQL(sql);
@@ -90,12 +90,12 @@ namespace DLT
             public class _storage_Block
             {
                 public long blockNum { get; set; }
-                public string blockChecksum { get; set; }
-                public string lastBlockChecksum { get; set; }
-                public string walletStateChecksum { get; set; }
-                public string sigFreezeChecksum { get; set; }
+                public byte[] blockChecksum { get; set; }
+                public byte[] lastBlockChecksum { get; set; }
+                public byte[] walletStateChecksum { get; set; }
+                public byte[] sigFreezeChecksum { get; set; }
                 public long difficulty { get; set; }
-                public string powField { get; set; }
+                public byte[] powField { get; set; }
                 public string signatures { get; set; }
                 public string transactions { get; set; }
                 public string timestamp { get; set; }
@@ -107,14 +107,15 @@ namespace DLT
                 public int type { get; set; }
                 public string amount { get; set; }
                 public string fee { get; set; }
-                public string to { get; set; }
-                public string from { get; set; }
-                public string data { get; set; }
+                public byte[] to { get; set; }
+                public byte[] from { get; set; }
+                public byte[] data { get; set; }
                 public long blockHeight { get; set; }
                 public int nonce { get; set; }
-                public string timestamp { get; set; }
-                public string checksum { get; set; }
-                public string signature { get; set; }
+                public long timestamp { get; set; }
+                public byte[] checksum { get; set; }
+                public byte[] signature { get; set; }
+                public byte[] pubKey { get; set; }
                 public long applied { get; set; }
             }
 
@@ -168,9 +169,9 @@ namespace DLT
                 }
 
                 string signatures = "";
-                foreach (string sig in block.signatures)
+                foreach (byte[][] sig in block.signatures)
                 {
-                    signatures = string.Format("{0}||{1}", signatures, sig);
+                    signatures = string.Format("{0}||{1}:{2}", signatures, Convert.ToBase64String(sig[0]), Convert.ToBase64String(sig[1]));
                 }
 
                 bool result = false;
@@ -196,14 +197,14 @@ namespace DLT
                 bool result = false;
                 if (getTransaction(transaction.id) == null)
                 {
-                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `applied`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied);
+                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied);
                 }
                 else
                 {
                     // Likely already have the tx stored, update the old entry
-                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `applied` = ? WHERE `id` = ?";
-                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, (long)transaction.applied, transaction.id);
+                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ? WHERE `id` = ?";
+                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.id);
                 }
 
                 return result;
@@ -256,7 +257,7 @@ namespace DLT
                     difficulty = (ulong)blk.difficulty,
                     powField = blk.powField,
                     transactions = new List<string>(),
-                    signatures = new List<string>(),
+                    signatures = new List<byte[][]>(),
                     timestamp = blk.timestamp
                 };
 
@@ -269,9 +270,13 @@ namespace DLT
                     if (sigcounter == 1)
                         continue;
 
-                    if (!block.containsSignature(s1))
+                    string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                    byte[][] newSig = new byte[2][];
+                    newSig[0] = Convert.FromBase64String(split_sig[0]);
+                    newSig[1] = Convert.FromBase64String(split_sig[1]);
+                    if (!block.containsSignature(newSig[1]))
                     {
-                        block.signatures.Add(s1);
+                        block.signatures.Add(newSig);
                     }
                 }
 

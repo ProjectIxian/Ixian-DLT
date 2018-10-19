@@ -30,7 +30,7 @@ namespace DLT
             // Now add the seed nodes to the list
             foreach(string addr in CoreNetworkUtils.getSeedNodes(Config.isTestNet))
             {
-                PeerStorage.addPeerToPeerList(addr, addr, false);
+                PeerStorage.addPeerToPeerList(addr, null, false);
             }
 
             // Connect to a random node first

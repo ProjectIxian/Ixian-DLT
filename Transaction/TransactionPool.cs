@@ -114,15 +114,15 @@ namespace DLT
 
             // Prevent sending to the sender's address
             // unless it's a multisig change transaction
-            if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.from.Equals(transaction.to, StringComparison.Ordinal))
+            if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.from.SequenceEqual(transaction.to))
             {
                 Logging.warn(string.Format("Invalid TO address for transaction id: {0}", transaction.id));
                 return false;
             }
 
             // Calculate the transaction checksum and compare it
-            string checksum = Transaction.calculateChecksum(transaction);
-            if (checksum.Equals(transaction.checksum) == false)
+            byte[] checksum = Transaction.calculateChecksum(transaction);
+            if (checksum.SequenceEqual(transaction.checksum) == false)
             {
                 Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
                 return false;
@@ -194,7 +194,7 @@ namespace DLT
 
             // Extract the public key if found. Used for transaction verification.
             // TODO: check pubkey walletstate support
-            string pubkey = "";
+            byte[] pubkey = null;
 
             if (transaction.type == (int)Transaction.Type.Genesis ||
                 transaction.type == (int)Transaction.Type.StakingReward)
@@ -206,26 +206,16 @@ namespace DLT
             {
                 pubkey = Node.walletState.getWallet(transaction.from).publicKey;
                 // Generate an address from the public key and compare it with the sender
-                if (pubkey.Length < 1)
+                if (pubkey == null)
                 {
-                    // If this is a PoWSolution transaction, extract the public key from the data section first
-                    if (transaction.type == (int)Transaction.Type.PoWSolution)
-                    {
-                        string[] split = transaction.data.Split(new string[] { "||" }, StringSplitOptions.None);
-                        if (split.Length < 1)
-                            return false;
-                        pubkey = split[0];
-                    }
-                    else
-                    {
-                        // There is no supplied public key, extract it from the data section
-                        pubkey = transaction.data;
-                    }
+                    // There is no supplied public key, extract it from the data section
+                    pubkey = transaction.pubKey;
                 }
             }
 
             // Finally, verify the signature
-            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            // TODO TODO TODO TODO fix this
+            /*if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
                 Logging.info(String.Format("Transaction {{ {0} }} is a multisig transaction.", transaction.id));
                 Wallet orig = Node.walletState.getWallet(transaction.from);
@@ -263,7 +253,7 @@ namespace DLT
                         transaction.id, transaction.from));
                     return false;
                 }
-            } else if (transaction.verifySignature(pubkey) == false)
+            } else*/ if (transaction.verifySignature(pubkey) == false)
             {
                 // Transaction signature is invalid
                 Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
@@ -314,7 +304,8 @@ namespace DLT
 
                 if (transactions.ContainsKey(transaction.id))
                 {
-                    if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    // TODO TODO TODO TODO fix this
+                    /*if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         Logging.info(String.Format("Appending a multisig transaction {{ {0} }} in the pool.", transaction.id));
                         Transaction pool_tx = transactions[transaction.id];
@@ -340,7 +331,7 @@ namespace DLT
                                 transaction.id, final_sigs.Count));
                             pool_tx.signature = string.Join(",", final_sigs);
                         }
-                    }
+                    }*/
                 }
                 else
                 {
@@ -481,8 +472,10 @@ namespace DLT
         // Verify if a PoW transaction is valid
         public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum)
         {
+            // TODO TODO TODO TODO fix this
+            
             blocknum = 0;
-            if (tx.type != (int)Transaction.Type.PoWSolution)
+            /*if (tx.type != (int)Transaction.Type.PoWSolution)
                 return false;
 
             // Split the transaction data field
@@ -513,7 +506,7 @@ namespace DLT
             catch(Exception e)
             {
                 Logging.warn(string.Format("Error verifying PoW Transaction: {0}. Message: {1}", tx.id, e.Message));
-            }
+            }*/
 
             return false;
         }
@@ -560,7 +553,7 @@ namespace DLT
             }
 
             // Maintain a list of stakers
-            List<string> blockStakers = new List<string>();
+            List<byte[]> blockStakers = new List<byte[]>();
 
             foreach (Transaction tx in staking_txs)
             {
@@ -600,7 +593,7 @@ namespace DLT
             try
             {
                 // Maintain a dictionary of block solutions and the corresponding miners for solved blocks
-                IDictionary<ulong, List<string>> blockSolutionsDictionary = new Dictionary<ulong, List<string>>();
+                IDictionary<ulong, List<byte[]>> blockSolutionsDictionary = new Dictionary<ulong, List<byte[]>>();
 
                 // Maintain a list of failed transactions to remove them from the TxPool in one go
                 List<Transaction> failed_transactions = new List<Transaction>();
@@ -694,12 +687,12 @@ namespace DLT
 
                     // Update the walletstate public key
                     // TODO: check pubkey walletstate support
-                    string pubkey = Node.walletState.getWallet(tx.from, ws_snapshot).publicKey;
+                    byte[] pubkey = Node.walletState.getWallet(tx.from, ws_snapshot).publicKey;
                     // Generate an address from the public key and compare it with the sender
-                    if (pubkey.Length < 1)
+                    if (pubkey == null)
                     {
                         // There is no supplied public key, extract it from the data section
-                        pubkey = tx.data;
+                        pubkey = tx.pubKey;
 
                         // Update the walletstate public key
                         Node.walletState.setWalletPublicKey(tx.from, pubkey, ws_snapshot);
@@ -726,7 +719,8 @@ namespace DLT
                 // Finally, Check if we have any miners to reward
                 if (blockSolutionsDictionary.Count > 0)
                 {
-                    rewardMiners(blockSolutionsDictionary, ws_snapshot);
+                    // TODO TODO TODO TODO re-enable this
+                    //rewardMiners(blockSolutionsDictionary, ws_snapshot);
                 }
 
                 // Clear the solutions dictionary
@@ -783,7 +777,7 @@ namespace DLT
 
         // Checks if a transaction is a pow transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
-        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<string>> blockSolutionsDictionary, bool ws_snapshot = false)
+        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, bool ws_snapshot = false)
         {
             if (tx.type != (int)Transaction.Type.PoWSolution)
             {
@@ -804,7 +798,7 @@ namespace DLT
                 // Check if we already have a key matching the block number
                 if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
                 {
-                    blockSolutionsDictionary[powBlockNum] = new List<string>();
+                    blockSolutionsDictionary[powBlockNum] = new List<byte[]>();
                 }
                 // Add the miner to the block number dictionary reward list
                 blockSolutionsDictionary[powBlockNum].Add(tx.from);
@@ -843,7 +837,7 @@ namespace DLT
 
         // Checks if a transaction is a staking transaction and applies it.
         // Returns true if it's a Staking transaction, otherwise false
-        public static bool applyStakingTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, List<string> blockStakers, bool ws_snapshot = false)
+        public static bool applyStakingTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, List<byte[]> blockStakers, bool ws_snapshot = false)
         {
             if (tx.type != (int)Transaction.Type.StakingReward)
             {
@@ -852,9 +846,9 @@ namespace DLT
 
             // Check if the staker's transaction has already been processed
             bool valid = true;
-            foreach (string staker in blockStakers)
+            foreach (byte[] staker in blockStakers)
             {
-                if (staker.Equals(tx.to, StringComparison.Ordinal))
+                if (staker.SequenceEqual(tx.to))
                 {
                     valid = false;
                     break;
@@ -883,9 +877,9 @@ namespace DLT
 
             // Check if the transaction is in the sigfreeze
             // TODO: refactor this and make it more efficient
-            string blocknum = tx.data;
+            ulong blocknum = BitConverter.ToUInt64(tx.data, 0);
             // Verify the staking transaction is accurate
-            Block targetBlock = Node.blockChain.getBlock(Convert.ToUInt64(blocknum));
+            Block targetBlock = Node.blockChain.getBlock(blocknum);
             if (targetBlock == null)
             {
                 failed_transactions.Add(tx);
@@ -893,10 +887,10 @@ namespace DLT
             }
             
             valid = false;
-            List<string> signatureWallets = targetBlock.getSignaturesWalletAddresses();
-            foreach (string wallet_addr in signatureWallets)
+            List<byte[]> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+            foreach (byte[] wallet_addr in signatureWallets)
             {
-                if (tx.to.Equals(wallet_addr))
+                if (tx.to.SequenceEqual(wallet_addr))
                     valid = true;
             }
             if (valid == false)
@@ -945,7 +939,7 @@ namespace DLT
             return true;
         }
 
-        public static int numValidMultisigs(string checksum, string[] signatures, Wallet w)
+        public static int numValidMultisigs(byte[] checksum, string[] signatures, Wallet w)
         {
             // signatures are "pubkey:signature"
             HashSet<string> pubkeys = new HashSet<string>();
@@ -958,7 +952,7 @@ namespace DLT
                     return -1;
                 }
                 pubkeys.Add(sig_parts[0]);
-                if (!CryptoManager.lib.verifySignature(checksum, sig_parts[0], sig_parts[1]))
+                if (!CryptoManager.lib.verifySignature(checksum, Convert.FromBase64String(sig_parts[0]), Convert.FromBase64String(sig_parts[1])))
                 {
                     return -1;
                 }
@@ -969,7 +963,8 @@ namespace DLT
 
         public static bool applyMultisigTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
-            if(tx.type == (int)Transaction.Type.MultisigTX)
+            // TODO TODO TODO TODO fix this
+            /*if(tx.type == (int)Transaction.Type.MultisigTX)
             {
                 string[] sigs = tx.signature.Split(',');
                 Wallet orig = Node.walletState.getWallet(tx.from, ws_snapshot);
@@ -999,13 +994,14 @@ namespace DLT
                     return applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
                 }
                 // ignore if it doesn't have enough sigs - it will be pruned from the TXPool after a while
-            }
+            }*/
             return false;
         }
 
         public static bool applyMultisigChangeTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
-            if(tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+            // TODO TODO TODO TODO fix this
+            /*if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
                 string[] sigs = tx.signature.Split(',');
                 Wallet orig = Node.walletState.getWallet(tx.from, ws_snapshot);
@@ -1128,7 +1124,7 @@ namespace DLT
                 }
                 return true;
 
-            }
+            }*/
             return false;
         }
 
@@ -1194,7 +1190,7 @@ namespace DLT
         }
 
         // Go through a dictionary of block numbers and respective miners and reward them
-        public static void rewardMiners(IDictionary<ulong, List<string>> blockSolutionsDictionary, bool ws_snapshot = false)
+        public static void rewardMiners(IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, bool ws_snapshot = false)
         {
             for (int i = 0; i < blockSolutionsDictionary.Count; i++)
             {
@@ -1211,7 +1207,7 @@ namespace DLT
                 if (block == null)
                     continue;
 
-                List<string> miners_to_reward = blockSolutionsDictionary[blockNum];
+                List<byte[]> miners_to_reward = blockSolutionsDictionary[blockNum];
 
                 IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
 
@@ -1220,8 +1216,8 @@ namespace DLT
 
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
 
-                string checksum_source = "MINERS";
-                foreach (string miner in miners_to_reward)
+                List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes("MINERS"));
+                foreach (byte[] miner in miners_to_reward)
                 {
                     // TODO add another address checksum here, just in case
                     // Update the wallet state
@@ -1230,14 +1226,14 @@ namespace DLT
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
                     Node.walletState.setWalletBalance(miner, miner_balance_after, ws_snapshot, miner_wallet.nonce);
 
-                    checksum_source += miner;
+                    checksum_source.AddRange(miner);
                 }
 
                 // Ignore during snapshot
                 if (ws_snapshot == false)
                 {
                     // Set the powField as a checksum of all miners for this block
-                    block.powField = Crypto.sha256(checksum_source);
+                    block.powField = Crypto.sha256(checksum_source.ToArray());
                 }
 
             }
@@ -1324,7 +1320,7 @@ namespace DLT
         }
 
         // Returns the initial balance of a wallet by reversing all the transactions in the memory pool
-        public static IxiNumber getInitialBalanceForWallet(string address, IxiNumber finalBalance)
+        public static IxiNumber getInitialBalanceForWallet(byte[] address, IxiNumber finalBalance)
         {
             // TODO: After redaction, this is no longer viable (will have to change logic to on longer depend on this function)
             IxiNumber initialBalance = finalBalance;
@@ -1333,11 +1329,11 @@ namespace DLT
                 // Go through each transaction and reverse it for the specific address
                 foreach (Transaction transaction in transactions.Select(e=>e.Value))
                 {
-                    if (address.Equals(transaction.from))
+                    if (address.SequenceEqual(transaction.from))
                     {
                         initialBalance += transaction.amount;
                     }
-                    else if (address.Equals(transaction.to))
+                    else if (address.SequenceEqual(transaction.to))
                     {
                         initialBalance -= transaction.amount;
                     }
