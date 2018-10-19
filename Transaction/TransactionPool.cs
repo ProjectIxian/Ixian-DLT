@@ -94,6 +94,7 @@ namespace DLT
             if(transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
                 Wallet w = Node.walletState.getWallet(transaction.from, false);
+                // transaction pubkey might be empty (todo - from address from wallet state)
                 Address addr = new Address(transaction.pubKey);
                 if(!w.isValidSigner(addr.address))
                 {
@@ -263,46 +264,48 @@ namespace DLT
                     return false;
                 }
             }
-            
+
             //Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
-            if(transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
-                lock(multisigTransactions)
+                lock (multisigTransactions)
                 {
-                    if(multisigTransactions.ContainsKey(transaction.id))
+                    if (multisigTransactions.ContainsKey(transaction.id))
                     {
                         bool exists = false;
-                        foreach(var existing_transaction in multisigTransactions[transaction.id])
+                        foreach (var existing_transaction in multisigTransactions[transaction.id])
                         {
-                            if(existing_transaction.signature.SequenceEqual(transaction.signature))
+                            if (existing_transaction.signature.SequenceEqual(transaction.signature))
                             {
                                 exists = true;
                             }
                         }
-                        if(exists)
+                        if (exists)
                         {
                             Logging.warn(String.Format("Multisig transaction {{ {0} }} already exists in the Transaction Pool.", transaction.id));
                             return false;
                         }
                     }
-                    if(!multisigTransactions.ContainsKey(transaction.id))
+                    if (!multisigTransactions.ContainsKey(transaction.id))
                     {
                         multisigTransactions.Add(transaction.id, new List<Transaction>());
                     }
                     multisigTransactions[transaction.id].Add(transaction);
                 }
             }
-
-            lock (transactions)
+            else
             {
-                if (transactions.ContainsKey(transaction.id))
+                lock (transactions)
                 {
-                    Logging.warn(String.Format("Duplicate transaction {{ {0} }}: already exists in the Transaction Pool.", transaction.id));
-                    return false;
-                }
-                else
-                {
-                    transactions.Add(transaction.id, transaction);
+                    if (transactions.ContainsKey(transaction.id))
+                    {
+                        Logging.warn(String.Format("Duplicate transaction {{ {0} }}: already exists in the Transaction Pool.", transaction.id));
+                        return false;
+                    }
+                    else
+                    {
+                        transactions.Add(transaction.id, transaction);
+                    }
                 }
             }
 
@@ -379,10 +382,20 @@ namespace DLT
 
         public static Transaction[] getUnappliedTransactions()
         {
+            List<Transaction> unapplied = new List<Transaction>();
             lock(transactions)
             {
-                return transactions.Select(e => e.Value).Where(x => x.applied == 0).ToArray();
+                unapplied = transactions.Select(e => e.Value).Where(x => x.applied == 0).ToList();
             }
+            lock(multisigTransactions)
+            {
+                foreach(var txid in multisigTransactions.Keys)
+                {
+                    if (multisigTransactions[txid][0].applied > 0) continue;
+                    unapplied.AddRange(multisigTransactions[txid]);
+                }
+            }
+            return unapplied.ToArray();
         }
 
         // This updates a pre-existing transaction
