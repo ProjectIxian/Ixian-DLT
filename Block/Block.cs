@@ -398,7 +398,7 @@ namespace DLT
                     {
                         // Extract the public key from the walletstate
                         Wallet signerWallet = Node.walletState.getWallet(address);
-                        if (signerWallet.publicKey.Length > 0)
+                        if (signerWallet.publicKey != null)
                         {
                             signerPubKey = signerWallet.publicKey;
                         }
@@ -543,7 +543,7 @@ namespace DLT
                         // Extract the public key from the walletstate
                         byte[] signer_address = public_key;
                         Wallet signerWallet = Node.walletState.getWallet(signer_address);
-                        if (signerWallet.publicKey.Length > 0)
+                        if (signerWallet.publicKey != null)
                         {
                             found_public_key = true;
                             public_key = signerWallet.publicKey;
