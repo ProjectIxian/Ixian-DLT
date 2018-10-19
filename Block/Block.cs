@@ -309,15 +309,8 @@ namespace DLT
             }
 
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-            byte[] address = Node.walletStorage.getWalletAddress();
-
-            Wallet signerWallet = Node.walletState.getWallet(address);
-
-            // Use public key when applying signature to legacy block
-            if (signerWallet.publicKey == null)
-            {
-                address = Node.walletStorage.publicKey;
-            }
+            byte[] myAdddress = Node.walletStorage.getWalletAddress();
+            byte[] myPubKey = Node.walletStorage.publicKey;
 
             // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
             byte[] private_key = Node.walletStorage.privateKey;
@@ -327,16 +320,26 @@ namespace DLT
             {
                 foreach (byte[][] sig in signatures)
                 {
-                    if (sig[1].SequenceEqual(address))
+                    if(sig[1].Length > 70) // pubkey
                     {
-                        // we have already signed it
-                        return false;
+                        if (sig[1].SequenceEqual(myPubKey))
+                        {
+                            // we have already signed it
+                            return false;
+                        }
+                    }else
+                    {
+                        if (sig[1].SequenceEqual(myAdddress)) // address
+                        {
+                            // we have already signed it
+                            return false;
+                        }
                     }
                 }
 
                 byte[][] newSig = new byte[2][];
                 newSig[0] = signature;
-                newSig[1] = address;
+                newSig[1] = myAdddress;
                 signatures.Add(newSig);               
             }
 
@@ -387,7 +390,11 @@ namespace DLT
         {
             lock (signatures)
             {
-                foreach (byte[][] sig in signatures)
+                List<byte[]> sigAddresses = new List<byte[]>();
+
+                List<byte[][]> safeSigs = new List<byte[][]>(signatures);
+
+                foreach (byte[][] sig in safeSigs)
                 {
                     byte[] signature = sig[0];
                     byte[] address = sig[1];
@@ -411,7 +418,15 @@ namespace DLT
 
                     // Failed to find signer publickey in walletstate
                     if (signerPubKey.Length < 1)
-                        return false;                                                 
+                        return false;
+
+                    if (sigAddresses.Find(x => x.SequenceEqual(signerPubKey)) == null)
+                    {
+                        sigAddresses.Add(signerPubKey);
+                    }else
+                    {
+                        signatures.Remove(sig);
+                    }
 
                     if (CryptoManager.lib.verifySignature(blockChecksum, signerPubKey, signature) == false)
                     {
