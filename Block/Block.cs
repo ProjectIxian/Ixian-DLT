@@ -309,12 +309,14 @@ namespace DLT
             }
 
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-            byte[] myAdddress = Node.walletStorage.getWalletAddress();
+            byte[] myAddress = Node.walletStorage.getWalletAddress();
             byte[] myPubKey = Node.walletStorage.publicKey;
 
             // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
             byte[] private_key = Node.walletStorage.privateKey;
             byte[] signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
+
+            Wallet w = Node.walletState.getWallet(myAddress);
 
             lock (signatures)
             {
@@ -329,7 +331,7 @@ namespace DLT
                         }
                     }else
                     {
-                        if (sig[1].SequenceEqual(myAdddress)) // address
+                        if (sig[1].SequenceEqual(myAddress)) // address
                         {
                             // we have already signed it
                             return false;
@@ -339,7 +341,15 @@ namespace DLT
 
                 byte[][] newSig = new byte[2][];
                 newSig[0] = signature;
-                newSig[1] = myAdddress;
+                if (w.publicKey == null)
+                {
+                    newSig[1] = myPubKey;
+
+                }
+                else
+                {
+                    newSig[1] = myAddress;
+                }
                 signatures.Add(newSig);               
             }
 
@@ -417,7 +427,7 @@ namespace DLT
                     }
 
                     // Failed to find signer publickey in walletstate
-                    if (signerPubKey.Length < 1)
+                    if (signerPubKey == null)
                         return false;
 
                     if (sigAddresses.Find(x => x.SequenceEqual(signerPubKey)) == null)
@@ -426,6 +436,7 @@ namespace DLT
                     }else
                     {
                         signatures.Remove(sig);
+                        continue;
                     }
 
                     if (CryptoManager.lib.verifySignature(blockChecksum, signerPubKey, signature) == false)
