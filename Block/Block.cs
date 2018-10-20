@@ -522,10 +522,18 @@ namespace DLT
         // Goes through all signatures and verifies if the block is already signed with this node's pubkey
         public bool hasNodeSignature(byte[] public_key = null)
         {
+            byte[] node_address = Node.walletStorage.address;
             if (public_key == null)
             {
                 public_key = Node.walletStorage.publicKey;
             }
+            else
+            {
+                // Generate an address
+                Address p_address = new Address(public_key);
+                node_address = p_address.address;
+            }
+
             lock (signatures)
             {
                 foreach (byte[][] merged_signature in signatures)
@@ -538,7 +546,7 @@ namespace DLT
                     if (merged_signature[1].Length < 70)
                     {
                         // Compare wallet address
-                        condition = Node.walletStorage.address.SequenceEqual(merged_signature[1]);
+                        condition = node_address.SequenceEqual(merged_signature[1]);
                     }
                     else
                     {
