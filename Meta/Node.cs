@@ -139,6 +139,7 @@ namespace DLT.Meta
                 tx.from = from;
                 tx.amount = genesisFunds;
                 tx.data = null;
+                tx.blockHeight = 1;
                 tx.timeStamp = getCurrentTimestamp();
                 tx.id = tx.generateID();
                 tx.checksum = Transaction.calculateChecksum(tx);
@@ -153,6 +154,7 @@ namespace DLT.Meta
                     txGen2.from = from;
                     txGen2.amount = genesisFunds;
                     txGen2.data = null;
+                    tx.blockHeight = 1;
                     txGen2.timeStamp = getCurrentTimestamp();
                     txGen2.id = txGen2.generateID();
                     txGen2.checksum = Transaction.calculateChecksum(txGen2);

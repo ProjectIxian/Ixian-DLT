@@ -1285,9 +1285,6 @@ namespace DLT
 
                     
                     tx.blockHeight = Node.blockChain.getLastBlockNum();
-                    // Handle legacy staking transactions
-                    if (tx.blockHeight < Legacy.up20181017)
-                        tx.blockHeight = 0;
 
                     tx.data = BitConverter.GetBytes(targetBlock.blockNum);
 

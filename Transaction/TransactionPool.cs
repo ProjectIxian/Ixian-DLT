@@ -66,20 +66,22 @@ namespace DLT
             }
 
             // reject any transaction with block height 0, except for legacy transactions before new nonce
-            if(blocknum > Legacy.up20181017 && transaction.blockHeight == 0)
+            if(transaction.blockHeight == 0)
             {
                 Logging.warn(String.Format("Transaction without block height specified on block #{0} skipped. TXid: {1}.", blocknum, transaction.id));
                 return false;
             }
 
-            // Check the block height
-            if (blocknum > Config.redactedWindowSize && transaction.blockHeight > Legacy.up20181017)
+            ulong minBh = 0;
+            if (blocknum > Config.redactedWindowSize)
             {
-                if (blocknum - Config.redactedWindowSize > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
-                {
-                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", transaction.id, transaction.blockHeight, blocknum - Config.redactedWindowSize));
-                    return false;
-                }
+                minBh = blocknum - Config.redactedWindowSize;
+            }
+            // Check the block height
+            if (minBh > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
+            {
+                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2}", transaction.id, transaction.blockHeight, minBh));
+                return false;
             }
 
             // Prevent transaction spamming
@@ -1104,15 +1106,17 @@ namespace DLT
                 return false;
             }
 
-            // Check the block height
-            if (block.blockNum > Config.redactedWindowSize && tx.blockHeight > Legacy.up20181017)
+            ulong minBh = 0;
+            if(block.blockNum > Config.redactedWindowSize)
             {
-                if (block.blockNum - Config.redactedWindowSize > tx.blockHeight || tx.blockHeight > block.blockNum)
-                {
-                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", tx.id, tx.blockHeight, block.blockNum - Config.redactedWindowSize));
-                    failed_transactions.Add(tx);
-                    return false;
-                }
+                minBh =block.blockNum - Config.redactedWindowSize;
+            }
+            // Check the block height
+            if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
+            {
+                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", tx.id, tx.blockHeight, minBh));
+                failed_transactions.Add(tx);
+                return false;
             }
 
 
