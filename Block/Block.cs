@@ -61,7 +61,7 @@ namespace DLT
 
             foreach (byte[][] signature in block.signatures)
             {
-                if (!containsSignature(signature[0]))
+                if (!containsSignature(signature[1]))
                 {
                     byte[][] newSig = new byte[2][];
                     newSig[0] = new byte[signature[0].Length];
@@ -360,11 +360,29 @@ namespace DLT
 
         public bool containsSignature(byte[] address)
         {
+            byte[] cmp_address = address;
+            if(address.Length >= 70)
+            {
+                // Generate an address
+                Address p_address = new Address(address);
+                cmp_address = p_address.address;
+            }
+
+
             lock (signatures)
             {
                 foreach (byte[][] sig in signatures)
                 {
-                    if (address.SequenceEqual(sig[1]))
+                    byte[] sig_address = sig[1];
+
+                    if(sig_address.Length >= 70)
+                    {
+                        // Generate an address
+                        Address s_address = new Address(sig_address);
+                        sig_address = s_address.address;
+                    }
+
+                    if (cmp_address.SequenceEqual(sig_address))
                     {
                         return true;
                     }
