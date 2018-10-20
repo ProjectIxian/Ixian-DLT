@@ -538,8 +538,6 @@ namespace DLT
             {
                 foreach (byte[][] merged_signature in signatures)
                 {
-                    Wallet signerWallet = Node.walletState.getWallet(Node.walletStorage.getWalletAddress());
-
                     bool condition = false;
 
                     // Check if we have an address instead of a public key
