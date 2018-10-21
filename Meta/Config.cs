@@ -31,7 +31,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.4.5"; // DLT Node version
+            public static readonly string version = "xdc-0.5.0"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly int maxLogFileSize = 50 * 1024 * 1024; // 50MB

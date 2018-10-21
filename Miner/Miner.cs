@@ -368,40 +368,32 @@ namespace DLT
         // Calculates the reward amount for a certain block
         public static IxiNumber calculateRewardForBlock(ulong blockNum)
         {
-            ulong pow_reward = 1000 * 10; // 10 IXI represented as a ulong for faster calculation
+            ulong pow_reward = 0;
 
-            // Go through each 2nd block, assuming a 50% block coverage
-            for (ulong i = 0; i < blockNum; i += 2)
+            if (blockNum < 1051200) // first year
             {
-                // Increase the pow reward accordingly
-
-                // First year
-                pow_reward = pow_reward + 9; // + 0.009 IXI
-                if (i < 1051200)
-                    continue;
-
-                // Second year
-                // Same as first year
-                if (i < 2102400)
-                    continue;
-
-                // Third year
-                pow_reward = pow_reward + 9; // + 0.009 IXI
-                if (i < 3153600)
-                    continue;
-
-                // Fourth year
-                pow_reward = pow_reward + 20; // + 0.020 IXI
-                if (i < 4204800)
-                    continue;
-
-                // Fifth year
-                pow_reward = pow_reward + 9; // + 0.009 IXI
-                if (i < 5256000)
-                    continue;
+                pow_reward = (blockNum * 9) + 9; // +0.009 IXI
+            }else if (blockNum < 2102400) // second year
+            {
+                pow_reward = (1051200 * 9);
+            }else if (blockNum < 3153600) // third year
+            {
+                pow_reward = (1051200 * 9) + ((blockNum - 2102400) * 9) + 9; // +0.009 IXI
+            }
+            else if (blockNum < 4204800) // fourth year
+            {
+                pow_reward = (2102400 * 9) + ((blockNum - 3153600) * 2) + 2; // +0.0020 IXI
+            }
+            else if (blockNum < 5256001) // fifth year
+            {
+                pow_reward = (2102400 * 9) + (1051200 * 2) + ((blockNum - 4204800) * 9) + 9; // +0.009 IXI
+            }
+            else // after fifth year if mining is still operational
+            {
+                pow_reward = (3153600 * 9) + (1051200 * 2);
             }
 
-            pow_reward = pow_reward * 100000; // Add the full amount of 0s to cover IxiNumber decimals
+            pow_reward = (pow_reward * 50000) + 10; // Add the full amount of 0s to cover IxiNumber decimals and divide by 2 + add inital 10 IXI block reward, assuming 50% block coverage
             return new IxiNumber(pow_reward); // Generate the corresponding IxiNumber, including decimals
         }
     }
