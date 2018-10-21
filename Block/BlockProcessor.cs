@@ -1057,7 +1057,7 @@ namespace DLT
                 staking_transactions.Clear();
 
                 List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
-                pool_transactions.Sort(x => x.blockHeight); // TODO add fee
+                pool_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee
 
                 ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
 
