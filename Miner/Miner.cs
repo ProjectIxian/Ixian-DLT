@@ -390,10 +390,10 @@ namespace DLT
             }
             else // after fifth year if mining is still operational
             {
-                pow_reward = (3153600 * 9) + (1051200 * 2);
+                pow_reward = ((3153600 * 9) + (1051200 * 2))/2;
             }
 
-            pow_reward = (pow_reward * 50000) + 10; // Add the full amount of 0s to cover IxiNumber decimals and divide by 2 + add inital 10 IXI block reward, assuming 50% block coverage
+            pow_reward = (pow_reward/2 + 10000) * 100000; // Divide by 2 (assuming 50% block coverage) + add inital 10 IXI block reward + add the full amount of 0s to cover IxiNumber decimals
             return new IxiNumber(pow_reward); // Generate the corresponding IxiNumber, including decimals
         }
     }
