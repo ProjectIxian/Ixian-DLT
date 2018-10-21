@@ -466,7 +466,7 @@ namespace DLT
                     else
                     {
                         // prioritize everything but single transactions
-                        if (code != ProtocolMessageCode.transactionData && sendQueueMessagesNormalPriority.Count > 10)
+                        if (code != ProtocolMessageCode.transactionData && code != ProtocolMessageCode.newTransaction && sendQueueMessagesNormalPriority.Count > 10)
                         {
                             sendQueueMessagesNormalPriority.Insert(3, message);
                         }
