@@ -286,7 +286,7 @@ namespace DLT
             {
                sortedSigs = new List<byte[][]>(signatures);
             }
-            sortedSigs.OrderBy(x => x[1], new ByteArrayComparer());
+            sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x[1], y[1]));
 
             // Merge the sorted signatures
             List<byte> merged_sigs = new List<byte>();
@@ -310,6 +310,11 @@ namespace DLT
 
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
             byte[] myAddress = Node.walletStorage.getWalletAddress();
+            if (containsSignature(myAddress))
+            {
+                return false;
+            }
+
             byte[] myPubKey = Node.walletStorage.publicKey;
 
             // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
@@ -320,31 +325,11 @@ namespace DLT
 
             lock (signatures)
             {
-                foreach (byte[][] sig in signatures)
-                {
-                    if(sig[1].Length > 70) // pubkey
-                    {
-                        if (sig[1].SequenceEqual(myPubKey))
-                        {
-                            // we have already signed it
-                            return false;
-                        }
-                    }else
-                    {
-                        if (sig[1].SequenceEqual(myAddress)) // address
-                        {
-                            // we have already signed it
-                            return false;
-                        }
-                    }
-                }
-
                 byte[][] newSig = new byte[2][];
                 newSig[0] = signature;
                 if (w.publicKey == null)
                 {
                     newSig[1] = myPubKey;
-
                 }
                 else
                 {
@@ -620,7 +605,7 @@ namespace DLT
                     // Add the address to the list
                     result.Add(addressBytes);
                 }
-                result.OrderBy(x => x, new ByteArrayComparer());
+                result.Sort((x, y) => _ByteArrayComparer.Compare(x, y));
             }
             return result;
         }

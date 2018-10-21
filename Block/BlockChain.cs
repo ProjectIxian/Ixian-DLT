@@ -221,7 +221,7 @@ namespace DLT
 
                 // Sort the signatures first
                 List<byte[][]> sortedSigs = new List<byte[][]>(targetBlock.signatures);
-                sortedSigs.OrderBy(x => x[1], new ByteArrayComparer());
+                sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x[1], y[1]));
 
                 byte[][] sig = sortedSigs[(int)((uint)sigNr % sortedSigs.Count)];
 

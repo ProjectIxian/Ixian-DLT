@@ -276,7 +276,6 @@ namespace DLT
                         {
                             removeSignaturesWithoutPlEntry(b);
                             removeSignaturesWithLowBalance(b);
-                            b.applySignature();
                             if (Node.blockChain.refreshSignatures(b))
                             {
                                 // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
@@ -286,7 +285,7 @@ namespace DLT
                         }
                     }else
                     {
-                        // we likely have to correct block, resend
+                        // we likely have the correct block, resend
                         // TODO TODO TODO this might go into an endless loop between 2 nodes
                         ProtocolMessage.broadcastNewBlock(localBlock);
                     }
@@ -1058,7 +1057,7 @@ namespace DLT
                 staking_transactions.Clear();
 
                 List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
-                pool_transactions.OrderBy(x => x.blockHeight); // TODO add fee
+                pool_transactions.Sort(x => x.blockHeight); // TODO add fee
 
                 ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
 
