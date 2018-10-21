@@ -1177,6 +1177,7 @@ namespace DLT
                                         var sw = new System.Diagnostics.Stopwatch();
                                         sw.Start();
                                         int processedTxCount = 0;
+                                        int totalTxCount = 0;
                                         while (m.Length > m.Position)
                                         {
                                             int len = reader.ReadInt32();
@@ -1188,7 +1189,8 @@ namespace DLT
                                             }
                                             byte[] txData = reader.ReadBytes(len);
                                             Transaction tx = new Transaction(txData);
-                                            if(tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
+                                            totalTxCount++;
+                                            if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                                             {
                                                 continue;
                                             }
@@ -1206,7 +1208,7 @@ namespace DLT
                                         }
                                         sw.Stop();
                                         TimeSpan elapsed = sw.Elapsed;
-                                        Logging.info(string.Format("Processed {0} txs in {1}ms", processedTxCount, elapsed.TotalMilliseconds));
+                                        Logging.info(string.Format("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds));
                                     }
                                 }
                             }
