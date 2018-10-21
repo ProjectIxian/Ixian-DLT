@@ -541,7 +541,7 @@ namespace DLT
                     }
 
                     // Store the presence address for this remote endpoint
-                    endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version, timestamp, signature);
+                    endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version, Node.getCurrentTimestamp(), null);
 
                     // Create a temporary presence with the client's address and device id
                     Presence presence = new Presence(addr, pubkey, pubkey, endpoint.presenceAddress);
