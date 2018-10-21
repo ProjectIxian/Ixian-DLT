@@ -165,7 +165,7 @@ namespace DLT.Meta
                 if (Config.isTestNet)
                 {
                     // testnet seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("887db956072794a10f66ce691566bda6b5899eb4d4b8e4249a9ef7c747c05bc9de07"), from, null, null, 1);
+                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("132cebae804cbf8765b1b30804356a73418900346ddcf9730aa34b09d64b23ee18ce"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
                     tx2.timeStamp = getCurrentTimestamp();
@@ -173,26 +173,6 @@ namespace DLT.Meta
                     tx2.checksum = Transaction.calculateChecksum(tx2);
                     tx2.signature = Transaction.getSignature(tx2.checksum);
                     TransactionPool.addTransaction(tx2);
-
-                    // test1
-                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("f467cd843aa4856048a9697d78ac969aa6b2204d532126e2b5497c343d4ddeab13ea"), from, null, null, 1);
-                    tx3.type = (int)Transaction.Type.Genesis;
-                    tx3.data = null;
-                    tx3.timeStamp = getCurrentTimestamp();
-                    tx3.id = tx3.generateID();
-                    tx3.checksum = Transaction.calculateChecksum(tx3);
-                    tx3.signature = Transaction.getSignature(tx3.checksum);
-                    TransactionPool.addTransaction(tx3);
-
-                    // test2 
-                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("a6b6593d06fe77695276cf58d2c05203816996d7e11ac0fece5ced84eaf36c717bd1"), from, null, null, 1);
-                    tx4.type = (int)Transaction.Type.Genesis;
-                    tx4.data = null;
-                    tx4.timeStamp = getCurrentTimestamp();
-                    tx4.id = tx4.generateID();
-                    tx4.checksum = Transaction.calculateChecksum(tx4);
-                    tx4.signature = Transaction.getSignature(tx4.checksum);
-                    TransactionPool.addTransaction(tx4);
                 }
                 else
                 {
