@@ -78,7 +78,7 @@ namespace DLT
                 minBh = blocknum - Config.redactedWindowSize;
             }
             // Check the block height
-            if (minBh > transaction.blockHeight || transaction.blockHeight > blocknum + 1)
+            if (minBh > transaction.blockHeight || transaction.blockHeight > blocknum + 5)
             {
                 Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2}", transaction.id, transaction.blockHeight, minBh));
                 return false;
@@ -1112,9 +1112,9 @@ namespace DLT
                 minBh =block.blockNum - Config.redactedWindowSize;
             }
             // Check the block height
-            if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
+            if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum + 5)
             {
-                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx nonce is {1}, expecting at least {2}", tx.id, tx.blockHeight, minBh));
+                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2}", tx.id, tx.blockHeight, minBh));
                 failed_transactions.Add(tx);
                 return false;
             }
