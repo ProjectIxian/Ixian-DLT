@@ -687,7 +687,11 @@ namespace DLT
                 tDic.Add("id", t.id);
                 tDic.Add("blockHeight", t.blockHeight.ToString());
                 tDic.Add("nonce", t.nonce.ToString());
-                tDic.Add("signature", Crypto.hashToString(t.signature) + ":" + Base58Check.Base58CheckEncoding.EncodePlain(t.pubKey));
+                tDic.Add("signature", Crypto.hashToString(t.signature));
+                if(t.pubKey != null)
+                {
+                    tDic.Add("pubKey", Base58Check.Base58CheckEncoding.EncodePlain(t.pubKey));
+                }
                 tDic.Add("data", t.data.ToString());
                 tDic.Add("timeStamp", t.timeStamp.ToString());
                 tDic.Add("type", t.type.ToString());

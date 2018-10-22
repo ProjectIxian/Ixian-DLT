@@ -104,7 +104,7 @@ namespace DLTNode
                     catch(Exception e)
                     {
                         sendError(context, "{\"message\":\"error\"}");
-                        Logging.error(string.Format("Error in API server {0}", e.ToString()));
+                        Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e.ToString()));
 
                     }
                 }
