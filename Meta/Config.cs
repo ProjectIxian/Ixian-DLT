@@ -60,7 +60,7 @@ namespace DLT
             public static readonly ulong redactedWindowSize = 43200; // approx 15 days. Represents the redacted window size of this node
             public static readonly ulong minimumRedactedWindowSize = 43200; // Represents the minimum redacted window size on any node
 
-            public static readonly byte[] ixianInfiniMineAddress = Crypto.stringToHash("497869616e496e66696e694d696e652342342342342342342342342342342342dbb0");
+            public static readonly byte[] ixianInfiniMineAddress = Base58Check.Base58CheckEncoding.DecodePlain("1ixianinfinimine2342342342342342342342342342kHty");
 
             public static readonly byte[] ixianChecksumLock = Encoding.UTF8.GetBytes("Ixian");
             public static readonly string ixianChecksumLockString = "Ixian";
@@ -69,7 +69,7 @@ namespace DLT
             public static readonly IxiNumber minimumMasterNodeFunds = new IxiNumber("20000"); // Limit master nodes to this amount or above
             public static readonly IxiNumber transactionPrice = 5000; // Per kB
             public static readonly IxiNumber foundationFeePercent = 3; // 3% of transaction fees
-            public static readonly byte[] foundationAddress = Crypto.stringToHash("497869616e496e66696e694d696e652342342342342342342342342342342342dbb0"); // Foundation wallet address
+            public static readonly byte[] foundationAddress = Base58Check.Base58CheckEncoding.DecodePlain("1ixianinfinimine2342342342342342342342342342kHty"); // Foundation wallet address
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block TODO TODO TODO deprecate soon, we have other systems in place for throttling
             public static readonly ulong maximumTransactionsPerBlock = 2000; // Limit the maximum number of transactions in a newly generated block

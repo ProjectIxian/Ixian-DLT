@@ -165,7 +165,7 @@ namespace DLT.Meta
                 if (Config.isTestNet)
                 {
                     // testnet seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("132cebae804cbf8765b1b30804356a73418900346ddcf9730aa34b09d64b23ee18ce"), from, null, null, 1);
+                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1QRUJkjs2UB6H8UhJP5ENCK4mprx3C1W5BFmL2o1VDfkdjLR1"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
                     tx2.timeStamp = getCurrentTimestamp();
@@ -177,7 +177,7 @@ namespace DLT.Meta
                 else
                 {
                     // seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("810eae79b4c5cdc6c119137f56362f436df36edf148a31531c397da2a9101446e7c7"), from, null, null, 1);
+                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("810eae79b4c5cdc6c119137f56362f436df36edf148a31531c397da2a9101446e7c7"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
                     tx2.timeStamp = getCurrentTimestamp();
@@ -187,7 +187,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx2);
 
                     // seed3
-                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("7f0068bbbd0656d2d1eba0a8ac97e7611fff38eaf7879f8b822d010cdb97eb619d44"), from, null, null, 1);
+                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("7f0068bbbd0656d2d1eba0a8ac97e7611fff38eaf7879f8b822d010cdb97eb619d44"), from, null, null, 1);
                     tx3.type = (int)Transaction.Type.Genesis;
                     tx3.data = null;
                     tx3.timeStamp = getCurrentTimestamp();
@@ -197,7 +197,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx3);
 
                     // seed4
-                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("e9bd0c5d111913175713066fc31785ec8e609f86720531b195c04f20bed53a3984c4"), from, null, null, 1);
+                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("e9bd0c5d111913175713066fc31785ec8e609f86720531b195c04f20bed53a3984c4"), from, null, null, 1);
                     tx4.type = (int)Transaction.Type.Genesis;
                     tx4.data = null;
                     tx4.timeStamp = getCurrentTimestamp();
@@ -207,7 +207,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx4);
 
                     // seed5
-                    Transaction tx5 = new Transaction(Config.minimumMasterNodeFunds, 0, Crypto.stringToHash("38db54c2713cf20ce0e7e76781c71d0196b7407c9c1e7d95fe0d21e2bfd283710ba3"), from, null, null, 1);
+                    Transaction tx5 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("38db54c2713cf20ce0e7e76781c71d0196b7407c9c1e7d95fe0d21e2bfd283710ba3"), from, null, null, 1);
                     tx5.type = (int)Transaction.Type.Genesis;
                     tx5.data = null;
                     tx5.timeStamp = getCurrentTimestamp();
@@ -217,7 +217,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx5);
 
                     // Team Reward
-                    Transaction tx6 = new Transaction(new IxiNumber("1000000000"), 0, Crypto.stringToHash("e4014e75dfff822d24f2e74c8e5e7212114d0b140154c327dc7b2621fff3a2484339"), from, null, null, 1);
+                    Transaction tx6 = new Transaction(new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("e4014e75dfff822d24f2e74c8e5e7212114d0b140154c327dc7b2621fff3a2484339"), from, null, null, 1);
                     tx6.type = (int)Transaction.Type.Genesis;
                     tx6.data = null;
                     tx6.timeStamp = getCurrentTimestamp();
@@ -227,7 +227,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx6);
 
                     // Development
-                    Transaction tx7 = new Transaction(new IxiNumber("1000000000"), 0, Crypto.stringToHash("85871f25721ca4a3f1016feedb00ea7c51165947d36039c779fd3a1759606c0cf693"), from, null, null, 1);
+                    Transaction tx7 = new Transaction(new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("85871f25721ca4a3f1016feedb00ea7c51165947d36039c779fd3a1759606c0cf693"), from, null, null, 1);
                     tx7.type = (int)Transaction.Type.Genesis;
                     tx7.data = null;
                     tx7.timeStamp = getCurrentTimestamp();
