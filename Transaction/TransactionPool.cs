@@ -172,6 +172,12 @@ namespace DLT
                     }
                 }
                 Wallet w = Node.walletState.getWallet(transaction.from, false);
+                if(w.type == WalletType.Multisig && transaction.type != (int)Transaction.Type.MultisigTX)
+                {
+                    Logging.error(String.Format("Attempted to execute a regular transaction {{ {0} }} on a multisig wallet {1}!",
+                        transaction.id, Base58Check.Base58CheckEncoding.EncodePlain(w.id)));
+                    return false;
+                }
                 // transaction pubkey might be empty (todo - from address from wallet state)
                 Address addr = null;
                 if (transaction.pubKey != null)
