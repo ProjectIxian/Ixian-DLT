@@ -165,7 +165,7 @@ namespace DLT.Meta
                 if (Config.isTestNet)
                 {
                     // testnet seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("13Y7Ug9WCz8qUjJmd7FeKUQj7wqZ9vwRk1gwCdWz4ae9MCWZT"), from, null, null, 1);
+                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1QRUJkjs2UB6H8UhJP5ENCK4mprx3C1W5BFmL2o1VDfkdjLR1"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
                     tx2.timeStamp = getCurrentTimestamp();
