@@ -219,7 +219,7 @@ namespace DLT
                 return broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
             }
 
-            public static bool broadcastGetTransaction(string txid)
+            public static bool broadcastGetTransaction(string txid, RemoteEndpoint endpoint = null)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -227,12 +227,24 @@ namespace DLT
                     {
                         writerw.Write(txid);
 
-                        return broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray(), null, true);
+                        if (endpoint != null)
+                        {
+                            if (endpoint.isConnected())
+                            {
+                                endpoint.sendData(ProtocolMessageCode.getTransaction, mw.ToArray());
+                                return true;
+                            }
+                            return false;
+                        }
+                        else
+                        {
+                            return broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray(), null, true);
+                        }
                     }
                 }
             }
 
-            public static void broadcastGetBlockTransactions(ulong blockNum, bool requestAllTransactions)
+            public static void broadcastGetBlockTransactions(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -241,14 +253,15 @@ namespace DLT
                         writerw.Write(blockNum);
                         writerw.Write(requestAllTransactions);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getBlockTransactions, mw.ToArray(), null, true);
+                        if (endpoint != null)
+                        {
+                            endpoint.sendData(ProtocolMessageCode.getBlockTransactions, mw.ToArray());
+                        }else
+                        {
+                            broadcastProtocolMessage(ProtocolMessageCode.getBlockTransactions, mw.ToArray(), null, true);
+                        }
                     }
                 }
-            }
-
-            public static void broadcastSyncWalletState()
-            {
-                broadcastProtocolMessage(ProtocolMessageCode.syncWalletState, new byte[1]);
             }
 
             // Broadcast a protocol message across clients and nodes
@@ -509,16 +522,18 @@ namespace DLT
 
                     int addrLen = reader.ReadInt32();
                     byte[] addr = reader.ReadBytes(addrLen);
+
                     bool test_net = reader.ReadBoolean();
                     char node_type = reader.ReadChar();
                     string node_version = reader.ReadString();
                     string device_id = reader.ReadString();
-                    int s2pkLen = reader.ReadInt32();
-                    byte[] s2pubkey = reader.ReadBytes(s2pkLen);
+
                     int pkLen = reader.ReadInt32();
                     byte[] pubkey = reader.ReadBytes(pkLen);
+
                     int port = reader.ReadInt32();
                     long timestamp = reader.ReadInt64();
+
                     int sigLen = reader.ReadInt32();
                     byte[] signature = reader.ReadBytes(sigLen);
 
@@ -578,7 +593,7 @@ namespace DLT
                     endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version, Node.getCurrentTimestamp(), null);
 
                     // Create a temporary presence with the client's address and device id
-                    Presence presence = new Presence(addr, pubkey, pubkey, endpoint.presenceAddress);
+                    Presence presence = new Presence(addr, pubkey, null, endpoint.presenceAddress);
 
 
 
@@ -677,10 +692,6 @@ namespace DLT
 
                         // Send the node device id
                         writer.Write(Config.device_id);
-
-                        // Send the S2 public key
-                        writer.Write(Node.walletStorage.encPublicKey.Length);
-                        writer.Write(Node.walletStorage.encPublicKey);
 
                         // Send the wallet public key
                         writer.Write(Node.walletStorage.publicKey.Length);
@@ -1013,8 +1024,10 @@ namespace DLT
                                     {
                                         ulong walletstate_block = Node.blockSync.pendingWsBlockNum;
                                         long walletstate_count = Node.walletState.numWallets;
+                                        int walletstate_version = Node.walletState.version;
 
                                         // Return the current walletstate block and walletstate count
+                                        writer.Write(walletstate_version);
                                         writer.Write(walletstate_block);
                                         writer.Write(walletstate_count);
 
@@ -1033,16 +1046,19 @@ namespace DLT
                                     {
                                         ulong walletstate_block = 0;
                                         long walletstate_count = 0;
+                                        int walletstate_version = 0;
                                         try
                                         {
                                             walletstate_block = reader.ReadUInt64();
                                             walletstate_count = reader.ReadInt64();
-                                        } catch(Exception e)
+                                            walletstate_version = reader.ReadInt32();
+                                        }
+                                        catch (Exception e)
                                         {
                                             Logging.warn(String.Format("Error while receiving the WalletState header: {0}.", e.Message));
                                             return;
                                         }
-                                        Node.blockSync.onWalletStateHeader(walletstate_block,walletstate_count);
+                                        Node.blockSync.onWalletStateHeader(walletstate_version, walletstate_block, walletstate_count);
                                     }
                                 }
                             }

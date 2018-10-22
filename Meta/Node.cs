@@ -29,13 +29,16 @@ namespace DLT.Meta
         public static bool presenceListActive = false;
 
         public static long networkTimeDifference = 0;
-        private static bool running = false;
+
+        public static int keepAliveVersion = 0;
 
         // Private
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
         private static bool workerMode = false;
-        
+
+        private static bool running = false;
+
 
         static public void start()
         {
@@ -588,9 +591,12 @@ namespace DLT.Meta
                     {
                         using (BinaryWriter writer = new BinaryWriter(m))
                         {
+                            writer.Write(keepAliveVersion);
+
                             byte[] wallet = walletStorage.address;
                             writer.Write(wallet.Length);
                             writer.Write(wallet);
+
                             writer.Write(Config.device_id);
 
                             // Add the unix timestamp

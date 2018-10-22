@@ -171,9 +171,6 @@ namespace DLTNode
                            // Send the node device id
                            writer.Write(Config.device_id);
 
-                           // Send the S2 public key
-                           writer.Write(Node.walletStorage.encPublicKey);
-
                            // Send the wallet public key
                            writer.Write(Node.walletStorage.publicKey);
 

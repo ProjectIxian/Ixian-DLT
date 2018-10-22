@@ -29,6 +29,7 @@ namespace DLT
         bool receivedAllMissingBlocks = false;
 
         ulong wsSyncConfirmedBlockNum;
+        int wsSyncConfirmedVersion;
         bool wsSynced = false;
         string syncNeighbor;
         HashSet<int> missingWsChunks = new HashSet<int>();
@@ -184,6 +185,7 @@ namespace DLT
                         if (pendingWsChunks.Count > 0)
                         {
                             Node.walletState.clear();
+                            Node.walletState.version = wsSyncConfirmedVersion;
                             foreach (WsChunk c in pendingWsChunks)
                             {
                                 Logging.info(String.Format("Applying chunk {0}.", c.chunkNum));
@@ -579,7 +581,7 @@ namespace DLT
             receivedAllMissingBlocks = false;
         }
 
-        public void onWalletStateHeader(ulong ws_block, long ws_count)
+        public void onWalletStateHeader(int ws_version, ulong ws_block, long ws_count)
         {
             if(synchronizing == true && wsSyncConfirmedBlockNum == 0)
             {
@@ -591,6 +593,7 @@ namespace DLT
                 Logging.info(String.Format("WalletState Starting block: #{0}. Wallets: {1} ({2} chunks)", 
                     ws_block, ws_count, chunks));
                 wsSyncConfirmedBlockNum = ws_block;
+                wsSyncConfirmedVersion = ws_version;
                 lock (missingWsChunks)
                 {
                     missingWsChunks.Clear();

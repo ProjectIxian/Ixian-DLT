@@ -425,7 +425,7 @@ namespace DLTNode
                 blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
                 blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
                 blockData.Add("PoW field", Crypto.hashToString(block.powField));
-                blockData.Add("Timestamp", block.timestamp);
+                blockData.Add("Timestamp", block.timestamp.ToString());
                 blockData.Add("Difficulty", block.difficulty.ToString());
                 blockData.Add("Signature count", block.signatures.Count.ToString());
                 blockData.Add("Transaction count", block.transactions.Count.ToString());
@@ -457,7 +457,7 @@ namespace DLTNode
                     blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
                     blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
                     blockData.Add("PoW field", Crypto.hashToString(block.powField));
-                    blockData.Add("Timestamp", block.timestamp);
+                    blockData.Add("Timestamp", block.timestamp.ToString());
                     blockData.Add("Difficulty", block.difficulty.ToString());
                     blockData.Add("Signature count", block.signatures.Count.ToString());
                     blockData.Add("Transaction count", block.transactions.Count.ToString());
@@ -498,7 +498,7 @@ namespace DLTNode
                 blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
                 blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
                 blockData.Add("PoW field", Crypto.hashToString(block.powField));
-                blockData.Add("Timestamp", block.timestamp);
+                blockData.Add("Timestamp", block.timestamp.ToString());
                 blockData.Add("Difficulty", block.difficulty.ToString());
                 blockData.Add("Signature count", block.signatures.Count.ToString());
                 blockData.Add("Transaction count", block.transactions.Count.ToString());

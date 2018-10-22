@@ -13,6 +13,7 @@ namespace DLT
     class WalletState
     {
         private readonly object stateLock = new object();
+        public int version = 0;
         private readonly Dictionary<byte[], Wallet> walletState = new Dictionary<byte[], Wallet>(new ByteArrayComparer()); // The entire wallet list
         private byte[] cachedChecksum = null;
         private Dictionary<byte[], Wallet> wsDelta = null;
@@ -50,6 +51,7 @@ namespace DLT
         // Construct the walletstate from and older one
         public WalletState(WalletState oldWS)
         {
+            version = oldWS.version;
             walletState = new Dictionary<byte[], Wallet>(oldWS.walletState);
             cachedChecksum = oldWS.cachedChecksum;
             cachedTotalSupply = oldWS.cachedTotalSupply;
@@ -286,7 +288,7 @@ namespace DLT
                 }
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
                 // Note: addresses are fixed size
-                byte[] checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT"));
+                byte[] checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
                 foreach (byte[] addr in eligible_addresses)
                 {
                     byte[] wallet_checksum = getWallet(addr, snapshot).calculateChecksum();

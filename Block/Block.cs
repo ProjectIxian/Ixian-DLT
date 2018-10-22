@@ -19,11 +19,13 @@ namespace DLT
         public List<string> transactions = new List<string> { };
         public List<byte[][]> signatures = new List<byte[][]> { };
 
+
+        public int version = 0;
         public byte[] blockChecksum = null;
         public byte[] lastBlockChecksum = null;
         public byte[] walletStateChecksum = null;
         public byte[] signatureFreezeChecksum = null;
-        public string timestamp = "";
+        public long timestamp = 0;
         public ulong difficulty = 0;
 
         // Locally calculated
@@ -45,12 +47,14 @@ namespace DLT
 
         public Block()
         {
+            version = 0;
             blockNum = 0;
             transactions = new List<string>();
         }
 
         public Block(Block block)
         {
+            version = block.version;
             blockNum = block.blockNum;
 
             // Add transactions and signatures from the old block
@@ -89,6 +93,8 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
+                        version = reader.ReadInt32();
+
                         blockNum = reader.ReadUInt64();
 
                         // Get the transaction ids
@@ -144,7 +150,7 @@ namespace DLT
                             powField = reader.ReadBytes(dataLen);
                         }
 
-                        timestamp = reader.ReadString();
+                        timestamp = reader.ReadInt64();
                     }
                 }
             }
@@ -161,6 +167,8 @@ namespace DLT
             {
                 using (BinaryWriter writer = new BinaryWriter(m))
                 {
+                    writer.Write(version);
+
                     writer.Write(blockNum);
 
                     // Write the number of transactions
@@ -259,6 +267,7 @@ namespace DLT
 
             List<byte> rawData = new List<byte>();
             rawData.AddRange(Config.ixianChecksumLock);
+            rawData.AddRange(BitConverter.GetBytes(version));
             rawData.AddRange(BitConverter.GetBytes(blockNum));
             rawData.AddRange(Encoding.UTF8.GetBytes(merged_txids.ToString()));
             if (lastBlockChecksum != null)
@@ -290,6 +299,7 @@ namespace DLT
 
             // Merge the sorted signatures
             List<byte> merged_sigs = new List<byte>();
+            merged_sigs.AddRange(BitConverter.GetBytes(blockNum));
             foreach (byte[][] sig in sortedSigs)
             {
                 merged_sigs.AddRange(sig[0]);

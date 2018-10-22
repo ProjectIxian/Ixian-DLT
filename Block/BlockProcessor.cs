@@ -293,7 +293,7 @@ namespace DLT
                 return;
             }
 
-            if (verifyBlock(b) != BlockVerifyStatus.Valid)
+            if (verifyBlock(b, false, endpoint) != BlockVerifyStatus.Valid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
@@ -396,7 +396,7 @@ namespace DLT
             return BlockVerifyStatus.Valid;
         }
 
-        public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false)
+        public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
         {
 
             var sw = new System.Diagnostics.Stopwatch();
@@ -451,7 +451,7 @@ namespace DLT
                     if(fetchTransactions)
                     {
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
-                        ProtocolMessage.broadcastGetTransaction(txid);
+                        ProtocolMessage.broadcastGetTransaction(txid, endpoint);
                         hasAllTransactions = false;
                         missing++;
                     }
@@ -506,7 +506,7 @@ namespace DLT
                     {
                         fetchingBulkTxForBlocks.Add(b.blockNum, 0);
                         fetchingTxForBlocks.Add(b.blockNum, 0);
-                        ProtocolMessage.broadcastGetBlockTransactions(b.blockNum, Node.blockSync.synchronizing);
+                        ProtocolMessage.broadcastGetBlockTransactions(b.blockNum, Node.blockSync.synchronizing, endpoint);
                     }
                     fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
                     fetchingTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
@@ -1034,7 +1034,7 @@ namespace DLT
 
                 // Create a new block and add all the transactions in the pool
                 localNewBlock = new Block();
-                localNewBlock.timestamp = Node.getCurrentTimestamp().ToString();
+                localNewBlock.timestamp = Node.getCurrentTimestamp();
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));

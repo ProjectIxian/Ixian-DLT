@@ -57,10 +57,10 @@ namespace DLT
                 if (prepare_database)
                 {
                     // Create the blocks table
-                    string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` TEXT, PRIMARY KEY(`blockNum`));";
+                    string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, PRIMARY KEY(`blockNum`));";
                     executeSQL(sql);
 
-                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` BLOB, `from` BLOB,  `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` TEXT, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, PRIMARY KEY(`id`));";
+                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` BLOB, `from` BLOB,  `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
                     executeSQL(sql);
                     sql = "CREATE INDEX `type` ON `transactions` (`type`);";
                     executeSQL(sql);
@@ -98,7 +98,8 @@ namespace DLT
                 public byte[] powField { get; set; }
                 public string signatures { get; set; }
                 public string transactions { get; set; }
-                public string timestamp { get; set; }
+                public long timestamp { get; set; }
+                public int version { get; set; }
             }
 
             public class _storage_Transaction
@@ -117,6 +118,7 @@ namespace DLT
                 public byte[] signature { get; set; }
                 public byte[] pubKey { get; set; }
                 public long applied { get; set; }
+                public int version { get; set; }
             }
 
             public static bool readFromStorage()
@@ -177,15 +179,15 @@ namespace DLT
                 bool result = false;
                 if (getBlock(block.blockNum) == null)
                 {
-                    string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp);
+                    string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version);
                 }
                 else
                 {
                     // Likely already have the block stored, update the old entry
-                    string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ? WHERE `blockNum` = ?";
+                    string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ?, `version` = ? WHERE `blockNum` = ?";
                     //Console.WriteLine("SQL: {0}", sql);
-                    result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, (long)block.blockNum);
+                    result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, (long)block.blockNum);
                 }
 
 
@@ -197,14 +199,14 @@ namespace DLT
                 bool result = false;
                 if (getTransaction(transaction.id) == null)
                 {
-                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied);
+                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                 }
                 else
                 {
                     // Likely already have the tx stored, update the old entry
-                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ? WHERE `id` = ?";
-                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.id);
+                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
+                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
                 }
 
                 return result;
@@ -258,7 +260,8 @@ namespace DLT
                     powField = blk.powField,
                     transactions = new List<string>(),
                     signatures = new List<byte[][]>(),
-                    timestamp = blk.timestamp
+                    timestamp = blk.timestamp,
+                    version = blk.version
                 };
 
                 // Add signatures
@@ -336,6 +339,7 @@ namespace DLT
                 transaction.timeStamp = tx.timestamp;
                 transaction.checksum = tx.checksum;
                 transaction.signature = tx.signature;
+                transaction.version = tx.version;
 
                 return transaction;
             }
@@ -490,22 +494,6 @@ namespace DLT
                 }
             }
 
-            /*public static void updateAppliedFlag(Transaction transaction)
-            {
-                QueueStorageMessage message = new QueueStorageMessage
-                {
-                    code = QueueStorageCode.updateTxAppliedFlag,
-                    data = transaction
-                };
-
-                lock (queueStatements)
-                {
-                    queueStatements.Add(message);
-                }
-            }*/
-
-
-
             // Storage thread
             private static void threadLoop()
             {
@@ -533,10 +521,6 @@ namespace DLT
                         {
                             insertTransactionInternal((Transaction)active_message.data);
                         }
-                        /*else if (active_message.code == QueueStorageCode.updateTxAppliedFlag)
-                        {
-                            updateAppliedFlagInternal((Transaction)active_message.data);
-                        }*/
                         else if (active_message.code == QueueStorageCode.insertBlock)
                         {
                             insertBlockInternal((Block)active_message.data);
