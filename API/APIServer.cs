@@ -260,6 +260,8 @@ namespace DLTNode
                 // Add a new transaction. This test allows sending and receiving from arbitrary addresses
                 string responseString = "Incorrect transaction parameters.";
 
+                string orig_txid = request.QueryString["origtx"];
+                byte[] from = Crypto.stringToHash(request.QueryString["from"]);
                 byte[] to = Crypto.stringToHash(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
                 IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
@@ -268,28 +270,13 @@ namespace DLTNode
                 // Only create a transaction if there is a valid amount
                 if (amount > (long)0)
                 {
-                    byte[] from = Node.walletStorage.address;
-
-                    TransactionPool.internalNonce++;
-                    int nonce = TransactionPool.internalNonce;
-
                     if (!Address.validateChecksum(to))
                     {
                         responseString = "Incorrect to address.";
                     }
                     else
                     {
-                        byte[] pubKey = Node.walletStorage.publicKey;
-
-                        // Check if this wallet's public key is already in the WalletState
-                        Wallet mywallet = Node.walletState.getWallet(from, true);
-                        if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
-                        {
-                            // Walletstate public key matches, we don't need to send the public key in the transaction
-                            pubKey = null;
-                        }
-
-                        Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                        Transaction transaction = Transaction.multisigTransaction(orig_txid, amount, fee, to, from, Node.blockChain.getLastBlockNum());
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -312,6 +299,7 @@ namespace DLTNode
                 // transaction which alters a multisig wallet
                 string responseString = "Incorrect transaction parameters.";
 
+                string orig_txid = request.QueryString["origtx"];
                 byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
                 byte[] signer_address = Node.walletState.getWallet(Crypto.stringToHash(signer)).id;
@@ -320,7 +308,7 @@ namespace DLTNode
                 TransactionPool.internalNonce++;
                 int nonce = TransactionPool.internalNonce;
 
-                Transaction transaction = Transaction.multisigAddKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
@@ -341,6 +329,7 @@ namespace DLTNode
                 // transaction which alters a multisig wallet
                 string responseString = "Incorrect transaction parameters.";
 
+                string orig_txid = request.QueryString["origtx"];
                 byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
                 byte[] signer_address = Node.walletState.getWallet(Crypto.stringToHash(signer)).id;
@@ -350,7 +339,7 @@ namespace DLTNode
                 TransactionPool.internalNonce++;
                 int nonce = TransactionPool.internalNonce;
 
-                Transaction transaction = Transaction.multisigDelKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
@@ -371,6 +360,7 @@ namespace DLTNode
                 // transaction which alters a multisig wallet
                 string responseString = "Incorrect transaction parameters.";
 
+                string orig_txid = request.QueryString["origtx"];
                 byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
                 string sigs = request.QueryString["sigs"];
                 IxiNumber fee = Config.transactionPrice;
@@ -380,7 +370,7 @@ namespace DLTNode
                     TransactionPool.internalNonce++;
                     int nonce = TransactionPool.internalNonce;
 
-                    Transaction transaction = Transaction.multisigChangeReqSigs(reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                    Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
                     if (TransactionPool.addTransaction(transaction))
                     {
                         responseString = JsonConvert.SerializeObject(transaction);
@@ -599,15 +589,27 @@ namespace DLTNode
                 walletData.Add("requiredSigs", w.requiredSigs.ToString());
                 if (w.allowedSigners != null)
                 {
-                    // TODO TODO TODO TODO fix this
-                    //walletData.Add("allowedSigners", "(" + w.allowedSigners.Length + " keys): " + string.Join(",", w.allowedSigners));
-                    walletData.Add("allowedSigners", "!! Needs fixing !!");
+                    if (w.allowedSigners != null)
+                    {
+                        walletData.Add("allowedSigners", "(" + (w.allowedSigners.Length+1) + " keys): " +
+                            w.allowedSigners.Aggregate(Crypto.hashToString(w.id), (aggr, n) => aggr += "," + Crypto.hashToString(n), aggr => aggr)
+                            );
+                    }else
+                    {
+                        walletData.Add("allowedSigners", "null");
+                    }
                 }
                 else
                 {
                     walletData.Add("allowedSigners", "null");
                 }
-                walletData.Add("extraData", w.data.ToString());
+                if (w.data != null)
+                {
+                    walletData.Add("extraData", w.data.ToString());
+                } else
+                {
+                    walletData.Add("extraData", "null");
+                }
                 walletData.Add("nonce", w.nonce.ToString());
 
                 string responseString = JsonConvert.SerializeObject(walletData);

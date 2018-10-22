@@ -523,7 +523,7 @@
         <PropertyValue name="InsertSpaceAfterSemicolonInForStatements">true</PropertyValue>
         <PropertyValue name="InsertSpaceBeforeAndAfterBinaryOperators">true</PropertyValue>
         <PropertyValue name="IsLinterEnabled">false</PropertyValue>
-        <PropertyValue name="LintClosedFiles">true</PropertyValue>
+        <PropertyValue name="LintClosedFiles">false</PropertyValue>
         <PropertyValue name="NoClosedFileDiagnostics">false</PropertyValue>
         <PropertyValue name="OnlyAnalyzeProjectsWithOpenDocuments">false</PropertyValue>
         <PropertyValue name="OnlyUseTabOrEnterToCommit">true</PropertyValue>
