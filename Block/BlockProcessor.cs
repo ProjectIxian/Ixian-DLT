@@ -186,7 +186,7 @@ namespace DLT
 
                 if (Node.walletState.getWalletBalance(address) < Config.minimumMasterNodeFunds)
                 {
-                    Logging.error(String.Format("LOW BALANCE ADDRESS: {0} FUNDS: {1}", Crypto.hashToString(address), Node.walletState.getWalletBalance(address)));
+                    Logging.error(String.Format("LOW BALANCE ADDRESS: {0} FUNDS: {1}", Base58Check.Base58CheckEncoding.EncodePlain(address), Node.walletState.getWalletBalance(address)));
                     sigs.Add(b.signatures[i]);
                     continue;
                 }
@@ -488,7 +488,7 @@ namespace DLT
                     // someone is doing something bad with this transaction, so we invalidate the block
                     // TODO: Blacklisting for the transaction originator node
                     Logging.warn(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}, to: {3}",
-                        t.id, t.amount, Crypto.hashToString(t.from), Crypto.hashToString(t.to)));
+                        t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(t.from), Base58Check.Base58CheckEncoding.EncodePlain(t.to)));
                     return BlockVerifyStatus.Invalid;
                 }
             }
@@ -537,7 +537,7 @@ namespace DLT
                     if (initial_balance < minusBalances[addr])
                     {
                         Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
-                            Crypto.hashToString(addr), initial_balance, minusBalances[addr]));
+                            Base58Check.Base58CheckEncoding.EncodePlain(addr), initial_balance, minusBalances[addr]));
                         return BlockVerifyStatus.Invalid;
                     }
                 }

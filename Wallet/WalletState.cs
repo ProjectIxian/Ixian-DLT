@@ -42,7 +42,7 @@ namespace DLT
             Logging.info(String.Format("Generating genesis WalletState with {0} wallets.", genesisState.Count()));
             foreach(Wallet w in genesisState)
             {
-                Logging.info(String.Format("-> Genesis wallet ( {0} ) : {1}.", Crypto.hashToString(w.id), w.balance));
+                Logging.info(String.Format("-> Genesis wallet ( {0} ) : {1}.", Base58Check.Base58CheckEncoding.EncodePlain(w.id), w.balance));
                 walletState.Add(w.id, w);
             }
         }
@@ -216,7 +216,7 @@ namespace DLT
 
                 if(wallet == null)
                 {
-                    Logging.warn(String.Format("Attempted to set nonce {0} for wallet {1} that does not exist.", nonce, Crypto.hashToString(id)));
+                    Logging.warn(String.Format("Attempted to set nonce {0} for wallet {1} that does not exist.", nonce, Base58Check.Base58CheckEncoding.EncodePlain(id)));
                     return;
                 }
 
@@ -233,7 +233,7 @@ namespace DLT
 
                 if (wallet == null)
                 {
-                    Logging.warn(String.Format("Attempted to set public key for wallet {0} that does not exist.", Crypto.hashToString(id)));
+                    Logging.warn(String.Format("Attempted to set public key for wallet {0} that does not exist.", Base58Check.Base58CheckEncoding.EncodePlain(id)));
                     return;
                 }
 

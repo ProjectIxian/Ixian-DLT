@@ -100,7 +100,7 @@ namespace DLT
                 Address addr = new Address(transaction.pubKey);
                 if(!w.isValidSigner(addr.address))
                 {
-                    Logging.warn(String.Format("Multisig transaction {{ {0} }} does not have a valid signature for wallet {1}.", transaction.id, Crypto.hashToString(w.id)));
+                    Logging.warn(String.Format("Multisig transaction {{ {0} }} does not have a valid signature for wallet {1}.", transaction.id, Base58Check.Base58CheckEncoding.EncodePlain(w.id)));
                     return false;
                 }
             }
@@ -928,7 +928,7 @@ namespace DLT
                 if(orig.type != WalletType.Multisig)
                 {
                     Logging.error(String.Format("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
-                        Crypto.hashToString(tx.from), tx.id));
+                        Base58Check.Base58CheckEncoding.EncodePlain(tx.from), tx.id));
                     failed_transactions.Add(tx);
                     return false;
                 }
@@ -1010,12 +1010,12 @@ namespace DLT
                         Array.Copy(tx.data, 1, new_addr, 0, tx.data.Length - 1);
                         if (orig.isValidSigner(new_addr))
                         {
-                            Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Crypto.hashToString(new_addr), Crypto.hashToString(orig.id)));
+                            Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(new_addr), Crypto.hashToString(orig.id)));
                             failed_transactions.Add(tx);
                             return false;
                         }
                         ///////////
-                        Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Crypto.hashToString(new_addr), Crypto.hashToString(orig.id)));
+                        Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(new_addr), Crypto.hashToString(orig.id)));
                         orig.addValidSigner(new_addr);
                         orig.type = WalletType.Multisig;
                         Node.walletState.setWallet(orig, ws_snapshot);
@@ -1029,7 +1029,7 @@ namespace DLT
                         }
                         byte[] del_addr = new byte[tx.data.Length - 1];
                         Array.Copy(tx.data, 1, del_addr, 0, tx.data.Length - 1);
-                        Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Crypto.hashToString(del_addr), Crypto.hashToString(orig.id)));
+                        Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(del_addr), Crypto.hashToString(orig.id)));
                         if (del_addr.SequenceEqual(orig.id))
                         {
                             Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", del_addr));

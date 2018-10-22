@@ -687,15 +687,15 @@ namespace DLT
                 tDic.Add("id", t.id);
                 tDic.Add("blockHeight", t.blockHeight.ToString());
                 tDic.Add("nonce", t.nonce.ToString());
-                tDic.Add("signature", Crypto.hashToString(t.signature) + ":" + Crypto.hashToString(t.pubKey));
+                tDic.Add("signature", Crypto.hashToString(t.signature) + ":" + Base58Check.Base58CheckEncoding.EncodePlain(t.pubKey));
                 tDic.Add("data", t.data.ToString());
                 tDic.Add("timeStamp", t.timeStamp.ToString());
                 tDic.Add("type", t.type.ToString());
                 tDic.Add("amount", t.amount.ToString());
                 tDic.Add("applied", t.applied.ToString());
                 tDic.Add("checksum", Crypto.hashToString(t.checksum));
-                tDic.Add("from", Crypto.hashToString(t.from));
-                tDic.Add("to", Crypto.hashToString(t.to));
+                tDic.Add("from", Base58Check.Base58CheckEncoding.EncodePlain(t.from));
+                tDic.Add("to", Base58Check.Base58CheckEncoding.EncodePlain(t.to));
                 tDic.Add("fee", t.fee.ToString());
                 txList.Add(tDic);
 
