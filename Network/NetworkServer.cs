@@ -323,6 +323,27 @@ namespace DLT
                 return messageCount;
             }
 
+            public static RemoteEndpoint getClient(int idx)
+            {
+                lock (connectedClients)
+                {
+                    int i = 0;
+                    RemoteEndpoint lastClient = null;
+                    foreach (RemoteEndpoint client in connectedClients)
+                    {
+                        if (client.isConnected())
+                        {
+                            lastClient = client;
+                        }
+                        if (i == idx && lastClient != null)
+                        {
+                            break;
+                        }
+                        i++;
+                    }
+                    return lastClient;
+                }
+            }
         }
     }
 }

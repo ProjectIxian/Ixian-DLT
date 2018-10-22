@@ -425,7 +425,7 @@ namespace DLT
 
             if (!Config.recoverFromFile)
             {
-                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.getUnappliedTransactions, new byte[1]);
+                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.getUnappliedTransactions, new byte[1], null, true);
             }
 
         }

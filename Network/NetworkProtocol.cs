@@ -56,6 +56,7 @@ namespace DLT
                                 Block tmp = Node.blockProcessor.getLocalBlock();
                                 if (tmp != null && tmp.blockNum == blockNum)
                                 {
+                                    b = tmp;
                                     txIdArr = new List<string>(tmp.transactions);
                                 }
                             }
@@ -107,6 +108,10 @@ namespace DLT
                                 }
                             }
                         }
+
+                        // Send the block
+                        endpoint.sendData(ProtocolMessageCode.blockData, b.getBytes());
+
                     }
                 }
             }
@@ -203,7 +208,7 @@ namespace DLT
                     {
                         writerw.Write(block_num);
 
-                        return broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint);
+                        return broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint, true);
                     }
                 }
             }
@@ -222,7 +227,7 @@ namespace DLT
                     {
                         writerw.Write(txid);
 
-                        return broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray());
+                        return broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray(), null, true);
                     }
                 }
             }
@@ -236,7 +241,7 @@ namespace DLT
                         writerw.Write(blockNum);
                         writerw.Write(requestAllTransactions);
 
-                        broadcastProtocolMessage(ProtocolMessageCode.getBlockTransactions, mw.ToArray());
+                        broadcastProtocolMessage(ProtocolMessageCode.getBlockTransactions, mw.ToArray(), null, true);
                     }
                 }
             }
@@ -248,7 +253,7 @@ namespace DLT
 
             // Broadcast a protocol message across clients and nodes
             // Returns true if it sent the message at least one endpoint. Returns false if the message couldn't be sent to any endpoints
-            public static bool broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
+            public static bool broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null, bool sendToSingleRandomNode = false)
             {
                 if(data == null)
                 {
@@ -256,11 +261,40 @@ namespace DLT
                     return false;
                 }
 
-                bool c_result = NetworkClientManager.broadcastData(code, data, skipEndpoint);                
-                bool s_result = NetworkServer.broadcastData(code, data, skipEndpoint);
+                if(sendToSingleRandomNode)
+                {
+                    int serverCount = NetworkClientManager.getConnectedClients().Count();
+                    int clientCount = NetworkServer.getConnectedClients().Count();
 
-                if (!c_result && !s_result)
+                    Random r = new Random();
+                    int rIdx = r.Next(serverCount + clientCount);
+
+                    RemoteEndpoint re = null;
+
+                    if (rIdx <= serverCount)
+                    {
+                        re = NetworkClientManager.getClient(rIdx);
+                    }else
+                    {
+                        re = NetworkServer.getClient(rIdx - serverCount);
+                    }
+                    if (re != null && re.isConnected())
+                    {
+                        re.sendData(code, data);
+                        return true;
+                    }
                     return false;
+                }
+                else
+                {
+                    bool c_result = NetworkClientManager.broadcastData(code, data, skipEndpoint);
+                    bool s_result = NetworkServer.broadcastData(code, data, skipEndpoint);
+
+                    if (!c_result && !s_result)
+                        return false;
+                }
+
+
 
                 return true;
             }
@@ -805,13 +839,12 @@ namespace DLT
                                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
 
                                         // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
-                                        // TODO: looking for a better solution but will likely need an updated network subsystem
                                         if (Node.blockChain.getLastBlockNum() == block_number)
                                         {
                                             Block localNewBlock = Node.blockProcessor.getLocalBlock();
                                             if (localNewBlock != null)
                                             {
-                                                ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                                endpoint.sendData(ProtocolMessageCode.newBlock, localNewBlock.getBytes());
                                             }
                                         }
                                     }

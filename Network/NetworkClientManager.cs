@@ -28,7 +28,7 @@ namespace DLT
             PeerStorage.readPeersFile();
 
             // Now add the seed nodes to the list
-            foreach(string addr in CoreNetworkUtils.getSeedNodes(Config.isTestNet))
+            foreach (string addr in CoreNetworkUtils.getSeedNodes(Config.isTestNet))
             {
                 PeerStorage.addPeerToPeerList(addr, null, false);
             }
@@ -38,7 +38,7 @@ namespace DLT
             while (firstSeedConnected == false)
             {
                 string address = PeerStorage.getRandomMasterNodeAddress();
-                if(address != "")
+                if (address != "")
                 {
                     firstSeedConnected = connectTo(address);
                 }
@@ -97,7 +97,7 @@ namespace DLT
         // Connects to a specified node, with the syntax host:port
         public static bool connectTo(string host)
         {
-            if(host == null || host.Length < 3)
+            if (host == null || host.Length < 3)
             {
                 Logging.error(String.Format("Invalid host address {0}", host));
                 return false;
@@ -114,7 +114,7 @@ namespace DLT
             string resolved_server_name = NetworkUtils.resolveHostname(server[0]);
 
             // Skip hostnames we can't resolve
-            if(resolved_server_name.Length < 1)
+            if (resolved_server_name.Length < 1)
             {
                 Logging.warn(string.Format("Cannot resolve IP for {0}, skipping connection.", server[0]));
                 return false;
@@ -148,6 +148,21 @@ namespace DLT
                 }
             }
 
+            lock (connectingClients)
+            {
+                foreach (string client in connectingClients)
+                {
+                    if (resolved_host.Equals(client, StringComparison.Ordinal))
+                    {
+                        // We're already connecting to this client
+                        return false;
+                    }
+                }
+
+                // The the client to the connecting clients list
+                connectingClients.Add(resolved_host);
+            }
+
             // Check if node is already in the client list
             lock (networkClients)
             {
@@ -170,21 +185,6 @@ namespace DLT
                     // Address is already in the client list
                     return false;
                 }
-            }
-
-            lock (connectingClients)
-            {
-                foreach (string client in connectingClients)
-                {
-                    if(resolved_host.Equals(client, StringComparison.Ordinal))
-                    {
-                        // We're already connecting to this client
-                        return false;
-                    }
-                }
-
-                // The the client to the connecting clients list
-                connectingClients.Add(resolved_host);
             }
 
             // Connect to the specified node
@@ -240,11 +240,11 @@ namespace DLT
         public static bool sendToClient(string neighbor, ProtocolMessageCode code, byte[] data)
         {
             NetworkClient client = null;
-            lock(networkClients)
+            lock (networkClients)
             {
-                foreach(NetworkClient c in networkClients)
+                foreach (NetworkClient c in networkClients)
                 {
-                    if(c.getFullAddress() == neighbor)
+                    if (c.getFullAddress() == neighbor)
                     {
                         client = c;
                         break;
@@ -252,7 +252,7 @@ namespace DLT
                 }
             }
 
-            if(client != null)
+            if (client != null)
             {
                 client.sendData(code, data);
                 return true;
@@ -298,7 +298,7 @@ namespace DLT
                 bool addr_valid = true;
                 string address = PeerStorage.getRandomMasterNodeAddress();
 
-                if(address == "")
+                if (address == "")
                 {
                     break;
                 }
@@ -306,7 +306,7 @@ namespace DLT
                 // Next, check if we're connecting to a self address of this node
                 string[] server = address.Split(':');
 
-                if(server.Length < 2)
+                if (server.Length < 2)
                 {
                     break;
                 }
@@ -422,7 +422,7 @@ namespace DLT
                     // Scan for and connect to a new neighbor
                     connectToRandomNeighbor();
                 }
-                else if(netClients.Count > Config.simultaneousConnectedNeighbors)
+                else if (netClients.Count > Config.simultaneousConnectedNeighbors)
                 {
                     // Disconnect the oldest connected node
                     netClients[0].stop();
@@ -433,7 +433,7 @@ namespace DLT
                 }
 
                 // Connect randomly to a new node. Currently a 5% chance to reconnect during this iteration
-                if(rnd.Next(20) == 1)
+                if (rnd.Next(20) == 1)
                 {
                     connectToRandomNeighbor();
                 }
@@ -454,8 +454,16 @@ namespace DLT
             // Prepare a list of failed clients
             List<NetworkClient> failed_clients = new List<NetworkClient>();
 
+            List<NetworkClient> dup_clients = new List<NetworkClient>();
+
             foreach (NetworkClient client in netClients)
             {
+                if (dup_clients.Find(x => x.getFullAddress(true) == client.getFullAddress(true)) != null)
+                {
+                    failed_clients.Add(client);
+                    continue;
+                }
+                dup_clients.Add(client);
                 if (client.isConnected())
                 {
                     continue;
@@ -496,6 +504,28 @@ namespace DLT
                 }
             }
             return messageCount;
+        }
+
+        public static NetworkClient getClient(int idx)
+        {
+            lock (networkClients)
+            {
+                int i = 0;
+                NetworkClient lastClient = null;
+                foreach(NetworkClient client in networkClients)
+                {
+                    if(client.isConnected())
+                    {
+                        lastClient = client;
+                    }
+                    if(i == idx && lastClient != null)
+                    {
+                        break;
+                    }
+                    i++;
+                }
+                return lastClient;
+            }
         }
     }
 }

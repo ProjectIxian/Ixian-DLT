@@ -42,6 +42,7 @@ namespace DLT
         // Maintain a queue of messages to send
         private List<QueueMessage> sendQueueMessagesHighPriority = new List<QueueMessage>();
         private List<QueueMessage> sendQueueMessagesNormalPriority = new List<QueueMessage>();
+        private List<QueueMessage> sendQueueMessagesLowPriority = new List<QueueMessage>();
 
         // Maintain a queue of raw received data
         private List<QueueMessageRaw> recvRawQueueMessages = new List<QueueMessageRaw>();
@@ -155,6 +156,11 @@ namespace DLT
                 sendQueueMessagesNormalPriority.Clear();
             }
 
+            lock (sendQueueMessagesLowPriority)
+            {
+                sendQueueMessagesLowPriority.Clear();
+            }
+
             lock (recvRawQueueMessages)
             {
                 recvRawQueueMessages.Clear();
@@ -242,7 +248,7 @@ namespace DLT
             // Prepare an special message object to use while sending, without locking up the queue messages
             QueueMessage active_message = new QueueMessage();
 
-            long hpMessages = 0;
+            int messageCount = 0;
 
             while (running)
             {
@@ -268,9 +274,29 @@ namespace DLT
                 bool message_found = false;
                 lock (sendQueueMessagesHighPriority)
                 {
-                    if (hpMessages > 2 || sendQueueMessagesHighPriority.Count == 0)
+                    lock (sendQueueMessagesNormalPriority)
                     {
-                        lock (sendQueueMessagesNormalPriority)
+                        if ((messageCount > 0 && messageCount % 5 == 0) || (sendQueueMessagesNormalPriority.Count == 0 && sendQueueMessagesHighPriority.Count == 0))
+                        {
+                            lock (sendQueueMessagesLowPriority)
+                            {
+                                if (sendQueueMessagesLowPriority.Count > 0)
+                                {
+                                    // Pick the oldest message
+                                    QueueMessage candidate = sendQueueMessagesLowPriority[0];
+                                    active_message.code = candidate.code;
+                                    active_message.data = candidate.data;
+                                    active_message.checksum = candidate.checksum;
+                                    active_message.skipEndpoint = candidate.skipEndpoint;
+                                    // Remove it from the queue
+                                    sendQueueMessagesLowPriority.Remove(candidate);
+                                    message_found = true;
+                                }
+                            }
+                            messageCount = 0;
+                        }
+
+                        if (message_found == false && ((messageCount > 0 && messageCount % 3 == 0) || sendQueueMessagesHighPriority.Count == 0))
                         {
                             if (sendQueueMessagesNormalPriority.Count > 0)
                             {
@@ -285,26 +311,25 @@ namespace DLT
                                 message_found = true;
                             }
                         }
-                        hpMessages = 0;
-                    }
 
-                    if (message_found == false && sendQueueMessagesHighPriority.Count > 0)
-                    {
-                        // Pick the oldest message
-                        QueueMessage candidate = sendQueueMessagesHighPriority[0];
-                        active_message.code = candidate.code;
-                        active_message.data = candidate.data;
-                        active_message.checksum = candidate.checksum;
-                        active_message.skipEndpoint = candidate.skipEndpoint;
-                        // Remove it from the queue
-                        sendQueueMessagesHighPriority.Remove(candidate);
-                        message_found = true;
-                        hpMessages++;
+                        if (message_found == false && sendQueueMessagesHighPriority.Count > 0)
+                        {
+                            // Pick the oldest message
+                            QueueMessage candidate = sendQueueMessagesHighPriority[0];
+                            active_message.code = candidate.code;
+                            active_message.data = candidate.data;
+                            active_message.checksum = candidate.checksum;
+                            active_message.skipEndpoint = candidate.skipEndpoint;
+                            // Remove it from the queue
+                            sendQueueMessagesHighPriority.Remove(candidate);
+                            message_found = true;
+                        }
                     }
                 }
 
                 if (message_found)
                 {
+                    messageCount++;
                     // Active message set, attempt to send it
                     sendDataInternal(active_message.code, active_message.data, active_message.checksum);
                     if(active_message.code == ProtocolMessageCode.bye)
@@ -442,49 +467,56 @@ namespace DLT
                 {
                     if (sendQueueMessagesHighPriority.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
                     {
-                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the high priority network queue", code));
                     }
                     else
                     {
                         // Check if there are too many messages
                         if (sendQueueMessagesHighPriority.Count > Config.maxSendQueue)
                         {
-                            sendQueueMessagesHighPriority.RemoveAt(1);
+                            sendQueueMessagesHighPriority.RemoveAt(10);
                         }
 
                         sendQueueMessagesHighPriority.Add(message);
                     }
                 }
-            }else
+            }else if(code != ProtocolMessageCode.transactionData && code != ProtocolMessageCode.newTransaction)
             {
                 lock (sendQueueMessagesNormalPriority)
                 {
                     if (sendQueueMessagesNormalPriority.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
                     {
-                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the network queue", code));
+                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the normal priority network queue", code));
                     }
                     else
                     {
-                        // prioritize everything but single transactions
-                        if (code != ProtocolMessageCode.transactionData && code != ProtocolMessageCode.newTransaction && sendQueueMessagesNormalPriority.Count > 10)
+                        // Check if there are too many messages
+                        if (sendQueueMessagesNormalPriority.Count > Config.maxSendQueue)
                         {
-                            sendQueueMessagesNormalPriority.Insert(3, message);
+                            sendQueueMessagesNormalPriority.RemoveAt(10);
                         }
-                        else
+                        sendQueueMessagesNormalPriority.Add(message);
+                    }
+                }
+            }else
+            {
+                lock (sendQueueMessagesLowPriority)
+                {
+                    if (sendQueueMessagesLowPriority.Exists(x => x.code == message.code && message.checksum.SequenceEqual(x.checksum)))
+                    {
+                        Logging.warn(string.Format("Attempting to add a duplicate message (code: {0}) to the low priority network queue", code));
+                    }
+                    else
+                    {
+                        // Check if there are too many messages
+                        if (sendQueueMessagesLowPriority.Count > Config.maxSendQueue)
                         {
-                            // Check if there are too many messages
-                            if (sendQueueMessagesNormalPriority.Count > Config.maxSendQueue)
-                            {
-                                sendQueueMessagesNormalPriority.RemoveAt(1);
-                            }
-
-                            sendQueueMessagesNormalPriority.Add(message);
+                            sendQueueMessagesLowPriority.RemoveAt(10);
                         }
+                        sendQueueMessagesLowPriority.Add(message);
                     }
                 }
             }
-
-
         }
 
         public int getQueuedMessageCount()
@@ -493,7 +525,10 @@ namespace DLT
             {
                 lock (sendQueueMessagesNormalPriority)
                 {
-                    return sendQueueMessagesHighPriority.Count + sendQueueMessagesNormalPriority.Count;
+                    lock (sendQueueMessagesLowPriority)
+                    {
+                        return sendQueueMessagesHighPriority.Count + sendQueueMessagesNormalPriority.Count + sendQueueMessagesLowPriority.Count;
+                    }
                 }
             }
         }
