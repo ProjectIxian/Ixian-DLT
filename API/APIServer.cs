@@ -579,7 +579,7 @@ namespace DLTNode
             if (methodName.Equals("getwallet", StringComparison.OrdinalIgnoreCase))
             {
                 // Show own address, balance and blockchain synchronization status
-                byte[] address = Crypto.stringToHash(request.QueryString["id"]);
+                byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["id"]);
                 Wallet w = Node.walletState.getWallet(address);
 
                 Dictionary<string, string> walletData = new Dictionary<string, string>();
@@ -592,7 +592,7 @@ namespace DLTNode
                     if (w.allowedSigners != null)
                     {
                         walletData.Add("allowedSigners", "(" + (w.allowedSigners.Length+1) + " keys): " +
-                            w.allowedSigners.Aggregate(Crypto.hashToString(w.id), (aggr, n) => aggr += "," + Crypto.hashToString(n), aggr => aggr)
+                            w.allowedSigners.Aggregate(Base58Check.Base58CheckEncoding.EncodePlain(w.id), (aggr, n) => aggr += "," + Base58Check.Base58CheckEncoding.EncodePlain(n), aggr => aggr)
                             );
                     }else
                     {
