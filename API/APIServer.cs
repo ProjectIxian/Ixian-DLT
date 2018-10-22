@@ -261,8 +261,8 @@ namespace DLTNode
                 string responseString = "Incorrect transaction parameters.";
 
                 string orig_txid = request.QueryString["origtx"];
-                byte[] from = Crypto.stringToHash(request.QueryString["from"]);
-                byte[] to = Crypto.stringToHash(request.QueryString["to"]);
+                byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
+                byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
                 IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
                 IxiNumber fee = Config.transactionPrice;
@@ -300,9 +300,9 @@ namespace DLTNode
                 string responseString = "Incorrect transaction parameters.";
 
                 string orig_txid = request.QueryString["origtx"];
-                byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
+                byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
-                byte[] signer_address = Node.walletState.getWallet(Crypto.stringToHash(signer)).id;
+                byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
                 IxiNumber fee = Config.transactionPrice;
 
                 TransactionPool.internalNonce++;
@@ -330,9 +330,9 @@ namespace DLTNode
                 string responseString = "Incorrect transaction parameters.";
 
                 string orig_txid = request.QueryString["origtx"];
-                byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
+                byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
-                byte[] signer_address = Node.walletState.getWallet(Crypto.stringToHash(signer)).id;
+                byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
 
                 IxiNumber fee = Config.transactionPrice;
 
@@ -361,7 +361,7 @@ namespace DLTNode
                 string responseString = "Incorrect transaction parameters.";
 
                 string orig_txid = request.QueryString["origtx"];
-                byte[] destWallet = Crypto.stringToHash(request.QueryString["wallet"]);
+                byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
                 string sigs = request.QueryString["sigs"];
                 IxiNumber fee = Config.transactionPrice;
                 if (byte.TryParse(sigs, out byte reqSigs))
