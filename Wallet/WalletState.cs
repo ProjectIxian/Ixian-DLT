@@ -354,7 +354,7 @@ namespace DLT
             IxiNumber total = new IxiNumber();
             lock (stateLock)
             {
-                if (cachedTotalSupply != 0)
+                if (cachedTotalSupply != (long)0)
                 {
                     return cachedTotalSupply;
                 }

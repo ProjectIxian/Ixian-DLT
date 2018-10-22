@@ -1082,7 +1082,23 @@ namespace DLT
                     }                    
 
                     localNewBlock.addTransaction(transaction);
-                    total_amount += transaction.amount;
+                    // amount is counted only for originating multisig transaction.
+                    // additionally, "ChangeMultisigWallet"-type transactions do not have amount
+                    if (transaction.type == (int)Transaction.Type.MultisigTX)
+                    {
+                        object ms_data = transaction.GetMultisigData();
+                        if (ms_data is string)
+                        {
+                            if ((string)ms_data == "")
+                            {
+                                total_amount += transaction.amount;
+                            }
+                        }
+                    }
+                    else if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
+                    {
+                        total_amount += transaction.amount;
+                    }
                     total_transactions++;
                     normal_transactions++;
                 }
