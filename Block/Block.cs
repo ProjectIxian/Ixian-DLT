@@ -274,7 +274,7 @@ namespace DLT
                 rawData.AddRange(signatureFreezeChecksum);
             }
             rawData.AddRange(BitConverter.GetBytes(difficulty));
-            return Crypto.sha256(rawData.ToArray());
+            return Crypto.sha512sqTrunc(rawData.ToArray());
         }
 
         // Returns the checksum of all signatures of this block
@@ -296,7 +296,7 @@ namespace DLT
             }
 
             // Generate a checksum from the merged sorted signatures
-            byte[] checksum = Crypto.sha256(merged_sigs.ToArray());
+            byte[] checksum = Crypto.sha512sqTrunc(merged_sigs.ToArray());
             return checksum;
         }
 

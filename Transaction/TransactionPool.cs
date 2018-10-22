@@ -1180,7 +1180,7 @@ namespace DLT
                 if (ws_snapshot == false)
                 {
                     // Set the powField as a checksum of all miners for this block
-                    block.powField = Crypto.sha256(checksum_source.ToArray());
+                    block.powField = Crypto.sha512sqTrunc(checksum_source.ToArray());
                 }
 
             }

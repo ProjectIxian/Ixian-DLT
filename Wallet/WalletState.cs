@@ -286,11 +286,11 @@ namespace DLT
                 }
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
                 // Note: addresses are fixed size
-                byte[] checksum = Crypto.sha256(Encoding.UTF8.GetBytes("IXIAN-DLT"));
+                byte[] checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT"));
                 foreach (byte[] addr in eligible_addresses)
                 {
                     byte[] wallet_checksum = getWallet(addr, snapshot).calculateChecksum();
-                    checksum = Crypto.sha256(Encoding.UTF8.GetBytes(Crypto.hashToString(checksum) + Crypto.hashToString(wallet_checksum)));
+                    checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes(Crypto.hashToString(checksum) + Crypto.hashToString(wallet_checksum)));
                 }
                 if (snapshot == false)
                 {

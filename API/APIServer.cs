@@ -210,7 +210,7 @@ namespace DLTNode
                 // Add a new transaction. This test allows sending and receiving from arbitrary addresses
                 string responseString = "Incorrect transaction parameters.";
 
-                byte[] to = Crypto.stringToHash(request.QueryString["to"]);
+                byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
                 IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
                 IxiNumber fee = Config.transactionPrice;

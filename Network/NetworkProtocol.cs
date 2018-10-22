@@ -171,7 +171,7 @@ namespace DLT
 
                 if(checksum == null)
                 {
-                    data_checksum = Crypto.sha256(data);
+                    data_checksum = Crypto.sha512sqTrunc(data);
                 }
 
                 using (MemoryStream m = new MemoryStream())
@@ -271,7 +271,7 @@ namespace DLT
 
                     RemoteEndpoint re = null;
 
-                    if (rIdx <= serverCount)
+                    if (rIdx < serverCount)
                     {
                         re = NetworkClientManager.getClient(rIdx);
                     }else
@@ -431,10 +431,10 @@ namespace DLT
                                 return;
                             }
                             // Compute checksum of received data
-                            byte[] local_checksum = Crypto.sha256(data);
+                            byte[] local_checksum = Crypto.sha512sqTrunc(data);
 
                             // Verify the checksum before proceeding
-                            if (Crypto.byteArrayCompare(local_checksum, data_checksum) == false)
+                            if (local_checksum.SequenceEqual(data_checksum) == false)
                             {
                                 Logging.error("Dropped message (invalid checksum)");
                                 continue;
