@@ -1049,9 +1049,9 @@ namespace DLT
                                         int walletstate_version = 0;
                                         try
                                         {
+                                            walletstate_version = reader.ReadInt32();
                                             walletstate_block = reader.ReadUInt64();
                                             walletstate_count = reader.ReadInt64();
-                                            walletstate_version = reader.ReadInt32();
                                         }
                                         catch (Exception e)
                                         {
