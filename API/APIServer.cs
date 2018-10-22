@@ -210,7 +210,7 @@ namespace DLTNode
                 // Add a new transaction. This test allows sending and receiving from arbitrary addresses
                 string responseString = "Incorrect transaction parameters.";
 
-                byte[] to = Crypto.stringToHash(request.QueryString["to"]);
+                byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
                 IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
                 IxiNumber fee = Config.transactionPrice;
@@ -554,7 +554,7 @@ namespace DLTNode
                     sync_status = "sync";
 
                 string[] statArray = new String[3];
-                statArray[0] = Crypto.hashToString(address);
+                statArray[0] = Base58Check.Base58CheckEncoding.EncodePlain(address);
                 statArray[1] = balance.ToString();
                 statArray[2] = sync_status;
 
@@ -583,7 +583,7 @@ namespace DLTNode
                 Wallet w = Node.walletState.getWallet(address);
 
                 Dictionary<string, string> walletData = new Dictionary<string, string>();
-                walletData.Add("id", Crypto.hashToString(w.id));
+                walletData.Add("id", Base58Check.Base58CheckEncoding.EncodePlain(w.id));
                 walletData.Add("balance", w.balance.ToString());
                 walletData.Add("type", w.type.ToString());
                 walletData.Add("requiredSigs", w.requiredSigs.ToString());
@@ -626,10 +626,10 @@ namespace DLTNode
                 foreach (Wallet w in wallets)
                 {
                     walletStates[count] = new string[4];
-                    walletStates[count][0] = Crypto.hashToString(w.id);
+                    walletStates[count][0] = Base58Check.Base58CheckEncoding.EncodePlain(w.id);
                     walletStates[count][1] = w.balance.ToString();
                     walletStates[count][2] = w.nonce.ToString();
-                    walletStates[count][3] = Crypto.hashToString(w.publicKey);
+                    walletStates[count][3] = Base58Check.Base58CheckEncoding.EncodePlain(w.publicKey);
                     count++;
                 }
 

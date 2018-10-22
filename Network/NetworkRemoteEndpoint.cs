@@ -259,7 +259,7 @@ namespace DLT
                     {
                         lastPing = curTime;
                         byte[] pingBytes = new byte[1];
-                        sendDataInternal(ProtocolMessageCode.ping, pingBytes, Crypto.sha256(pingBytes));
+                        sendDataInternal(ProtocolMessageCode.ping, pingBytes, Crypto.sha512sqTrunc(pingBytes));
                         Thread.Sleep(1);
                         continue;
                     }else if(curTime - lastPing > Config.pingTimeout)
@@ -456,7 +456,7 @@ namespace DLT
             QueueMessage message = new QueueMessage();
             message.code = code;
             message.data = data;
-            message.checksum = Crypto.sha256(data);
+            message.checksum = Crypto.sha512sqTrunc(data);
             message.skipEndpoint = null;
 
             if(code == ProtocolMessageCode.bye || code == ProtocolMessageCode.keepAlivePresence 

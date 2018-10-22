@@ -171,7 +171,7 @@ namespace DLT
 
                 if(checksum == null)
                 {
-                    data_checksum = Crypto.sha256(data);
+                    data_checksum = Crypto.sha512sqTrunc(data);
                 }
 
                 using (MemoryStream m = new MemoryStream())
@@ -271,7 +271,7 @@ namespace DLT
 
                     RemoteEndpoint re = null;
 
-                    if (rIdx <= serverCount)
+                    if (rIdx < serverCount)
                     {
                         re = NetworkClientManager.getClient(rIdx);
                     }else
@@ -431,10 +431,10 @@ namespace DLT
                                 return;
                             }
                             // Compute checksum of received data
-                            byte[] local_checksum = Crypto.sha256(data);
+                            byte[] local_checksum = Crypto.sha512sqTrunc(data);
 
                             // Verify the checksum before proceeding
-                            if (Crypto.byteArrayCompare(local_checksum, data_checksum) == false)
+                            if (local_checksum.SequenceEqual(data_checksum) == false)
                             {
                                 Logging.error("Dropped message (invalid checksum)");
                                 continue;
@@ -446,7 +446,7 @@ namespace DLT
                             // Can proceed to parse the data parameter based on the protocol message code.
                             // Data can contain multiple elements.
                             //parseProtocolMessage(code, data, socket, endpoint);
-                            NetworkQueue.receiveProtocolMessage(code, data, Crypto.hashToString(data_checksum), endpoint);
+                            NetworkQueue.receiveProtocolMessage(code, data, data_checksum, endpoint);
                         }
                     }
                 }
@@ -899,7 +899,7 @@ namespace DLT
                                             return;
                                         }
 
-                                        Logging.info(String.Format("Sending transaction {0} - {1} - {2} - {3}.", txid, transaction.id, Crypto.hashToString(transaction.checksum), transaction.amount));
+                                        Logging.info(String.Format("Sending transaction {0} - {1} - {2}.", transaction.id, Crypto.hashToString(transaction.checksum), transaction.amount));
 
                                         endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
                                     }
@@ -1182,7 +1182,7 @@ namespace DLT
                                         else
                                         {
                                             // TODO blacklisting point
-                                            Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Crypto.hashToString(wallet)));
+                                            Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Base58Check.Base58CheckEncoding.EncodePlain(wallet)));
                                         }
                                     }
                                 }

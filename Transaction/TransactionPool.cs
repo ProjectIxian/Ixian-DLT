@@ -123,7 +123,7 @@ namespace DLT
                     {
                         Logging.info(String.Format("Multisig change(add) transaction {{ {0} }} is an origin multisig change transaction.", transaction.id));
                     }
-                    Logging.info(String.Format("Multisig change(add) transaction adds allowed signer {0} to wallet {1}.", Crypto.hashToString(multisig_obj.addrToAdd), Crypto.hashToString(transaction.from)));
+                    Logging.info(String.Format("Multisig change(add) transaction adds allowed signer {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Crypto.hashToString(transaction.from)));
                     orig_txid = multisig_obj.origTXId;
                 }
                 if (multisig_type is Transaction.MultisigAddrDel)
@@ -137,7 +137,7 @@ namespace DLT
                     {
                         Logging.info(String.Format("Multisig change(del) transaction {{ {0} }} is an origin multisig change transaction.", transaction.id));
                     }
-                    Logging.info(String.Format("Multisig change(del) transaction removes allowed signer {0} from wallet {1}.", Crypto.hashToString(multisig_obj.addrToDel), Crypto.hashToString(transaction.from)));
+                    Logging.info(String.Format("Multisig change(del) transaction removes allowed signer {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Crypto.hashToString(transaction.from)));
                     orig_txid = multisig_obj.origTXId;
                 }
                 if (multisig_type is Transaction.MultisigChSig)
@@ -1087,7 +1087,7 @@ namespace DLT
                     var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
                     if (orig.isValidSigner(multisig_obj.addrToAdd))
                     {
-                        Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Crypto.hashToString(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
+                        Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
                         failed_transactions.Add(tx);
                         return false;
                     }
@@ -1105,7 +1105,7 @@ namespace DLT
                             return true;
                         }
                     }
-                    Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Crypto.hashToString(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
+                    Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
                     orig.addValidSigner(multisig_obj.addrToAdd);
                     orig.type = WalletType.Multisig;
                     Node.walletState.setWallet(orig, ws_snapshot);
@@ -1121,7 +1121,7 @@ namespace DLT
                     var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
                     if(multisig_obj.addrToDel.SequenceEqual(orig.id))
                     {
-                        Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", multisig_obj.addrToDel));
+                        Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel)));
                         failed_transactions.Add(tx);
                         return false;
                     }
@@ -1146,7 +1146,7 @@ namespace DLT
                             orig.requiredSigs, orig.allowedSigners.Length));
                         orig.requiredSigs = (byte)orig.allowedSigners.Length;
                     }
-                    Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Crypto.hashToString(multisig_obj.addrToDel), Crypto.hashToString(orig.id)));
+                    Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Crypto.hashToString(orig.id)));
                     orig.delValidSigner(multisig_obj.addrToDel);
                     Node.walletState.setWallet(orig, ws_snapshot);
                 } else if(multisig_type is Transaction.MultisigChSig)
@@ -1308,7 +1308,7 @@ namespace DLT
                 if (ws_snapshot == false)
                 {
                     // Set the powField as a checksum of all miners for this block
-                    block.powField = Crypto.sha256(checksum_source.ToArray());
+                    block.powField = Crypto.sha512sqTrunc(checksum_source.ToArray());
                 }
 
             }
