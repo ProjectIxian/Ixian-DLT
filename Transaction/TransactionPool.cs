@@ -376,7 +376,7 @@ namespace DLT
             return false;
         }
 
-        private static int GetNumRelatedMultisigTransactions(string txid, Transaction.Type tx_type)
+        public static int getNumRelatedMultisigTransactions(string txid, Transaction.Type tx_type)
         {
             lock(transactions)
             {
@@ -1062,7 +1062,7 @@ namespace DLT
                 if (multisig_type is string && (string)multisig_type == "")
                 {
                     // +1, because the search will not find the current transaction, only the ones related to it
-                    int num_multisig_txs = GetNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                    int num_multisig_txs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
                     if (num_multisig_txs >= orig.requiredSigs)
                     {
                         // it processes as normal
@@ -1104,7 +1104,7 @@ namespace DLT
                     } else
                     {
                         // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = GetNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
                         if (num_valid_sigs < orig.requiredSigs)
                         {
                             Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
@@ -1139,7 +1139,7 @@ namespace DLT
                     else
                     {
                         // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = GetNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
                         if (num_valid_sigs < orig.requiredSigs)
                         {
                             Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
@@ -1173,7 +1173,7 @@ namespace DLT
                     else
                     {
                         // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = GetNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
                         if (num_valid_sigs < orig.requiredSigs)
                         {
                             Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));

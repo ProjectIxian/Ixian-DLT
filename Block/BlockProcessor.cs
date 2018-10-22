@@ -482,6 +482,39 @@ namespace DLT
                         IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
                         minusBalances[t.from] = new_minus_balance;
                     }
+                    if(t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    {
+                        object multisig_data = t.GetMultisigData();
+                        string orig_txid = "";
+                        if (multisig_data is string)
+                        {
+                            orig_txid = (string)multisig_data;
+                        }
+                        else if (multisig_data is Transaction.MultisigAddrAdd)
+                        {
+                            orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
+                        }
+                        else if (multisig_data is Transaction.MultisigAddrDel)
+                        {
+                            orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
+                        }
+                        else if (multisig_data is Transaction.MultisigChSig)
+                        {
+                            orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
+                        }
+                        if (orig_txid == "")
+                        {
+                            orig_txid = t.id;
+                        }
+                        Wallet from_w = Node.walletState.getWallet(t.from);
+                        int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type) + 1;
+                        if (num_valid_multisigs < from_w.requiredSigs)
+                        {
+                            Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}", 
+                                t.id, num_valid_multisigs, from_w.requiredSigs));
+                            return BlockVerifyStatus.Invalid;
+                        }
+                    }
                 }
                 catch (OverflowException)
                 {
@@ -1079,7 +1112,41 @@ namespace DLT
                     if (transaction.type == (int)Transaction.Type.StakingReward)
                     {
                         continue;
-                    }                    
+                    }
+
+                    // multisig transactions must be complete before they are added
+                    if(transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    {
+                        object multisig_data = transaction.GetMultisigData();
+                        string orig_txid = "";
+                        if (multisig_data is string)
+                        {
+                            orig_txid = (string)multisig_data;
+                        } else if(multisig_data is Transaction.MultisigAddrAdd)
+                        {
+                            orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
+                        } else if (multisig_data is Transaction.MultisigAddrDel)
+                        {
+                            orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
+                        } else if(multisig_data is Transaction.MultisigChSig)
+                        {
+                            orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
+                        }
+                        if(orig_txid == "")
+                        {
+                            orig_txid = transaction.id;
+                        }
+                        Wallet from_w = Node.walletState.getWallet(transaction.from);
+                        int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type) + 1;
+                        if (num_valid_multisigs >= from_w.requiredSigs)
+                        {
+                            localNewBlock.addTransaction(transaction);
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
 
                     localNewBlock.addTransaction(transaction);
                     // amount is counted only for originating multisig transaction.

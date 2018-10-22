@@ -153,7 +153,7 @@ namespace DLT.Meta
                 {
                     Transaction txGen2 = new Transaction();
                     txGen2.type = (int)Transaction.Type.Genesis;
-                    txGen2.to = Crypto.stringToHash(Config.genesis2Address);
+                    txGen2.to = Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address);
                     txGen2.from = from;
                     txGen2.amount = genesisFunds;
                     txGen2.data = null;
