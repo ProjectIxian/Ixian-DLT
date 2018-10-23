@@ -177,7 +177,7 @@ namespace DLTNode
 
             if (noStart)
             {
-                Thread.Sleep(100);
+                Thread.Sleep(1000);
                 return;
             }
 
@@ -199,6 +199,12 @@ namespace DLTNode
 
             // Start the actual DLT node
             Node.start();
+
+            if (noStart)
+            {
+                Thread.Sleep(1000);
+                return;
+            }
 
             // Start the HTTP JSON API server
             apiServer = new APIServer();

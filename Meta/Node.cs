@@ -49,7 +49,12 @@ namespace DLT.Meta
 
             // Load or Generate the wallet
             walletStorage = new WalletStorage(Config.walletFile);
-
+            if(walletStorage.publicKey == null)
+            {
+                running = false;
+                DLTNode.Program.noStart = true;
+                return;
+            }
 
             // Initialize the wallet state
             walletState = new WalletState();
