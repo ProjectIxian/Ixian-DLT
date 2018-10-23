@@ -333,7 +333,7 @@ namespace DLT
                     byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                     if (!wsChecksum.SequenceEqual(b.walletStateChecksum))
                     {
-                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actualy WS: {2}", b.blockNum, b.walletStateChecksum, wsChecksum));
+                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actualy WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                         synchronizing = false;
                         return;
                     }
@@ -408,7 +408,7 @@ namespace DLT
             if(!b.walletStateChecksum.SequenceEqual(Node.walletState.calculateWalletStateChecksum()))
             {
                 // TODO TODO TODO resync?
-                Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, b.walletStateChecksum, Node.walletState.calculateWalletStateChecksum()));
+                Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum())));
                 return false;
             }
 
