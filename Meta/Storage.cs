@@ -340,6 +340,7 @@ namespace DLT
                 transaction.checksum = tx.checksum;
                 transaction.signature = tx.signature;
                 transaction.version = tx.version;
+                transaction.pubKey = tx.pubKey;
 
                 return transaction;
             }
