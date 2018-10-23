@@ -305,10 +305,7 @@ namespace DLTNode
                 byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
                 IxiNumber fee = Config.transactionPrice;
 
-                TransactionPool.internalNonce++;
-                int nonce = TransactionPool.internalNonce;
-
-                Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
@@ -336,10 +333,7 @@ namespace DLTNode
 
                 IxiNumber fee = Config.transactionPrice;
 
-                TransactionPool.internalNonce++;
-                int nonce = TransactionPool.internalNonce;
-
-                Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
                 {
                     responseString = JsonConvert.SerializeObject(transaction);
@@ -367,10 +361,7 @@ namespace DLTNode
                 if (byte.TryParse(sigs, out byte reqSigs))
                 {
 
-                    TransactionPool.internalNonce++;
-                    int nonce = TransactionPool.internalNonce;
-
-                    Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum(), nonce);
+                    Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
                     if (TransactionPool.addTransaction(transaction))
                     {
                         responseString = JsonConvert.SerializeObject(transaction);

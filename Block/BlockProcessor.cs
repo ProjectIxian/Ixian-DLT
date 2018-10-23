@@ -887,12 +887,6 @@ namespace DLT
             // Update wallet state public keys
             b.updateWalletStatePublicKeys(ws_snapshot);
 
-            // Reset the internal nonce
-            if (!ws_snapshot)
-            {
-                TransactionPool.internalNonce = 0;
-            }
-
             return true;
         }
 

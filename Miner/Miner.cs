@@ -292,10 +292,6 @@ namespace DLT
             tx.fee = "0";
             tx.blockHeight = Node.blockChain.getLastBlockNum();
 
-            // Increase the txpool intenal nonce
-            TransactionPool.internalNonce++;
-            tx.nonce = TransactionPool.internalNonce;
-
             byte[] pubkey = Node.walletStorage.publicKey;
             // Check if this wallet's public key is already in the WalletState
             Wallet mywallet = Node.walletState.getWallet(tx.from, true);

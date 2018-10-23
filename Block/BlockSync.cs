@@ -193,7 +193,6 @@ namespace DLT
                             }
                             pendingWsChunks.Clear();
                             wsSynced = true;
-                            TransactionPool.internalNonce = 0;
                         }
                     }
                 }

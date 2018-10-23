@@ -29,9 +29,6 @@ namespace DLT
 
         public static int numTransactions { get => activeTransactions; }
 
-        public static int internalNonce = 0;  // Used to calculate the nonce when sending transactions from this node
-                                                // TODO: move this to a more suitable location while still being able to reset it every block
-
         static TransactionPool()
         {
         }
@@ -859,14 +856,6 @@ namespace DLT
                     Logging.error(string.Format("Block #{0} has failed transactions, rejecting the block.", block.blockNum));
                     return false;
                 }
-
-                // Remove all already applied transactions from the block
-                /*foreach (Transaction tx in already_applied_transactions)
-                {
-                    Logging.info(String.Format("Removing already applied transaction #{0} from block.", tx.id));
-                    block.transactions.Remove(tx.id);
-                }
-                already_applied_transactions.Clear();*/
 
                 if (already_applied_transactions.Count > 0)
                 {
