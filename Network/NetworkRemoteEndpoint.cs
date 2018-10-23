@@ -470,12 +470,6 @@ namespace DLT
                     }
                     else
                     {
-
-                        if (code == ProtocolMessageCode.ping || code == ProtocolMessageCode.keepAlivePresence)
-                        {
-                            sendQueueMessagesHighPriority.RemoveAll(x => x.code == message.code);
-                        }
-
                         // Check if there are too many messages
                         if (sendQueueMessagesHighPriority.Count > Config.maxSendQueue)
                         {
