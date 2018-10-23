@@ -759,6 +759,39 @@ namespace DLTNode
                 return true;
             }
 
+            if (methodName.Equals("minerstats", StringComparison.OrdinalIgnoreCase))
+            {
+                Dictionary<string, Object> minerArray = new Dictionary<string, Object>();
+
+                List<int> blocksCount = Node.miner.getBlocksCount();
+
+                // Last hashrate
+                minerArray.Add("Hashrate", Node.miner.lastHashRate);
+
+                // Current block
+                minerArray.Add("Current Block", Node.miner.currentBlockNum);
+
+                // Current block difficulty
+                minerArray.Add("Current Difficulty", Node.miner.currentBlockDifficulty);
+
+                // Show how many blocks calculated
+                minerArray.Add("Solved Blocks (Local)", Node.miner.getSolvedBlocksCount());
+                minerArray.Add("Solved Blocks (Network)", blocksCount[1]);
+
+                // Number of empty blocks
+                minerArray.Add("Empty Blocks", blocksCount[0]);
+
+                // Last solved block number
+                minerArray.Add("Last Solved Block", Node.miner.lastSolvedBlockNum);
+
+                // Last block solved mins ago
+                minerArray.Add("Last Solved Block Time:", Node.miner.getLastSolvedBlockRelativeTime());
+
+                string responseString = JsonConvert.SerializeObject(minerArray);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
             if (methodName.Equals("blockheight", StringComparison.OrdinalIgnoreCase))
             {
                 ulong blockheight = Node.blockChain.getLastBlockNum();

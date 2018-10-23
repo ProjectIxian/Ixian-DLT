@@ -21,10 +21,13 @@ namespace DLT
                                  IntPtr salt, UIntPtr salt_len,
                                  IntPtr output, UIntPtr output_len);
 
+        public long lastHashRate = 0; // Last reported hash rate
+        public ulong currentBlockNum = 0; // Mining block number
+        public ulong currentBlockDifficulty = 0; // Current block difficulty
+        public ulong lastSolvedBlockNum = 0; // Last solved block number
+        private DateTime lastSolvedTime = DateTime.MinValue; // Last locally solved block time
 
         private long hashesPerSecond = 0; // Total number of hashes per second
-        private ulong blockNum = 0; // Mining block number
-
         private DateTime lastStatTime; // Last statistics output time
         private bool shouldStop = false; // flag to signal shutdown of threads
 
@@ -54,7 +57,6 @@ namespace DLT
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
 
-            Logging.info("Miner started");
             return true;
         }
 
@@ -129,8 +131,6 @@ namespace DLT
                     printMinerStatus();
                 }
             }
-
-            Logging.info("Miner stopped");
         }
 
         // Returns the most recent block without a PoW flag in the redacted blockchain
@@ -146,15 +146,22 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(i);
                 if (block.powField == null)
                 {
+                    ulong solved = 0;
+                    lock(solvedBlocks)
+                    {
+                        solved = solvedBlocks.Find(x => x == block.blockNum);
+                    }
+
                     // Check if this block is in the solved list
-                    if (solvedBlocks.Find(x => x == block.blockNum) > 0)
+                    if (solved > 0)
                     {
                         // Do nothing at this point
                     }
                     else
                     {
                         // Block is not solved, select it
-                        blockNum = block.blockNum;
+                        currentBlockNum = block.blockNum;
+                        currentBlockDifficulty = block.difficulty;
                         activeBlock = block;
                         setDifficulty((int)block.difficulty);
                         blockFound = true;
@@ -207,7 +214,13 @@ namespace DLT
                 sendSolution(nonce);
 
                 // Add this block number to the list of solved blocks
-                solvedBlocks.Add(activeBlock.blockNum);
+                lock (solvedBlocks)
+                {
+                    solvedBlocks.Add(activeBlock.blockNum);
+                }
+
+                lastSolvedBlockNum = activeBlock.blockNum;
+                lastSolvedTime = DateTime.Now;
 
                 // Reset the block found flag so we can search for another block
                 blockFound = false;
@@ -356,10 +369,60 @@ namespace DLT
         // Output the miner status
         private void printMinerStatus()
         {
-            Console.WriteLine("Miner: Block #{0} | Hashes per second: {1}", blockNum, hashesPerSecond);
+            // Console.WriteLine("Miner: Block #{0} | Hashes per second: {1}", currentBlockNum, hashesPerSecond);
             lastStatTime = DateTime.Now;
+            lastHashRate = hashesPerSecond;
             hashesPerSecond = 0;
         }
+
+        // Returns the number of locally solved blocks
+        public int getSolvedBlocksCount()
+        {
+            lock(solvedBlocks)
+            {
+                return solvedBlocks.Count();
+            }
+        }
+
+        // Returns the number of empty and full blocks, based on PoW field
+        public List<int> getBlocksCount()
+        {
+            int empty_blocks = 0;
+            int full_blocks = 0;
+
+            ulong lastBlockNum = Node.blockChain.getLastBlockNum();
+            ulong oldestRedactedBlock = 0;
+            if (lastBlockNum > Config.redactedWindowSize)
+                oldestRedactedBlock = lastBlockNum - Config.redactedWindowSize;
+
+            for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
+            {
+                Block block = Node.blockChain.getBlock(i);
+                if (block.powField == null)
+                {
+                    empty_blocks++;
+                }
+                else
+                {
+                    full_blocks++;
+                }
+            }
+            List<int> result = new List<int>();
+            result.Add(empty_blocks);
+            result.Add(full_blocks);
+            return result;
+        }
+
+        // Returns the relative time since the last block was solved
+        public string getLastSolvedBlockRelativeTime()
+        {
+            if (lastSolvedTime == DateTime.MinValue)
+                return "Never";
+
+            return Clock.getRelativeTime(lastSolvedTime);
+        }
+
+
 
         // Calculates the reward amount for a certain block
         public static IxiNumber calculateRewardForBlock(ulong blockNum)
