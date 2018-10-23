@@ -1,13 +1,9 @@
 ﻿using DLT.Meta;
-using DLTNode;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using System.Linq;
-using DLTNode.Network;
 
 namespace DLT
 {
@@ -578,15 +574,19 @@ namespace DLT
                     if(endpoint.GetType() == typeof(NetworkClient))
                     {
                         long curTime = Clock.getTimestamp(DateTime.Now);
+
+                        long timeDiff = 0;
+
                         // amortize +- 5 seconds
                         if (curTime - timestamp < -5 || curTime - timestamp > 5)
                         {
-                            Node.networkTimeDifference = curTime - timestamp;
+                            timeDiff = curTime - timestamp;
                         }else
                         {
-                            Node.networkTimeDifference = 0;
+                            timeDiff = 0;
                         }
 
+                        ((NetworkClient)endpoint).timeDifference = timeDiff;
                     }
 
                     // Store the presence address for this remote endpoint
@@ -767,6 +767,7 @@ namespace DLT
                                     if (processHelloMessage(endpoint, reader))
                                     {
                                         sendHelloMessage(endpoint, true);
+                                        endpoint.helloReceived = true;
                                         return;
                                     }
                                 }
@@ -824,6 +825,8 @@ namespace DLT
 
                                         // Process the hello data
                                         Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum, consensus);
+                                        endpoint.helloReceived = true;
+                                        Node.recalculateLocalTimeDifference();
                                     }
                                 }
                             }

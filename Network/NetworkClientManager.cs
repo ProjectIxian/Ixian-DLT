@@ -229,6 +229,11 @@ namespace DLT
                                 continue;
                         }
 
+                        if (client.helloReceived == false)
+                        {
+                            continue;
+                        }
+
                         client.sendData(code, data);
                         result = true;
                     }
@@ -287,6 +292,23 @@ namespace DLT
 
             return result.ToArray();
         }
+
+
+        public static void recalculateLocalTimeDifference()
+        {
+            lock (networkClients)
+            {
+                long totalTimeDiff = 0;
+
+                foreach (NetworkClient client in networkClients)
+                {
+                    totalTimeDiff += client.timeDifference;
+                }
+
+                Node.networkTimeDifference = totalTimeDiff / networkClients.Count;
+            }
+        }
+
 
         // Returns a random new potential neighbor. Returns null if no new neighbor is found.
         public static string scanForNeighbor()

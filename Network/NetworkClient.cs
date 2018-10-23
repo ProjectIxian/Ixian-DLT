@@ -1,19 +1,16 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace DLT
 {
     public class NetworkClient : RemoteEndpoint
     {
         public TcpClient tcpClient = null;
+
+        public long timeDifference = 0;
+
 
         private string tcpHostname = "";
         private int tcpPort = 0;
@@ -47,6 +44,8 @@ namespace DLT
                 Logging.error("Can't start a fully stopped RemoteEndpoint");
                 return false;
             }
+
+            helloReceived = false;
 
             tcpHostname = hostname;
             tcpPort = port;

@@ -73,7 +73,7 @@ namespace DLT
             public static readonly IxiNumber relayPriceInitial = new IxiNumber("0.0002"); // Per kB
             public static readonly int nodeNewTransactionsLimit = 3000000; // Limit the number of new transactions per node per block TODO TODO TODO deprecate soon, we have other systems in place for throttling
             public static readonly ulong maximumTransactionsPerBlock = 2000; // Limit the maximum number of transactions in a newly generated block
-            public static readonly int maximumTransactionsPerChunk = 500; // Limit the maximum number of transactions per transaction chunk
+            public static readonly int maximumTransactionsPerChunk = 1000; // Limit the maximum number of transactions per transaction chunk
 
             // Debugging values
             public static string networkDumpFile = "";

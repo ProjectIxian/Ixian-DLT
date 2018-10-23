@@ -629,7 +629,6 @@ namespace DLT
                 if(Node.blockProcessor.operating == false)
                 {
                     // This should happen when node first starts up.
-                    // Note: some of the chain might be loaded from disk, so we might need to walk through that. This case is ignored for now.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
 
                     syncTargetBlockNum = block_height;

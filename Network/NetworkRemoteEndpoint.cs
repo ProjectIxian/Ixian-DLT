@@ -7,9 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace DLT
 {
@@ -19,6 +17,7 @@ namespace DLT
         public string address = "";
         public int incomingPort = Config.serverPort;
 
+        public bool helloReceived = false;
 
         protected long lastDataReceivedTime = 0;
         protected long lastPing = 0;

@@ -84,7 +84,7 @@ namespace DLT
                             return;
                         }
 
-                        if (txqueueMessages.Count > 6 && 
+                        if (txqueueMessages.Count > 20 && 
                             (code == ProtocolMessageCode.transactionsChunk || code == ProtocolMessageCode.newBlock || code == ProtocolMessageCode.blockData))
                         {
                             txqueueMessages.Insert(3, message);
@@ -117,9 +117,9 @@ namespace DLT
                         || code == ProtocolMessageCode.pong)
                     {
                         // Prioritize if queue is large
-                        if (queueMessages.Count > 6)
+                        if (queueMessages.Count > 10)
                         {
-                            queueMessages.Insert(3, message);
+                            queueMessages.Insert(1, message);
                             return;
                         }
                     }

@@ -203,6 +203,11 @@ namespace DLT
                                 continue;
                         }
 
+                        if (endpoint.helloReceived == false)
+                        {
+                            continue;
+                        }
+
                         endpoint.sendData(code, data);
                         result = true;
                     }
