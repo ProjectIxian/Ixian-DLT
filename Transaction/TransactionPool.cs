@@ -793,12 +793,11 @@ namespace DLT
                     }
 
                     // Update the walletstate public key
-                    // TODO: check pubkey walletstate support
                     byte[] pubkey = Node.walletState.getWallet(tx.from, ws_snapshot).publicKey;
                     // Generate an address from the public key and compare it with the sender
                     if (pubkey == null)
                     {
-                        // There is no supplied public key, extract it from the data section
+                        // There is no supplied public key, extract it from transaction
                         pubkey = tx.pubKey;
 
                         // Update the walletstate public key

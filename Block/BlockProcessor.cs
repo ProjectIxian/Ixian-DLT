@@ -1358,7 +1358,7 @@ namespace DLT
                     tx.to = wallet_addr;
                     tx.from = Config.ixianInfiniMineAddress;
                     tx.amount = award;
-
+                    tx.nonce = 0;
                     
                     tx.blockHeight = Node.blockChain.getLastBlockNum();
 
