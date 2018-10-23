@@ -785,7 +785,7 @@ namespace DLTNode
                 minerArray.Add("Last Solved Block", Node.miner.lastSolvedBlockNum);
 
                 // Last block solved mins ago
-                minerArray.Add("Last Solved Block Time:", Node.miner.getLastSolvedBlockRelativeTime());
+                minerArray.Add("Last Solved Block Time", Node.miner.getLastSolvedBlockRelativeTime());
 
                 string responseString = JsonConvert.SerializeObject(minerArray);
                 sendResponse(context.Response, responseString);
