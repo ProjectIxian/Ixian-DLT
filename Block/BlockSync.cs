@@ -357,7 +357,6 @@ namespace DLT
                 if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                 {
                     //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                    //Node.blockProcessor.distributeStakingRewards(b);
                     TransactionPool.setAppliedFlagToTransactionsFromBlock(b); // TODO TODO TODO this is a hack, do it properly
                     Node.blockChain.appendBlock(b);
                 }
