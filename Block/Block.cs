@@ -475,39 +475,28 @@ namespace DLT
             foreach (byte[][] sig in sigs)
             {
                 byte[] signature = sig[0];
-                byte[] signerPubkey = sig[1];
-                bool should_store_pkey = false;
+                byte[] signerPubkeyOrAddress = sig[1];
 
-                // Extract the public key from the walletstate
-                byte[] signer_address = signerPubkey;
-                if (signerPubkey.Length < 70)
+                if (signerPubkeyOrAddress.Length < 70)
                 {
-                    Wallet signerWallet = Node.walletState.getWallet(signer_address);
-                    if (signerWallet.publicKey != null)
-                        signerPubkey = signerWallet.publicKey;
-                    else
+                    byte[] signerAddress = signerPubkeyOrAddress;
+                    Wallet signerWallet = Node.walletState.getWallet(signerAddress);
+                    if (signerWallet.publicKey == null)
                     {
-                        // No public key in wallet state
-                        should_store_pkey = true;
+                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        continue;
                     }
-
-                    // Failed to find signer publickey in walletstate
-                    if (signerPubkey == null)
-                        return false;
                 }else
                 {
-                    should_store_pkey = true;
-                }
-                // TODO: check if we should verify the signature again at this point
-
-                // Check if we should store this public key
-                // TODO: check if this should be moved to getSignaturesWalletAddresses
-                if (should_store_pkey)
-                {
+                    byte[] signerPubKey = signerPubkeyOrAddress;
                     // Generate an address
-                    Address p_address = new Address(signerPubkey);
-                    // Set the WS public key
-                    Node.walletState.setWalletPublicKey(p_address.address, signerPubkey, ws_snapshot);
+                    Address p_address = new Address(signerPubKey);
+                    Wallet signerWallet = Node.walletState.getWallet(p_address.address);
+                    if (signerWallet.publicKey == null)
+                    {
+                        // Set the WS public key
+                        Node.walletState.setWalletPublicKey(p_address.address, signerPubKey, ws_snapshot);
+                    }
                 }
             }
 

@@ -744,7 +744,7 @@ namespace DLT
                     // Skip staking txids
                     if (txid.StartsWith("stk"))
                     {
-                        if (Node.blockSync.synchronizing)
+                        if (Node.blockSync.synchronizing && !Config.recoverFromFile)
                         {
                             if (getTransaction(txid) == null)
                             {
