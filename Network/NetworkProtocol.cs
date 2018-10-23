@@ -826,7 +826,7 @@ namespace DLT
                                         // Process the hello data
                                         Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, walletstate_checksum, consensus);
                                         endpoint.helloReceived = true;
-                                        Node.recalculateLocalTimeDifference();
+                                        NetworkClientManager.recalculateLocalTimeDifference();
                                     }
                                 }
                             }
