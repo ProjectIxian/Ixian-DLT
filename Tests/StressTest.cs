@@ -291,13 +291,6 @@ namespace DLTNode
                 return;
             }
 
-            ulong nonce = Node.walletState.getWallet(Node.walletStorage.getWalletAddress()).nonce;
-            if(nonce != 0)
-            {
-                Logging.error("Cannot start tx file spam test. Initial nonce is not 0!");
-                return;
-            }
-
             BinaryReader reader;
             try
             {

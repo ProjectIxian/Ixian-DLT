@@ -1000,7 +1000,7 @@ namespace DLT
             // Deposit the amount
             IxiNumber staking_balance_after = staking_balance_before + tx_amount;
 
-            Node.walletState.setWalletBalance(tx.to, staking_balance_after, ws_snapshot, staking_wallet.nonce);
+            Node.walletState.setWalletBalance(tx.to, staking_balance_after, ws_snapshot);
             if (!ws_snapshot)
             {
                 setAppliedFlag(tx.id, block.blockNum);
@@ -1030,8 +1030,8 @@ namespace DLT
             IxiNumber dest_balance_after = dest_balance_before - tx.amount;
 
             // Update the walletstate
-            Node.walletState.setWalletBalance(tx.from, source_balance_after, false, source_wallet.nonce);
-            Node.walletState.setWalletBalance(tx.to, dest_balance_after, false, dest_wallet.nonce);
+            Node.walletState.setWalletBalance(tx.from, source_balance_after, false);
+            Node.walletState.setWalletBalance(tx.to, dest_balance_after, false);
 
             return true;
         }
@@ -1249,8 +1249,8 @@ namespace DLT
 
 
             // Update the walletstate
-            Node.walletState.setWalletBalance(tx.from, source_balance_after, ws_snapshot, source_wallet.nonce);
-            Node.walletState.setWalletBalance(tx.to, dest_balance_after, ws_snapshot, dest_wallet.nonce);
+            Node.walletState.setWalletBalance(tx.from, source_balance_after, ws_snapshot);
+            Node.walletState.setWalletBalance(tx.to, dest_balance_after, ws_snapshot);
 
             if (!ws_snapshot)
             {
@@ -1295,7 +1295,7 @@ namespace DLT
                     Wallet miner_wallet = Node.walletState.getWallet(miner, ws_snapshot);
                     IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
-                    Node.walletState.setWalletBalance(miner, miner_balance_after, ws_snapshot, miner_wallet.nonce);
+                    Node.walletState.setWalletBalance(miner, miner_balance_after, ws_snapshot);
 
                     checksum_source.AddRange(miner);
                 }

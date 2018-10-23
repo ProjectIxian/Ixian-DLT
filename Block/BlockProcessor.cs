@@ -997,7 +997,7 @@ namespace DLT
             Wallet foundation_wallet = Node.walletState.getWallet(Config.foundationAddress, ws_snapshot);
             IxiNumber foundation_balance_before = foundation_wallet.balance;
             IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
-            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot, foundation_wallet.nonce);
+            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot);
             //Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
             // Subtract the foundation award from total fee amount
@@ -1020,7 +1020,7 @@ namespace DLT
             if (remainder > (long) 0)
             {
                 foundation_balance_after = foundation_balance_after + remainder;
-                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot, foundation_wallet.nonce);
+                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot);
                 //Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
             }
 
@@ -1038,7 +1038,7 @@ namespace DLT
                 Wallet signer_wallet = Node.walletState.getWallet(addressBytes, ws_snapshot);
                 IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
-                Node.walletState.setWalletBalance(addressBytes, balance_after, ws_snapshot, signer_wallet.nonce);
+                Node.walletState.setWalletBalance(addressBytes, balance_after, ws_snapshot);
 
                 //Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
             }

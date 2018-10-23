@@ -601,7 +601,6 @@ namespace DLTNode
                 {
                     walletData.Add("extraData", "null");
                 }
-                walletData.Add("nonce", w.nonce.ToString());
 
                 string responseString = JsonConvert.SerializeObject(walletData);
                 sendResponse(context.Response, responseString);
@@ -619,7 +618,6 @@ namespace DLTNode
                     walletStates[count] = new string[4];
                     walletStates[count][0] = Base58Check.Base58CheckEncoding.EncodePlain(w.id);
                     walletStates[count][1] = w.balance.ToString();
-                    walletStates[count][2] = w.nonce.ToString();
                     if (w.publicKey != null)
                     {
                         walletStates[count][3] = Base58Check.Base58CheckEncoding.EncodePlain(w.publicKey);

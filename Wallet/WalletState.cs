@@ -167,7 +167,7 @@ namespace DLT
 
 
         // Sets the wallet balance for a specified wallet
-        public void setWalletBalance(byte[] id, IxiNumber balance, bool snapshot = false, ulong nonce = 0)
+        public void setWalletBalance(byte[] id, IxiNumber balance, bool snapshot = false)
         {
             lock (stateLock)
             {
@@ -184,10 +184,6 @@ namespace DLT
                     // Set the balance
                     wallet.balance = balance;
                 }
-
-                // Apply nonce if needed
-                if (nonce > 0)
-                    wallet.nonce = nonce;
 
                 if (snapshot == false)
                 {
@@ -206,23 +202,6 @@ namespace DLT
                     wsDelta.AddOrReplace(id, wallet);
                     cachedDeltaChecksum = null;
                 }
-            }
-        }
-
-        // Sets the wallet nonce
-        public void setWalletNonce(byte[] id, ulong nonce, bool snapshot = false)
-        {
-            lock (stateLock)
-            {
-                Wallet wallet = getWallet(id, snapshot);
-
-                if(wallet == null)
-                {
-                    Logging.warn(String.Format("Attempted to set nonce {0} for wallet {1} that does not exist.", nonce, Base58Check.Base58CheckEncoding.EncodePlain(id)));
-                    return;
-                }
-
-                setWalletBalance(id, wallet.balance, snapshot, nonce);
             }
         }
 

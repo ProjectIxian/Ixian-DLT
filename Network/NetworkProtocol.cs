@@ -361,8 +361,6 @@ namespace DLT
                                 writer.Write((int)0);
                             }
 
-                            writer.Write(w.nonce);
-
                             if (w.publicKey != null)
                             {
                                 writer.Write(w.publicKey.Length);
@@ -1112,9 +1110,6 @@ namespace DLT
                                                 byte[] w_data = reader.ReadBytes(w_dataLen);
                                                 wallets[i].data = w_data;
                                             }
-
-                                            ulong w_nonce = reader.ReadUInt64();
-                                            wallets[i].nonce = w_nonce;
 
                                             int w_publickeyLen = reader.ReadInt32();
                                             if (w_publickeyLen > 0)
