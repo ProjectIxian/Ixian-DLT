@@ -305,7 +305,15 @@ namespace DLT
                     totalTimeDiff += client.timeDifference;
                 }
 
-                Node.networkTimeDifference = totalTimeDiff / networkClients.Count;
+                long timeDiff = totalTimeDiff / networkClients.Count;
+
+                // amortize +- 5 seconds
+                if (timeDiff > -5 && timeDiff < 5)
+                {
+                    timeDiff = 0;
+                }
+
+                Node.networkTimeDifference = timeDiff;
             }
         }
 
