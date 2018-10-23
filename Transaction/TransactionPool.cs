@@ -286,11 +286,11 @@ namespace DLT
             if (transaction.type == (int)Transaction.Type.Genesis ||
                 transaction.type == (int)Transaction.Type.StakingReward)
             {
-                if (transaction.type == (int)Transaction.Type.StakingReward)
-                    pubkey = Node.walletStorage.publicKey;
+                return true;
             }
             else if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
+                // TODO TODO TODO TODO doublecheck this with Z
                 pubkey = transaction.pubKey;
             }
             else
@@ -799,9 +799,11 @@ namespace DLT
                     {
                         // There is no supplied public key, extract it from transaction
                         pubkey = tx.pubKey;
-
-                        // Update the walletstate public key
-                        Node.walletState.setWalletPublicKey(tx.from, pubkey, ws_snapshot);
+                        if (pubkey != null)
+                        {
+                            // Update the walletstate public key
+                            Node.walletState.setWalletPublicKey(tx.from, pubkey, ws_snapshot);
+                        }
                     }
 
 
