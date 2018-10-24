@@ -380,7 +380,7 @@ namespace DLTNode
 
             if (methodName.Equals("getbalance", StringComparison.OrdinalIgnoreCase))
             {
-                byte[] address = Crypto.stringToHash(request.QueryString["address"]);
+                byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["address"]);
 
                 IxiNumber balance = Node.walletState.getWalletBalance(address);
 

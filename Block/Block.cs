@@ -676,7 +676,10 @@ namespace DLT
                 {
                     tDic.Add("pubKey", Base58Check.Base58CheckEncoding.EncodePlain(t.pubKey));
                 }
-                tDic.Add("data", t.data.ToString());
+                if (t.data != null)
+                {
+                    tDic.Add("data", t.data.ToString());
+                }
                 tDic.Add("timeStamp", t.timeStamp.ToString());
                 tDic.Add("type", t.type.ToString());
                 tDic.Add("amount", t.amount.ToString());
