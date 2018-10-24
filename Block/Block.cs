@@ -143,13 +143,6 @@ namespace DLT
                         }
 
                         difficulty = reader.ReadUInt64();
-
-                        dataLen = reader.ReadInt32();
-                        if (dataLen > 0)
-                        {
-                            powField = reader.ReadBytes(dataLen);
-                        }
-
                         timestamp = reader.ReadInt64();
                     }
                 }
@@ -225,16 +218,8 @@ namespace DLT
                     {
                         writer.Write((int)0);
                     }
+
                     writer.Write(difficulty);
-                    if (powField != null)
-                    {
-                        writer.Write(powField.Length);
-                        writer.Write(powField);
-                    }
-                    else
-                    {
-                        writer.Write((int)0);
-                    }
                     writer.Write(timestamp);
                 }
                 return m.ToArray();

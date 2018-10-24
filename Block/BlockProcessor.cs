@@ -1275,12 +1275,17 @@ namespace DLT
             }
 
             IxiNumber totalIxis = Node.walletState.calculateTotalSupply();
-            IxiNumber inflationPA = new IxiNumber("10"); // 10% inflation per year
+            IxiNumber inflationPA = new IxiNumber("0.1"); // 0.1% inflation per year for the first month
 
-            // Set the anual inflation to 5% after 50bn IXIs in circulation 
-            if (totalIxis > new IxiNumber("50000000000"))
+            if (targetBlockNum > 86400) // increase inflation to 5% after 1 month
             {
                 inflationPA = new IxiNumber("5");
+            }
+
+            // Set the anual inflation to 1% after 50bn IXIs in circulation 
+            if (totalIxis > new IxiNumber("50000000000"))
+            {
+                inflationPA = new IxiNumber("1");
             }
 
             // Calculate the amount of new IXIs to be minted
