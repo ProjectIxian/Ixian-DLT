@@ -1,15 +1,10 @@
-﻿using DLT;
-using DLT.Meta;
+﻿using DLT.Meta;
 using DLT.Network;
-using DLTNode;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace DLT
 {
@@ -1475,18 +1470,6 @@ namespace DLT
             lock(transactions)
             {
                 return transactions.ContainsKey(txid);
-            }
-        }
-
-        // TODO: transaction throttling code. Need to redesign this.
-        static Dictionary<Socket, int> socketTransactionsPerBlock = new Dictionary<Socket, int>();
-        // Resets the socket transaction limits
-        public static void resetSocketTransactionLimits()
-        {
-            lock (socketTransactionsPerBlock)
-            {
-
-                socketTransactionsPerBlock.Clear();
             }
         }
     }
