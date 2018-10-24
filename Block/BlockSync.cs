@@ -151,6 +151,7 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(blockNum, true);
                 if (block != null)
                 {
+                    block.powField = null;
                     Node.blockSync.onBlockReceived(block);
                     continue;
                 }
