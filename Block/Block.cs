@@ -724,7 +724,7 @@ namespace DLT
             Logging.info(String.Format("\t\t|- WalletState Checksum:\t {0}", Crypto.hashToString(walletStateChecksum)));
             Logging.info(String.Format("\t\t|- Sig Freeze Checksum: \t {0}", Crypto.hashToString(signatureFreezeChecksum)));
             Logging.info(String.Format("\t\t|- Difficulty:\t\t\t {0}", difficulty));
-            Logging.info(String.Format("\t\t|- Transaction Count:\t {0}", transactions.Count));
+            Logging.info(String.Format("\t\t|- Transaction Count:\t\t {0}", transactions.Count));
         }
 
         public bool isGenesis { get { return this.blockNum == 0 && this.lastBlockChecksum == null; } }
