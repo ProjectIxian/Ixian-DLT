@@ -128,6 +128,8 @@ namespace DLT.Meta
             blockProcessor = new BlockProcessor();
             blockSync = new BlockSync();
 
+            miner = new Miner();
+
             // Start the network queue
             NetworkQueue.start();
 
@@ -260,10 +262,6 @@ namespace DLT.Meta
                 {
                     // Start the network client manager
                     NetworkClientManager.start();
-
-                    // Start the miner
-                    miner = new Miner();
-                    miner.start();
                 }
             }
 

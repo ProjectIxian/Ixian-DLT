@@ -328,7 +328,7 @@ namespace DLT
                     t = transactions[txid];
                     t.applied = blockNum;
                     Meta.Storage.insertTransaction(t);
-                    if(t.type == (int)Transaction.Type.MultisigTX)
+                    if (t.type == (int)Transaction.Type.MultisigTX)
                     {
                         // set applied to all signers (related multisig transactions)
                         foreach(var related_tx in transactions.Values.Where(x => x.applied == 0))
@@ -618,7 +618,6 @@ namespace DLT
             return false;
         }
 
-        // TODO TODO TODO This is a very dangerous function, replace as soon as possible
         public static bool setAppliedFlagToTransactionsFromBlock(Block b)
         {
             if (b == null)
@@ -627,6 +626,7 @@ namespace DLT
             }
             lock (transactions)
             {
+                Dictionary<ulong, List<byte[]>> blockSolutionsDictionary = new Dictionary<ulong, List<byte[]>>();
                 foreach (string txid in b.transactions)
                 {
                     Transaction tx = getTransaction(txid);
@@ -637,6 +637,34 @@ namespace DLT
                         return false;
                     }
                     setAppliedFlag(txid, b.blockNum);
+                    applyPowTransaction(tx, b, blockSolutionsDictionary);
+                }
+                // set PoW fields
+                for (int i = 0; i < blockSolutionsDictionary.Count; i++)
+                {
+                    ulong blockNum = blockSolutionsDictionary.Keys.ElementAt(i);
+
+                    // Stop rewarding miners after 5th year
+                    if (blockNum >= 5256000)
+                    {
+                        continue;
+                    }
+
+                    Block block = Node.blockChain.getBlock(blockNum);
+                    // Check if the block is valid
+                    if (block == null)
+                        continue;
+
+                    List<byte[]> miners_to_reward = blockSolutionsDictionary[blockNum];
+
+                    List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes(string.Format("MINERS-{0}-", blockNum)));
+                    foreach (byte[] miner in miners_to_reward)
+                    {
+                        checksum_source.AddRange(miner);
+                    }
+
+                    // Set the powField as a checksum of all miners for this block
+                    block.powField = Crypto.sha512sqTrunc(checksum_source.ToArray());
                 }
             }
             return true;
@@ -1301,7 +1329,7 @@ namespace DLT
                 }
 
                 // Ignore during snapshot
-                if (ws_snapshot == false || (Node.blockSync.synchronizing && !Config.recoverFromFile))
+                if (ws_snapshot == false)
                 {
                     // Set the powField as a checksum of all miners for this block
                     block.powField = Crypto.sha512sqTrunc(checksum_source.ToArray());
