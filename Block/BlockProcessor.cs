@@ -151,6 +151,23 @@ namespace DLT
                     p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(sig[1]));
                 }
 
+                if(p != null)
+                {
+                    bool masterEntryFound = false;
+                    foreach(PresenceAddress pa in p.addresses)
+                    {
+                        if(pa.type == 'M')
+                        {
+                            masterEntryFound = true;
+                            break;
+                        }
+                    }
+                    if(!masterEntryFound)
+                    {
+                        p = null;
+                    }
+                }
+
                 //Logging.info(String.Format("Searching for {0}", parts[1]));                 
                 if (p == null)
                 {
