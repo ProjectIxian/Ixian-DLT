@@ -7,7 +7,7 @@
     <ProjectGuid>{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>DLTNode</RootNamespace>
-    <AssemblyName>DLTNode</AssemblyName>
+    <AssemblyName>IxianDLT</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

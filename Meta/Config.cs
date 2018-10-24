@@ -24,7 +24,7 @@ namespace DLT
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
             public static string genesis2Address = ""; // For a secondary genesis node
 
-            public static string walletFile = "wallet.dat";
+            public static string walletFile = "ixian.wal";
 
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
@@ -92,7 +92,7 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w wallet.dat] [-n seed1.ixian.io:10234] [-d]");
+                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [-d]");
                 Console.WriteLine("");
                 Console.WriteLine("   -h\t\t Displays this help");
                 Console.WriteLine("   -v\t\t Displays version");
@@ -106,7 +106,7 @@ namespace DLT
                 Console.WriteLine("   -a\t\t HTTP/API port to listen on");
                 Console.WriteLine("   -i\t\t External IP Address to use");
                 Console.WriteLine("   -g\t\t Start node in genesis mode");
-                Console.WriteLine("   -w\t\t Specify location of the wallet.dat file");
+                Console.WriteLine("   -w\t\t Specify location of the ixian.wal file");
                 Console.WriteLine("   -n\t\t Specify which seed node to use");
                 Console.WriteLine("   -d\t\t Enable netdump for debugging purposes");
 
