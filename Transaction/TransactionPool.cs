@@ -234,6 +234,11 @@ namespace DLT
             // Special case for PoWSolution transactions
             if (transaction.type == (int)Transaction.Type.PoWSolution)
             {
+                ulong tmp = 0;
+                if (!verifyPoWTransaction(transaction, out tmp))
+                {
+                    return false;
+                }
                 // TODO: pre-validate the transaction in such a way it doesn't affect performance
             }
             // Special case for Staking Reward transaction
@@ -327,7 +332,23 @@ namespace DLT
                 {
                     t = transactions[txid];
                     t.applied = blockNum;
-                    Meta.Storage.insertTransaction(t);
+                    bool insertTx = true;
+                    if (Node.blockSync.synchronizing)
+                    {
+                        insertTx = false;
+                        if(!Config.recoverFromFile)
+                        {
+                            if (Meta.Storage.getTransaction(txid) == null)
+                            {
+                                insertTx = true;
+                            }
+                        }
+                    }
+                    if (insertTx)
+                    {
+                        Meta.Storage.insertTransaction(t);
+                    }
+                    // TODO TODO TODO TODO talk with Z - these checks should perhaps be done in verify and before the tx is even added to the block, this function is strictly and simply to set the applied parameter
                     if (t.type == (int)Transaction.Type.MultisigTX)
                     {
                         // set applied to all signers (related multisig transactions)
@@ -600,7 +621,7 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(blocknum);
                 if(block.powField != null)
                 {
-                    Logging.error("POW already applied");
+                    Logging.warn("PoW already applied");
                     return false;
                 }
 
@@ -637,7 +658,7 @@ namespace DLT
                         return false;
                     }
                     setAppliedFlag(txid, b.blockNum);
-                    applyPowTransaction(tx, b, blockSolutionsDictionary);
+                    applyPowTransaction(tx, b, blockSolutionsDictionary, null, true);
                 }
                 // set PoW fields
                 for (int i = 0; i < blockSolutionsDictionary.Count; i++)
@@ -802,7 +823,7 @@ namespace DLT
                     }
 
                     // Special case for PoWSolution transactions
-                    if (applyPowTransaction(tx, block, blockSolutionsDictionary, ws_snapshot))
+                    if (applyPowTransaction(tx, block, blockSolutionsDictionary, failed_transactions, ws_snapshot))
                     {
                         continue;
                     }
@@ -904,7 +925,8 @@ namespace DLT
 
         // Checks if a transaction is a pow transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
-        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, bool ws_snapshot = false)
+        // be careful when changing/updating ws_snapshot related things in this function as the parameter relies on sync as well
+        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, List<Transaction> failedTransactions, bool ws_snapshot = false)
         {
             if (tx.type != (int)Transaction.Type.PoWSolution)
             {
@@ -927,6 +949,12 @@ namespace DLT
                 }
                 // Add the miner to the block number dictionary reward list
                 blockSolutionsDictionary[powBlockNum].Add(tx.from);
+            }else
+            {
+                if (failedTransactions != null)
+                {
+                    failedTransactions.Add(tx);
+                }
             }
 
             return true;

@@ -1108,8 +1108,19 @@ namespace DLT
                         continue;
                     }
 
+                    // Special case for PoWSolution transactions
+                    if (transaction.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        // TODO: pre-validate the transaction in such a way it doesn't affect performance
+                        ulong tmp = 0;
+                        if (!TransactionPool.verifyPoWTransaction(transaction, out tmp))
+                        {
+                            continue;
+                        }
+                    }
+
                     // multisig transactions must be complete before they are added
-                    if(transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         object multisig_data = transaction.GetMultisigData();
                         string orig_txid = "";
