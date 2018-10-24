@@ -1,2 +1,2 @@
-IxianDLT -t -m -w testnet.wal
+IxianDLT -t -m -w testnet-ixian.wal
 pause

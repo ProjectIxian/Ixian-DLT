@@ -137,6 +137,8 @@ namespace DLT
                 {
                     serverPort = testnetServerPort;
                     apiPort = testnetApiPort;
+                    Storage.filename = "testnet-blockchain.dat";
+                    PeerStorage.peersFilename = "testnet-peers.dat";
                 }
 
                 string seedNode = "";
