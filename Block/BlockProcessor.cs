@@ -86,6 +86,10 @@ namespace DLT
                 else
                 {
                     blockGenerationInterval = 30;
+                    if (Config.isTestNet)
+                    {
+                        blockGenerationInterval = 15;
+                    }
                 }
 
                 bool forceNextBlock = Node.forceNextBlock;
