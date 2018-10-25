@@ -5,7 +5,6 @@ using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
 using System.Threading;
@@ -411,6 +410,12 @@ namespace DLT
                 {
                     return BlockVerifyStatus.Indeterminate;
                 }
+            }
+
+            // verify difficulty
+            if(Node.blockChain.getLastBlockNum() + 1 == b.blockNum && b.difficulty != calculateDifficulty())
+            {
+                return BlockVerifyStatus.Invalid;
             }
 
             // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic

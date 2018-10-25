@@ -147,6 +147,10 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(i);
                 if (block.powField == null)
                 {
+                    if(block.difficulty > 64)
+                    {
+                        continue;
+                    }
                     ulong solved = 0;
                     lock(solvedBlocks)
                     {
