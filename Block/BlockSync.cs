@@ -479,7 +479,7 @@ namespace DLT
 
             lock (pendingWsChunks)
             {
-                if (wsSyncCount == 0 || (lastChunkRequested - DateTime.Now).TotalSeconds > 150)
+                if (wsSyncCount == 0 || (DateTime.Now - lastChunkRequested).TotalSeconds > 150)
                 {
                     wsSyncCount = 0;
                     pendingWsBlockNum = Node.blockChain.getLastBlockNum();
