@@ -589,7 +589,7 @@ namespace DLT
                     }
 
                     // Store the presence address for this remote endpoint
-                    endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version, Node.getCurrentTimestamp(), null);
+                    endpoint.presenceAddress = new PresenceAddress(device_id, endpoint.getFullAddress(true), node_type, node_version, Core.getCurrentTimestamp(), null);
 
                     // Create a temporary presence with the client's address and device id
                     Presence presence = new Presence(addr, pubkey, null, endpoint.presenceAddress);
@@ -700,7 +700,7 @@ namespace DLT
                         writer.Write(Config.serverPort);
 
                         // Send timestamp
-                        long timestamp = Node.getCurrentTimestamp();
+                        long timestamp = Core.getCurrentTimestamp();
                         writer.Write(timestamp);
 
                         // send signature
@@ -787,7 +787,7 @@ namespace DLT
                                         byte[] walletstate_checksum = reader.ReadBytes(wsLen);
                                         int consensus = reader.ReadInt32();
 
-                                        long myTimestamp = Node.getCurrentTimestamp();
+                                        long myTimestamp = Core.getCurrentTimestamp();
 
 
                                         if (Node.checkCurrentBlockDeprecation(last_block_num) == false)

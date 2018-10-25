@@ -314,7 +314,7 @@ namespace DLT
                     timeDiff = 0;
                 }
 
-                Node.networkTimeDifference = timeDiff;
+                Core.networkTimeDifference = timeDiff;
             }
         }
 

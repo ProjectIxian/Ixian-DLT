@@ -1,7 +1,6 @@
 ﻿using DLT;
 using DLT.Meta;
 using DLT.Network;
-using DLTNode.Network;
 using IXICore;
 using System;
 using System.Collections.Generic;
@@ -188,7 +187,7 @@ namespace DLTNode
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
 
-            tx.timeStamp = Node.getCurrentTimestamp();
+            tx.timeStamp = Core.getCurrentTimestamp();
             tx.id = tx.generateID();
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);

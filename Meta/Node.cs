@@ -1,5 +1,4 @@
 ﻿using DLT.Network;
-using DLTNode.Network;
 using IXICore;
 using System;
 using System.Collections.Generic;
@@ -29,7 +28,6 @@ namespace DLT.Meta
         public static bool serverStarted = false;
         public static bool presenceListActive = false;
 
-        public static long networkTimeDifference = 0;
 
         public static int keepAliveVersion = 0;
 
@@ -151,7 +149,7 @@ namespace DLT.Meta
                 tx.amount = genesisFunds;
                 tx.data = null;
                 tx.blockHeight = 1;
-                tx.timeStamp = getCurrentTimestamp();
+                tx.timeStamp = Core.getCurrentTimestamp();
                 tx.id = tx.generateID();
                 tx.checksum = Transaction.calculateChecksum(tx);
                 tx.signature = Transaction.getSignature(tx.checksum);
@@ -166,7 +164,7 @@ namespace DLT.Meta
                     txGen2.amount = genesisFunds;
                     txGen2.data = null;
                     tx.blockHeight = 1;
-                    txGen2.timeStamp = getCurrentTimestamp();
+                    txGen2.timeStamp = Core.getCurrentTimestamp();
                     txGen2.id = txGen2.generateID();
                     txGen2.checksum = Transaction.calculateChecksum(txGen2);
                     txGen2.signature = Transaction.getSignature(txGen2.checksum);
@@ -179,7 +177,7 @@ namespace DLT.Meta
                     Transaction tx2 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
-                    tx2.timeStamp = getCurrentTimestamp();
+                    tx2.timeStamp = Core.getCurrentTimestamp();
                     tx2.id = tx2.generateID();
                     tx2.checksum = Transaction.calculateChecksum(tx2);
                     tx2.signature = Transaction.getSignature(tx2.checksum);
@@ -191,7 +189,7 @@ namespace DLT.Meta
                     Transaction tx2 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
-                    tx2.timeStamp = getCurrentTimestamp();
+                    tx2.timeStamp = Core.getCurrentTimestamp();
                     tx2.id = tx2.generateID();
                     tx2.checksum = Transaction.calculateChecksum(tx2);
                     tx2.signature = Transaction.getSignature(tx2.checksum);
@@ -201,7 +199,7 @@ namespace DLT.Meta
                     Transaction tx3 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
                     tx3.type = (int)Transaction.Type.Genesis;
                     tx3.data = null;
-                    tx3.timeStamp = getCurrentTimestamp();
+                    tx3.timeStamp = Core.getCurrentTimestamp();
                     tx3.id = tx3.generateID();
                     tx3.checksum = Transaction.calculateChecksum(tx3);
                     tx3.signature = Transaction.getSignature(tx3.checksum);
@@ -211,7 +209,7 @@ namespace DLT.Meta
                     Transaction tx4 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
                     tx4.type = (int)Transaction.Type.Genesis;
                     tx4.data = null;
-                    tx4.timeStamp = getCurrentTimestamp();
+                    tx4.timeStamp = Core.getCurrentTimestamp();
                     tx4.id = tx4.generateID();
                     tx4.checksum = Transaction.calculateChecksum(tx4);
                     tx4.signature = Transaction.getSignature(tx4.checksum);
@@ -221,7 +219,7 @@ namespace DLT.Meta
                     Transaction tx5 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
                     tx5.type = (int)Transaction.Type.Genesis;
                     tx5.data = null;
-                    tx5.timeStamp = getCurrentTimestamp();
+                    tx5.timeStamp = Core.getCurrentTimestamp();
                     tx5.id = tx5.generateID();
                     tx5.checksum = Transaction.calculateChecksum(tx5);
                     tx5.signature = Transaction.getSignature(tx5.checksum);
@@ -231,7 +229,7 @@ namespace DLT.Meta
                     Transaction tx6 = new Transaction(new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"), from, null, null, 1);
                     tx6.type = (int)Transaction.Type.Genesis;
                     tx6.data = null;
-                    tx6.timeStamp = getCurrentTimestamp();
+                    tx6.timeStamp = Core.getCurrentTimestamp();
                     tx6.id = tx6.generateID();
                     tx6.checksum = Transaction.calculateChecksum(tx6);
                     tx6.signature = Transaction.getSignature(tx6.checksum);
@@ -241,7 +239,7 @@ namespace DLT.Meta
                     Transaction tx7 = new Transaction(new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"), from, null, null, 1);
                     tx7.type = (int)Transaction.Type.Genesis;
                     tx7.data = null;
-                    tx7.timeStamp = getCurrentTimestamp();
+                    tx7.timeStamp = Core.getCurrentTimestamp();
                     tx7.id = tx7.generateID();
                     tx7.checksum = Transaction.calculateChecksum(tx7);
                     tx7.signature = Transaction.getSignature(tx7.checksum);
@@ -604,7 +602,7 @@ namespace DLT.Meta
                             writer.Write(Config.device_id);
 
                             // Add the unix timestamp
-                            long timestamp = Node.getCurrentTimestamp();
+                            long timestamp = Core.getCurrentTimestamp();
                             writer.Write(timestamp);
 
                             string hostname = Node.getFullAddress();
@@ -638,11 +636,7 @@ namespace DLT.Meta
             Thread.Yield();
         }
 
-        // TODO everything connected to networkTimeDifference can probably be solved better
-        public static long getCurrentTimestamp()
-        {
-            return (long)(Clock.getTimestamp(DateTime.Now) - networkTimeDifference);
-        }
+
 
         public static string getFullAddress()
         {

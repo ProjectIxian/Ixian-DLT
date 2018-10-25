@@ -327,7 +327,7 @@ namespace DLT
 
             tx.pubKey = pubkey;
 
-            tx.timeStamp = Node.getCurrentTimestamp();
+            tx.timeStamp = Core.getCurrentTimestamp();
             tx.id = tx.generateID();
             tx.checksum = Transaction.calculateChecksum(tx);
             tx.signature = Transaction.getSignature(tx.checksum);

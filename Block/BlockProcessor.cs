@@ -1083,7 +1083,7 @@ namespace DLT
 
                 // Create a new block and add all the transactions in the pool
                 localNewBlock = new Block();
-                localNewBlock.timestamp = Node.getCurrentTimestamp();
+                localNewBlock.timestamp = Core.getCurrentTimestamp();
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
@@ -1402,7 +1402,7 @@ namespace DLT
 
                     tx.data = BitConverter.GetBytes(targetBlock.blockNum);
 
-                    tx.timeStamp = Node.getCurrentTimestamp();
+                    tx.timeStamp = Core.getCurrentTimestamp();
                     tx.id = tx.generateID(); // Staking-specific txid
                     tx.checksum = Transaction.calculateChecksum(tx);
                     tx.signature = Encoding.UTF8.GetBytes("Stake");
