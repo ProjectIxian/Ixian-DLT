@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using IXICore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -124,7 +125,7 @@ namespace DLT
                 syncToBlock = wsSyncConfirmedBlockNum;
             }
 
-            ulong firstBlock = Config.redactedWindowSize > syncToBlock ? 1 : syncToBlock - Config.redactedWindowSize + 1;
+            ulong firstBlock = CoreConfig.redactedWindowSize > syncToBlock ? 1 : syncToBlock - CoreConfig.redactedWindowSize + 1;
             ulong lastBlock = syncToBlock;
             List<ulong> missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
 
@@ -224,9 +225,9 @@ namespace DLT
                 syncToBlock = wsSyncConfirmedBlockNum;
             }
 
-            if (Config.redactedWindowSize < syncToBlock)
+            if (CoreConfig.redactedWindowSize < syncToBlock)
             {
-                lowestBlockNum = syncToBlock - Config.redactedWindowSize + 1;
+                lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize + 1;
             }
             if (Node.blockChain.Count > 0)
             {
@@ -481,7 +482,7 @@ namespace DLT
                     wsSyncCount = 0;
                     pendingWsBlockNum = Node.blockChain.getLastBlockNum();
                     pendingWsChunks.Clear();
-                    pendingWsChunks.AddRange(Node.walletState.getWalletStateChunks(Config.walletStateChunkSplit));
+                    pendingWsChunks.AddRange(Node.walletState.getWalletStateChunks(CoreConfig.walletStateChunkSplit));
                 }
                 wsSyncCount++;
             }
@@ -589,8 +590,8 @@ namespace DLT
         {
             if(synchronizing == true && wsSyncConfirmedBlockNum == 0)
             {
-                long chunks = ws_count / Config.walletStateChunkSplit;
-                if(ws_count % Config.walletStateChunkSplit > 0)
+                long chunks = ws_count / CoreConfig.walletStateChunkSplit;
+                if(ws_count % CoreConfig.walletStateChunkSplit > 0)
                 {
                     chunks += 1;
                 }

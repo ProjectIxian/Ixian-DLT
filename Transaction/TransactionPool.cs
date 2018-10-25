@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using IXICore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -64,9 +65,9 @@ namespace DLT
             }
 
             ulong minBh = 0;
-            if (blocknum > Config.redactedWindowSize)
+            if (blocknum > CoreConfig.redactedWindowSize)
             {
-                minBh = blocknum - Config.redactedWindowSize;
+                minBh = blocknum - CoreConfig.redactedWindowSize;
             }
             // Check the block height
             if (minBh > transaction.blockHeight || transaction.blockHeight > blocknum + 5)
@@ -254,7 +255,7 @@ namespace DLT
             else
             {
                 // Verify if the transaction contains the minimum fee
-                if (transaction.fee < Config.transactionPrice)
+                if (transaction.fee < CoreConfig.transactionPrice)
                 {
                     // Prevent transactions that can't pay the minimum fee
                     Logging.warn(String.Format("Transaction fee does not cover minimum fee for {{ {0} }}.", transaction.id));
@@ -1066,7 +1067,7 @@ namespace DLT
         public static bool rollBackNormalTransaction(Transaction tx)
         {
             // Calculate the transaction amount without fee
-            IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
+            IxiNumber txAmountWithoutFee = tx.amount - CoreConfig.transactionPrice;
 
             Wallet source_wallet = Node.walletState.getWallet(tx.from);
             Wallet dest_wallet = Node.walletState.getWallet(tx.to);
@@ -1253,12 +1254,12 @@ namespace DLT
         public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
             // Calculate the transaction amount without fee
-            IxiNumber txAmountWithoutFee = tx.amount - Config.transactionPrice;
+            IxiNumber txAmountWithoutFee = tx.amount - CoreConfig.transactionPrice;
 
             // Check if the fee covers the current network minimum fee
             // TODO: adjust this dynamically
 
-            if(tx.fee - Config.transactionPrice < (long)0)
+            if(tx.fee - CoreConfig.transactionPrice < (long)0)
             {
                 Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", tx.id));
                 failed_transactions.Add(tx);
@@ -1282,9 +1283,9 @@ namespace DLT
             }
 
             ulong minBh = 0;
-            if(block.blockNum > Config.redactedWindowSize)
+            if(block.blockNum > CoreConfig.redactedWindowSize)
             {
-                minBh =block.blockNum - Config.redactedWindowSize;
+                minBh =block.blockNum - CoreConfig.redactedWindowSize;
             }
             // Check the block height
             if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum + 5)

@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using IXICore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -433,7 +434,7 @@ namespace DLT
             Random rnd = new Random();
 
             // Wait 5 seconds before starting the loop
-            Thread.Sleep(Config.networkClientReconnectInterval);
+            Thread.Sleep(CoreConfig.networkClientReconnectInterval);
 
             while (autoReconnect)
             {
@@ -469,7 +470,7 @@ namespace DLT
                 }
 
                 // Wait 5 seconds before rechecking
-                Thread.Sleep(Config.networkClientReconnectInterval);
+                Thread.Sleep(CoreConfig.networkClientReconnectInterval);
             }
         }
 

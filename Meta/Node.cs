@@ -1,5 +1,6 @@
 ﻿using DLT.Network;
 using DLTNode.Network;
+using IXICore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -141,7 +142,7 @@ namespace DLT.Meta
             {
                 Logging.info(String.Format("Genesis {0} specified. Starting operation.", genesisFunds));
 
-                byte[] from = Config.ixianInfiniMineAddress;
+                byte[] from = CoreConfig.ixianInfiniMineAddress;
 
                 Transaction tx = new Transaction();
                 tx.type = (int)Transaction.Type.Genesis;
@@ -175,7 +176,7 @@ namespace DLT.Meta
                 if (Config.isTestNet)
                 {
                     // testnet seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
+                    Transaction tx2 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
                     tx2.timeStamp = getCurrentTimestamp();
@@ -187,7 +188,7 @@ namespace DLT.Meta
                 else
                 {
                     // seed2
-                    Transaction tx2 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
+                    Transaction tx2 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
                     tx2.type = (int)Transaction.Type.Genesis;
                     tx2.data = null;
                     tx2.timeStamp = getCurrentTimestamp();
@@ -197,7 +198,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx2);
 
                     // seed3
-                    Transaction tx3 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
+                    Transaction tx3 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
                     tx3.type = (int)Transaction.Type.Genesis;
                     tx3.data = null;
                     tx3.timeStamp = getCurrentTimestamp();
@@ -207,7 +208,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx3);
 
                     // seed4
-                    Transaction tx4 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
+                    Transaction tx4 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
                     tx4.type = (int)Transaction.Type.Genesis;
                     tx4.data = null;
                     tx4.timeStamp = getCurrentTimestamp();
@@ -217,7 +218,7 @@ namespace DLT.Meta
                     TransactionPool.addTransaction(tx4);
 
                     // seed5
-                    Transaction tx5 = new Transaction(Config.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
+                    Transaction tx5 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
                     tx5.type = (int)Transaction.Type.Genesis;
                     tx5.data = null;
                     tx5.timeStamp = getCurrentTimestamp();
@@ -482,16 +483,16 @@ namespace DLT.Meta
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.address);
                     if(isWorkerNode())
                     {
-                        if (nodeBalance > Config.minimumMasterNodeFunds)
+                        if (nodeBalance > CoreConfig.minimumMasterNodeFunds)
                         {
                             Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", nodeBalance));
                             convertToMasterNode();
                         }
                     }
                     else
-                    if (nodeBalance < Config.minimumMasterNodeFunds)
+                    if (nodeBalance < CoreConfig.minimumMasterNodeFunds)
                     {
-                        Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", Config.minimumMasterNodeFunds, walletStorage.address));
+                        Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", CoreConfig.minimumMasterNodeFunds, walletStorage.address));
                         Node.stop();
                         running = false;
                         return false;
@@ -575,7 +576,7 @@ namespace DLT.Meta
             while (autoKeepalive)
             {
                 // Wait x seconds before rechecking
-                for (int i = 0; i < Config.keepAliveInterval; i++)
+                for (int i = 0; i < CoreConfig.keepAliveInterval; i++)
                 {
                     if (autoKeepalive == false)
                     {
@@ -611,7 +612,7 @@ namespace DLT.Meta
 
                             // Add a verifiable signature
                             byte[] private_key = walletStorage.privateKey;
-                            byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
+                            byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
                             writer.Write(signature.Length);
                             writer.Write(signature);
 

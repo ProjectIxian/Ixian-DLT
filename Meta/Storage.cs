@@ -1,3 +1,4 @@
+using IXICore;
 using Newtonsoft.Json;
 using SQLite;
 using System;
@@ -394,14 +395,14 @@ namespace DLT
                     return false;
                 }
 
-                if (blockheight < Config.redactedWindowSize)
+                if (blockheight < CoreConfig.redactedWindowSize)
                 {
                     // Nothing to redact yet
                     return false;
                 }
 
                 // Calculate the window
-                ulong redactedWindow = blockheight - Config.redactedWindowSize;
+                ulong redactedWindow = blockheight - CoreConfig.redactedWindowSize;
 
                 Logging.info(string.Format("Redacting storage below block #{0}", redactedWindow));
 

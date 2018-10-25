@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using IXICore;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
@@ -25,7 +26,7 @@ namespace DLT
             {
                 // redaction
                 int begin_size = blocks.Count();
-                while ((ulong) blocks.Count() > Config.redactedWindowSize)
+                while ((ulong) blocks.Count() > CoreConfig.redactedWindowSize)
                 {
                     TransactionPool.redactTransactionsForBlock(blocks[0]); // Remove from Transaction Pool
 
@@ -122,7 +123,7 @@ namespace DLT
                 {
                     totalConsensus += blocks[blocks.Count - i - blockOffset - 1].signatures.Count;
                 }
-                int consensus = (int)Math.Ceiling(totalConsensus / blockCount * Config.networkConsensusRatio);
+                int consensus = (int)Math.Ceiling(totalConsensus / blockCount * CoreConfig.networkConsensusRatio);
                 if (consensus < 2)
                 {
                     consensus = 2;

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Linq;
+using IXICore;
 
 namespace DLT
 {
@@ -66,7 +67,7 @@ namespace DLT
                         if (tx_count == 0)
                             return;
 
-                        int num_chunks = tx_count / Config.maximumTransactionsPerChunk + 1;
+                        int num_chunks = tx_count / CoreConfig.maximumTransactionsPerChunk + 1;
 
                         // Go through each chunk
                         for (int i = 0; i < num_chunks; i++)
@@ -76,9 +77,9 @@ namespace DLT
                                 using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
                                     // Generate a chunk of transactions
-                                    for (int j = 0; j < Config.maximumTransactionsPerChunk; j++)
+                                    for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk; j++)
                                     {
-                                        int tx_index = i * Config.maximumTransactionsPerChunk + j;
+                                        int tx_index = i * CoreConfig.maximumTransactionsPerChunk + j;
                                         if (tx_index > tx_count - 1)
                                             break;
 
@@ -122,7 +123,7 @@ namespace DLT
                 if (tx_count == 0)
                     return;
 
-                int num_chunks = tx_count / Config.maximumTransactionsPerChunk + 1;
+                int num_chunks = tx_count / CoreConfig.maximumTransactionsPerChunk + 1;
 
                 // Go through each chunk
                 for (int i = 0; i < num_chunks; i++)
@@ -132,9 +133,9 @@ namespace DLT
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
                             // Generate a chunk of transactions
-                            for (int j = 0; j < Config.maximumTransactionsPerChunk; j++)
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk; j++)
                             {
-                                int tx_index = i * Config.maximumTransactionsPerChunk + j;
+                                int tx_index = i * CoreConfig.maximumTransactionsPerChunk + j;
                                 if (tx_index > tx_count - 1)
                                     break;
 
@@ -157,7 +158,7 @@ namespace DLT
                 // Prepare the protocol sections
                 int data_length = data.Length;
 
-                if (data_length > Config.maxMessageSize)
+                if (data_length > CoreConfig.maxMessageSize)
                 {
                     Logging.error(String.Format("Tried to send data bigger than max allowed message size - {0} with code {1}.", data_length, code));
                     return null;
@@ -500,14 +501,14 @@ namespace DLT
 
                     Logging.info(string.Format("Received Hello: Node version {0}", protocol_version));
                     // Check for incompatible nodes
-                    if (protocol_version < Config.protocolVersion)
+                    if (protocol_version < CoreConfig.protocolVersion)
                     {
                         using (MemoryStream m2 = new MemoryStream())
                         {
                             using (BinaryWriter writer = new BinaryWriter(m2))
                             {
                                 Logging.warn(String.Format("Hello: Connected node version ({0}) is too old! Upgrade the node.", protocol_version));
-                                writer.Write(string.Format("Your node version is too old. Should be at least {0} is {1}", Config.protocolVersion, protocol_version));
+                                writer.Write(string.Format("Your node version is too old. Should be at least {0} is {1}", CoreConfig.protocolVersion, protocol_version));
                                 endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                                 return false;
                             }
@@ -554,7 +555,7 @@ namespace DLT
                     endpoint.incomingPort = port;
 
                     // Verify the signature
-                    if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLockString + "-" + device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
+                    if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
                     {
                         using (MemoryStream m2 = new MemoryStream())
                         {
@@ -602,13 +603,13 @@ namespace DLT
                         {
                             // Check the wallet balance for the minimum amount of coins
                             IxiNumber balance = Node.walletState.getWalletBalance(addr);
-                            if (balance < Config.minimumMasterNodeFunds)
+                            if (balance < CoreConfig.minimumMasterNodeFunds)
                             {
                                 using (MemoryStream m2 = new MemoryStream())
                                 {
                                     using (BinaryWriter writer = new BinaryWriter(m2))
                                     {
-                                        writer.Write(string.Format("Insufficient funds. Minimum is {0}", Config.minimumMasterNodeFunds));
+                                        writer.Write(string.Format("Insufficient funds. Minimum is {0}", CoreConfig.minimumMasterNodeFunds));
                                         Logging.warn(string.Format("Rejected master node {0} due to insufficient funds: {1}", endpoint.getFullAddress(), balance.ToString()));
                                         endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                                         return false;
@@ -667,7 +668,7 @@ namespace DLT
                         string publicHostname = string.Format("{0}:{1}", Config.publicServerIP, Config.serverPort);
 
                         // Send the node version
-                        writer.Write(Config.protocolVersion);
+                        writer.Write(CoreConfig.protocolVersion);
 
                         // Send the public node address
                         byte[] address = Node.walletStorage.address;
@@ -703,7 +704,7 @@ namespace DLT
                         writer.Write(timestamp);
 
                         // send signature
-                        byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(Config.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + publicHostname), Node.walletStorage.privateKey);
+                        byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + publicHostname), Node.walletStorage.privateKey);
                         writer.Write(signature.Length);
                         writer.Write(signature);
 
@@ -1088,10 +1089,10 @@ namespace DLT
                                         ulong block_num = reader.ReadUInt64();
                                         int chunk_num = reader.ReadInt32();
                                         int num_wallets = reader.ReadInt32();
-                                        if(num_wallets > Config.walletStateChunkSplit)
+                                        if(num_wallets > CoreConfig.walletStateChunkSplit)
                                         {
                                             Logging.error(String.Format("Received {0} wallets in a chunk. ( > {1}).",
-                                                num_wallets, Config.walletStateChunkSplit));
+                                                num_wallets, CoreConfig.walletStateChunkSplit));
                                             return;
                                         }
                                         Wallet[] wallets = new Wallet[num_wallets];

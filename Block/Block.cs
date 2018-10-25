@@ -7,6 +7,7 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using IXICore.Utils;
+using IXICore;
 
 namespace DLT
 {
@@ -251,7 +252,7 @@ namespace DLT
             }
 
             List<byte> rawData = new List<byte>();
-            rawData.AddRange(Config.ixianChecksumLock);
+            rawData.AddRange(CoreConfig.ixianChecksumLock);
             rawData.AddRange(BitConverter.GetBytes(version));
             rawData.AddRange(BitConverter.GetBytes(blockNum));
             rawData.AddRange(Encoding.UTF8.GetBytes(merged_txids.ToString()));

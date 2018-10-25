@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using System.Runtime.InteropServices;
 using System.IO;
+using IXICore;
 
 namespace DLT
 {
@@ -138,8 +139,8 @@ namespace DLT
         {
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
             ulong oldestRedactedBlock = 0;
-            if (lastBlockNum > Config.redactedWindowSize)
-                oldestRedactedBlock = lastBlockNum - Config.redactedWindowSize;
+            if (lastBlockNum > CoreConfig.redactedWindowSize)
+                oldestRedactedBlock = lastBlockNum - CoreConfig.redactedWindowSize;
 
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {
@@ -300,7 +301,7 @@ namespace DLT
             Transaction tx = new Transaction();
             tx.type = (int)Transaction.Type.PoWSolution;
             tx.from = Node.walletStorage.getWalletAddress();
-            tx.to = Config.ixianInfiniMineAddress;
+            tx.to = CoreConfig.ixianInfiniMineAddress;
             tx.amount = "0";
             tx.fee = "0";
             tx.blockHeight = Node.blockChain.getLastBlockNum();
@@ -392,8 +393,8 @@ namespace DLT
 
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
             ulong oldestRedactedBlock = 0;
-            if (lastBlockNum > Config.redactedWindowSize)
-                oldestRedactedBlock = lastBlockNum - Config.redactedWindowSize;
+            if (lastBlockNum > CoreConfig.redactedWindowSize)
+                oldestRedactedBlock = lastBlockNum - CoreConfig.redactedWindowSize;
 
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {

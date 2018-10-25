@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using IXICore;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
@@ -205,7 +206,7 @@ namespace DLT
                     address = (new Address(address)).address;
                 }
 
-                if (Node.walletState.getWalletBalance(address) < Config.minimumMasterNodeFunds)
+                if (Node.walletState.getWalletBalance(address) < CoreConfig.minimumMasterNodeFunds)
                 {
                     Logging.error(String.Format("LOW BALANCE ADDRESS: {0} FUNDS: {1}", Base58Check.Base58CheckEncoding.EncodePlain(address), Node.walletState.getWalletBalance(address)));
                     sigs.Add(b.signatures[i]);
@@ -546,9 +547,9 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
             }
-            if((ulong)txCount > Config.maximumTransactionsPerBlock + 10)
+            if((ulong)txCount > CoreConfig.maximumTransactionsPerBlock + 10)
             {
-                Logging.warn(String.Format("Block has more transactions than the maximumTransactionsPerBlock setting {0}/{1}", txCount, Config.maximumTransactionsPerBlock + 10));
+                Logging.warn(String.Format("Block has more transactions than the maximumTransactionsPerBlock setting {0}/{1}", txCount, CoreConfig.maximumTransactionsPerBlock + 10));
                 return BlockVerifyStatus.Invalid;
             }
             //
@@ -1012,13 +1013,13 @@ namespace DLT
             }
 
             // Calculate the total fee amount
-            IxiNumber foundationAward = tFeeAmount * Config.foundationFeePercent / 100;
+            IxiNumber foundationAward = tFeeAmount * CoreConfig.foundationFeePercent / 100;
 
             // Award foundation fee
-            Wallet foundation_wallet = Node.walletState.getWallet(Config.foundationAddress, ws_snapshot);
+            Wallet foundation_wallet = Node.walletState.getWallet(CoreConfig.foundationAddress, ws_snapshot);
             IxiNumber foundation_balance_before = foundation_wallet.balance;
             IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
-            Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot);
+            Node.walletState.setWalletBalance(CoreConfig.foundationAddress, foundation_balance_after, ws_snapshot);
             //Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
             // Subtract the foundation award from total fee amount
@@ -1041,7 +1042,7 @@ namespace DLT
             if (remainder > (long) 0)
             {
                 foundation_balance_after = foundation_balance_after + remainder;
-                Node.walletState.setWalletBalance(Config.foundationAddress, foundation_balance_after, ws_snapshot);
+                Node.walletState.setWalletBalance(CoreConfig.foundationAddress, foundation_balance_after, ws_snapshot);
                 //Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
             }
 
@@ -1112,7 +1113,7 @@ namespace DLT
                 foreach (var transaction in pool_transactions)
                 {
                     // Check if we reached the transaction limit for this block
-                    if(normal_transactions >= Config.maximumTransactionsPerBlock)
+                    if(normal_transactions >= CoreConfig.maximumTransactionsPerBlock)
                     {
                         // Limit all other transactions
                         break;
@@ -1240,7 +1241,7 @@ namespace DLT
 
                 // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
                 ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
-                ulong window_size = Config.redactedWindowSize;
+                ulong window_size = CoreConfig.redactedWindowSize;
 
                 // Special consideration for early blocks
                 if (Node.blockChain.getLastBlockNum() < window_size)
@@ -1393,7 +1394,7 @@ namespace DLT
                     Transaction tx = new Transaction();
                     tx.type = (int)Transaction.Type.StakingReward;
                     tx.to = wallet_addr;
-                    tx.from = Config.ixianInfiniMineAddress;
+                    tx.from = CoreConfig.ixianInfiniMineAddress;
                     tx.amount = award;
                     tx.nonce = 0;
                     

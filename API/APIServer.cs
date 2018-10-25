@@ -1,6 +1,7 @@
 ﻿using DLT;
 using DLT.Meta;
 using DLT.Network;
+using IXICore;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -212,8 +213,8 @@ namespace DLTNode
 
                 byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
-                IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
-                IxiNumber fee = Config.transactionPrice;
+                IxiNumber amount = new IxiNumber(amount_string) - CoreConfig.transactionPrice; // Subtract the fee
+                IxiNumber fee = CoreConfig.transactionPrice;
 
                 // Only create a transaction if there is a valid amount
                 if(amount > (long)0)
@@ -264,8 +265,8 @@ namespace DLTNode
                 byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
                 byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
-                IxiNumber amount = new IxiNumber(amount_string) - Config.transactionPrice; // Subtract the fee
-                IxiNumber fee = Config.transactionPrice;
+                IxiNumber amount = new IxiNumber(amount_string) - CoreConfig.transactionPrice; // Subtract the fee
+                IxiNumber fee = CoreConfig.transactionPrice;
 
                 // Only create a transaction if there is a valid amount
                 if (amount > (long)0)
@@ -303,7 +304,7 @@ namespace DLTNode
                 byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
                 string signer = request.QueryString["signer"];
                 byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
-                IxiNumber fee = Config.transactionPrice;
+                IxiNumber fee = CoreConfig.transactionPrice;
 
                 Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
@@ -331,7 +332,7 @@ namespace DLTNode
                 string signer = request.QueryString["signer"];
                 byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
 
-                IxiNumber fee = Config.transactionPrice;
+                IxiNumber fee = CoreConfig.transactionPrice;
 
                 Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
@@ -357,7 +358,7 @@ namespace DLTNode
                 string orig_txid = request.QueryString["origtx"];
                 byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
                 string sigs = request.QueryString["sigs"];
-                IxiNumber fee = Config.transactionPrice;
+                IxiNumber fee = CoreConfig.transactionPrice;
                 if (byte.TryParse(sigs, out byte reqSigs))
                 {
 

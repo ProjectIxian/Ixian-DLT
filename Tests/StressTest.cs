@@ -2,6 +2,7 @@
 using DLT.Meta;
 using DLT.Network;
 using DLTNode.Network;
+using IXICore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -181,7 +182,7 @@ namespace DLTNode
             Transaction tx = new Transaction();
             tx.type = (int)Transaction.Type.PoWSolution;
             tx.from = Node.walletStorage.getWalletAddress();
-            tx.to = Config.ixianInfiniMineAddress;
+            tx.to = CoreConfig.ixianInfiniMineAddress;
             tx.amount = "0";
 
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
@@ -210,8 +211,8 @@ namespace DLTNode
             for (int i = 0; i < txspamNum; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
-                IxiNumber fee = Config.transactionPrice;
-                byte[] to = Config.foundationAddress;
+                IxiNumber fee = CoreConfig.transactionPrice;
+                byte[] to = CoreConfig.foundationAddress;
                 byte[] from = Node.walletStorage.getWalletAddress();
 
                 byte[] pubKey = Node.walletStorage.publicKey;
@@ -253,7 +254,7 @@ namespace DLTNode
             for (int i = 0; i < txspamNum; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
-                IxiNumber fee = Config.transactionPrice;
+                IxiNumber fee = CoreConfig.transactionPrice;
                 byte[] to = Encoding.UTF8.GetBytes("08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481");
                 byte[] from = Node.walletStorage.getWalletAddress();
 
