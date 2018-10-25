@@ -1071,6 +1071,53 @@ namespace DLT
           
         }
 
+        // returns false if this is a multisig transaction and not enough signatures - in this case, it should not be added to the block
+        // returns true for all other transaction types
+        private bool includeApplicableMultisig(Transaction transaction)
+        {
+            // NOTE: this function is called exclusively from generateNewBlock(), so we do not need to lock anything - 'localNewBlock' is alredy locked.
+            // If this is called from anywhere else, add a lock here!
+            // multisig transactions must be complete before they are added
+            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            {
+                object multisig_data = transaction.GetMultisigData();
+                string orig_txid = "";
+                if (multisig_data is string)
+                {
+                    orig_txid = (string)multisig_data;
+                }
+                else if (multisig_data is Transaction.MultisigAddrAdd)
+                {
+                    orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
+                }
+                else if (multisig_data is Transaction.MultisigAddrDel)
+                {
+                    orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
+                }
+                else if (multisig_data is Transaction.MultisigChSig)
+                {
+                    orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
+                }
+                if (orig_txid == "")
+                {
+                    orig_txid = transaction.id;
+                }
+                Wallet from_w = Node.walletState.getWallet(transaction.from);
+                int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type) + 1;
+                if (num_valid_multisigs >= from_w.requiredSigs)
+                {
+                    // include the multisig transaction
+                    return true;
+                } else
+                {
+                    // skip the multisih transaction
+                    return false;
+                }
+            }
+            // include all others
+            return true;
+        }
+
         // Generate a new block
         public void generateNewBlock()
         {
@@ -1141,41 +1188,12 @@ namespace DLT
                         }
                     }
 
-                    // multisig transactions must be complete before they are added
-                    if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    if(includeApplicableMultisig(transaction))
                     {
-                        object multisig_data = transaction.GetMultisigData();
-                        string orig_txid = "";
-                        if (multisig_data is string)
-                        {
-                            orig_txid = (string)multisig_data;
-                        } else if(multisig_data is Transaction.MultisigAddrAdd)
-                        {
-                            orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
-                        } else if (multisig_data is Transaction.MultisigAddrDel)
-                        {
-                            orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
-                        } else if(multisig_data is Transaction.MultisigChSig)
-                        {
-                            orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
-                        }
-                        if(orig_txid == "")
-                        {
-                            orig_txid = transaction.id;
-                        }
-                        Wallet from_w = Node.walletState.getWallet(transaction.from);
-                        int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type) + 1;
-                        if (num_valid_multisigs >= from_w.requiredSigs)
-                        {
-                            localNewBlock.addTransaction(transaction);
-                        }
-                        else
-                        {
-                            continue;
-                        }
+                        // 'includeApplicableMultisg transactions' will return true if the transaction is not a multisig transaction
+                        localNewBlock.addTransaction(transaction);
                     }
 
-                    localNewBlock.addTransaction(transaction);
                     // amount is counted only for originating multisig transaction.
                     // additionally, "ChangeMultisigWallet"-type transactions do not have amount
                     if (transaction.type == (int)Transaction.Type.MultisigTX)

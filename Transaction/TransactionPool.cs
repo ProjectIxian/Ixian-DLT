@@ -291,7 +291,6 @@ namespace DLT
             }
             else if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
-                // TODO TODO TODO TODO doublecheck this with Z
                 pubkey = transaction.pubKey;
             }
             else
