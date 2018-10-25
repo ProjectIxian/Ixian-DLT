@@ -303,7 +303,9 @@ namespace DLT
                 }
 
 
-            Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
+                b.powField = null;
+
+                Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
                     b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
 
                 // wallet state is correct as of wsConfirmedBlockNumber, so before that we call

@@ -1,12 +1,9 @@
 ﻿using DLT.Meta;
-using DLT.Network;
 using IXICore;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DLT
 {
@@ -14,7 +11,7 @@ namespace DLT
     {
         List<Block> blocks = new List<Block>();
 
-        public int Count { get => blocks.Count; }
+        public long Count { get => blocks.LongCount(); }
 
         public BlockChain()
         {
@@ -246,10 +243,19 @@ namespace DLT
         {
             ulong solved_blocks = 0;
 
+            ulong firstBlockNum = 1;
+            if (Node.blockChain.getLastBlockNum() > CoreConfig.redactedWindowSize)
+            {
+                firstBlockNum = Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize;
+            }
             lock (blocks)
             {
                 foreach (Block block in blocks)
                 {
+                    if(block.blockNum < firstBlockNum)
+                    {
+                        continue;
+                    }
                     if(block.powField != null)
                     {
                         // TODO: an additional verification would be nice

@@ -314,6 +314,8 @@ namespace DLT
                 return;
             }
 
+            b.powField = null;
+
             if (verifyBlock(b, false, endpoint) != BlockVerifyStatus.Valid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
@@ -413,9 +415,14 @@ namespace DLT
             }
 
             // verify difficulty
-            if(Node.blockChain.getLastBlockNum() + 1 == b.blockNum && b.difficulty != calculateDifficulty())
+            if (Node.blockChain.getLastBlockNum() + 1 == b.blockNum)
             {
-                return BlockVerifyStatus.Invalid;
+                ulong expectedDifficulty = calculateDifficulty();
+                if (b.difficulty != expectedDifficulty)
+                {
+                    Logging.warn(String.Format("Received block #{0} ({1}) which had a difficulty {2}, expected difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.difficulty, expectedDifficulty));
+                    return BlockVerifyStatus.Invalid;
+                }
             }
 
             // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic
@@ -1247,16 +1254,8 @@ namespace DLT
         // Calculate the current mining difficulty
         public ulong calculateDifficulty()
         {
-            ulong local_blocknum = 0;
             ulong current_difficulty = 14;
-            lock (localBlockLock)
-            {
-                if (localNewBlock != null)
-                {
-                    local_blocknum = localNewBlock.blockNum;
-                } 
-            }
-            if (local_blocknum > 1)
+            if (Node.blockChain.getLastBlockNum() > 1)
             {
                 Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
                 if (previous_block != null)
@@ -1268,7 +1267,9 @@ namespace DLT
 
                 // Special consideration for early blocks
                 if (Node.blockChain.getLastBlockNum() < window_size)
+                {
                     window_size = Node.blockChain.getLastBlockNum();
+                }
 
                 if (solved_blocks > window_size / 2)
                 {

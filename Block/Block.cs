@@ -1,5 +1,4 @@
 using DLT.Meta;
-using DLTNode;
 using SQLite;
 using System;
 using System.Collections.Generic;
@@ -31,8 +30,6 @@ namespace DLT
 
         // Locally calculated
         public byte[] powField = null;
-
-        public static string[] splitter = { "::" };
 
         // Generate the genesis block
         static Block createGenesisBlock()

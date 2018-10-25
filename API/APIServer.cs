@@ -434,7 +434,7 @@ namespace DLTNode
             if (methodName.Equals("getlastblocks", StringComparison.OrdinalIgnoreCase))
             {
                 Dictionary<string, string>[] blocks = new Dictionary<string, string>[10];
-                int blockCnt = Node.blockChain.Count > 10 ? 10 : Node.blockChain.Count;
+                long blockCnt = Node.blockChain.Count > 10 ? 10 : Node.blockChain.Count;
                 for (ulong i = 0; i < (ulong)blockCnt; i++)
                 {
                     Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
