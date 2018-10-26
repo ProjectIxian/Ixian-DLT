@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using DLT.Meta;
 using System.Linq;
 using System.IO;
+using IXICore;
 
 namespace DLT
 {
@@ -165,7 +166,7 @@ namespace DLT
                 while (continueRunning)
                 {
                     handleDisconnectedClients();
-                    if (connectedClients.Count < Config.maximumServerClients)
+                    if (connectedClients.Count < CoreConfig.maximumServerClients)
                     {
                         // Use a blocking mechanism
                         try
@@ -279,7 +280,7 @@ namespace DLT
 
                 lock (connectedClients)
                 {
-                    if (connectedClients.Count + 1 > Config.maximumServerClients)
+                    if (connectedClients.Count + 1 > CoreConfig.maximumServerClients)
                     {
                         Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port));
@@ -299,7 +300,7 @@ namespace DLT
                     connectedClients.Add(remoteEndpoint);
                 }
 
-                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, Config.maximumServerClients));
+                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, CoreConfig.maximumServerClients));
 
                 remoteEndpoint.start(clientSocket);
             }

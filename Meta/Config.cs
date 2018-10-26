@@ -36,11 +36,6 @@ namespace DLT
             public static readonly string version = "xdc-0.5.1"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
-
-
-            public static readonly int maximumNeighborReconnectCount = 5; // Number of retries before proceeding to a different neighbor node
-            public static readonly int simultaneousConnectedNeighbors = 6; // Desired number of simulatenously connected neighbor nodes
-            public static readonly int maximumServerClients = 10; // Maximum number of clients this server can accept
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
             public static readonly ulong compileTimeBlockNumber = 0;
 

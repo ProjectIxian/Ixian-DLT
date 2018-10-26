@@ -8,12 +8,7 @@ using System.Threading;
 
 namespace DLT
 {
-    public class WsChunk
-    {
-        public ulong blockNum;
-        public int chunkNum;
-        public Wallet[] wallets;
-    }
+
 
     class BlockSync
     {

@@ -115,7 +115,12 @@ namespace DLT.Meta
             }
 
             // Generate presence list
-            PresenceList.generatePresenceList(Config.publicServerIP);
+            char type = 'M';
+            if (Config.storeFullHistory)
+            {
+                type = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
+            }
+            PresenceList.generatePresenceList(Config.publicServerIP, type);
 
             // Initialize storage
             Storage.prepareStorage();

@@ -91,7 +91,6 @@
     <Compile Include="Meta\Node.cs" />
     <Compile Include="Meta\Storage.cs" />
     <Compile Include="Miner\Miner.cs" />
-    <Compile Include="Network\NetworkClientManager.cs" />
     <Compile Include="Network\NetworkServer.cs" />
     <Compile Include="Network\NetworkProtocol.cs" />
     <Compile Include="Program.cs" />

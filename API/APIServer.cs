@@ -15,111 +15,60 @@ using System.Threading.Tasks;
 
 namespace DLTNode
 {
-    class APIServer
+    class APIServer : GenericAPIServer
     {
-        public HttpListener listener;
-        private Thread apiControllerThread;
-        private bool continueRunning;
-        private string listenURL;
-
-        public bool forceShutdown = false;
 
         public APIServer()
         {
-            start();
+            // Start the API server
+            start(String.Format("http://localhost:{0}/", Config.apiPort));
         }
 
-        public void start()
+        protected override void onUpdate()
         {
-            continueRunning = true;
-
-            apiControllerThread = new Thread(apiLoop);
-            apiControllerThread.Start();
-        }
-
-        public void stop()
-        {
-            continueRunning = false;
             try
             {
-                // Stop the listener
-                listener.Stop();
-            }
-            catch(Exception)
-            {
-                Logging.info("API server already stopped.");
-            }
-        }
+                Console.Write("*");
 
+                HttpListenerContext context = listener.GetContext();
 
-        private void apiLoop()
-        {
-            // Prepare the listen url string
-            listenURL = String.Format("http://localhost:{0}/", Config.apiPort);
+                if (context.Request.Url.Segments.Length < 2)
+                {
+                    //sendError(context, "{\"message\":\"no parameters supplied\"}");
 
-            // Start a listener on the loopback interface
-            listener = new HttpListener();
-            try
-            {
-                listener.Prefixes.Add(listenURL);
-                listener.Start();
-            }
-            catch(Exception ex)
-            {
-                Logging.error("Cannot initialize API server! The error was: " + ex.Message);
-                return;
-            }
+                    // We will now show an embedded wallet if the API is called with no parameters
+                    sendWallet(context);
+                    return;
+                }
 
-            while (continueRunning)
-            {
+                string methodName = context.Request.Url.Segments[1].Replace("/", "");
+
+                if (methodName == null)
+                {
+                    sendError(context, "{\"message\":\"invalid parameters\"}");
+                    return;
+                }
+
                 try
                 {
-                    Console.Write("*");
-
-                    HttpListenerContext context = listener.GetContext();
-
-                    if (context.Request.Url.Segments.Length < 2)
-                    {
-                        //sendError(context, "{\"message\":\"no parameters supplied\"}");
-
-                        // We will now show an embedded wallet if the API is called with no parameters
-                        sendWallet(context);
-
-                        continue;
-                    }
-                    string methodName = context.Request.Url.Segments[1].Replace("/", "");
-
-                    if (methodName == null)
-                    {
-                        sendError(context, "{\"message\":\"invalid parameters\"}");
-                        continue;
-                    }
-
-                    try
-                    {
-                        if (parseRequest(context, methodName) == false)
-                        {
-                            sendError(context, "{\"message\":\"error\"}");
-                        }
-                    }
-                    catch(Exception e)
+                    if (parseRequest(context, methodName) == false)
                     {
                         sendError(context, "{\"message\":\"error\"}");
-                        Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e.ToString()));
-
                     }
                 }
-                catch(Exception)
+                catch (Exception e)
                 {
-                    continueRunning = false;
-                    //Logging.error(string.Format("Error in API server {0}", e.ToString()));
+                    sendError(context, "{\"message\":\"error\"}");
+                    Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e.ToString()));
+
                 }
             }
+            catch (Exception)
+            {
+                continueRunning = false;
+                //Logging.error(string.Format("Error in API server {0}", e.ToString()));
+            }
 
-            // Stop the listener
-            //listener.Stop();
-
-            Thread.Yield();
         }
 
         // Send the embedded wallet html file
@@ -140,10 +89,7 @@ namespace DLTNode
             }
         }
 
-        private void sendError(HttpListenerContext context, string errorString)
-        {
-            sendResponse(context.Response, errorString);
-        }
+
 
         private bool parseRequest(HttpListenerContext context, string methodName)
         {
@@ -813,22 +759,6 @@ namespace DLTNode
             return false;
         }
 
-        private void sendResponse(HttpListenerResponse responseObject, string responseString)
-        {
-            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
-
-            try
-            {
-                responseObject.ContentLength64 = buffer.Length;
-                System.IO.Stream output = responseObject.OutputStream;
-                output.Write(buffer, 0, buffer.Length);
-                output.Close();
-            }
-            catch(Exception e)
-            {
-                Logging.error(String.Format("HTTP API: {0}", e.ToString()));
-            }
-        }
 
     }
 }
