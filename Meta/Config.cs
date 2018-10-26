@@ -153,7 +153,7 @@ namespace DLT
 
                 cmd_parser.Setup<string>("genesis2").Callback(value => genesis2Address = value).Required();
 
-                cmd_parser.Setup<uint>("cores").Callback(value => miningCores = value).Required();
+                cmd_parser.Setup<int>("cores").Callback(value => miningCores = (uint)value).Required();
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 
