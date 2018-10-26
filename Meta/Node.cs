@@ -322,6 +322,7 @@ namespace DLT.Meta
                 miner.stop();
             }
 
+            // Stop the keepalive thread
             autoKeepalive = false;
             if (keepAliveThread != null)
             {

@@ -480,7 +480,9 @@ namespace DLT
                     wsSyncCount = 0;
                     pendingWsBlockNum = Node.blockChain.getLastBlockNum();
                     pendingWsChunks.Clear();
-                    pendingWsChunks.AddRange(Node.walletState.getWalletStateChunks(CoreConfig.walletStateChunkSplit));
+                    pendingWsChunks.AddRange(
+                        Node.walletState.getWalletStateChunks(CoreConfig.walletStateChunkSplit, Node.blockChain.getLastBlockNum())
+                        );
                 }
                 wsSyncCount++;
             }
