@@ -26,12 +26,14 @@ namespace DLT
 
             public static string walletFile = "ixian.wal";
 
+            public static uint miningCores = 4;
+
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.5.0"; // DLT Node version
+            public static readonly string version = "xdc-0.5.1"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
 
@@ -59,7 +61,7 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [-d]");
+                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [-d] [--cores 4]");
                 Console.WriteLine("");
                 Console.WriteLine("   -h\t\t Displays this help");
                 Console.WriteLine("   -v\t\t Displays version");
@@ -76,6 +78,7 @@ namespace DLT
                 Console.WriteLine("   -w\t\t Specify location of the ixian.wal file");
                 Console.WriteLine("   -n\t\t Specify which seed node to use");
                 Console.WriteLine("   -d\t\t Enable netdump for debugging purposes");
+                Console.WriteLine("   --cores\t\t Specify number of CPU cores to use for mining (default 4)");
 
                 return "";
             }
@@ -149,6 +152,8 @@ namespace DLT
                 cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();
 
                 cmd_parser.Setup<string>("genesis2").Callback(value => genesis2Address = value).Required();
+
+                cmd_parser.Setup<uint>("cores").Callback(value => miningCores = value).Required();
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 
