@@ -665,7 +665,7 @@ namespace DLT.Meta
             workerMode = false;
             if (Config.storeFullHistory)
             {
-                PresenceList.curNodePresenceAddress.type = 'H';
+                PresenceList.curNodePresenceAddress.type = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
             }
             else
             {

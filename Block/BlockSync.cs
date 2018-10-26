@@ -315,6 +315,7 @@ namespace DLT
                 if (b_status == BlockVerifyStatus.Indeterminate)
                 {
                     Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
+                    Thread.Sleep(100);
                     return;
                 }
                 if (b_status == BlockVerifyStatus.Invalid)

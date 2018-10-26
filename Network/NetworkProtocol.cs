@@ -683,7 +683,7 @@ namespace DLT
 
                         if(Config.storeFullHistory)
                         {
-                            node_type = 'H';
+                            node_type = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
                         }
 
                         if (Node.isWorkerNode())
