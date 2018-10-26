@@ -156,7 +156,7 @@ namespace DLT
                     bool masterEntryFound = false;
                     foreach(PresenceAddress pa in p.addresses)
                     {
-                        if(pa.type == 'M')
+                        if(pa.type == 'M' || pa.type == 'H')
                         {
                             masterEntryFound = true;
                             break;

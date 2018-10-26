@@ -596,8 +596,8 @@ namespace DLT
 
 
 
-                    // Connect to this node only if it's a master node
-                    if (node_type == 'M')
+                    // Connect to this node only if it's a master node or a full history node
+                    if (node_type == 'M' || node_type == 'H')
                     {
                         if (endpoint.GetType() == typeof(RemoteEndpoint))
                         {
@@ -680,6 +680,11 @@ namespace DLT
 
                         // Send the node type
                         char node_type = 'M'; // This is a Master node
+
+                        if(Config.storeFullHistory)
+                        {
+                            node_type = 'H';
+                        }
 
                         if (Node.isWorkerNode())
                             node_type = 'W'; // This is a Worker node

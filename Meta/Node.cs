@@ -663,7 +663,14 @@ namespace DLT.Meta
                 return;
 
             workerMode = false;
-            PresenceList.curNodePresenceAddress.type = 'M';
+            if (Config.storeFullHistory)
+            {
+                PresenceList.curNodePresenceAddress.type = 'H';
+            }
+            else
+            {
+                PresenceList.curNodePresenceAddress.type = 'M';
+            }
 
             NetworkClientManager.restartClients();
             NetworkServer.restartNetworkOperations();
