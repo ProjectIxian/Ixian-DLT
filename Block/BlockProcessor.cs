@@ -1255,21 +1255,21 @@ namespace DLT
         public static ulong calculateDifficulty()
         {
             ulong current_difficulty = 0xA2CB1211629F6141; // starting difficulty (requires approx 180 Khashes to find a solution)
-                                                           /*if (Node.blockChain.getLastBlockNum() > 1)
-                                                           {
-                                                               Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
-                                                               if (previous_block != null)
-                                                                   current_difficulty = previous_block.difficulty;*/
+            if (Node.blockChain.getLastBlockNum() > 1)
+            {
+                Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
+                if (previous_block != null)
+                    current_difficulty = previous_block.difficulty;
 
-            // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
-            ulong solved_blocks = 32000;// Node.blockChain.getSolvedBlocksCount();
+                // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
+                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
                 ulong window_size = CoreConfig.redactedWindowSize;
 
                 // Special consideration for early blocks
-                /*if (Node.blockChain.getLastBlockNum() < window_size)
+                if (Node.blockChain.getLastBlockNum() < window_size)
                 {
                     window_size = Node.blockChain.getLastBlockNum();
-                }*/
+                }
                 // 
                 BigInteger target_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
                 BigInteger actual_hashes_per_block = target_hashes_per_block * solved_blocks / (window_size / 2);
@@ -1277,13 +1277,15 @@ namespace DLT
                 ulong target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
                 // we jump hafway to the target difficulty each time
                 ulong next_difficulty = 0;
-                if(target_difficulty > current_difficulty)
+                if (target_difficulty > current_difficulty)
                 {
                     next_difficulty = current_difficulty + (target_difficulty - current_difficulty) / 2;
-                } else if (target_difficulty < current_difficulty)
+                }
+                else if (target_difficulty < current_difficulty)
                 {
                     next_difficulty = current_difficulty - (current_difficulty - target_difficulty) / 2;
-                } else
+                }
+                else
                 {
                     //difficulties are equal
                     next_difficulty = current_difficulty;
@@ -1294,7 +1296,7 @@ namespace DLT
                     (target_hashes_per_block / 60).ToString(),
                     current_difficulty, next_difficulty));
                 current_difficulty = next_difficulty;
-            //}
+            }
 
             return current_difficulty;
         }
