@@ -26,6 +26,7 @@ namespace DLT
         public long lastHashRate = 0; // Last reported hash rate
         public ulong currentBlockNum = 0; // Mining block number
         public ulong currentBlockDifficulty = 0; // Current block difficulty
+        public byte[] currentHashCeil { get; private set; }
         public ulong lastSolvedBlockNum = 0; // Last solved block number
         private DateTime lastSolvedTime = DateTime.MinValue; // Last locally solved block time
 
@@ -158,10 +159,6 @@ namespace DLT
 
         private void threadLoop(object data)
         {
-            // note: difficulty of 0xA2CB 1211 629F 6141 would require on average 180 000 hashes before a valid one is found.
-            // this is chosen as the start value, assuming a network of 10 miners, doing 300 H/s each and a block should be solved every
-            // 60 seconds (50% coverage)
-            byte[] hash_ceil = getHashCeilFromDifficulty(0xA2CB1211629F6141);
             while (!shouldStop)
             {
                 // Wait for blockprocessor network synchronization
@@ -184,7 +181,7 @@ namespace DLT
                 }
                 else
                 {
-                    calculatePow(hash_ceil);
+                    calculatePow(currentHashCeil);
                 }
 
                 // Output mining stats
@@ -229,6 +226,7 @@ namespace DLT
                         // Block is not solved, select it
                         currentBlockNum = block.blockNum;
                         currentBlockDifficulty = block.difficulty;
+                        currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
                         activeBlock = block;
                         blockFound = true;
                         return;
