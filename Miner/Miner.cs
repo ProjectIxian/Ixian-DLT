@@ -10,6 +10,7 @@ using System.Timers;
 using System.Runtime.InteropServices;
 using System.IO;
 using IXICore;
+using System.Numerics;
 
 namespace DLT
 {
@@ -36,9 +37,6 @@ namespace DLT
         bool blockFound = false;
 
         private static Random random = new Random(); // Used for random nonce
-
-        public static int currentDificulty { get; private set; } // 14 to 256
-        private static byte[] hashStartDifficulty = { 0xff, 0xfc }; // minimum = 14
 
         private static List<ulong> solvedBlocks = new List<ulong>(); // Maintain a list of solved blocks to prevent duplicate work
 
@@ -68,37 +66,102 @@ namespace DLT
             return true;
         }
 
-        // difficulty is number of consecutive starting bits which must be 0 in the calculated hash
-        public static void setDifficulty(int difficulty)
+        public static byte[] getHashCeilFromDifficulty(ulong difficulty)
         {
-            if(difficulty< 14)
+            /*
+             * difficulty is an 8-byte number from 0 to 2^64-1, which represents how hard it is to find a hash for a certain block
+             * the dificulty is converted into a 'ceiling value', which specifies the maximum value a hash can have to be considered valid under that difficulty
+             * to do this, follow the attached algorithm:
+             *  1. calculate a bit-inverse value of the difficulty
+             *  2. create a comparison byte array with the ceiling value of length 10 bytes
+             *  3. set the first two bytes to zero
+             *  4. insert the inverse difficulty as the next 8 bytes (mind the byte order!)
+             *  5. the remaining 22 bytes are assumed to be 'FF'
+             */
+            byte[] hash_ceil = new byte[10];
+            hash_ceil[0] = 0x00;
+            hash_ceil[1] = 0x00;
+            for(int i=0;i<8;i++)
             {
-                difficulty = 14;
+                int shift = 8 * (7 - i);
+                ulong mask = ((ulong)0xff) << shift;
+                byte cb = (byte)((difficulty & mask) >> shift);
+                hash_ceil[i + 2] = (byte)~cb;
             }
-            if(difficulty > 256)
+            return hash_ceil;
+        }
+
+        public static BigInteger getTargetHashcountPerBlock(ulong difficulty)
+        {
+            // For difficulty calculations see accompanying TXT document in the IxianDLT folder.
+            // I am sorry for this - Zagar
+            // What it does:
+            // internally (in Miner.cs), we use little-endian byte arrays to represent hashes and solution ceilings, because it is slightly more efficient memory-allocation-wise.
+            // in this place, we are using BigInteger's division function, so we don't have to write our own.
+            // BigInteger uses a big-endian byte-array, so we have to reverse our ceiling, which looks like this:
+            // little endian: 0000 XXXX XXXX XXXX XXXX FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF ; X represents where we set the difficulty
+            // big endian: FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF YYYY YYYY YYYY YYYY 0000 ; Y represents the difficulty, but the bytes are reversed
+            // 9 -(i-22) transforms the index in the big-endian byte array into an index in our 'hash_ceil'. Please also note that due to effciency we only return the
+            // "interesting part" of the hash_ceil (first 10 bytes) and assume the others to be FF when doing comparisons internally. The first part of the 'if' in the loop
+            // fills in those bytes as well, because BigInteger needs them to reconstruct the number.
+            byte[] hash_ceil = Miner.getHashCeilFromDifficulty(difficulty);
+            byte[] full_ceil = new byte[32];
+            // BigInteger requires bytes in big-endian order
+            for (int i = 0; i < 32; i++)
             {
-                difficulty = 256;
+                if (i < 22)
+                {
+                    full_ceil[i] = 0xff;
+                }
+                else
+                {
+                    full_ceil[i] = hash_ceil[9 - (i - 22)];
+                }
             }
-            currentDificulty = difficulty;
-            List<byte> diff_temp = new List<byte>();
-            while(difficulty >= 8)
+
+            BigInteger ceil = new BigInteger(full_ceil);
+            // the value below is the easiest way to get maximum hash value into a BigInteger (2^256 -1). Ixian shifts the integer 8 places to the right to get 8 decimal places.
+            BigInteger max = new IxiNumber("1157920892373161954235709850086879078532699846656405640394575840079131.29639935").getAmount();
+            return max / ceil;
+        }
+
+        public static ulong calculateTargetDifficulty(BigInteger current_hashes_per_block)
+        {
+            // Sorry :-)
+            // Target difficulty is calculated as such:
+            // We input the number of hashes that have been generated to solve a block (Network hash rate * 60 - we want that solving a block should take 60 seconds, if the entire network hash power was focused on one block, thus achieving
+            // an approximate 50% solve rate).
+            // We are using BigInteger for its division function, so that we don't have to write out own.
+            // Dividing the max hash number with the hashrate will give us an appropriate ceiling, which would result in approximately one solution per "current_hashes_per_block" hash attempts.
+            // This target ceiling contains our target difficulty, in the format:
+            // big endian: FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF YYYY YYYY YYYY YYYY 0000; Y represents the difficulty, but the bytes are reversed
+            // the bytes being reversed is actually okay, because we are using BitConverter.ToUInt64, which takes a big-endian byte array to return a ulong number.
+            BigInteger max = new IxiNumber("1157920892373161954235709850086879078532699846656405640394575840079131.29639935").getAmount();
+            BigInteger target_ceil = max / current_hashes_per_block;
+            byte[] temp = target_ceil.ToByteArray();
+            // we get the bytes in the reverse order, so the padding should go at the end
+            byte[] target_ceil_bytes = new byte[32];
+            Array.Copy(temp, target_ceil_bytes, temp.Length);
+            for (int i = temp.Length; i < 32; i++)
             {
-                diff_temp.Add(0xff);
-                difficulty -= 8;
+                target_ceil_bytes[i] = 0;
             }
-            if(difficulty > 0)
+            //
+            byte[] difficulty = new byte[8];
+            Array.Copy(target_ceil_bytes, 22, difficulty, 0, 8);
+            for(int i = 0; i < 8; i++)
             {
-                byte lastbyte = (byte)(0xff << (8 - difficulty));
-                diff_temp.Add(lastbyte);
+                difficulty[i] = (byte)~difficulty[i];
             }
-            hashStartDifficulty = diff_temp.ToArray();
+            return BitConverter.ToUInt64(difficulty, 0);
         }
 
         private void threadLoop(object data)
         {
-            // Set initial difficulty
-            setDifficulty(14);
-
+            // note: difficulty of 0xA2CB 1211 629F 6141 would require on average 180 000 hashes before a valid one is found.
+            // this is chosen as the start value, assuming a network of 10 miners, doing 300 H/s each and a block should be solved every
+            // 60 seconds (50% coverage)
+            byte[] hash_ceil = getHashCeilFromDifficulty(0xA2CB1211629F6141);
             while (!shouldStop)
             {
                 // Wait for blockprocessor network synchronization
@@ -121,9 +184,8 @@ namespace DLT
                 }
                 else
                 {
-                    calculatePow();
+                    calculatePow(hash_ceil);
                 }
-
 
                 // Output mining stats
                 TimeSpan timeSinceLastStat = DateTime.Now - lastStatTime;
@@ -168,7 +230,6 @@ namespace DLT
                         currentBlockNum = block.blockNum;
                         currentBlockDifficulty = block.difficulty;
                         activeBlock = block;
-                        setDifficulty((int)block.difficulty);
                         blockFound = true;
                         return;
                     }
@@ -189,7 +250,7 @@ namespace DLT
               .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
-        private void calculatePow()
+        private void calculatePow(byte[] hash_ceil)
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] block_checksum = activeBlock.blockChecksum;
@@ -200,7 +261,7 @@ namespace DLT
 
 
             string nonce = randomNonce(128);
-            string hash = findHash(p1, nonce);
+            byte[] hash = findHash(p1, nonce);
             if(hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
@@ -211,7 +272,7 @@ namespace DLT
             hashesPerSecond++;
 
             // We have a valid hash, update the corresponding block
-            if (Miner.validateHash(hash) == true)
+            if (Miner.validateHashInternal(hash, hash_ceil) == true)
             {
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash));
 
@@ -232,48 +293,22 @@ namespace DLT
             }
         }
 
-        // Check if a hash is valid based on the current difficulty
-        public static bool validateHash(string hash, ulong difficulty = 0)
+        private static bool validateHashInternal(byte[] hash, byte[] hash_ceil)
         {
-            int c_difficulty = currentDificulty;
-            // Set the difficulty for verification purposes
-            if (difficulty > 0)
+            for (int i = 0; i < hash.Length; i++)
             {
-                setDifficulty((int)difficulty);
+                byte cb = i < hash_ceil.Length ? hash_ceil[i] : (byte)0xff;
+                if (hash_ceil[i] > hash[i]) return true;
+                if (hash_ceil[i] < hash[i]) return false;
             }
-
-            if (hash.Length < hashStartDifficulty.Length)
-            {
-                // Reset the difficulty
-                if (difficulty > 0)
-                {
-                    setDifficulty(c_difficulty);
-                }
-                return false;
-            }
-
-            for(int i=0;i<hashStartDifficulty.Length;i++)
-            {
-                byte hash_byte = byte.Parse(hash.Substring(2*i, 2), System.Globalization.NumberStyles.HexNumber);
-                if ((hash_byte & hashStartDifficulty[i]) != 0)
-                {
-                    // Reset the difficulty
-                    if (difficulty > 0)
-                    {
-                        setDifficulty(c_difficulty);
-                    }
-
-                    return false;
-                }
-            }
-
-            // Reset the difficulty
-            if(difficulty > 0)
-            {
-                setDifficulty(c_difficulty);
-            }
-
+            // if we reach this point, the hash is exactly equal to the ceiling we consider this a 'passing hash'
             return true;
+        }
+
+        // Check if a hash is valid based on the current difficulty
+        public static bool validateHash(byte[] hash, ulong difficulty)
+        {
+            return validateHashInternal(hash, getHashCeilFromDifficulty(difficulty));
         }
 
         // Verify nonce
@@ -288,7 +323,7 @@ namespace DLT
             Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
-            string hash = Miner.findHash(p1, nonce);
+            byte[] hash = Miner.findHash(p1, nonce);
 
             if (Miner.validateHash(hash, difficulty) == true)
             {
@@ -340,9 +375,8 @@ namespace DLT
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
         }
 
-        private static string findHash(byte[] p1, string p2)
+        private static byte[] findHash(byte[] p1, string p2)
         {
-            string ret = "";
             try
             {
                 byte[] hash = new byte[32];
@@ -360,15 +394,15 @@ namespace DLT
                 DateTime end = DateTime.Now;
                 //    Console.WriteLine(String.Format("Argon took: {0} ms.", (end - start).TotalMilliseconds));
                 Marshal.Copy(result_ptr, hash, 0, 32);
-                ret = BitConverter.ToString(hash).Replace("-", string.Empty);
                 Marshal.FreeHGlobal(data_ptr);
                 Marshal.FreeHGlobal(result_ptr);
+                return hash;
             }
             catch(Exception e)
             {
                 Logging.error(string.Format("Error during mining: {0}", e.Message));
+                return null;
             }
-            return ret;
         }
 
         // Output the miner status

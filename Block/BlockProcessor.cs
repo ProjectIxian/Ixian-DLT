@@ -1252,41 +1252,49 @@ namespace DLT
         }
 
         // Calculate the current mining difficulty
-        public ulong calculateDifficulty()
+        public static ulong calculateDifficulty()
         {
-            ulong current_difficulty = 14;
-            if (Node.blockChain.getLastBlockNum() > 1)
-            {
-                Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
-                if (previous_block != null)
-                    current_difficulty = previous_block.difficulty;
+            ulong current_difficulty = 0xA2CB1211629F6141; // starting difficulty (requires approx 180 Khashes to find a solution)
+                                                           /*if (Node.blockChain.getLastBlockNum() > 1)
+                                                           {
+                                                               Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
+                                                               if (previous_block != null)
+                                                                   current_difficulty = previous_block.difficulty;*/
 
-                // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
-                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
+            // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
+            ulong solved_blocks = 32000;// Node.blockChain.getSolvedBlocksCount();
                 ulong window_size = CoreConfig.redactedWindowSize;
 
                 // Special consideration for early blocks
-                if (Node.blockChain.getLastBlockNum() < window_size)
+                /*if (Node.blockChain.getLastBlockNum() < window_size)
                 {
                     window_size = Node.blockChain.getLastBlockNum();
-                }
-
-                if (solved_blocks > window_size / 2)
+                }*/
+                // 
+                BigInteger target_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
+                BigInteger actual_hashes_per_block = target_hashes_per_block * solved_blocks / (window_size / 2);
+                // find an appropriate difficulty for actual hashes:
+                ulong target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
+                // we jump hafway to the target difficulty each time
+                ulong next_difficulty = 0;
+                if(target_difficulty > current_difficulty)
                 {
-                    current_difficulty++;
-                }
-                else
+                    next_difficulty = current_difficulty + (target_difficulty - current_difficulty) / 2;
+                } else if (target_difficulty < current_difficulty)
                 {
-                    current_difficulty--;
+                    next_difficulty = current_difficulty - (current_difficulty - target_difficulty) / 2;
+                } else
+                {
+                    //difficulties are equal
+                    next_difficulty = current_difficulty;
                 }
-
-                // Set some limits
-                if (current_difficulty > 256)
-                    current_difficulty = 256;
-                else if (current_difficulty < 14)
-                    current_difficulty = 14;
-
-            }
+                // TODO: maybe pretty-fy the hashrate (ie: 15 MH/s, rather than 15000000 H/s) also could prettify the difficulty number
+                Logging.info(String.Format("Estimated network hash rate is {0} H/s (previous was: {1} H/s). Difficulty adjusts from {2} -> {3}.",
+                    (actual_hashes_per_block / 60).ToString(),
+                    (target_hashes_per_block / 60).ToString(),
+                    current_difficulty, next_difficulty));
+                current_difficulty = next_difficulty;
+            //}
 
             return current_difficulty;
         }
