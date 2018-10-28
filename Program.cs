@@ -293,6 +293,10 @@ namespace DLTNode
             }
 
             // Stop logging
+            while(Logging.getRemainingStatementsCount() > 0)
+            {
+                Thread.Sleep(100);
+            }
             Logging.stop();
 
             if (noStart == false)
