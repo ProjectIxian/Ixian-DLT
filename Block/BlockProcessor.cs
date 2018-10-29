@@ -291,24 +291,28 @@ namespace DLT
                 {
                     Logging.info(String.Format("Already processed block #{0}, doing basic verification and collecting only sigs if relevant!", b.blockNum));
                     Block localBlock = Node.blockChain.getBlock(b.blockNum);
-                    if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
+                    lock (localBlock)
                     {
-                        if (handleSigFreezedBlock(b, endpoint))
+                        if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
                         {
-                            removeSignaturesWithoutPlEntry(b);
-                            removeSignaturesWithLowBalance(b);
-                            if (Node.blockChain.refreshSignatures(b))
+                            if (handleSigFreezedBlock(b, endpoint))
                             {
-                                // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                                ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                removeSignaturesWithoutPlEntry(b);
+                                removeSignaturesWithLowBalance(b);
+                                if (Node.blockChain.refreshSignatures(b))
+                                {
+                                    // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                                    Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                                    ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                }
                             }
                         }
-                    }else
-                    {
-                        // we likely have the correct block, resend
-                        // TODO TODO TODO this might go into an endless loop between 2 nodes
-                        ProtocolMessage.broadcastNewBlock(localBlock);
+                        else
+                        {
+                            // we likely have the correct block, resend
+                            // TODO TODO TODO this might go into an endless loop between 2 nodes
+                            ProtocolMessage.broadcastNewBlock(localBlock);
+                        }
                     }
                 }
                 return;

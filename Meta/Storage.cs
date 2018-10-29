@@ -164,35 +164,36 @@ namespace DLT
 
             public static bool insertBlockInternal(Block block)
             {
-                Block b = block;
-                string transactions = "";
-                foreach (string tx in block.transactions)
+                lock (block)
                 {
-                    transactions = string.Format("{0}||{1}", transactions, tx);
-                }
+                    Block b = block;
+                    string transactions = "";
+                    foreach (string tx in block.transactions)
+                    {
+                        transactions = string.Format("{0}||{1}", transactions, tx);
+                    }
 
-                string signatures = "";
-                foreach (byte[][] sig in block.signatures)
-                {
-                    signatures = string.Format("{0}||{1}:{2}", signatures, Convert.ToBase64String(sig[0]), Convert.ToBase64String(sig[1]));
-                }
+                    string signatures = "";
+                    foreach (byte[][] sig in block.signatures)
+                    {
+                        signatures = string.Format("{0}||{1}:{2}", signatures, Convert.ToBase64String(sig[0]), Convert.ToBase64String(sig[1]));
+                    }
 
-                bool result = false;
-                if (getBlock(block.blockNum) == null)
-                {
-                    string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version);
+                    bool result = false;
+                    if (getBlock(block.blockNum) == null)
+                    {
+                        string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                        result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version);
+                    }
+                    else
+                    {
+                        // Likely already have the block stored, update the old entry
+                        string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ?, `version` = ? WHERE `blockNum` = ?";
+                        //Console.WriteLine("SQL: {0}", sql);
+                        result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, (long)block.blockNum);
+                    }
+                    return result;
                 }
-                else
-                {
-                    // Likely already have the block stored, update the old entry
-                    string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ?, `version` = ? WHERE `blockNum` = ?";
-                    //Console.WriteLine("SQL: {0}", sql);
-                    result = executeSQL(sql, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, (long)block.blockNum);
-                }
-
-
-                return result;
             }
 
             public static bool insertTransactionInternal(Transaction transaction)
