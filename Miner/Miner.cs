@@ -244,6 +244,7 @@ namespace DLT
                         // Block is not solved, select it
                         currentBlockNum = block.blockNum;
                         currentBlockDifficulty = block.difficulty;
+                        currentDificulty_v0 = (int)block.difficulty;
                         currentBlockVersion = block.version;
                         currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
 
