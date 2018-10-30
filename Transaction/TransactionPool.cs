@@ -612,9 +612,15 @@ namespace DLT
 
             try
             {                
-                // Check if the block has an empty PoW field
                 Block block = Node.blockChain.getBlock(blocknum);
-                if(block.powField != null)
+
+                if(block == null)
+                {
+                    return false;
+                }
+
+                // Check if the block has an empty PoW field
+                if (block.powField != null)
                 {
                     Logging.warn("PoW already applied");
                     return false;
