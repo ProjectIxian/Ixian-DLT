@@ -25,6 +25,7 @@ namespace DLT
 
         public long lastHashRate = 0; // Last reported hash rate
         public ulong currentBlockNum = 0; // Mining block number
+        public int currentBlockVersion = 0;
         public ulong currentBlockDifficulty = 0; // Current block difficulty
         public byte[] currentHashCeil { get; private set; }
         public ulong lastSolvedBlockNum = 0; // Last solved block number
@@ -33,6 +34,10 @@ namespace DLT
         private long hashesPerSecond = 0; // Total number of hashes per second
         private DateTime lastStatTime; // Last statistics output time
         private bool shouldStop = false; // flag to signal shutdown of threads
+
+        private static int currentDificulty_v0 = 14;
+        private static byte[] hashStartDifficulty_v0 = { 0xff, 0xfc };
+
 
         Block activeBlock = null;
         bool blockFound = false;
@@ -181,7 +186,14 @@ namespace DLT
                 }
                 else
                 {
-                    calculatePow(currentHashCeil);
+                    if (currentBlockVersion == 0)
+                    {
+                        calculatePow_v0();
+                    }
+                    else
+                    {
+                        calculatePow_v1(currentHashCeil);
+                    }
                 }
 
                 // Output mining stats
@@ -206,7 +218,7 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(i);
                 if (block.powField == null)
                 {
-                    if(block.difficulty > 64)
+                    if(block.version == 0 && block.difficulty > 64)
                     {
                         continue;
                     }
@@ -226,7 +238,9 @@ namespace DLT
                         // Block is not solved, select it
                         currentBlockNum = block.blockNum;
                         currentBlockDifficulty = block.difficulty;
+                        currentBlockVersion = block.version;
                         currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
+
                         activeBlock = block;
                         blockFound = true;
                         return;
@@ -248,7 +262,7 @@ namespace DLT
               .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
-        private void calculatePow(byte[] hash_ceil)
+        private void calculatePow_v0()
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] block_checksum = activeBlock.blockChecksum;
@@ -259,7 +273,51 @@ namespace DLT
 
 
             string nonce = randomNonce(128);
-            byte[] hash = findHash(p1, nonce);
+            string hash = findHash_v0(p1, nonce);
+            if (hash.Length < 1)
+            {
+                Logging.error("Stopping miner due to invalid hash.");
+                stop();
+                return;
+            }
+
+            hashesPerSecond++;
+
+            // We have a valid hash, update the corresponding block
+            if (Miner.validateHash_v0(hash) == true)
+            {
+                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash));
+
+                // Broadcast the nonce to the network
+                sendSolution(nonce);
+
+                // Add this block number to the list of solved blocks
+                lock (solvedBlocks)
+                {
+                    solvedBlocks.Add(activeBlock.blockNum);
+                }
+
+                lastSolvedBlockNum = activeBlock.blockNum;
+                lastSolvedTime = DateTime.Now;
+
+                // Reset the block found flag so we can search for another block
+                blockFound = false;
+            }
+        }
+
+
+        private void calculatePow_v1(byte[] hash_ceil)
+        {
+            // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
+            byte[] block_checksum = activeBlock.blockChecksum;
+            byte[] solver_address = Node.walletStorage.address;
+            Byte[] p1 = new Byte[block_checksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block_checksum, 0, p1, 0, block_checksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
+
+
+            string nonce = randomNonce(128);
+            byte[] hash = findHash_v1(p1, nonce);
             if(hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
@@ -291,6 +349,76 @@ namespace DLT
             }
         }
 
+        // difficulty is number of consecutive starting bits which must be 0 in the calculated hash
+        public static void setDifficulty_v0(int difficulty)
+        {
+            if (difficulty < 14)
+            {
+                difficulty = 14;
+            }
+            if (difficulty > 256)
+            {
+                difficulty = 256;
+            }
+            currentDificulty_v0 = difficulty;
+            List<byte> diff_temp = new List<byte>();
+            while (difficulty >= 8)
+            {
+                diff_temp.Add(0xff);
+                difficulty -= 8;
+            }
+            if (difficulty > 0)
+            {
+                byte lastbyte = (byte)(0xff << (8 - difficulty));
+                diff_temp.Add(lastbyte);
+            }
+            hashStartDifficulty_v0 = diff_temp.ToArray();
+        }
+
+        // Check if a hash is valid based on the current difficulty
+        public static bool validateHash_v0(string hash, ulong difficulty = 0)
+        {
+            int c_difficulty = currentDificulty_v0;
+            // Set the difficulty for verification purposes
+            if (difficulty > 0)
+            {
+                setDifficulty_v0((int)difficulty);
+            }
+
+            if (hash.Length < hashStartDifficulty_v0.Length)
+            {
+                // Reset the difficulty
+                if (difficulty > 0)
+                {
+                    setDifficulty_v0(c_difficulty);
+                }
+                return false;
+            }
+
+            for (int i = 0; i < hashStartDifficulty_v0.Length; i++)
+            {
+                byte hash_byte = byte.Parse(hash.Substring(2 * i, 2), System.Globalization.NumberStyles.HexNumber);
+                if ((hash_byte & hashStartDifficulty_v0[i]) != 0)
+                {
+                    // Reset the difficulty
+                    if (difficulty > 0)
+                    {
+                        setDifficulty_v0(c_difficulty);
+                    }
+
+                    return false;
+                }
+            }
+
+            // Reset the difficulty
+            if (difficulty > 0)
+            {
+                setDifficulty_v0(c_difficulty);
+            }
+
+            return true;
+        }
+
         private static bool validateHashInternal(byte[] hash, byte[] hash_ceil)
         {
             for (int i = 0; i < hash.Length; i++)
@@ -304,13 +432,13 @@ namespace DLT
         }
 
         // Check if a hash is valid based on the current difficulty
-        public static bool validateHash(byte[] hash, ulong difficulty)
+        public static bool validateHash_v1(byte[] hash, ulong difficulty)
         {
             return validateHashInternal(hash, getHashCeilFromDifficulty(difficulty));
         }
 
         // Verify nonce
-        public static bool verifyNonce(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
+        public static bool verifyNonce_v0(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
             Block block = Node.blockChain.getBlock(block_num);
             if (block == null)
@@ -321,9 +449,32 @@ namespace DLT
             Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
-            byte[] hash = Miner.findHash(p1, nonce);
+            string hash = Miner.findHash_v0(p1, nonce);
 
-            if (Miner.validateHash(hash, difficulty) == true)
+            if (Miner.validateHash_v0(hash, difficulty) == true)
+            {
+                // Hash is valid
+                return true;
+            }
+
+            return false;
+        }
+
+        // Verify nonce
+        public static bool verifyNonce_v1(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
+        {
+            Block block = Node.blockChain.getBlock(block_num);
+            if (block == null)
+                return false;
+
+            // TODO checksum the solver_address just in case it's not valid
+            // also protect against spamming with invalid nonce/block_num
+            Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
+            byte[] hash = Miner.findHash_v1(p1, nonce);
+
+            if (Miner.validateHash_v1(hash, difficulty) == true)
             {
                 // Hash is valid
                 return true;
@@ -373,7 +524,38 @@ namespace DLT
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
         }
 
-        private static byte[] findHash(byte[] p1, string p2)
+        private static string findHash_v0(byte[] p1, string p2)
+        {
+            string ret = "";
+            try
+            {
+                byte[] hash = new byte[32];
+                byte[] sdata = p1;
+                byte[] salt = ASCIIEncoding.ASCII.GetBytes(p2);
+                IntPtr data_ptr = Marshal.AllocHGlobal(sdata.Length);
+                IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
+                Marshal.Copy(sdata, 0, data_ptr, sdata.Length);
+                Marshal.Copy(salt, 0, salt_ptr, salt.Length);
+                UIntPtr data_len = (UIntPtr)sdata.Length;
+                UIntPtr salt_len = (UIntPtr)salt.Length;
+                IntPtr result_ptr = Marshal.AllocHGlobal(32);
+                DateTime start = DateTime.Now;
+                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)4, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
+                DateTime end = DateTime.Now;
+                //    Console.WriteLine(String.Format("Argon took: {0} ms.", (end - start).TotalMilliseconds));
+                Marshal.Copy(result_ptr, hash, 0, 32);
+                ret = BitConverter.ToString(hash).Replace("-", string.Empty);
+                Marshal.FreeHGlobal(data_ptr);
+                Marshal.FreeHGlobal(result_ptr);
+            }
+            catch (Exception e)
+            {
+                Logging.error(string.Format("Error during mining: {0}", e.Message));
+            }
+            return ret;
+        }
+
+        private static byte[] findHash_v1(byte[] p1, string p2)
         {
             try
             {
@@ -388,7 +570,7 @@ namespace DLT
                 UIntPtr salt_len = (UIntPtr)salt.Length;
                 IntPtr result_ptr = Marshal.AllocHGlobal(32);
                 DateTime start = DateTime.Now;
-                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, Config.miningCores, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
+                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)42, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
                 DateTime end = DateTime.Now;
                 //    Console.WriteLine(String.Format("Argon took: {0} ms.", (end - start).TotalMilliseconds));
                 Marshal.Copy(result_ptr, hash, 0, 32);

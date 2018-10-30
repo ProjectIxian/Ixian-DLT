@@ -620,10 +620,20 @@ namespace DLT
                     return false;
                 }
 
-                // Verify the nonce
-                if (Miner.verifyNonce(nonce, blocknum, tx.from, block.difficulty))
+                if (block.version == 0)
                 {
-                    return true;
+                    // Verify the nonce
+                    if (Miner.verifyNonce_v0(nonce, blocknum, tx.from, block.difficulty))
+                    {
+                        return true;
+                    }
+                }else
+                {
+                    // Verify the nonce
+                    if (Miner.verifyNonce_v1(nonce, blocknum, tx.from, block.difficulty))
+                    {
+                        return true;
+                    }
                 }
             }
             catch(Exception e)

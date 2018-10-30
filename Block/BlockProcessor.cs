@@ -421,7 +421,7 @@ namespace DLT
             // verify difficulty
             if (Node.blockChain.getLastBlockNum() + 1 == b.blockNum)
             {
-                ulong expectedDifficulty = calculateDifficulty();
+                ulong expectedDifficulty = calculateDifficulty(b.version);
                 if (b.difficulty != expectedDifficulty)
                 {
                     Logging.warn(String.Format("Received block #{0} ({1}) which had a difficulty {2}, expected difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.difficulty, expectedDifficulty));
@@ -1149,6 +1149,14 @@ namespace DLT
                 localNewBlock.timestamp = Core.getCurrentTimestamp();
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
+                int blockVersion = 1;
+
+                if (localNewBlock.blockNum < 86400)
+                {
+                    blockVersion = 0;
+                }
+                localNewBlock.version = blockVersion;
+
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
 
                 // Apply signature freeze
@@ -1234,8 +1242,9 @@ namespace DLT
 
                 Logging.info(String.Format("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount));
 
+
                 // Calculate mining difficulty
-                localNewBlock.difficulty = calculateDifficulty();
+                localNewBlock.difficulty = calculateDifficulty(blockVersion);
 
                 // Simulate applying a block to see what the walletstate would look like
                 Node.walletState.snapshot();
@@ -1255,8 +1264,57 @@ namespace DLT
             }
         }
 
+        public static ulong calculateDifficulty(int version)
+        {
+            if(version == 0)
+            {
+                return calculateDifficulty_v0();
+            }
+            return calculateDifficulty_v1();
+        }
+
         // Calculate the current mining difficulty
-        public static ulong calculateDifficulty()
+        public static ulong calculateDifficulty_v0()
+        {
+            ulong current_difficulty = 14;
+            if (Node.blockChain.getLastBlockNum() > 1)
+            {
+                Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
+                if (previous_block != null)
+                    current_difficulty = previous_block.difficulty;
+
+                // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
+                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
+                ulong window_size = CoreConfig.redactedWindowSize;
+
+                // Special consideration for early blocks
+                if (Node.blockChain.getLastBlockNum() < window_size)
+                {
+                    window_size = Node.blockChain.getLastBlockNum();
+                }
+
+                if (solved_blocks > window_size / 2)
+                {
+                    current_difficulty++;
+                }
+                else
+                {
+                    current_difficulty--;
+                }
+
+                // Set some limits
+                if (current_difficulty > 256)
+                    current_difficulty = 256;
+                else if (current_difficulty < 14)
+                    current_difficulty = 14;
+
+            }
+
+            return current_difficulty;
+        }
+
+        // Calculate the current mining difficulty
+        public static ulong calculateDifficulty_v1()
         {
             ulong current_difficulty = 0xA2CB1211629F6141; // starting difficulty (requires approx 180 Khashes to find a solution)
             if (Node.blockChain.getLastBlockNum() > 1)
