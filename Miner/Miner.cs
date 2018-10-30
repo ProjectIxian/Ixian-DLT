@@ -570,7 +570,7 @@ namespace DLT
                 UIntPtr salt_len = (UIntPtr)salt.Length;
                 IntPtr result_ptr = Marshal.AllocHGlobal(32);
                 DateTime start = DateTime.Now;
-                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)42, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
+                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)2, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
                 DateTime end = DateTime.Now;
                 //    Console.WriteLine(String.Format("Argon took: {0} ms.", (end - start).TotalMilliseconds));
                 Marshal.Copy(result_ptr, hash, 0, 32);
