@@ -201,6 +201,12 @@ namespace DLT
                 if (timeSinceLastStat.TotalSeconds > 1)
                 {
                     printMinerStatus();
+                    Block tmpBlock = Node.blockChain.getBlock(currentBlockNum);
+                    if (tmpBlock != null && tmpBlock.powField != null)
+                    {
+                        blockFound = false;
+                        continue;
+                    }
                 }
             }
         }
