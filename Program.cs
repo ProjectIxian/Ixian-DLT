@@ -27,6 +27,8 @@ namespace DLTNode
                 "BouncyCastle.Crypto.dll",
                 "FluentCommandLineParser.dll",
                 "Newtonsoft.Json.dll",
+                "netstandard.dll",
+                "Open.Nat.dll",
                 "SQLite-net.dll",
                 "SQLitePCLRaw.batteries_green.dll",
                 "SQLitePCLRaw.batteries_v2.dll",
