@@ -1,5 +1,8 @@
 using Fclp;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace DLT
@@ -17,6 +20,8 @@ namespace DLT
             public static int testnetApiPort = 8181;
             public static string publicServerIP = "127.0.0.1";
 
+            public static Dictionary<string, string> apiUsers = new Dictionary<string, string>();
+
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
             public static bool disableMiner = true; // Flag to disable miner
@@ -26,7 +31,7 @@ namespace DLT
 
             public static string walletFile = "ixian.wal";
 
-            public static uint miningCores = 4;
+            public static uint miningThreads = 1;
 
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
@@ -56,7 +61,7 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [-d] [--cores 4]");
+                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [--netdump dumpfile] [--threads 4] [--config config.dat]");
                 Console.WriteLine("");
                 Console.WriteLine("   -h\t\t Displays this help");
                 Console.WriteLine("   -v\t\t Displays version");
@@ -72,8 +77,26 @@ namespace DLT
                 Console.WriteLine("   -g\t\t Start node in genesis mode");
                 Console.WriteLine("   -w\t\t Specify location of the ixian.wal file");
                 Console.WriteLine("   -n\t\t Specify which seed node to use");
-                Console.WriteLine("   -d\t\t Enable netdump for debugging purposes");
-                Console.WriteLine("   --cores\t\t Specify number of CPU cores to use for mining (default 4)");
+                Console.WriteLine("   --netdump\t\t Enable netdump for debugging purposes");
+                Console.WriteLine("   --threads\t\t Specify number of threads to use for mining (default 1)");
+                Console.WriteLine("   --config\t\t Specify config filename (default config.dat)");
+                Console.WriteLine("");
+                Console.WriteLine("----------- config file options -----------");
+                Console.WriteLine("Config file options should use parameterName = paraneterValue semantics.");
+                Console.WriteLine("Each option should be specified in its own line. Example:");
+                Console.WriteLine("dltPort = 10234");
+                Console.WriteLine("apiPort = 8081");
+                Console.WriteLine("");
+                Console.WriteLine("Available options");
+                Console.WriteLine("");
+                Console.WriteLine("dltPort\t\t Port to listen on (same as -p CLI)");
+                Console.WriteLine("testnetDltPort\t\t Port to listen on in testnet mode (same as -p CLI)");
+                Console.WriteLine("apiPort\t\t HTTP/API port to listen on (same as -a CLI)");
+                Console.WriteLine("testnetApiPort\t\t HTTP/API port to listen on in testnet mode (same as -a CLI)");
+                Console.WriteLine("addApiUser\t\t Add user:password that can access the API (can be used multiple times)");
+                Console.WriteLine("externalIp\t\t External IP Address to use (same as -i CLI)");
+                Console.WriteLine("addPeer\t\t Specify which seed node to use (same as -n CLI) (can be used multiple times)");
+                Console.WriteLine("addTestNetPeer\t\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
 
                 return "";
             }
@@ -87,12 +110,81 @@ namespace DLT
                 return "";
             }
 
+            private static void readConfigFile(string filename)
+            {
+                if (!File.Exists(filename))
+                {
+                    return;
+                }
+                Logging.info("Reading config file: " + filename);
+                List<string> lines = File.ReadAllLines(filename).ToList();
+                foreach(string line in lines)
+                {
+                    string[] option = line.Split('=');
+                    if(option.Length < 2)
+                    {
+                        continue;
+                    }
+                    string key = option[0].Trim(new char[] { ' ', '\t', '\r', '\n' });
+                    string value = option[1].Trim(new char[] { ' ', '\t', '\r', '\n' });
+
+                    switch (key)
+                    {
+                        case "dltPort":
+                            serverPort = int.Parse(value);
+                            break;
+                        case "testnetDltPort":
+                            testnetServerPort = int.Parse(value);
+                            break;
+                        case "apiPort":
+                            apiPort = int.Parse(value);
+                            break;
+                        case "testnetApiPort":
+                            testnetApiPort = int.Parse(value);
+                            break;
+                        case "addApiUser":
+                            string[] credential = value.Split(':');
+                            if (credential.Length == 2)
+                            {
+                                apiUsers.Add(credential[0], credential[1]);
+                            }
+                            break;
+                        case "externalIp":
+                            publicServerIP = value;
+                            break;
+                        case "addPeer":
+                            Network.CoreNetworkUtils.seedNodes.Add(value);
+                            break;
+                        case "addTestNetPeer":
+                            Network.CoreNetworkUtils.seedTestNetNodes.Add(value);
+                            break;
+                        default:
+                            // unknown key
+                            break;
+                    }
+                }
+            }
+
             public static void readFromCommandLine(string[] args)
             {
                 //Logging.log(LogSeverity.info, "Reading config...");
 
                 // first pass
                 var cmd_parser = new FluentCommandLineParser();
+
+                string configFilename = "config.dat";
+
+                // config file
+                cmd_parser.Setup<string>("config").Callback(value => configFilename = value).Required();
+
+                cmd_parser.Parse(args);
+
+                readConfigFile(configFilename);
+
+
+
+                // second pass
+                cmd_parser = new FluentCommandLineParser();
 
                 // testnet
                 cmd_parser.Setup<bool>('t', "testnet").Callback(value => isTestNet = true).Required();
@@ -107,10 +199,11 @@ namespace DLT
                     PeerStorage.peersFilename = "testnet-peers.dat";
                 }
 
+
+
                 string seedNode = "";
 
-
-                // second pass
+                // third pass
                 cmd_parser = new FluentCommandLineParser();
 
                 bool start_clean = false; // Flag to determine if node should delete cache+logs
@@ -148,14 +241,14 @@ namespace DLT
 
                 cmd_parser.Setup<string>("genesis2").Callback(value => genesis2Address = value).Required();
 
-                cmd_parser.Setup<int>("cores").Callback(value => miningCores = (uint)value).Required();
+                cmd_parser.Setup<int>("threads").Callback(value => miningThreads = (uint)value).Required();
 
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 
                 cmd_parser.Setup<string>('n', "node").Callback(value => seedNode = value).Required();
 
                 // Debug
-                cmd_parser.Setup<string>('d', "netdump").Callback(value => networkDumpFile = value).SetDefault("");
+                cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
                 cmd_parser.Parse(args);
 
@@ -168,14 +261,14 @@ namespace DLT
                 {
                     if (isTestNet)
                     {
-                        Network.CoreNetworkUtils.seedTestNetNodes = new string[]
+                        Network.CoreNetworkUtils.seedTestNetNodes = new List<string>
                         {
                             seedNode
                         };
                     }
                     else
                     {
-                        Network.CoreNetworkUtils.seedNodes = new string[]
+                        Network.CoreNetworkUtils.seedNodes = new List<string>
                         {
                             seedNode
                         };

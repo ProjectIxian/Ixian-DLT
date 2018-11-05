@@ -18,7 +18,7 @@ namespace DLTNode
         public APIServer()
         {
             // Start the API server
-            start(String.Format("http://localhost:{0}/", Config.apiPort));
+            start(String.Format("http://localhost:{0}/", Config.apiPort), Config.apiUsers);
         }
 
         protected override void onUpdate(HttpListenerContext context)
