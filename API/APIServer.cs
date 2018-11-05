@@ -9,9 +9,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace DLTNode
 {
@@ -24,13 +21,11 @@ namespace DLTNode
             start(String.Format("http://localhost:{0}/", Config.apiPort));
         }
 
-        protected override void onUpdate()
+        protected override void onUpdate(HttpListenerContext context)
         {
             try
             {
                 Console.Write("*");
-
-                HttpListenerContext context = listener.GetContext();
 
                 if (context.Request.Url.Segments.Length < 2)
                 {
