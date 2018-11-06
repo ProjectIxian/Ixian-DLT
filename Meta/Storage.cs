@@ -302,6 +302,84 @@ namespace DLT
                 return block;
             }
 
+            public static Block getBlockByHash(byte[] hash)
+            {
+                if (hash == null)
+                {
+                    return null;
+                }
+                Block block = null;
+                string sql = "select * from blocks where `blockChecksum` = ? LIMIT 1";
+                _storage_Block[] _storage_block = null;
+                try
+                {
+                    _storage_block = sqlConnection.Query<_storage_Block>(sql, hash).ToArray();
+                }
+                catch (Exception e)
+                {
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    return null;
+                }
+
+                if (_storage_block == null)
+                    return block;
+
+                if (_storage_block.Length < 1)
+                    return block;
+
+                _storage_Block blk = _storage_block[0];
+
+                block = new Block
+                {
+                    blockNum = (ulong)blk.blockNum,
+                    blockChecksum = blk.blockChecksum,
+                    lastBlockChecksum = blk.lastBlockChecksum,
+                    walletStateChecksum = blk.walletStateChecksum,
+                    signatureFreezeChecksum = blk.sigFreezeChecksum,
+                    difficulty = (ulong)blk.difficulty,
+                    powField = blk.powField,
+                    transactions = new List<string>(),
+                    signatures = new List<byte[][]>(),
+                    timestamp = blk.timestamp,
+                    version = blk.version
+                };
+
+                // Add signatures
+                string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
+                int sigcounter = 0;
+                foreach (string s1 in split_str)
+                {
+                    sigcounter++;
+                    if (sigcounter == 1)
+                        continue;
+
+                    string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                    byte[][] newSig = new byte[2][];
+                    newSig[0] = Convert.FromBase64String(split_sig[0]);
+                    newSig[1] = Convert.FromBase64String(split_sig[1]);
+                    if (!block.containsSignature(newSig[1]))
+                    {
+                        block.signatures.Add(newSig);
+                    }
+                }
+
+                // Add transaction
+                string[] split_str2 = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
+                int txcounter = 0;
+                foreach (string s1 in split_str2)
+                {
+                    txcounter++;
+                    if (txcounter == 1)
+                        continue;
+
+                    block.transactions.Add(s1);
+                }
+
+                Logging.info(String.Format("Read block #{0} from storage.", block.blockNum));
+
+                return block;
+            }
+
             // Retrieve a transaction from the sql database
             public static Transaction getTransaction(string txid)
             {
@@ -534,9 +612,9 @@ namespace DLT
                         // Sleep for 10ms to prevent cpu waste
                         Thread.Sleep(10);
                     }
+                    Thread.Yield();
                 }
 
-                Thread.Yield();
             }
 
             public static int getQueuedQueryCount()

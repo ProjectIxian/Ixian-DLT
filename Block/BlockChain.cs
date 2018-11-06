@@ -93,8 +93,30 @@ namespace DLT
                 return block;
 
             // Search storage
-            if(search_in_storage)
+            if (search_in_storage)
                 block = Storage.getBlock(blocknum);
+
+            return block;
+        }
+
+        // Attempts to retrieve a block from memory or from storage
+        // Returns null if no block is found
+        public Block getBlockByHash(byte[] hash, bool search_in_storage = false)
+        {
+            Block block = null;
+
+            // Search memory
+            lock (blocks)
+            {
+                block = blocks.Find(x => x.blockChecksum.SequenceEqual(hash));
+            }
+
+            if (block != null)
+                return block;
+
+            // Search storage
+            if (search_in_storage)
+                block = Storage.getBlockByHash(hash);
 
             return block;
         }

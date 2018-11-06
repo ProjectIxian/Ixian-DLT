@@ -93,7 +93,7 @@ namespace DLT
                 Console.WriteLine("testnetDltPort\t\t Port to listen on in testnet mode (same as -p CLI)");
                 Console.WriteLine("apiPort\t\t HTTP/API port to listen on (same as -a CLI)");
                 Console.WriteLine("testnetApiPort\t\t HTTP/API port to listen on in testnet mode (same as -a CLI)");
-                Console.WriteLine("addApiUser\t\t Add user:password that can access the API (can be used multiple times)");
+                Console.WriteLine("addApiUser\t\t Adds user:password that can access the API (can be used multiple times)");
                 Console.WriteLine("externalIp\t\t External IP Address to use (same as -i CLI)");
                 Console.WriteLine("addPeer\t\t Specify which seed node to use (same as -n CLI) (can be used multiple times)");
                 Console.WriteLine("addTestNetPeer\t\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
