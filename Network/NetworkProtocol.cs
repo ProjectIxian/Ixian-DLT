@@ -498,6 +498,14 @@ namespace DLT
                     endpoint.incomingPort = port;
 
                     // Verify the signature
+                    if (node_type == 'C')
+                    {
+                        // TODO: verify if the client is connectable and if so, add the presence
+
+                        // Client is not connectable, don't add a presence
+                        return true;
+                    }
+                    else
                     if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
                     {
                         using (MemoryStream m2 = new MemoryStream())
