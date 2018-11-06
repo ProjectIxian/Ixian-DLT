@@ -13,11 +13,25 @@ using System.Numerics;
 using System.Diagnostics;
 using System.IO;
 using IXICore;
+using System.Runtime.InteropServices;
 
 namespace DLTNode
 {
     class Program
     {
+
+        // STD_INPUT_HANDLE (DWORD): -10 is the standard input device.
+        const int STD_INPUT_HANDLE = -10;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern IntPtr GetStdHandle(int nStdHandle);
+
+        [DllImport("kernel32.dll")]
+        static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+        [DllImport("kernel32.dll")]
+        static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+
 
         static void CheckRequiredFiles()
         {
@@ -138,10 +152,34 @@ namespace DLTNode
 
         public static bool noStart = false;
 
+        static void prepareConsole()
+        {
+            IntPtr consoleHandle = GetStdHandle(STD_INPUT_HANDLE);
+
+            // get current console mode
+            uint consoleMode;
+            if (!GetConsoleMode(consoleHandle, out consoleMode))
+            {
+                // ERROR: Unable to get console mode.
+                return;
+            }
+
+            // Clear the quick edit bit in the mode flags
+            consoleMode &= ~(uint)0x0040; // quick edit
+
+            // set the new mode
+            if (!SetConsoleMode(consoleHandle, consoleMode))
+            {
+                // ERROR: Unable to set console mode
+            }
+        }
+
         static void Main(string[] args)
         {
             // Clear the console first
             Console.Clear();
+
+            prepareConsole();
 
             // Start logging
             Logging.start();
