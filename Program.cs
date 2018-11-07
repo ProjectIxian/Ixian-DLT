@@ -153,6 +153,10 @@ namespace DLTNode
 
         static void prepareConsole()
         {
+            // Ignore if we're on Mono
+            if (IXICore.Platform.onMono())
+                return;
+
             IntPtr consoleHandle = GetStdHandle(STD_INPUT_HANDLE);
 
             // get current console mode
@@ -225,7 +229,11 @@ namespace DLTNode
             CheckRequiredFiles();
 
             // Check for the right vc++ redist for the argon miner
-            CheckVCRedist();
+            // Ignore if we're on Mono
+            if (IXICore.Platform.onMono() == false)
+            {
+                CheckVCRedist();
+            }
 
             // Log the parameters to notice any changes
             Logging.info(String.Format("Mainnet: {0}", !Config.isTestNet));
