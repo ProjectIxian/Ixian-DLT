@@ -496,7 +496,8 @@ namespace DLT.Meta
                     else
                     if (nodeBalance < CoreConfig.minimumMasterNodeFunds)
                     {
-                        Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", CoreConfig.minimumMasterNodeFunds, walletStorage.address));
+                        Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", 
+                            CoreConfig.minimumMasterNodeFunds, Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.address)));
                         Node.stop();
                         running = false;
                         return false;
