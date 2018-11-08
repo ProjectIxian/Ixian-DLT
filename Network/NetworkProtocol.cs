@@ -1248,32 +1248,6 @@ namespace DLT
                 // Disabled for dev purposes.
                 // TODO: re-enable
                 return true;
-
-                if(endpoint == null)
-                {
-                    return false;
-                }
-
-                if(endpoint.presence == null || endpoint.presenceAddress == null)
-                {
-                    // This means the endpoint is neither a masternode nor a relay node
-                    return false;
-                }
-
-                // Check if it's a master node
-                if (endpoint.presenceAddress.type == 'M')
-                {
-                    return true;
-                }
-
-                // Check if it's a relay node
-                if (endpoint.presenceAddress.type == 'R')
-                {
-                    return true;
-                }
-
-                // Otherwise it's a usual client
-                return false;
             }
 
         }

@@ -16,8 +16,8 @@ namespace DLT
 {
     class Miner
     {
-        // Import the argon dll
-        [DllImport("Argon2_C.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        // Import the libargon2 shared library
+        [DllImport("libargon2", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         static extern int argon2id_hash_raw(UInt32 time_cost, UInt32 mem_cost, UInt32 parallelism,
                                  IntPtr data, UIntPtr data_len,
                                  IntPtr salt, UIntPtr salt_len,

@@ -37,7 +37,6 @@ namespace DLTNode
         {
             string[] critical_dlls =
             {
-                "Argon2_C.dll",
                 "BouncyCastle.Crypto.dll",
                 "FluentCommandLineParser.dll",
                 "Newtonsoft.Json.dll",
@@ -60,6 +59,16 @@ namespace DLTNode
                     Environment.Exit(-1);
                 }
             }
+
+            // Special case for argon
+            if (!File.Exists("libargon2.dll") && !File.Exists("libargon2.so") && !File.Exists("libargon2.dylib"))
+            {
+                Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download from http://www.ixian.io!", "libargon2"));
+                Logging.info("Press ENTER to exit.");
+                Console.ReadLine();
+                Environment.Exit(-1);
+            }
+
         }
         static void CheckVCRedist()
         {
