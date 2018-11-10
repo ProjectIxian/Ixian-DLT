@@ -838,10 +838,13 @@ namespace DLT
                                         {
                                             using (BinaryWriter writerw = new BinaryWriter(mw))
                                             {
+                                                // Send the address
                                                 writerw.Write(address.Length);
                                                 writerw.Write(address);
+                                                // Send the balance
                                                 writerw.Write(balance.ToString());
-
+                                                // Send the block height for this balance
+                                                writerw.Write(Node.blockChain.getLastBlockNum());
  
                                                 endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
                                             }
