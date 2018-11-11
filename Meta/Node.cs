@@ -632,6 +632,9 @@ namespace DLT.Meta
             return workerMode;
         }
 
-
+        public static ulong getLastBlockHeight()
+        {
+            return Node.blockChain.getLastBlockNum();
+        }
     }
 }
