@@ -33,16 +33,18 @@ namespace DLT
 
             public static uint miningThreads = 1;
 
+            public static string configFilename = "ixian.cfg";
+
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.5.1"; // DLT Node version
+            public static readonly string version = "xdc-0.5.5"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
-            public static readonly ulong compileTimeBlockNumber = 0;
+            public static readonly ulong compileTimeBlockNumber = 43200;
 
             // Debugging values
             public static string networkDumpFile = "";
@@ -172,7 +174,6 @@ namespace DLT
                 // first pass
                 var cmd_parser = new FluentCommandLineParser();
 
-                string configFilename = "config.dat";
 
                 // config file
                 cmd_parser.Setup<string>("config").Callback(value => configFilename = value).Required();

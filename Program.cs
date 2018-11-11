@@ -84,6 +84,8 @@ namespace DLTNode
                 if (!File.Exists("vc_redist.x64.exe"))
                 {
                     Logging.warn("The VC++2017 redistributable file is not found. Please download the v141 version of the Visual C++ 2017 redistributable and install it manually!");
+                    Console.WriteLine("You can download it from this URL:");
+                    Console.WriteLine("https://visualstudio.microsoft.com/downloads/");
                 }
                 else
                 {
@@ -202,7 +204,7 @@ namespace DLTNode
             {
                 return;
             }*/
-            
+
             onStart(args);
 
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
@@ -267,7 +269,7 @@ namespace DLTNode
             apiServer = new APIServer();
 
             // Setup a timer to handle routine updates
-            mainLoopTimer = new System.Timers.Timer(500);
+            mainLoopTimer = new System.Timers.Timer(1000);
             mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
             mainLoopTimer.Start();
             // DEBUG: manual update

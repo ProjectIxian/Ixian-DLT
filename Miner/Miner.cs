@@ -493,22 +493,16 @@ namespace DLT
         // Broadcasts the solution to the network
         public void sendSolution(string nonce)
         {
-            Transaction tx = new Transaction();
-            tx.type = (int)Transaction.Type.PoWSolution;
-            tx.from = Node.walletStorage.getWalletAddress();
-            tx.to = CoreConfig.ixianInfiniMineAddress;
-            tx.amount = "0";
-            tx.fee = "0";
-            tx.blockHeight = Node.blockChain.getLastBlockNum();
-
             byte[] pubkey = Node.walletStorage.publicKey;
             // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(tx.from, true);
+            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getWalletAddress(), true);
             if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
                 pubkey = null;
             }
+
+            byte[] data = null;
 
             using (MemoryStream mw = new MemoryStream())
             {
@@ -516,16 +510,11 @@ namespace DLT
                 {
                     writerw.Write(activeBlock.blockNum);
                     writerw.Write(nonce);
-                    tx.data = mw.ToArray();
+                    data = mw.ToArray();
                 }
             }
 
-            tx.pubKey = pubkey;
-
-            tx.timeStamp = Core.getCurrentTimestamp();
-            tx.id = tx.generateID();
-            tx.checksum = Transaction.calculateChecksum(tx);
-            tx.signature = Transaction.getSignature(tx.checksum);
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getWalletAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
             // Broadcast this transaction to the network
             ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
@@ -679,7 +668,7 @@ namespace DLT
             }
 
             pow_reward = (pow_reward/2 + 10000) * 100000; // Divide by 2 (assuming 50% block coverage) + add inital 10 IXI block reward + add the full amount of 0s to cover IxiNumber decimals
-            return new IxiNumber(pow_reward); // Generate the corresponding IxiNumber, including decimals
+            return new IxiNumber(new BigInteger(pow_reward)); // Generate the corresponding IxiNumber, including decimals
         }
     }
 }

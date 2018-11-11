@@ -14,6 +14,7 @@ namespace DLT
     {
         public bool synchronizing { get; private set; }
         List<Block> pendingBlocks = new List<Block>();
+        List<ulong> missingBlocks = null;
         public ulong pendingWsBlockNum { get; private set; }
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
         int wsSyncCount = 0;
@@ -66,17 +67,19 @@ namespace DLT
 
                 Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
                     pendingBlocks.Count, pendingWsChunks.Count));
-                if (!Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
+                if (!Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                 {
                     startWalletStateSync();
                     Thread.Sleep(1000);
                     continue;
                 }
-                if (Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
+                if (Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
                     // Request missing blocks if needed
                     if (receivedAllMissingBlocks == false)
                     {
+                        // TOOD TODO TODO TODO this section expects that 25 blocks will be received in 500ms, otherwise it will request the blocks again
+                        // do this properly, since that's unrealistic when blocks exceed 100kB
                         if (requestMissingBlocks())
                         {
                             // If blocks were requested, wait for next iteration
@@ -120,50 +123,53 @@ namespace DLT
                 syncToBlock = wsSyncConfirmedBlockNum;
             }
 
-            ulong firstBlock = CoreConfig.redactedWindowSize > syncToBlock ? 1 : syncToBlock - CoreConfig.redactedWindowSize + 1;
-            ulong lastBlock = syncToBlock;
-            List<ulong> missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
-
-            int count = 0;
+            ulong firstBlock = 1;
+            if (!Config.storeFullHistory)
+            {
+                firstBlock = CoreConfig.redactedWindowSize > syncToBlock ? 1 : syncToBlock - CoreConfig.redactedWindowSize + 1;
+            }
             lock (pendingBlocks)
             {
-                foreach (Block b in pendingBlocks)
+                ulong lastBlock = syncToBlock;
+                if (missingBlocks == null)
                 {
-                    missingBlocks.RemoveAll(x => x == b.blockNum);
-                }
-            }
-
-            // whatever is left in missingBlocks is what we need to request
-            Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
-            if (missingBlocks.Count() == 0)
-            {
-                receivedAllMissingBlocks = true;
-                return false;
-            }
-
-            foreach (ulong blockNum in missingBlocks)
-            {
-                // First check if the missing block can be found in storage
-                Block block = Node.blockChain.getBlock(blockNum, true);
-                if (block != null)
-                {
-                    block.powField = null;
-                    Node.blockSync.onBlockReceived(block);
-                    continue;
+                    missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
                 }
 
-                // Didn't find the block in storage, request it from the network
-                if(ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                int count = 0;
+
+                // whatever is left in missingBlocks is what we need to request
+                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
+                if (missingBlocks.Count() == 0)
                 {
-                    Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
+                    receivedAllMissingBlocks = true;
+                    return false;
                 }
 
-                count++;
-                if (count >= maxBlockRequests) break;
+                foreach (ulong blockNum in missingBlocks)
+                {
+                    // First check if the missing block can be found in storage
+                    Block block = Node.blockChain.getBlock(blockNum, true);
+                    if (block != null)
+                    {
+                        block.powField = null;
+                        Node.blockSync.onBlockReceived(block);
+                        continue;
+                    }
+
+                    // Didn't find the block in storage, request it from the network
+                    if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                    {
+                        Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
+                    }
+
+                    count++;
+                    if (count >= maxBlockRequests) break;
+                }
+                if (count > 0)
+                    return true;
             }
 
-            if (count > 0)
-                return true;
             return false;
         }
 
@@ -303,9 +309,16 @@ namespace DLT
                 Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
                     b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
 
+                bool ignoreWalletState = true;
+
+                if(Config.recoverFromFile || Config.storeFullHistory)
+                {
+                    ignoreWalletState = false;
+                }
+
                 // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
                 // verify with a parameter to ignore WS tests, but do all the others
-                BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, !Config.recoverFromFile);
+                BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
 
                 if (b_status == BlockVerifyStatus.Indeterminate)
                 {
@@ -326,13 +339,13 @@ namespace DLT
 
                 // TODO: carefully verify this
                 // Apply transactions when rolling forward from a recover file without a synced WS
-                if (Config.recoverFromFile)
+                if (Config.recoverFromFile || Config.storeFullHistory)
                 {
                     Node.blockProcessor.applyAcceptedBlock(b);
                     byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                     if (!wsChecksum.SequenceEqual(b.walletStateChecksum))
                     {
-                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actualy WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                         synchronizing = false;
                         return;
                     }
@@ -357,7 +370,7 @@ namespace DLT
                 if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                 {
                     //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                    if (!Config.recoverFromFile)
+                    if (!Config.recoverFromFile && !Config.storeFullHistory)
                     {
                         TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
                     }
@@ -425,6 +438,13 @@ namespace DLT
 
             Node.blockProcessor.firstBlockAfterSync = true;
             Node.blockProcessor.resumeOperation();
+
+            lock(pendingBlocks)
+            {
+                pendingBlocks.Clear();
+                missingBlocks.Clear();
+                missingBlocks = null;
+            }
 
             if (!Config.recoverFromFile)
             {
@@ -562,6 +582,11 @@ namespace DLT
                     return;
                 }
 
+                if (missingBlocks != null)
+                {
+                    missingBlocks.RemoveAll(x => x == b.blockNum);
+                }
+
                 int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);
                 if (idx > -1)
                 {
@@ -627,6 +652,7 @@ namespace DLT
                 {
                     Logging.info(String.Format("Sync target increased from {0} to {1}.",
                         syncTargetBlockNum, block_height));
+                    Node.blockProcessor.highestNetworkBlockNum = block_height;
                     syncTargetBlockNum = block_height;
                 }
             } else
@@ -636,6 +662,7 @@ namespace DLT
                     // This should happen when node first starts up.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
 
+                    Node.blockProcessor.highestNetworkBlockNum = block_height;
                     syncTargetBlockNum = block_height;
                     startSync();
                 }

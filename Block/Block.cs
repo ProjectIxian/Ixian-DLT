@@ -418,13 +418,10 @@ namespace DLT
                         }
                         else
                         {
-                            // No public key in wallet state                        
+                            // No public key in wallet state            
+                            continue;
                         }
                     }
-
-                    // Failed to find signer publickey in walletstate
-                    if (signerPubKey == null)
-                        return false;
 
                     if (sigAddresses.Find(x => x.SequenceEqual(signerPubKey)) == null)
                     {
@@ -437,7 +434,8 @@ namespace DLT
 
                     if (CryptoManager.lib.verifySignature(blockChecksum, signerPubKey, signature) == false)
                     {
-                        return false;
+                        signatures.Remove(sig);
+                        continue;
                     }
 
 
@@ -653,9 +651,9 @@ namespace DLT
         }
 
         // temporary function that will correctly JSON Serialize IxiNumber
-        public List<Dictionary<string, string>> getFullTransactionsAsArray()
+        public List<Dictionary<string, object>> getFullTransactionsAsArray()
         {
-            List<Dictionary<string, string>> txList = new List<Dictionary<string, string>>();
+            List<Dictionary<string, object>> txList = new List<Dictionary<string, object>>();
             for (int i = 0; i < transactions.Count; i++)
             {
                 Transaction t = TransactionPool.getTransaction(transactions[i]);
@@ -665,7 +663,7 @@ namespace DLT
                     continue;
                 }
 
-                Dictionary<string, string> tDic = new Dictionary<string, string>();
+                Dictionary<string, object> tDic = new Dictionary<string, object>();
                 tDic.Add("id", t.id);
                 tDic.Add("blockHeight", t.blockHeight.ToString());
                 tDic.Add("nonce", t.nonce.ToString());
@@ -691,7 +689,12 @@ namespace DLT
                 tDic.Add("applied", t.applied.ToString());
                 tDic.Add("checksum", Crypto.hashToString(t.checksum));
                 tDic.Add("from", Base58Check.Base58CheckEncoding.EncodePlain(t.from));
-                tDic.Add("to", Base58Check.Base58CheckEncoding.EncodePlain(t.to));
+                Dictionary<string, string> toList = new Dictionary<string, string>();
+                foreach(var entry in t.toList)
+                {
+                    toList.Add(Base58Check.Base58CheckEncoding.EncodePlain(entry.Key), entry.Value.ToString());
+                }
+                tDic.Add("to", toList);
                 tDic.Add("fee", t.fee.ToString());
                 txList.Add(tDic);
 

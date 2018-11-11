@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Threading;
 
 namespace DLT
@@ -61,16 +62,27 @@ namespace DLT
                     string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, PRIMARY KEY(`blockNum`));";
                     executeSQL(sql);
 
-                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `to` BLOB, `from` BLOB,  `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
+                    sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `from` BLOB,  `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
                     executeSQL(sql);
                     sql = "CREATE INDEX `type` ON `transactions` (`type`);";
                     executeSQL(sql);
                     sql = "CREATE INDEX `from` ON `transactions` (`from`);";
                     executeSQL(sql);
-                    sql = "CREATE INDEX `to` ON `transactions` (`to`);";
+                    sql = "CREATE INDEX `toList` ON `transactions` (`toList`);";
                     executeSQL(sql);
                     sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
                     executeSQL(sql);
+                }else
+                {
+                    // database exists, check if it needs upgrading
+
+                    /*var tableInfo = sqlConnection.GetTableInfo("transactions");
+                    if(!tableInfo.Exists(x => x.Name == "toList"))
+                    {
+                        executeSQL("ALTER TABLE `transactions` ADD COLUMN `toList` TEXT;");
+                        executeSQL("CREATE INDEX `toList` ON `transactions` (`toList`);");
+                    }*/
+
                 }
 
                 // Start thread
@@ -109,7 +121,7 @@ namespace DLT
                 public int type { get; set; }
                 public string amount { get; set; }
                 public string fee { get; set; }
-                public byte[] to { get; set; }
+                public string toList { get; set; }
                 public byte[] from { get; set; }
                 public byte[] data { get; set; }
                 public long blockHeight { get; set; }
@@ -198,31 +210,27 @@ namespace DLT
 
             public static bool insertTransactionInternal(Transaction transaction)
             {
+                string toList = "";
+                foreach (var to in transaction.toList)
+                {
+                    toList = string.Format("{0}||{1}:{2}", toList, Base58Check.Base58CheckEncoding.EncodePlain(to.Key), Convert.ToBase64String(to.Value.getAmount().ToByteArray()));
+                }
+
                 bool result = false;
                 if (getTransaction(transaction.id) == null)
                 {
-                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`to`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
+                    string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                 }
                 else
                 {
                     // Likely already have the tx stored, update the old entry
-                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?,`to` = ?,`from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
-                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), transaction.to, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
+                    string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
+                    result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, transaction.from, transaction.data, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
                 }
 
                 return result;
             }
-
-            /*public static bool updateAppliedFlagInternal(Transaction transaction)
-            {
-                bool result = false;
-
-                string sql = "UPDATE `transactions` SET `applied` = ? WHERE `id` = ?";
-                result = executeSQL(sql, (long)transaction.applied, transaction.id);
-
-                return result;
-            }*/
 
             public static Block getBlock(ulong blocknum)
             {
@@ -406,13 +414,11 @@ namespace DLT
 
                 _storage_Transaction tx = _storage_tx[0];
 
-                transaction = new Transaction();
+                transaction = new Transaction(tx.type);
                 transaction.id = tx.id;
                 transaction.amount = new IxiNumber(tx.amount);
                 transaction.fee = new IxiNumber(tx.fee);
-                transaction.type = tx.type;
                 transaction.from = tx.from;
-                transaction.to = tx.to;
                 transaction.data = tx.data;
                 transaction.blockHeight = (ulong)tx.blockHeight;
                 transaction.nonce = tx.nonce;
@@ -421,6 +427,22 @@ namespace DLT
                 transaction.signature = tx.signature;
                 transaction.version = tx.version;
                 transaction.pubKey = tx.pubKey;
+
+                // Add toList
+                string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
+                int sigcounter = 0;
+                foreach (string s1 in split_str)
+                {
+                    sigcounter++;
+                    if (sigcounter == 1)
+                        continue;
+
+                    string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                    byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
+                    IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
+                    transaction.toList.AddOrReplace(address, amount);
+                }
+
 
                 return transaction;
             }
@@ -583,34 +605,40 @@ namespace DLT
 
                 while (running)
                 {
-                    bool message_found = false;
+                    try
+                    {
+                        bool message_found = false;
 
-                    lock (queueStatements)
-                    {
-                        if (queueStatements.Count() > 0)
+                        lock (queueStatements)
                         {
-                            QueueStorageMessage candidate = queueStatements[0];
-                            active_message = candidate;
-                            queueStatements.Remove(candidate);
-                            message_found = true;
+                            if (queueStatements.Count() > 0)
+                            {
+                                QueueStorageMessage candidate = queueStatements[0];
+                                active_message = candidate;
+                                queueStatements.Remove(candidate);
+                                message_found = true;
+                            }
                         }
-                    }
 
-                    if (message_found)
-                    {
-                        if (active_message.code == QueueStorageCode.insertTransaction)
+                        if (message_found)
                         {
-                            insertTransactionInternal((Transaction)active_message.data);
+                            if (active_message.code == QueueStorageCode.insertTransaction)
+                            {
+                                insertTransactionInternal((Transaction)active_message.data);
+                            }
+                            else if (active_message.code == QueueStorageCode.insertBlock)
+                            {
+                                insertBlockInternal((Block)active_message.data);
+                            }
                         }
-                        else if (active_message.code == QueueStorageCode.insertBlock)
+                        else
                         {
-                            insertBlockInternal((Block)active_message.data);
+                            // Sleep for 10ms to prevent cpu waste
+                            Thread.Sleep(10);
                         }
-                    }
-                    else
+                    }catch(Exception e)
                     {
-                        // Sleep for 10ms to prevent cpu waste
-                        Thread.Sleep(10);
+                        Logging.error("Exception occured in storage thread loop: " + e);
                     }
                     Thread.Yield();
                 }

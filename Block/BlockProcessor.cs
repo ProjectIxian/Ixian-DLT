@@ -37,7 +37,7 @@ namespace DLT
 
         private Thread block_thread = null;
 
-        private ulong highestNetworkBlockNum = 0;
+        public ulong highestNetworkBlockNum = 0;
 
         public BlockProcessor()
         {
@@ -86,10 +86,6 @@ namespace DLT
                 else
                 {
                     blockGenerationInterval = 30;
-                    if (Config.isTestNet)
-                    {
-                        blockGenerationInterval = 15;
-                    }
                 }
 
                 bool forceNextBlock = Node.forceNextBlock;
@@ -479,7 +475,7 @@ namespace DLT
                 // Skip fetching staking txids if we're not synchronizing
                 if (txid.StartsWith("stk"))
                 {
-                    if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile))
+                    if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && Config.storeFullHistory))
                         continue;
                 }
 
@@ -505,14 +501,13 @@ namespace DLT
                     t.applied = 0;
                     TransactionPool.addTransaction(t, true);
                 }
+                // TODO TODO TODO TODO plus balances should also be added to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(t.from))
                 {
                     minusBalances.Add(t.from, 0);
                 }
                 try
                 {
-                    // TODO TODO TODO verify nonces
-
                     // TODO: check to see if other transaction types need additional verification
                     if (t.type == (int)Transaction.Type.Normal)
                     {
@@ -558,8 +553,8 @@ namespace DLT
                 {
                     // someone is doing something bad with this transaction, so we invalidate the block
                     // TODO: Blacklisting for the transaction originator node
-                    Logging.warn(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}, to: {3}",
-                        t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(t.from), Base58Check.Base58CheckEncoding.EncodePlain(t.to)));
+                    Logging.warn(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}",
+                        t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(t.from)));
                     return BlockVerifyStatus.Invalid;
                 }
             }
@@ -577,7 +572,12 @@ namespace DLT
                     {
                         fetchingBulkTxForBlocks.Add(b.blockNum, 0);
                         fetchingTxForBlocks.Add(b.blockNum, 0);
-                        ProtocolMessage.broadcastGetBlockTransactions(b.blockNum, Node.blockSync.synchronizing, endpoint);
+                        bool requestAll = true;
+                        if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && Config.storeFullHistory))
+                        {
+                            requestAll = false;
+                        }
+                        ProtocolMessage.broadcastGetBlockTransactions(b.blockNum, requestAll, endpoint);
                     }
                     fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
                     fetchingTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
@@ -1050,7 +1050,7 @@ namespace DLT
             }
 
             // Calculate the award per signer
-            IxiNumber sigs = new IxiNumber(numSigs, false);
+            IxiNumber sigs = new IxiNumber(numSigs);
 
             IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out IxiNumber remainder);
 
@@ -1151,7 +1151,7 @@ namespace DLT
 
                 int blockVersion = 1;
 
-                if (localNewBlock.blockNum < 86400)
+                if (localNewBlock.blockNum < Legacy.up20181111)
                 {
                     blockVersion = 0;
                 }
@@ -1335,8 +1335,12 @@ namespace DLT
                 // 
                 BigInteger target_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
                 BigInteger actual_hashes_per_block = target_hashes_per_block * solved_blocks / (window_size / 2);
-                // find an appropriate difficulty for actual hashes:
-                ulong target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
+                ulong target_difficulty = 0;
+                if (actual_hashes_per_block != 0) // TODO TODO TODO TODO TODO Zagar?
+                {
+                    // find an appropriate difficulty for actual hashes:
+                    target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
+                }
                 // we jump hafway to the target difficulty each time
                 ulong next_difficulty = 0;
                 if (target_difficulty > current_difficulty)
@@ -1487,21 +1491,7 @@ namespace DLT
                     byte[] wallet_addr = stakeWallets[i];
                     //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
-                    Transaction tx = new Transaction();
-                    tx.type = (int)Transaction.Type.StakingReward;
-                    tx.to = wallet_addr;
-                    tx.from = CoreConfig.ixianInfiniMineAddress;
-                    tx.amount = award;
-                    tx.nonce = 0;
-                    
-                    tx.blockHeight = Node.blockChain.getLastBlockNum();
-
-                    tx.data = BitConverter.GetBytes(targetBlock.blockNum);
-
-                    tx.timeStamp = Core.getCurrentTimestamp();
-                    tx.id = tx.generateID(); // Staking-specific txid
-                    tx.checksum = Transaction.calculateChecksum(tx);
-                    tx.signature = Encoding.UTF8.GetBytes("Stake");
+                    Transaction tx = new Transaction((int)Transaction.Type.StakingReward, award, new IxiNumber(0), wallet_addr, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0);
 
                     transactions.Add(tx);
 

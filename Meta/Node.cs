@@ -147,107 +147,47 @@ namespace DLT.Meta
 
                 byte[] from = CoreConfig.ixianInfiniMineAddress;
 
-                Transaction tx = new Transaction();
-                tx.type = (int)Transaction.Type.Genesis;
-                tx.to = walletStorage.address;
-                tx.from = from;
-                tx.amount = genesisFunds;
-                tx.data = null;
-                tx.blockHeight = 1;
-                tx.timeStamp = Core.getCurrentTimestamp();
-                tx.id = tx.generateID();
-                tx.checksum = Transaction.calculateChecksum(tx);
-                tx.signature = Transaction.getSignature(tx.checksum);
+                int tx_type = (int)Transaction.Type.Genesis;
+
+                Transaction tx = new Transaction(tx_type, genesisFunds, new IxiNumber(0), walletStorage.address, from, null, null, 1);
                 TransactionPool.addTransaction(tx);
 
                 if(Config.genesis2Address != "")
                 {
-                    Transaction txGen2 = new Transaction();
-                    txGen2.type = (int)Transaction.Type.Genesis;
-                    txGen2.to = Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address);
-                    txGen2.from = from;
-                    txGen2.amount = genesisFunds;
-                    txGen2.data = null;
-                    tx.blockHeight = 1;
-                    txGen2.timeStamp = Core.getCurrentTimestamp();
-                    txGen2.id = txGen2.generateID();
-                    txGen2.checksum = Transaction.calculateChecksum(txGen2);
-                    txGen2.signature = Transaction.getSignature(txGen2.checksum);
+                    Transaction txGen2 = new Transaction(tx_type, genesisFunds, new IxiNumber(0), Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address), from, null, null, 1);
                     TransactionPool.addTransaction(txGen2);
                 }
 
                 if (Config.isTestNet)
                 {
                     // testnet seed2
-                    Transaction tx2 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
-                    tx2.type = (int)Transaction.Type.Genesis;
-                    tx2.data = null;
-                    tx2.timeStamp = Core.getCurrentTimestamp();
-                    tx2.id = tx2.generateID();
-                    tx2.checksum = Transaction.calculateChecksum(tx2);
-                    tx2.signature = Transaction.getSignature(tx2.checksum);
+                    Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
                     TransactionPool.addTransaction(tx2);
                 }
                 else
                 {
                     // seed2
-                    Transaction tx2 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
-                    tx2.type = (int)Transaction.Type.Genesis;
-                    tx2.data = null;
-                    tx2.timeStamp = Core.getCurrentTimestamp();
-                    tx2.id = tx2.generateID();
-                    tx2.checksum = Transaction.calculateChecksum(tx2);
-                    tx2.signature = Transaction.getSignature(tx2.checksum);
+                    Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
                     TransactionPool.addTransaction(tx2);
 
                     // seed3
-                    Transaction tx3 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
-                    tx3.type = (int)Transaction.Type.Genesis;
-                    tx3.data = null;
-                    tx3.timeStamp = Core.getCurrentTimestamp();
-                    tx3.id = tx3.generateID();
-                    tx3.checksum = Transaction.calculateChecksum(tx3);
-                    tx3.signature = Transaction.getSignature(tx3.checksum);
+                    Transaction tx3 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
                     TransactionPool.addTransaction(tx3);
 
                     // seed4
-                    Transaction tx4 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
-                    tx4.type = (int)Transaction.Type.Genesis;
-                    tx4.data = null;
-                    tx4.timeStamp = Core.getCurrentTimestamp();
-                    tx4.id = tx4.generateID();
-                    tx4.checksum = Transaction.calculateChecksum(tx4);
-                    tx4.signature = Transaction.getSignature(tx4.checksum);
+                    Transaction tx4 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
                     TransactionPool.addTransaction(tx4);
 
                     // seed5
-                    Transaction tx5 = new Transaction(CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
-                    tx5.type = (int)Transaction.Type.Genesis;
-                    tx5.data = null;
-                    tx5.timeStamp = Core.getCurrentTimestamp();
-                    tx5.id = tx5.generateID();
-                    tx5.checksum = Transaction.calculateChecksum(tx5);
-                    tx5.signature = Transaction.getSignature(tx5.checksum);
+                    Transaction tx5 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
                     TransactionPool.addTransaction(tx5);
 
                     // Team Reward
-                    Transaction tx6 = new Transaction(new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"), from, null, null, 1);
-                    tx6.type = (int)Transaction.Type.Genesis;
-                    tx6.data = null;
-                    tx6.timeStamp = Core.getCurrentTimestamp();
-                    tx6.id = tx6.generateID();
-                    tx6.checksum = Transaction.calculateChecksum(tx6);
-                    tx6.signature = Transaction.getSignature(tx6.checksum);
+                    Transaction tx6 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"), from, null, null, 1);
                     TransactionPool.addTransaction(tx6);
 
                     // Development
-                    Transaction tx7 = new Transaction(new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"), from, null, null, 1);
-                    tx7.type = (int)Transaction.Type.Genesis;
-                    tx7.data = null;
-                    tx7.timeStamp = Core.getCurrentTimestamp();
-                    tx7.id = tx7.generateID();
-                    tx7.checksum = Transaction.calculateChecksum(tx7);
-                    tx7.signature = Transaction.getSignature(tx7.checksum);
+                    Transaction tx7 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"), from, null, null, 1);
                     TransactionPool.addTransaction(tx7);
                 }
 
@@ -277,6 +217,9 @@ namespace DLT.Meta
 
         static public bool update()
         {
+            // Cleanup transaction pool
+            TransactionPool.performCleanup();
+
             // Update redacted blockchain
             blockChain.onUpdate();
 

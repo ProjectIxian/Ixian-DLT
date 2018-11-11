@@ -178,19 +178,10 @@ namespace DLTNode
                        }
                    }
 
-            Transaction tx = new Transaction();
-            tx.type = (int)Transaction.Type.PoWSolution;
-            tx.from = Node.walletStorage.getWalletAddress();
-            tx.to = CoreConfig.ixianInfiniMineAddress;
-            tx.amount = "0";
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getWalletAddress(), null, null, Node.blockChain.getLastBlockNum());
 
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
-
-            tx.timeStamp = Core.getCurrentTimestamp();
-            tx.id = tx.generateID();
-            tx.checksum = Transaction.calculateChecksum(tx);
-            tx.signature = Transaction.getSignature(tx.checksum);
 
             sendData(ProtocolMessageCode.newTransaction, tx.getBytes());
 
@@ -223,7 +214,7 @@ namespace DLTNode
                     pubKey = null;
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                 // Console.WriteLine("> sending {0}", transaction.id);
                 TransactionPool.addTransaction(transaction);
                 nonce++;
@@ -266,7 +257,7 @@ namespace DLTNode
                     pubKey = null;
                 }
 
-                Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                 byte[] bytes = transaction.getBytes();
                 
                 Console.WriteLine("> writing tx {0}", transaction.id);
