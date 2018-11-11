@@ -1,6 +1,7 @@
 ﻿using DLT;
 using DLT.Meta;
 using DLT.Network;
+using DLTNode.API;
 using IXICore;
 using Newtonsoft.Json;
 using System;
@@ -14,6 +15,8 @@ namespace DLTNode
 {
     class APIServer : GenericAPIServer
     {
+
+        private JsonRpc jsonRpc = new JsonRpc();
 
         public APIServer()
         {
@@ -60,7 +63,7 @@ namespace DLTNode
             }
             catch (Exception)
             {
-                continueRunning = false;
+                //continueRunning = false;
                 //Logging.error(string.Format("Error in API server {0}", e.ToString()));
             }
 
@@ -154,7 +157,7 @@ namespace DLTNode
 
                 byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
-                IxiNumber amount = new IxiNumber(amount_string) - CoreConfig.transactionPrice; // Subtract the fee
+                IxiNumber amount = new IxiNumber(amount_string); // Subtract the fee
                 IxiNumber fee = CoreConfig.transactionPrice;
 
                 // Only create a transaction if there is a valid amount
@@ -179,7 +182,7 @@ namespace DLTNode
                             pubKey = null;
                         }
 
-                        Transaction transaction = new Transaction(amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                        Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                         if (TransactionPool.addTransaction(transaction))
                         {
                             responseString = JsonConvert.SerializeObject(transaction);
@@ -206,7 +209,7 @@ namespace DLTNode
                 byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
                 byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
                 string amount_string = request.QueryString["amount"];
-                IxiNumber amount = new IxiNumber(amount_string) - CoreConfig.transactionPrice; // Subtract the fee
+                IxiNumber amount = new IxiNumber(amount_string); // Subtract the fee
                 IxiNumber fee = CoreConfig.transactionPrice;
 
                 // Only create a transaction if there is a valid amount
@@ -747,6 +750,12 @@ namespace DLTNode
                 string supply = Node.walletState.calculateTotalSupply().ToString();
                 string responseString = JsonConvert.SerializeObject(supply);
                 sendResponse(context.Response, responseString);
+                return true;
+            }
+
+            if(methodName.Equals("jsonrpc", StringComparison.OrdinalIgnoreCase))
+            {
+                jsonRpc.processRequest(context);
                 return true;
             }
 

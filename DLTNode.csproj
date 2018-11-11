@@ -82,6 +82,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="API\APIServer.cs" />
+    <Compile Include="API\JsonRpc.cs" />
     <Compile Include="Block\Block.cs" />
     <Compile Include="Block\BlockChain.cs" />
     <Compile Include="Block\BlockProcessor.cs" />

@@ -18,7 +18,7 @@ namespace DLT
         }
 
         public void onUpdate() {
-        
+
             lock (blocks)
             {
                 // redaction
