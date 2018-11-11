@@ -146,7 +146,9 @@ namespace DLT
                     return false;
                 }
 
-                foreach (ulong blockNum in missingBlocks)
+                List<ulong> tmpMissingBlocks = new List<ulong>(missingBlocks);
+
+                foreach (ulong blockNum in tmpMissingBlocks)
                 {
                     // First check if the missing block can be found in storage
                     Block block = Node.blockChain.getBlock(blockNum, true);
