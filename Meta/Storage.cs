@@ -76,12 +76,13 @@ namespace DLT
                 {
                     // database exists, check if it needs upgrading
 
-                    /*var tableInfo = sqlConnection.GetTableInfo("transactions");
-                    if(!tableInfo.Exists(x => x.Name == "toList"))
+                    var tableInfo = sqlConnection.GetTableInfo("transactions");
+                    if(tableInfo.Exists(x => x.Name == "to"))
                     {
-                        executeSQL("ALTER TABLE `transactions` ADD COLUMN `toList` TEXT;");
-                        executeSQL("CREATE INDEX `toList` ON `transactions` (`toList`);");
-                    }*/
+                        sqlConnection.Close();
+                        File.Delete(filename);
+                        return prepareStorage();
+                    }
 
                 }
 
