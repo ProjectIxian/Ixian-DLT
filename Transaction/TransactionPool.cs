@@ -732,7 +732,7 @@ namespace DLT
             return true;
         }
 
-        public static void applyStakingTransactionsFromBlock(Block block, List<Transaction> failed_staking_transactions, bool ws_snapshot = false)
+        public static bool applyStakingTransactionsFromBlock(Block block, List<Transaction> failed_staking_transactions, bool ws_snapshot = false)
         {
             // TODO: move this to a seperate function. Left here for now for dev purposes
             // Apply any staking transactions in the pool at this moment
@@ -752,16 +752,29 @@ namespace DLT
             // Maintain a list of stakers
             List<byte[]> blockStakers = new List<byte[]>();
 
+            List<string> stakingTxIds = block.transactions.FindAll(x => x.StartsWith("stk-"));
+
             foreach (Transaction tx in staking_txs)
             {
+                if (stakingTxIds.Exists(x => x == tx.id))
+                {
+                    stakingTxIds.Remove(tx.id);
+                } else
+                {
+                    Logging.error(String.Format("Invalid staking txid in block {0}", tx.id));
+                    return false;
+                }
+
                 if (tx.applied > 0)
                     continue;
-              
+
                 string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
                 ulong txbnum = Convert.ToUInt64(split_str[1]);
 
                 if (txbnum != block.blockNum - 6)
-                    continue;
+                {
+                    return false;
+                }
 
                 // Special case for Staking Reward transaction
                 // Do not apply them if we are synchronizing
@@ -773,9 +786,18 @@ namespace DLT
                 {
                     //Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
                     continue;
+                }else
+                {
+                    return false;
                 }
             }
 
+            if(stakingTxIds.Count > 0)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         // This applies all the transactions from a block to the actual walletstate.
@@ -784,7 +806,7 @@ namespace DLT
         {
             if (block == null)
             {
-                return true;
+                return false;
             }
 
             try
@@ -798,7 +820,10 @@ namespace DLT
 
                 List<Transaction> failed_staking_transactions = new List<Transaction>();
 
-                applyStakingTransactionsFromBlock(block, failed_staking_transactions, ws_snapshot);
+                if(!applyStakingTransactionsFromBlock(block, failed_staking_transactions, ws_snapshot))
+                {
+                    return false;
+                }
 
                 // Remove all failed transactions from the TxPool
                 foreach (Transaction tx in failed_staking_transactions)

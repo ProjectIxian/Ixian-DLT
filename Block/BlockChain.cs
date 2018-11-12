@@ -11,14 +11,23 @@ namespace DLT
     {
         List<Block> blocks = new List<Block>();
 
-        public long Count { get => blocks.LongCount(); }
+        public long Count
+        {
+            get
+            {
+                lock (blocks)
+                {
+                    return blocks.LongCount();
+                }
+            }
+        }
 
         public BlockChain()
         {
         }
 
-        public void onUpdate() {
-
+        public void onUpdate()
+        {
             lock (blocks)
             {
                 // redaction
@@ -123,9 +132,9 @@ namespace DLT
 
         public ulong getLastBlockNum()
         {
-            if (blocks.Count == 0) return 0;
             lock (blocks)
             {
+                if (blocks.Count == 0) return 0;
                 return blocks[blocks.Count - 1].blockNum;
             }
         }
@@ -133,9 +142,9 @@ namespace DLT
         public int getRequiredConsensus()
         {
             int blockOffset = 6;
-            if (blocks.Count < blockOffset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-X blocks
             lock (blocks)
             {
+                if (blocks.Count < blockOffset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-X blocks
                 int totalConsensus = 0;
                 int blockCount = blocks.Count - blockOffset < 10 ? blocks.Count - blockOffset : 10;
                 for (int i = 0; i < blockCount; i++)
@@ -153,27 +162,27 @@ namespace DLT
 
         public byte[] getLastBlockChecksum()
         {
-            if (blocks.Count == 0) return null;
             lock(blocks)
             {
+                if (blocks.Count == 0) return null;
                 return blocks[blocks.Count - 1].blockChecksum;
             }
         }
 
         public byte[] getCurrentWalletState()
         {
-            if (blocks.Count == 0) return null;
             lock(blocks)
             {
+                if (blocks.Count == 0) return null;
                 return blocks[blocks.Count - 1].walletStateChecksum;
             }
         }
 
         public int getBlockSignaturesReverse(int index)
         {
-            if (blocks.Count - index - 1 < 0) return 0;
             lock(blocks)
             {
+                if (blocks.Count - index - 1 < 0) return 0;
                 return blocks[blocks.Count - index - 1].signatures.Count();
             }
         }
