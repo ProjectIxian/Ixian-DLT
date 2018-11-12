@@ -228,7 +228,7 @@ namespace DLT
                 syncToBlock = wsSyncConfirmedBlockNum;
             }
 
-            if (CoreConfig.redactedWindowSize < syncToBlock)
+            if (!Config.storeFullHistory && CoreConfig.redactedWindowSize < syncToBlock)
             {
                 lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize + 1;
             }
@@ -345,7 +345,7 @@ namespace DLT
                 {
                     Node.blockProcessor.applyAcceptedBlock(b);
                     byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                    if (!wsChecksum.SequenceEqual(b.walletStateChecksum))
+                    if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                     {
                         Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                         synchronizing = false;
@@ -356,7 +356,7 @@ namespace DLT
                     if (syncToBlock == b.blockNum)
                     {
                         byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                        if (!wsChecksum.SequenceEqual(b.walletStateChecksum))
+                        if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                         {
                             Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
                             lock (pendingBlocks)
