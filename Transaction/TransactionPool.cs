@@ -1540,7 +1540,7 @@ namespace DLT
             lock (transactions)
             {
                 var txList = transactions.Select(e => e.Value).Where(x => x.applied == 0 && x.type == (int)Transaction.Type.PoWSolution).ToArray();
-                foreach(var entry in txList)
+                foreach (var entry in txList)
                 {
                     ulong blocknum = 0;
                     try
@@ -1560,12 +1560,19 @@ namespace DLT
                         {
                             transactions.Remove(entry.id);
                         }
-                    }catch(Exception e)
+                    }
+                    catch (Exception e)
                     {
                         Logging.error("Exception occured in transactionPool.cleanUp() " + e);
                         // remove invalid/corrupt transaction
                         transactions.Remove(entry.id);
                     }
+                }
+
+                txList = transactions.Select(e => e.Value).Where(x => x.blockHeight < Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize).ToArray();
+                foreach (var entry in txList)
+                {
+                    transactions.Remove(entry.id);
                 }
             }
         }
