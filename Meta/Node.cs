@@ -220,9 +220,6 @@ namespace DLT.Meta
             // Cleanup transaction pool
             TransactionPool.performCleanup();
 
-            // Update redacted blockchain
-            blockChain.onUpdate();
-
             // Cleanup the presence list
             // TODO: optimize this by using a different thread perhaps
             PresenceList.performCleanup();

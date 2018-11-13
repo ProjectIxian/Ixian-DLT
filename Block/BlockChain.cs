@@ -26,13 +26,13 @@ namespace DLT
         {
         }
 
-        public void onUpdate()
+        public void redactChain()
         {
             lock (blocks)
             {
                 // redaction
                 int begin_size = blocks.Count();
-                while ((ulong) blocks.Count() > CoreConfig.redactedWindowSize)
+                while ((ulong)blocks.Count() > CoreConfig.redactedWindowSize)
                 {
                     TransactionPool.redactTransactionsForBlock(blocks[0]); // Remove from Transaction Pool
 
@@ -83,6 +83,7 @@ namespace DLT
             }
             // Add block to storage
             Storage.insertBlock(b);
+            redactChain();
             return true;           
         }
 
