@@ -84,6 +84,7 @@ namespace DLTNode
                 if (!File.Exists("vc_redist.x64.exe"))
                 {
                     Logging.warn("The VC++2017 redistributable file is not found. Please download the v141 version of the Visual C++ 2017 redistributable and install it manually!");
+                    Logging.flush();
                     Console.WriteLine("You can download it from this URL:");
                     Console.WriteLine("https://visualstudio.microsoft.com/downloads/");
                 }
@@ -225,7 +226,7 @@ namespace DLTNode
 
         static void onStart(string[] args)
         {
-            Logging.info(string.Format("IXIAN DLT Node {0}", Config.version));
+            Console.WriteLine(string.Format("IXIAN DLT {0}", Config.version));
 
             // Read configuration from command line
             Config.readFromCommandLine(args);
@@ -235,6 +236,8 @@ namespace DLTNode
                 Thread.Sleep(1000);
                 return;
             }
+
+            Logging.info(string.Format("Starting IXIAN DLT {0}", Config.version));
 
             // Check for critical files in the exe dir
             CheckRequiredFiles();
@@ -351,10 +354,7 @@ namespace DLTNode
             }
 
             // Stop logging
-            while(Logging.getRemainingStatementsCount() > 0)
-            {
-                Thread.Sleep(100);
-            }
+            Logging.flush();
             Logging.stop();
 
             if (noStart == false)

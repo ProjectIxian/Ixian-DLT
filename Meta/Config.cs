@@ -63,42 +63,43 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine("ixiandlt.exe [-h] [-v] [-t] [-s] [-m] [-x] [-r] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [--netdump dumpfile] [--threads 4] [--config config.dat]");
+                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-m] [-x] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [--threads 4] [--config ixian.cfg] [--netdump dumpfile] [--recover]");
                 Console.WriteLine("");
-                Console.WriteLine("   -h\t\t Displays this help");
-                Console.WriteLine("   -v\t\t Displays version");
-                Console.WriteLine("   -t\t\t Starts node in testnet mode");
-                Console.WriteLine("   -s\t\t Saves full history");
-                Console.WriteLine("   -m\t\t Enables mining");
-                Console.WriteLine("   -x\t\t Change password of an existing wallet");
-                Console.WriteLine("   -r\t\t Recovers from file (to be used only when recovering the network)");
-                Console.WriteLine("   -c\t\t Removes blockchain.dat, peers.dat and ixian.log files before starting");
-                Console.WriteLine("   -p\t\t Port to listen on");
-                Console.WriteLine("   -a\t\t HTTP/API port to listen on");
-                Console.WriteLine("   -i\t\t External IP Address to use");
-                Console.WriteLine("   -g\t\t Start node in genesis mode");
-                Console.WriteLine("   -w\t\t Specify location of the ixian.wal file");
-                Console.WriteLine("   -n\t\t Specify which seed node to use");
-                Console.WriteLine("   --netdump\t\t Enable netdump for debugging purposes");
-                Console.WriteLine("   --threads\t\t Specify number of threads to use for mining (default 1)");
-                Console.WriteLine("   --config\t\t Specify config filename (default config.dat)");
+                Console.WriteLine("    -h\t\t Displays this help");
+                Console.WriteLine("    -v\t\t Displays version");
+                Console.WriteLine("    -t\t\t Starts node in testnet mode");
+                Console.WriteLine("    -s\t\t Saves full history");
+                Console.WriteLine("    -m\t\t Enables mining");
+                Console.WriteLine("    -x\t\t Change password of an existing wallet");
+                Console.WriteLine("    -c\t\t Removes blockchain.dat, peers.dat and ixian.log files before starting");
+                Console.WriteLine("    -p\t\t Port to listen on");
+                Console.WriteLine("    -a\t\t HTTP/API port to listen on");
+                Console.WriteLine("    -i\t\t External IP Address to use");
+                Console.WriteLine("    -g\t\t Start node in genesis mode");
+                Console.WriteLine("    -w\t\t Specify location of the ixian.wal file");
+                Console.WriteLine("    -n\t\t Specify which seed node to use");
+                Console.WriteLine("    --threads\t Specify number of threads to use for mining (default 1)");
+                Console.WriteLine("    --config\t Specify config filename (default ixian.cfg)");
+                Console.WriteLine("");
+                Console.WriteLine("----------- developer CLI flags -----------");
+                Console.WriteLine("    --netdump\t Enable netdump for debugging purposes");
+                Console.WriteLine("    --recover\t Recovers from file (to be used only by developers when cold-starting the network)");
                 Console.WriteLine("");
                 Console.WriteLine("----------- config file options -----------");
-                Console.WriteLine("Config file options should use parameterName = paraneterValue semantics.");
-                Console.WriteLine("Each option should be specified in its own line. Example:");
-                Console.WriteLine("dltPort = 10234");
-                Console.WriteLine("apiPort = 8081");
+                Console.WriteLine(" Config file options should use parameterName = parameterValue semantics.");
+                Console.WriteLine(" Each option should be specified in its own line. Example:");
+                Console.WriteLine("    dltPort = 10234");
+                Console.WriteLine("    apiPort = 8081");
                 Console.WriteLine("");
-                Console.WriteLine("Available options");
-                Console.WriteLine("");
-                Console.WriteLine("dltPort\t\t Port to listen on (same as -p CLI)");
-                Console.WriteLine("testnetDltPort\t\t Port to listen on in testnet mode (same as -p CLI)");
-                Console.WriteLine("apiPort\t\t HTTP/API port to listen on (same as -a CLI)");
-                Console.WriteLine("testnetApiPort\t\t HTTP/API port to listen on in testnet mode (same as -a CLI)");
-                Console.WriteLine("addApiUser\t\t Adds user:password that can access the API (can be used multiple times)");
-                Console.WriteLine("externalIp\t\t External IP Address to use (same as -i CLI)");
-                Console.WriteLine("addPeer\t\t Specify which seed node to use (same as -n CLI) (can be used multiple times)");
-                Console.WriteLine("addTestNetPeer\t\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
+                Console.WriteLine(" Available options");
+                Console.WriteLine("    dltPort\t\t Port to listen on (same as -p CLI)");
+                Console.WriteLine("    testnetDltPort\t Port to listen on in testnet mode (same as -p CLI)");
+                Console.WriteLine("    apiPort\t\t HTTP/API port to listen on (same as -a CLI)");
+                Console.WriteLine("    testnetApiPort\t HTTP/API port to listen on in testnet mode (same as -a CLI)");
+                Console.WriteLine("    addApiUser\t\t Adds user:password that can access the API (can be used multiple times)");
+                Console.WriteLine("    externalIp\t\t External IP Address to use (same as -i CLI)");
+                Console.WriteLine("    addPeer\t\t Specify which seed node to use (same as -n CLI) (can be used multiple times)");
+                Console.WriteLine("    addTestnetPeer\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
 
                 return "";
             }
@@ -130,6 +131,11 @@ namespace DLT
                     string key = option[0].Trim(new char[] { ' ', '\t', '\r', '\n' });
                     string value = option[1].Trim(new char[] { ' ', '\t', '\r', '\n' });
 
+                    if (key.StartsWith(";"))
+                    {
+                        continue;
+                    }
+
                     switch (key)
                     {
                         case "dltPort":
@@ -157,7 +163,7 @@ namespace DLT
                         case "addPeer":
                             Network.CoreNetworkUtils.seedNodes.Add(value);
                             break;
-                        case "addTestNetPeer":
+                        case "addTestnetPeer":
                             Network.CoreNetworkUtils.seedTestNetNodes.Add(value);
                             break;
                         default:
@@ -225,7 +231,7 @@ namespace DLT
                 cmd_parser.Setup<bool>('x', "changepass").Callback(value => changePass = value).Required();
 
                 // Check for recovery parameter
-                cmd_parser.Setup<bool>('r', "recover").Callback(value => recoverFromFile = value).Required();
+                cmd_parser.Setup<bool>("recover").Callback(value => recoverFromFile = value).Required();
 
                 // Check for clean parameter
                 cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = value).Required();
