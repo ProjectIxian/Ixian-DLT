@@ -228,7 +228,7 @@ namespace DLT
                 }
                 if (block.powField == null)
                 {
-                    if(block.version == 0 && block.difficulty > 64)
+                    if(block.version == 0 && block.difficulty > 128)
                     {
                         continue;
                     }
