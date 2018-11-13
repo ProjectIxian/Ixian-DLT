@@ -1569,7 +1569,7 @@ namespace DLT
                     }
                 }
 
-                txList = transactions.Select(e => e.Value).Where(x => x.blockHeight < Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize).ToArray();
+                txList = transactions.Select(e => e.Value).Where(x => x.applied == 0 && x.blockHeight < Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize).ToArray();
                 foreach (var entry in txList)
                 {
                     transactions.Remove(entry.id);
