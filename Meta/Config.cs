@@ -49,6 +49,8 @@ namespace DLT
             // Debugging values
             public static string networkDumpFile = "";
 
+            public static int forceTimeOffset = int.MaxValue;
+
             // internal
             public static bool changePass = false;
 
@@ -63,7 +65,7 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-m] [-x] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [--threads 4] [--config ixian.cfg] [--netdump dumpfile] [--recover]");
+                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-m] [-x] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [--threads 4] [--config ixian.cfg] [--netdump dumpfile] [--recover] [--forceTimeOffset 0]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t Displays this help");
                 Console.WriteLine("    -v\t\t Displays version");
@@ -84,6 +86,7 @@ namespace DLT
                 Console.WriteLine("----------- developer CLI flags -----------");
                 Console.WriteLine("    --netdump\t Enable netdump for debugging purposes");
                 Console.WriteLine("    --recover\t Recovers from file (to be used only by developers when cold-starting the network)");
+                Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
                 Console.WriteLine("");
                 Console.WriteLine("----------- config file options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue semantics.");
@@ -256,6 +259,8 @@ namespace DLT
 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
+
+                cmd_parser.Setup<int>("forceTimeOffset").Callback(value => forceTimeOffset = value).SetDefault(int.MaxValue);
 
                 cmd_parser.Parse(args);
 
