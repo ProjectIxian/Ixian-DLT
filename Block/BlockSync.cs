@@ -305,83 +305,90 @@ namespace DLT
                     }
                 }
 
-
-                b.powField = null;
-
-                Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
-                    b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
-
-                bool ignoreWalletState = true;
-
-                if(Config.recoverFromFile || Config.storeFullHistory)
+                try
                 {
-                    ignoreWalletState = false;
-                }
 
-                // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
-                // verify with a parameter to ignore WS tests, but do all the others
-                BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
+                    b.powField = null;
 
-                if (b_status == BlockVerifyStatus.Indeterminate)
-                {
-                    Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
-                    Thread.Sleep(100);
-                    return;
-                }
-                if (b_status == BlockVerifyStatus.Invalid)
-                {
-                    Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
-                    lock (pendingBlocks)
+                    Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
+                        b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
+
+                    bool ignoreWalletState = true;
+
+                    if (Config.recoverFromFile || Config.storeFullHistory)
                     {
-                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                        ignoreWalletState = false;
                     }
-                    ProtocolMessage.broadcastGetBlock(b.blockNum);
-                    return;
-                }
 
-                // TODO: carefully verify this
-                // Apply transactions when rolling forward from a recover file without a synced WS
-                if (Config.recoverFromFile || Config.storeFullHistory)
-                {
-                    Node.blockProcessor.applyAcceptedBlock(b);
-                    byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                    if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                    // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
+                    // verify with a parameter to ignore WS tests, but do all the others
+                    BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
+
+                    if (b_status == BlockVerifyStatus.Indeterminate)
                     {
-                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                        synchronizing = false;
+                        Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
+                        Thread.Sleep(100);
                         return;
                     }
-                } else
-                {
-                    if (syncToBlock == b.blockNum)
+                    if (b_status == BlockVerifyStatus.Invalid)
                     {
+                        Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
+                        lock (pendingBlocks)
+                        {
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                        }
+                        ProtocolMessage.broadcastGetBlock(b.blockNum);
+                        return;
+                    }
+
+                    // TODO: carefully verify this
+                    // Apply transactions when rolling forward from a recover file without a synced WS
+                    if (Config.recoverFromFile || Config.storeFullHistory)
+                    {
+                        Node.blockProcessor.applyAcceptedBlock(b);
                         byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                         if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                         {
-                            Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
-                            lock (pendingBlocks)
-                            {
-                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            }
-                            ProtocolMessage.broadcastGetBlock(b.blockNum);
+                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                            synchronizing = false;
                             return;
                         }
                     }
-                }
-                bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
-                if (Node.blockChain.Count <= 5 || sigFreezeCheck)
-                {
-                    //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                    if (!Config.recoverFromFile && !Config.storeFullHistory)
+                    else
                     {
-                        TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
+                        if (syncToBlock == b.blockNum)
+                        {
+                            byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                            if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                            {
+                                Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
+                                lock (pendingBlocks)
+                                {
+                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                }
+                                ProtocolMessage.broadcastGetBlock(b.blockNum);
+                                return;
+                            }
+                        }
                     }
-                    Node.blockChain.appendBlock(b);
-                }
-                else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
+                    bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
+                    if (Node.blockChain.Count <= 5 || sigFreezeCheck)
+                    {
+                        //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
+                        if (!Config.recoverFromFile && !Config.storeFullHistory)
+                        {
+                            TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
+                        }
+                        Node.blockChain.appendBlock(b);
+                    }
+                    else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
+                    {
+                        // invalid sigfreeze, waiting for the correct block
+                        return;
+                    }
+                }catch(Exception e)
                 {
-                    // invalid sigfreeze, waiting for the correct block
-                    return;
+                    Logging.error(String.Format("Exception occured while syncing block #{0}: {1}", b.blockNum, e));
                 }
 
                 lock (pendingBlocks)
