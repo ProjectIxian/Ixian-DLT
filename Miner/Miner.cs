@@ -341,7 +341,7 @@ namespace DLT
             // We have a valid hash, update the corresponding block
             if (Miner.validateHashInternal(hash, hash_ceil) == true)
             {
-                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash));
+                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
 
                 // Broadcast the nonce to the network
                 sendSolution(nonce);
