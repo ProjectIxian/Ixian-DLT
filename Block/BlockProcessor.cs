@@ -515,7 +515,7 @@ namespace DLT
                         IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
                         minusBalances[t.from] = new_minus_balance;
                     }
-                    if(t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    else if(t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         object multisig_data = t.GetMultisigData();
                         string orig_txid = "";
