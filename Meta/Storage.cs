@@ -582,10 +582,11 @@ namespace DLT
 
             public static void insertTransaction(Transaction transaction)
             {
+                // Make a copy of the transaction for the queue storage message processing
                 QueueStorageMessage message = new QueueStorageMessage
                 {
                     code = QueueStorageCode.insertTransaction,
-                    data = transaction
+                    data = new Transaction(transaction)
                 };
 
                 lock (queueStatements)
