@@ -759,6 +759,27 @@ namespace DLTNode
                 return true;
             }
 
+            if (methodName.Equals("debugsave", StringComparison.OrdinalIgnoreCase))
+            {
+                string outstring = "Failed";
+                if (DebugSnapshot.save())
+                    outstring = "Debug Snapshot SAVED";
+
+                string responseString = JsonConvert.SerializeObject(outstring);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
+
+            if (methodName.Equals("debugload", StringComparison.OrdinalIgnoreCase))
+            {
+                string outstring = "Failed";
+                if (DebugSnapshot.load())
+                    outstring = "Debug Snapshot LOADED";
+
+                string responseString = JsonConvert.SerializeObject(outstring);
+                sendResponse(context.Response, responseString);
+                return true;
+            }
 
             return false;
         }

@@ -542,7 +542,7 @@ namespace DLT
         {
             if (block == null)
                 return false;
-
+            
             lock (transactions)
             {
                 foreach (string txid in block.transactions)
@@ -1537,6 +1537,12 @@ namespace DLT
 
         public static void performCleanup()
         {
+            ulong minBlockHeight = 1;
+            if (Node.blockChain.getLastBlockNum() > CoreConfig.redactedWindowSize)
+            {
+                minBlockHeight = Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize;
+            }
+
             lock (transactions)
             {
                 var txList = transactions.Select(e => e.Value).Where(x => x.applied == 0 && x.type == (int)Transaction.Type.PoWSolution).ToArray();
@@ -1567,12 +1573,6 @@ namespace DLT
                         // remove invalid/corrupt transaction
                         transactions.Remove(entry.id);
                     }
-                }
-
-                ulong minBlockHeight = 1;
-                if(Node.blockChain.getLastBlockNum() > CoreConfig.redactedWindowSize)
-                {
-                    minBlockHeight = Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize;
                 }
 
                 txList = transactions.Select(e => e.Value).Where(x => x.applied == 0 && x.blockHeight < minBlockHeight).ToArray();

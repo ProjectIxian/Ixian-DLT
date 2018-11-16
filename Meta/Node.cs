@@ -36,6 +36,8 @@ namespace DLT.Meta
         private static bool autoKeepalive = false;
         private static bool workerMode = false;
 
+        private static Thread cleanupThread;
+
         private static bool running = false;
 
 
@@ -213,17 +215,14 @@ namespace DLT.Meta
             autoKeepalive = true;
             keepAliveThread = new Thread(keepAlive);
             keepAliveThread.Start();
+
+            // Start the cleanup thread
+            cleanupThread = new Thread(performCleanup);
+            cleanupThread.Start();
         }
 
         static public bool update()
         {
-            // Cleanup transaction pool
-            TransactionPool.performCleanup();
-
-            // Cleanup the presence list
-            // TODO: optimize this by using a different thread perhaps
-            PresenceList.performCleanup();
-
             if(serverStarted == false)
             {
                 if(Node.blockProcessor.operating == true)
@@ -268,6 +267,12 @@ namespace DLT.Meta
             {
                 keepAliveThread.Abort();
                 keepAliveThread = null;
+            }
+
+            if (cleanupThread != null)
+            {
+                cleanupThread.Abort();
+                cleanupThread = null;
             }
 
             // Stop the network queue
@@ -583,7 +588,21 @@ namespace DLT.Meta
             Thread.Yield();
         }
 
+        // Perform periodic cleanup tasks
+        private static void performCleanup()
+        {
+            while (running)
+            {
+                // Sleep a while to prevent cpu usage
+                Thread.Sleep(1000);
 
+                // Cleanup transaction pool
+                TransactionPool.performCleanup();
+
+                // Cleanup the presence list
+                PresenceList.performCleanup();
+            }
+        }
 
         public static string getFullAddress()
         {

@@ -96,6 +96,7 @@
     <Compile Include="Network\NetworkProtocol.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tests\DebugSnapshot.cs" />
     <Compile Include="Tests\StressTest.cs" />
     <Compile Include="Transaction\TransactionPool.cs" />
   </ItemGroup>
