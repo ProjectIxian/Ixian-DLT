@@ -3,13 +3,17 @@ using IXICore;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DLT
 {
     class BlockChain
     {
-        List<Block> blocks = new List<Block>();
+        List<Block> blocks = new List<Block>((int)CoreConfig.redactedWindowSize);
+
+        Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
+
 
         public long Count
         {
@@ -27,7 +31,8 @@ namespace DLT
         }
 
         public void redactChain()
-        {
+        { 
+
             lock (blocks)
             {
                 // redaction
@@ -40,6 +45,10 @@ namespace DLT
                     if (Config.storeFullHistory == false)
                     {
                         Storage.removeBlock(blocks[0]); // Remove from storage
+                    }
+                    lock (blocksDictionary)
+                    {
+                        blocksDictionary.Remove(blocks[0].blockNum);
                     }
                     blocks.RemoveAt(0); // Remove from memory
                 }
@@ -58,6 +67,10 @@ namespace DLT
                 if (blocks.Count == 0)
                 {
                     blocks.Add(b);
+                    lock (blocksDictionary)
+                    {
+                        blocksDictionary.Add(b.blockNum, b);
+                    }
                     Storage.insertBlock(b);
                     return true;
                 }
@@ -80,6 +93,10 @@ namespace DLT
                     return false;
                 }
                 blocks.Add(b);
+                lock (blocksDictionary)
+                {
+                    blocksDictionary.Add(b.blockNum, b);
+                }
             }
             // Add block to storage
             Storage.insertBlock(b);
@@ -94,9 +111,10 @@ namespace DLT
             Block block = null;
 
             // Search memory
-            lock (blocks)
+            lock (blocksDictionary)
             {
-                block = blocks.Find(x => x.blockNum == blocknum);
+                if(blocksDictionary.ContainsKey(blocknum))
+                    block = blocksDictionary[blocknum];
             }
 
             if (block != null)
@@ -280,15 +298,15 @@ namespace DLT
             {
                 firstBlockNum = Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize;
             }
-            lock (blocks)
+            lock (blocksDictionary)
             {
-                foreach (Block block in blocks)
+                foreach (KeyValuePair<ulong,Block> entry in blocksDictionary)
                 {
-                    if(block.blockNum < firstBlockNum)
+                    if(entry.Key < firstBlockNum)
                     {
                         continue;
                     }
-                    if(block.powField != null)
+                    if(entry.Value.powField != null)
                     {
                         // TODO: an additional verification would be nice
                         solved_blocks++;
@@ -297,5 +315,6 @@ namespace DLT
             }
             return solved_blocks;
         }
+
     }
 }

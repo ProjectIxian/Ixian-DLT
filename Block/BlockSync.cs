@@ -19,10 +19,11 @@ namespace DLT
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
         int wsSyncCount = 0;
         DateTime lastChunkRequested;
-        
+        Dictionary<ulong, long> requestedBlockTimes = new Dictionary<ulong, long>();
+
 
         ulong syncTargetBlockNum;
-        int maxBlockRequests = 25;
+        int maxBlockRequests = 50; // Maximum number of block requests per iteration
         bool receivedAllMissingBlocks = false;
 
         ulong wsSyncConfirmedBlockNum;
@@ -65,8 +66,8 @@ namespace DLT
                     continue;
                 }
 
-                Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
-                    pendingBlocks.Count, pendingWsChunks.Count));
+            //    Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
+              //      pendingBlocks.Count, pendingWsChunks.Count));
                 if (!Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                 {
                     startWalletStateSync();
@@ -78,14 +79,17 @@ namespace DLT
                     // Request missing blocks if needed
                     if (receivedAllMissingBlocks == false)
                     {
+                        // Proceed with rolling forward the chain
+                        rollForward();
+
                         // TOOD TODO TODO TODO this section expects that 25 blocks will be received in 500ms, otherwise it will request the blocks again
                         // do this properly, since that's unrealistic when blocks exceed 100kB
                         if (requestMissingBlocks())
                         {
                             // If blocks were requested, wait for next iteration
-                            Thread.Sleep(500);
                             continue;
                         }
+
                     }
                 }
                 // Check if we can perform the walletstate synchronization
@@ -109,12 +113,16 @@ namespace DLT
             Logging.info("BlockSync stopped.");
         }
 
+
         private bool requestMissingBlocks()
         {
             if (syncTargetBlockNum == 0)
             {
                 return false;
             }
+
+            if (requestedBlockTimes.Count > maxBlockRequests)
+                return true;
 
             ulong syncToBlock = syncTargetBlockNum;
 
@@ -128,6 +136,9 @@ namespace DLT
             {
                 firstBlock = CoreConfig.redactedWindowSize > syncToBlock ? 1 : syncToBlock - CoreConfig.redactedWindowSize + 1;
             }
+
+            long currentTime = Core.getCurrentTimestamp();
+
             lock (pendingBlocks)
             {
                 ulong lastBlock = syncToBlock;
@@ -150,6 +161,31 @@ namespace DLT
 
                 foreach (ulong blockNum in tmpMissingBlocks)
                 {
+                    // Check if the block has already been requested
+                    lock (requestedBlockTimes)
+                    {
+                        if (requestedBlockTimes.ContainsKey(blockNum))
+                        {
+                            // Check if the request expired (after 25 seconds)
+                            if (requestedBlockTimes[blockNum] > currentTime + 25)
+                            {
+                                // Re-request block
+                                if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                                {
+                                    Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
+                                }
+                                // Re-set the block request time
+                                requestedBlockTimes[blockNum] = currentTime;
+                                continue;
+                            }
+                            else
+                            {
+                                // Wait a bit before requesting this block again
+                                continue;
+                            }
+                        }
+                    }
+
                     // First check if the missing block can be found in storage
                     Block block = Node.blockChain.getBlock(blockNum, true);
                     if (block != null)
@@ -163,6 +199,12 @@ namespace DLT
                     if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
                     {
                         Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
+                    }
+
+                    // Set the block request time
+                    lock (requestedBlockTimes)
+                    {
+                        requestedBlockTimes.Add(blockNum, currentTime);
                     }
 
                     count++;
@@ -459,7 +501,7 @@ namespace DLT
             {
                 ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.getUnappliedTransactions, new byte[1], null, true);
 
-               Node.miner.start();
+                Node.miner.start();
             }
 
         }
@@ -605,6 +647,13 @@ namespace DLT
                 {
                     pendingBlocks.Add(b);
                 }
+            }
+
+            // Remove from requestedblocktimes, as the block has been received 
+            lock (requestedBlockTimes)
+            {
+                if (requestedBlockTimes.ContainsKey(b.blockNum))
+                    requestedBlockTimes.Remove(b.blockNum);
             }
         }
         

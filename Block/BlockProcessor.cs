@@ -578,12 +578,12 @@ namespace DLT
                             requestAll = false;
                         }
                         ProtocolMessage.broadcastGetBlockTransactions(b.blockNum, requestAll, endpoint);
+                        Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
+
                     }
                     fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
                     fetchingTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
                 }
-                Thread.Sleep(100); // TODO TODO TODO hack, remove for fun with network buffers
-                Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
                 return BlockVerifyStatus.Indeterminate;
             }
             lock (fetchingTxForBlocks)
