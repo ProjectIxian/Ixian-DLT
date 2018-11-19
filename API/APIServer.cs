@@ -349,7 +349,7 @@ namespace DLTNode
                     block_num = 0;
                 }
 
-                Block block = Node.blockChain.getBlock(block_num);
+                Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
                 if (block == null)
                     return false;
 
@@ -422,7 +422,7 @@ namespace DLTNode
                     block_num = 0;
                 }
 
-                Block block = Node.blockChain.getBlock(block_num);
+                Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
                 if (block == null)
                     return false;
 
@@ -441,7 +441,7 @@ namespace DLTNode
                 blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
-                blockData.Add("Transactions", JsonConvert.SerializeObject(block.getFullTransactionsAsArray()));
+                blockData.Add("Transactions", JsonConvert.SerializeObject(block.getFullTransactionsAsArray(Config.storeFullHistory)));
 
                 // Respond with the block details
                 string responseString = JsonConvert.SerializeObject(blockData);

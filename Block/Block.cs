@@ -651,12 +651,12 @@ namespace DLT
         }
 
         // temporary function that will correctly JSON Serialize IxiNumber
-        public List<Dictionary<string, object>> getFullTransactionsAsArray()
+        public List<Dictionary<string, object>> getFullTransactionsAsArray(bool searchInStorage = false)
         {
             List<Dictionary<string, object>> txList = new List<Dictionary<string, object>>();
             for (int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = TransactionPool.getTransaction(transactions[i]);
+                Transaction t = TransactionPool.getTransaction(transactions[i], searchInStorage);
                 if (t == null)
                 {
                     Logging.error(string.Format("nulltx: {0}", transactions[i]));
