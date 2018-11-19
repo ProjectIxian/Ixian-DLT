@@ -73,8 +73,9 @@ namespace DLTNode
         static void CheckVCRedist()
         {
             object installed_vc_redist = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64", "Installed", 0);
+            object installed_vc_redist_debug = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\debug\\x64", "Installed", 0);
             bool success = false;
-            if (installed_vc_redist is int && (int)installed_vc_redist > 0)
+            if ((installed_vc_redist is int && (int)installed_vc_redist > 0) || (installed_vc_redist_debug is int && (int)installed_vc_redist_debug > 0))
             {
                 Logging.info("Visual C++ 2017 (v141) redistributable is already installed.");
                 success = true;
@@ -134,7 +135,8 @@ namespace DLTNode
                             }
                         }
                         installed_vc_redist = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64", "Installed", 0);
-                        if (installed_vc_redist is int && (int)installed_vc_redist > 0)
+                        installed_vc_redist_debug = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\debug\\x64", "Installed", 0);
+                        if ((installed_vc_redist is int && (int)installed_vc_redist > 0) || (installed_vc_redist_debug is int && (int)installed_vc_redist_debug > 0))
                         {
                             Logging.info("Visual C++ 2017 (v141) redistributable has installed successfully.");
                             success = true;
