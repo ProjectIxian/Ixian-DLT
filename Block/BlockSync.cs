@@ -82,8 +82,6 @@ namespace DLT
                         // Proceed with rolling forward the chain
                         rollForward();
 
-                        // TOOD TODO TODO TODO this section expects that 25 blocks will be received in 500ms, otherwise it will request the blocks again
-                        // do this properly, since that's unrealistic when blocks exceed 100kB
                         if (requestMissingBlocks())
                         {
                             // If blocks were requested, wait for next iteration
@@ -192,19 +190,20 @@ namespace DLT
                     {
                         block.powField = null;
                         Node.blockSync.onBlockReceived(block);
-                        continue;
                     }
-
-                    // Didn't find the block in storage, request it from the network
-                    if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                    else
                     {
-                        Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
-                    }
+                        // Didn't find the block in storage, request it from the network
+                        if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                        {
+                            Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
+                        }
 
-                    // Set the block request time
-                    lock (requestedBlockTimes)
-                    {
-                        requestedBlockTimes.Add(blockNum, currentTime);
+                        // Set the block request time
+                        lock (requestedBlockTimes)
+                        {
+                            requestedBlockTimes.Add(blockNum, currentTime);
+                        }
                     }
 
                     count++;
@@ -426,6 +425,10 @@ namespace DLT
                     else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                     {
                         // invalid sigfreeze, waiting for the correct block
+                        lock (pendingBlocks)
+                        {
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                        }
                         return;
                     }
                 }catch(Exception e)
