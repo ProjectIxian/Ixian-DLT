@@ -401,10 +401,26 @@ namespace DLT
                         }
                     }
                 }
+            }
 
-
-
-
+            public static bool checkNodeConnectivity(RemoteEndpoint endpoint)
+            {
+                // TODO TODO TODO TODO we should put this in a separate thread
+                string hostname = endpoint.getFullAddress(true);
+                if (CoreNetworkUtils.PingAddressReachable(hostname) == false)
+                {
+                    Logging.warn("New node was not reachable on the advertised address.");
+                    using (MemoryStream reply_stream = new MemoryStream())
+                    {
+                        using (BinaryWriter w = new BinaryWriter(reply_stream))
+                        {
+                            w.Write("External IP:Port not reachable!");
+                            endpoint.sendData(ProtocolMessageCode.bye, reply_stream.ToArray());
+                        }
+                    }
+                    return false;
+                }
+                return true;
             }
 
             public static bool processHelloMessage(RemoteEndpoint endpoint, BinaryReader reader)
@@ -415,27 +431,6 @@ namespace DLT
                     // Ignore the hello message in this case
                     return false;
                 }
-
-                /*Logging.info(String.Format("New node connected with advertised address {0}", hostname));
-                if(CoreNetworkUtils.PingAddressReachable(hostname) == false)
-                {
-                    Logging.warn("New node was not reachable on the advertised address.");
-                    using (MemoryStream reply_stream = new MemoryStream())
-                    {
-                        using (BinaryWriter w = new BinaryWriter(reply_stream))
-                        {
-                            w.Write("External IP:Port not reachable!");
-                            socket.Send(reply_stream.ToArray(), SocketFlags.None);
-                            socket.Disconnect(true);
-                            return;
-                        }
-                    }
-                }*/
-                //Console.WriteLine("Received IP: {0}", hostname);
-
-                // Verify that the reported hostname matches the actual socket's IP
-                //endpoint.remoteIP;
-
 
                 // Another layer to catch any incompatible node exceptions for the hello message
                 try
@@ -512,8 +507,10 @@ namespace DLT
                         {
                             using (BinaryWriter writer = new BinaryWriter(m2))
                             {
-                                writer.Write(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress(true)));
-                                Logging.warn(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.getFullAddress(true)));
+                                writer.Write(600);
+                                writer.Write("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP:");
+                                writer.Write(endpoint.address);
+                                Logging.warn(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.address));
                                 endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                                 return false;
                             }
@@ -537,6 +534,12 @@ namespace DLT
                         }
 
                         ((NetworkClient)endpoint).timeDifference = timeDiff;
+                    }else
+                    {
+                        if (!checkNodeConnectivity(endpoint))
+                        {
+                            return false;
+                        }
                     }
 
                     // Store the presence address for this remote endpoint
@@ -928,9 +931,44 @@ namespace DLT
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
+                                        endpoint.stop();
+
+                                        bool byeV1 = false;
+                                        try
+                                        {
+                                            int byeCode = reader.ReadInt32();
+                                            string byeMessage = reader.ReadString();
+                                            string byeData = reader.ReadString();
+
+                                            byeV1 = true;
+
+                                            Logging.error(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+
+                                            if (byeCode == 600)
+                                            {
+                                                if (Node.validateIPv4(byeData))
+                                                {
+                                                    if (NetworkClientManager.getConnectedClients().Length == 1)
+                                                    {
+                                                        Config.publicServerIP = byeData;
+                                                    }
+                                                }
+                                            }
+
+                                        }
+                                        catch (Exception e)
+                                        {
+
+                                        }
+                                        if(byeV1)
+                                        {
+                                            return;
+                                        }
+
+                                        reader.BaseStream.Seek(0, SeekOrigin.Begin);
+
                                         // Retrieve the message
                                         string message = reader.ReadString();
-                                        endpoint.stop();
 
                                         // Convert to Worker node if possible
                                         if(message.StartsWith("Insufficient funds"))

@@ -275,6 +275,13 @@ namespace DLT
                 clientSocket.NoDelay = true;
                 clientSocket.Blocking = true;
 
+                if(!Node.blockProcessor.operating)
+                {
+                    clientSocket.Disconnect(true);
+                    clientSocket.Shutdown(SocketShutdown.Both);
+                    return;
+                }
+
                 // Setup the remote endpoint
                 RemoteEndpoint remoteEndpoint = new RemoteEndpoint();
 
@@ -294,7 +301,9 @@ namespace DLT
                     {
                         Logging.warn(String.Format("Client {0}:{1} already connected as {2}.",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port, existing_clients.First().ToString()));
-                        // TODO: handle this situation (client already connected)
+                        clientSocket.Disconnect(true);
+                        clientSocket.Shutdown(SocketShutdown.Both);
+                        return;
                     }
 
                     connectedClients.Add(remoteEndpoint);

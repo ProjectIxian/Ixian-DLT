@@ -225,15 +225,15 @@ namespace DLT.Meta
         {
             if(serverStarted == false)
             {
-                if(Node.blockProcessor.operating == true)
-                {
+                /*if(Node.blockProcessor.operating == true)
+                {*/
                     Logging.info("Starting Network Server now.");
 
                     // Start the node server
                     NetworkServer.beginNetworkOperations();
 
                     serverStarted = true;
-                }
+                //}
             }
 
             // Check for node deprecation
@@ -340,6 +340,7 @@ namespace DLT.Meta
         // Shows an IP selector menu
         static public void showIPmenu()
         {
+            return;
             Thread.Sleep(1000); // sleep a bit to allow logging to do it's thing
             Console.WriteLine("This node needs to be reachable from the internet. Please select a valid IP address.");
             Console.WriteLine();
@@ -454,7 +455,7 @@ namespace DLT.Meta
         }
 
         // Helper for validating IPv4 addresses
-        static private bool validateIPv4(string ipString)
+        static public bool validateIPv4(string ipString)
         {
             if (String.IsNullOrWhiteSpace(ipString))
             {

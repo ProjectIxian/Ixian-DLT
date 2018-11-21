@@ -178,7 +178,7 @@ namespace DLTNode
                        }
                    }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getWalletAddress(), null, null, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", CoreConfig.foundationAddress, Node.walletStorage.getWalletAddress(), null, null, Node.blockChain.getLastBlockNum());
 
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
@@ -245,7 +245,7 @@ namespace DLTNode
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = CoreConfig.transactionPrice;
-                byte[] to = Encoding.UTF8.GetBytes("08a4a1d8bae813dc2cfb0185175f02bd8da5d9cec470e99ec3b010794605c854a481");
+                byte[] to = CoreConfig.foundationAddress;
                 byte[] from = Node.walletStorage.getWalletAddress();
 
                 byte[] pubKey = Node.walletStorage.publicKey;
