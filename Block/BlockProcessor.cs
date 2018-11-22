@@ -39,6 +39,8 @@ namespace DLT
 
         public ulong highestNetworkBlockNum = 0;
 
+        Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlackList = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.Now;
@@ -280,6 +282,35 @@ namespace DLT
             if (operating == false) return;
             Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getUniqueSignatureCount()));
 
+            lock(blockBlackList)
+            {
+                if (blockBlackList.ContainsKey(b.blockNum))
+                {
+                    Dictionary<byte[], DateTime> bbl = blockBlackList[b.blockNum];
+                    if (bbl.ContainsKey(b.blockChecksum))
+                    {
+                        DateTime dt = bbl[b.blockChecksum];
+                        if ((DateTime.Now - dt).TotalSeconds > blockGenerationInterval * 4)
+                        {
+                            blockBlackList[b.blockNum].Remove(b.blockChecksum);
+                            if (blockBlackList[b.blockNum].Count() == 0)
+                            {
+                                blockBlackList.Remove(b.blockNum);
+                            }
+                        }
+                        return;
+                    }
+                }
+                Dictionary<ulong, Dictionary<byte[], DateTime>> tmpList = new Dictionary<ulong, Dictionary<byte[], DateTime>>(blockBlackList);
+                foreach(var i in tmpList)
+                {
+                    if (i.Key < b.blockNum)
+                    {
+                        blockBlackList.Remove(i.Key);
+                    }
+                }
+            }
+
             // if historic block, only the sigs should be updated if not older than 5 blocks in history
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
             {
@@ -293,13 +324,16 @@ namespace DLT
                         {
                             if (handleSigFreezedBlock(b, endpoint))
                             {
-                                removeSignaturesWithoutPlEntry(b);
-                                removeSignaturesWithLowBalance(b);
-                                if (Node.blockChain.refreshSignatures(b))
+                                if (b.blockNum > Node.blockChain.getLastBlockNum() - 5)
                                 {
-                                    // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                    Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                                    ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                    removeSignaturesWithoutPlEntry(b);
+                                    removeSignaturesWithLowBalance(b);
+                                    if (Node.blockChain.refreshSignatures(b))
+                                    {
+                                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                                        ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                    }
                                 }
                             }
                         }
@@ -757,6 +791,25 @@ namespace DLT
                         if(!verifySignatureFreezeChecksum(localNewBlock))
                         {
                             Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
+                            TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+                            Random rnd = new Random();
+                            if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
+                            {
+                                lock (blockBlackList)
+                                {
+                                    Dictionary<byte[], DateTime> blackListedBlocks = null;
+                                    if (blockBlackList.ContainsKey(localNewBlock.blockNum))
+                                    {
+                                        blackListedBlocks = blockBlackList[localNewBlock.blockNum];
+                                    }else
+                                    {
+                                        blackListedBlocks = new Dictionary<byte[], DateTime>();
+                                    }
+                                    blackListedBlocks.AddOrReplace(localNewBlock.blockChecksum, DateTime.Now);
+                                    blockBlackList.AddOrReplace(localNewBlock.blockNum, blackListedBlocks);
+                                }
+                                localNewBlock = null;
+                            }
                             return;
                         }
                         if (localNewBlock.blockNum != Node.blockChain.getLastBlockNum() + 1)
