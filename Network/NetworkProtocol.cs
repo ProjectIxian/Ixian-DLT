@@ -536,9 +536,12 @@ namespace DLT
                         ((NetworkClient)endpoint).timeDifference = timeDiff;
                     }else
                     {
-                        if (!checkNodeConnectivity(endpoint))
+                        if (node_type == 'M' || node_type == 'H' || node_type == 'R')
                         {
-                            return false;
+                            if (!checkNodeConnectivity(endpoint))
+                            {
+                                return false;
+                            }
                         }
                     }
 

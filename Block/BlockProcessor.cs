@@ -39,7 +39,7 @@ namespace DLT
 
         public ulong highestNetworkBlockNum = 0;
 
-        Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlackList = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
+        Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
 
         public BlockProcessor()
         {
@@ -282,33 +282,9 @@ namespace DLT
             if (operating == false) return;
             Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getUniqueSignatureCount()));
 
-            lock(blockBlackList)
+            if(isBlockBlacklisted(b))
             {
-                if (blockBlackList.ContainsKey(b.blockNum))
-                {
-                    Dictionary<byte[], DateTime> bbl = blockBlackList[b.blockNum];
-                    if (bbl.ContainsKey(b.blockChecksum))
-                    {
-                        DateTime dt = bbl[b.blockChecksum];
-                        if ((DateTime.Now - dt).TotalSeconds > blockGenerationInterval * 4)
-                        {
-                            blockBlackList[b.blockNum].Remove(b.blockChecksum);
-                            if (blockBlackList[b.blockNum].Count() == 0)
-                            {
-                                blockBlackList.Remove(b.blockNum);
-                            }
-                        }
-                        return;
-                    }
-                }
-                Dictionary<ulong, Dictionary<byte[], DateTime>> tmpList = new Dictionary<ulong, Dictionary<byte[], DateTime>>(blockBlackList);
-                foreach(var i in tmpList)
-                {
-                    if (i.Key < b.blockNum)
-                    {
-                        blockBlackList.Remove(i.Key);
-                    }
-                }
+                return;
             }
 
             // if historic block, only the sigs should be updated if not older than 5 blocks in history
@@ -770,21 +746,65 @@ namespace DLT
             }
         }
 
-        private void blackListBlock(Block b)
+        // Adds a block to the blacklist
+        private void blacklistBlock(Block b)
         {
-            lock (blockBlackList)
+            lock (blockBlacklist)
             {
-                Dictionary<byte[], DateTime> blackListedBlocks = null;
-                if (blockBlackList.ContainsKey(b.blockNum))
+                Dictionary<byte[], DateTime> blacklistedBlocks = null;
+                if (blockBlacklist.ContainsKey(b.blockNum))
                 {
-                    blackListedBlocks = blockBlackList[b.blockNum];
+                    blacklistedBlocks = blockBlacklist[b.blockNum];
                 }
                 else
                 {
-                    blackListedBlocks = new Dictionary<byte[], DateTime>();
+                    blacklistedBlocks = new Dictionary<byte[], DateTime>();
                 }
-                blackListedBlocks.AddOrReplace(b.blockChecksum, DateTime.Now);
-                blockBlackList.AddOrReplace(b.blockNum, blackListedBlocks);
+                blacklistedBlocks.AddOrReplace(b.blockChecksum, DateTime.Now);
+                blockBlacklist.AddOrReplace(b.blockNum, blacklistedBlocks);
+            }
+        }
+
+        // Returns true if block is blacklisted
+        private bool isBlockBlacklisted(Block b)
+        {
+            lock (blockBlacklist)
+            {
+                if (blockBlacklist.ContainsKey(b.blockNum))
+                {
+                    Dictionary<byte[], DateTime> bbl = blockBlacklist[b.blockNum];
+                    if (bbl.ContainsKey(b.blockChecksum))
+                    {
+                        DateTime dt = bbl[b.blockChecksum];
+                        if ((DateTime.Now - dt).TotalSeconds > blockGenerationInterval * 4)
+                        {
+                            blockBlacklist[b.blockNum].Remove(b.blockChecksum);
+                            if (blockBlacklist[b.blockNum].Count() == 0)
+                            {
+                                blockBlacklist.Remove(b.blockNum);
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Removes blocks with older block height from the blacklist
+        private void cleanupBlockBlacklist()
+        {
+            ulong blockNum = Node.blockChain.getLastBlockNum();
+            lock (blockBlacklist)
+            {
+                Dictionary<ulong, Dictionary<byte[], DateTime>> tmpList = new Dictionary<ulong, Dictionary<byte[], DateTime>>(blockBlacklist);
+                foreach (var i in tmpList)
+                {
+                    if (i.Key <= blockNum)
+                    {
+                        blockBlacklist.Remove(i.Key);
+                    }
+                }
             }
         }
 
@@ -813,7 +833,7 @@ namespace DLT
                             Random rnd = new Random();
                             if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
                             {
-                                blackListBlock(localNewBlock);
+                                blacklistBlock(localNewBlock);
                                 localNewBlock = null;
                             }
                             return;
@@ -854,6 +874,8 @@ namespace DLT
                                 lastBlockStartTime = DateTime.Now;
                                 localNewBlock.logBlockDetails();
                                 localNewBlock = null;
+
+                                cleanupBlockBlacklist();
 
                                 // Reset transaction limits
                                 //TransactionPool.resetSocketTransactionLimits();
