@@ -770,6 +770,24 @@ namespace DLT
             }
         }
 
+        private void blackListBlock(Block b)
+        {
+            lock (blockBlackList)
+            {
+                Dictionary<byte[], DateTime> blackListedBlocks = null;
+                if (blockBlackList.ContainsKey(b.blockNum))
+                {
+                    blackListedBlocks = blockBlackList[b.blockNum];
+                }
+                else
+                {
+                    blackListedBlocks = new Dictionary<byte[], DateTime>();
+                }
+                blackListedBlocks.AddOrReplace(b.blockChecksum, DateTime.Now);
+                blockBlackList.AddOrReplace(b.blockNum, blackListedBlocks);
+            }
+        }
+
         private void verifyBlockAcceptance()
         {
             bool requestBlockAgain = false;
@@ -795,19 +813,7 @@ namespace DLT
                             Random rnd = new Random();
                             if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
                             {
-                                lock (blockBlackList)
-                                {
-                                    Dictionary<byte[], DateTime> blackListedBlocks = null;
-                                    if (blockBlackList.ContainsKey(localNewBlock.blockNum))
-                                    {
-                                        blackListedBlocks = blockBlackList[localNewBlock.blockNum];
-                                    }else
-                                    {
-                                        blackListedBlocks = new Dictionary<byte[], DateTime>();
-                                    }
-                                    blackListedBlocks.AddOrReplace(localNewBlock.blockChecksum, DateTime.Now);
-                                    blockBlackList.AddOrReplace(localNewBlock.blockNum, blackListedBlocks);
-                                }
+                                blackListBlock(localNewBlock);
                                 localNewBlock = null;
                             }
                             return;
