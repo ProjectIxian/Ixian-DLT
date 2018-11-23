@@ -166,7 +166,7 @@ namespace DLT
                 while (continueRunning)
                 {
                     handleDisconnectedClients();
-                    if (connectedClients.Count < CoreConfig.maximumServerClients)
+                    if (connectedClients.Count < CoreConfig.maximumServerMasterNodes)
                     {
                         // Use a blocking mechanism
                         try
@@ -287,7 +287,7 @@ namespace DLT
 
                 lock (connectedClients)
                 {
-                    if (connectedClients.Count + 1 > CoreConfig.maximumServerClients)
+                    if (connectedClients.Count + 1 > CoreConfig.maximumServerMasterNodes)
                     {
                         Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port));
@@ -309,7 +309,7 @@ namespace DLT
                     connectedClients.Add(remoteEndpoint);
                 }
 
-                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, CoreConfig.maximumServerClients));
+                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, CoreConfig.maximumServerMasterNodes));
 
                 remoteEndpoint.start(clientSocket);
             }
