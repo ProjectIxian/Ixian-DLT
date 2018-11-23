@@ -485,7 +485,20 @@ namespace DLT
                         }
                     }
 
-                    // TODO TODO TODO verify pubkey against address
+                    // Check the address and pubkey and disconnect on mismatch
+                    if (!addr.SequenceEqual((new Address(pubkey)).address))
+                    {
+                        using (MemoryStream m2 = new MemoryStream())
+                        {
+                            using (BinaryWriter writer = new BinaryWriter(m2))
+                            {
+                                writer.Write(string.Format("Pubkey and address do not match."));
+                                Logging.warn(string.Format("Pubkey and address do not match."));
+                                endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
+                                return false;
+                            }
+                        }
+                    }
 
 
                     //Console.WriteLine("Received Address: {0} of type {1}", addr, node_type);

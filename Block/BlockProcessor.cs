@@ -95,6 +95,13 @@ namespace DLT
                 if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
                 {
                     forceNextBlock = true;
+                    lastBlockStartTime = DateTime.Now;
+                }
+
+                if(localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20) + rnd.Next(30))
+                {
+                    forceNextBlock = true;
+                    lastBlockStartTime = DateTime.Now;
                 }
 
                 //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
@@ -758,7 +765,7 @@ namespace DLT
                 }
                 else
                 {
-                    blacklistedBlocks = new Dictionary<byte[], DateTime>();
+                    blacklistedBlocks = new Dictionary<byte[], DateTime>(new ByteArrayComparer());
                 }
                 blacklistedBlocks.AddOrReplace(b.blockChecksum, DateTime.Now);
                 blockBlacklist.AddOrReplace(b.blockNum, blacklistedBlocks);
@@ -776,7 +783,7 @@ namespace DLT
                     if (bbl.ContainsKey(b.blockChecksum))
                     {
                         DateTime dt = bbl[b.blockChecksum];
-                        if ((DateTime.Now - dt).TotalSeconds > blockGenerationInterval * 4)
+                        if ((DateTime.Now - dt).TotalSeconds > blockGenerationInterval * 10)
                         {
                             blockBlacklist[b.blockNum].Remove(b.blockChecksum);
                             if (blockBlacklist[b.blockNum].Count() == 0)
