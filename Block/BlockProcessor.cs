@@ -95,13 +95,14 @@ namespace DLT
                 if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
                 {
                     forceNextBlock = true;
-                    lastBlockStartTime = DateTime.Now;
                 }
 
-                if(localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20) + rnd.Next(30))
+                // if the node is stuck on the same block for too long, discard the block
+                if(localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20))
                 {
-                    forceNextBlock = true;
-                    lastBlockStartTime = DateTime.Now;
+                    blacklistBlock(localNewBlock);
+                    localNewBlock = null;
+                    lastBlockStartTime = DateTime.Now.AddSeconds(blockGenerationInterval * 10);
                 }
 
                 //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
@@ -842,6 +843,7 @@ namespace DLT
                             {
                                 blacklistBlock(localNewBlock);
                                 localNewBlock = null;
+                                lastBlockStartTime = DateTime.Now.AddSeconds(blockGenerationInterval * 10);
                             }
                             return;
                         }
