@@ -2,7 +2,7 @@
 using System;
 using System.IO;
 
-namespace DLTNode.Meta
+namespace DLT.Meta
 {
 
     public class WalletStateStorage

@@ -1,6 +1,5 @@
 ﻿using DLT.Meta;
 using DLT.Network;
-using DLTNode.Meta;
 using IXICore;
 using IXICore.Utils;
 using System;

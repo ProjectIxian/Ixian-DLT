@@ -400,7 +400,7 @@ namespace DLT
                         }
                         if (b.blockNum % 1000 == 0)
                         {
-                            DLTNode.Meta.WalletStateStorage.saveWalletState(b.blockNum);
+                            DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
                         }
                     }
                     else
