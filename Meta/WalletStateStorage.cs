@@ -1,17 +1,13 @@
 ﻿using DLT.Meta;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DLTNode.Meta
 {
 
     public class WalletStateStorage
     {
-        public static string baseFilename = "ws\\wsStorage.dat";
+        public static string baseFilename = "ws" + Path.PathSeparator + "wsStorage.dat";
 
         public static void saveWalletState(ulong blockNum)
         {
@@ -78,10 +74,10 @@ namespace DLTNode.Meta
                     wallets[j] = new DLT.Wallet(entryBytes);
                     if (j == 24 || i == walletCount - 1)
                     {
-                        /*for (int k = 24; k > j; k--)
+                        for (int k = 24; k > j; k--)
                         {
                             wallets[k] = null;
-                        }*/
+                        }
                         Node.walletState.setWalletChunk(wallets);
                         j = 0;
                     }
