@@ -1,10 +1,8 @@
-using DLTNode.Meta;
 using Fclp;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace DLT
 {
@@ -208,7 +206,7 @@ namespace DLT
                     apiPort = testnetApiPort;
                     Storage.filename = "testnet-blockchain.dat";
                     PeerStorage.peersFilename = "testnet-peers.dat";
-                    WalletStateStorage.baseFilename = "ws"+ Path.PathSeparator +"testnet-wsStorage.dat";
+                    WalletStateStorage.baseFilename = "ws"+ Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
                 }
 
 

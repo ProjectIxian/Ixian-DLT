@@ -7,7 +7,7 @@ namespace DLT.Meta
 
     public class WalletStateStorage
     {
-        public static string baseFilename = "ws" + Path.PathSeparator + "wsStorage.dat";
+        public static string baseFilename = "ws" + Path.DirectorySeparatorChar + "wsStorage.dat";
 
         public static void saveWalletState(ulong blockNum)
         {

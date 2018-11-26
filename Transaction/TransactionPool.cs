@@ -761,8 +761,12 @@ namespace DLT
                     stakingTxIds.Remove(tx.id);
                 } else
                 {
-                    Logging.error(String.Format("Invalid staking txid in block {0}", tx.id));
-                    return false;
+                    Logging.error(String.Format("Invalid staking txid in transaction pool {0}, removing from pool.", tx.id));
+                    lock(transactions)
+                    {
+                        transactions.Remove(tx.id);
+                    }
+                    continue;
                 }
 
                 if (tx.applied > 0)

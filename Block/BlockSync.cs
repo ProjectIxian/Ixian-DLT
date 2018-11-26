@@ -252,7 +252,7 @@ namespace DLT
 
             ulong syncToBlock = syncTargetBlockNum;
 
-            if (CoreConfig.redactedWindowSize < syncToBlock)
+            if (syncToBlock > CoreConfig.redactedWindowSize)
             {
                 lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize + 1;
                 if (wsSyncConfirmedBlockNum > 0 && wsSyncConfirmedBlockNum < lowestBlockNum)
