@@ -465,9 +465,9 @@ namespace DLT
 
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint skipEndpoint = null)
+        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint skipEndpoint = null, bool verifyTx = true)
         {
-            if (Node.blockSync.synchronizing == false || Config.storeFullHistory)
+            if (verifyTx)
             {
                 if (!verifyTransaction(transaction))
                 {
@@ -698,8 +698,8 @@ namespace DLT
                             b.blockNum, Crypto.hashToString(b.blockChecksum), txid));
                         return false;
                     }
-                    setAppliedFlag(txid, b.blockNum);
                     applyPowTransaction(tx, b, blockSolutionsDictionary, null, true);
+                    setAppliedFlag(txid, b.blockNum);
                 }
                 // set PoW fields
                 for (int i = 0; i < blockSolutionsDictionary.Count; i++)

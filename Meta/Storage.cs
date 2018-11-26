@@ -135,6 +135,22 @@ namespace DLT
                 public int version { get; set; }
             }
 
+            public static ulong getLastBlockNum()
+            {
+                string sql = string.Format("SELECT * FROM blocks ORDER BY blockNum DESC LIMIT 1");
+                var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
+
+                if (_storage_block == null)
+                    return 0;
+
+                if (_storage_block.Length < 1)
+                    return 0;
+
+                _storage_Block blk = _storage_block[0];
+
+                return (ulong)blk.blockNum;
+            }
+
             public static bool readFromStorage()
             {
                 Logging.info("Reading blockchain from storage");

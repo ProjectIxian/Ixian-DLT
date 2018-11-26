@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using DLT.Network;
+using DLTNode.Meta;
 using IXICore;
 using IXICore.Utils;
 using System;
@@ -435,11 +436,25 @@ namespace DLT
             // verify difficulty
             if (Node.blockChain.getLastBlockNum() + 1 == b.blockNum)
             {
-                ulong expectedDifficulty = calculateDifficulty(b.version);
-                if (b.difficulty != expectedDifficulty)
+                bool verifyDifficulty = false;
+                if(b.blockNum > CoreConfig.minimumRedactedWindowSize)
                 {
-                    Logging.warn(String.Format("Received block #{0} ({1}) which had a difficulty {2}, expected difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.difficulty, expectedDifficulty));
-                    return BlockVerifyStatus.Invalid;
+                    if((ulong)Node.blockChain.Count >= CoreConfig.minimumRedactedWindowSize)
+                    {
+                        verifyDifficulty = true;
+                    }
+                }else if(b.blockNum == (ulong)Node.blockChain.Count + 1)
+                {
+                    verifyDifficulty = true;
+                }
+                if (verifyDifficulty)
+                {
+                    ulong expectedDifficulty = calculateDifficulty(b.version);
+                    if (b.difficulty != expectedDifficulty)
+                    {
+                        Logging.warn(String.Format("Received block #{0} ({1}) which had a difficulty {2}, expected difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.difficulty, expectedDifficulty));
+                        return BlockVerifyStatus.Invalid;
+                    }
                 }
             }
 
@@ -461,7 +476,7 @@ namespace DLT
                 return basicVerification;
             }
 
-            if (Node.blockChain.getLastBlockNum() + 1 != b.blockNum)
+            if (Node.blockChain.Count > 0 && Node.blockChain.getLastBlockNum() + 1 != b.blockNum)
             {
                 // TODO TODO TODO verify if the block matches the one in blockchain and validate it
                 return BlockVerifyStatus.Indeterminate;
@@ -493,7 +508,7 @@ namespace DLT
                 // Skip fetching staking txids if we're not synchronizing
                 if (txid.StartsWith("stk"))
                 {
-                    if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && Config.storeFullHistory))
+                    if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && b.blockNum > Node.blockSync.wsSyncConfirmedBlockNum))
                         continue;
                 }
 
@@ -517,7 +532,7 @@ namespace DLT
                 }else if(Node.blockSync.synchronizing && TransactionPool.getTransaction(txid) == null)
                 {
                     t.applied = 0;
-                    TransactionPool.addTransaction(t, true);
+                    TransactionPool.addTransaction(t, true, null, false);
                 }
                 // TODO TODO TODO TODO plus balances should also be added to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(t.from))
@@ -884,8 +899,6 @@ namespace DLT
                                 localNewBlock.logBlockDetails();
                                 localNewBlock = null;
 
-                                cleanupBlockBlacklist();
-
                                 // Reset transaction limits
                                 //TransactionPool.resetSocketTransactionLimits();
 
@@ -897,6 +910,11 @@ namespace DLT
                                     highestNetworkBlockNum = 0;
                                 }
 
+                                cleanupBlockBlacklist();
+                                if (Node.blockChain.getLastBlockNum() % 1000 == 0)
+                                {
+                                    WalletStateStorage.saveWalletState(Node.blockChain.getLastBlockNum());
+                                }
                             }
                         }
                         else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
@@ -959,6 +977,10 @@ namespace DLT
 
         public bool verifySignatureFreezeChecksum(Block b)
         {
+            if(Node.blockChain.Count < 5)
+            {
+                return true;
+            }
             if (b.signatureFreezeChecksum != null)
             {
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);

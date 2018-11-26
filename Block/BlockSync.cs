@@ -26,7 +26,7 @@ namespace DLT
         int maxBlockRequests = 50; // Maximum number of block requests per iteration
         bool receivedAllMissingBlocks = false;
 
-        ulong wsSyncConfirmedBlockNum;
+        public ulong wsSyncConfirmedBlockNum = 0;
         int wsSyncConfirmedVersion;
         bool wsSynced = false;
         string syncNeighbor;
@@ -124,16 +124,7 @@ namespace DLT
 
             ulong syncToBlock = syncTargetBlockNum;
 
-            if (wsSyncConfirmedBlockNum > 0)
-            {
-                syncToBlock = wsSyncConfirmedBlockNum;
-            }
-
-            ulong firstBlock = 1;
-            if (!Config.storeFullHistory)
-            {
-                firstBlock = CoreConfig.redactedWindowSize > syncToBlock ? 1 : syncToBlock - CoreConfig.redactedWindowSize + 1;
-            }
+            ulong firstBlock = getLowestBlockNum();
 
             long currentTime = Core.getCurrentTimestamp();
 
@@ -188,7 +179,6 @@ namespace DLT
                     Block block = Node.blockChain.getBlock(blockNum, true);
                     if (block != null)
                     {
-                        block.powField = null;
                         Node.blockSync.onBlockReceived(block);
                     }
                     else
@@ -256,23 +246,41 @@ namespace DLT
             }
         }
 
-        private void rollForward()
+        private ulong getLowestBlockNum()
         {
-            bool sleep = false;
-
             ulong lowestBlockNum = 1;
 
             ulong syncToBlock = syncTargetBlockNum;
 
-            if (wsSyncConfirmedBlockNum > 0)
-            {
-                syncToBlock = wsSyncConfirmedBlockNum;
-            }
-
-            if (!Config.storeFullHistory && CoreConfig.redactedWindowSize < syncToBlock)
+            if (CoreConfig.redactedWindowSize < syncToBlock)
             {
                 lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize + 1;
+                if (wsSyncConfirmedBlockNum > 0 && wsSyncConfirmedBlockNum < lowestBlockNum)
+                {
+                    if (wsSyncConfirmedBlockNum > CoreConfig.redactedWindowSize)
+                    {
+                        lowestBlockNum = wsSyncConfirmedBlockNum - CoreConfig.redactedWindowSize + 1;
+                    }
+                    else
+                    {
+                        lowestBlockNum = 1;
+                    }
+                }else if(wsSyncConfirmedBlockNum == 0)
+                {
+                    lowestBlockNum = 1;
+                }
             }
+            return lowestBlockNum;
+        }
+
+        private void rollForward()
+        {
+            bool sleep = false;
+
+            ulong lowestBlockNum = getLowestBlockNum();
+
+            ulong syncToBlock = syncTargetBlockNum;
+
             if (Node.blockChain.Count > 0)
             {
                 lock (pendingBlocks)
@@ -292,13 +300,13 @@ namespace DLT
             while (pendingBlockCount > 0)
             {
 
-                ulong next_to_apply = Node.blockChain.getLastBlockNum() + 1;
-                if (next_to_apply < lowestBlockNum)
+                ulong next_to_apply = lowestBlockNum;
+                if (Node.blockChain.Count > 0)
                 {
-                    next_to_apply = lowestBlockNum;
+                    next_to_apply = Node.blockChain.getLastBlockNum() + 1;
                 }
 
-                if(next_to_apply > syncToBlock)
+                if (next_to_apply > syncToBlock)
                 {
                     // we have everything, clear pending blocks and break
                     lock (pendingBlocks)
@@ -324,10 +332,6 @@ namespace DLT
 
                 ulong targetBlock = next_to_apply - 5;
 
-                if (targetBlock < lowestBlockNum)
-                {
-                    targetBlock = lowestBlockNum;
-                }
                 Block tb = null;
                 lock (pendingBlocks)
                 {
@@ -335,9 +339,9 @@ namespace DLT
                 }
                 if (tb != null)
                 {
-                    Node.blockChain.refreshSignatures(tb, true);
                     if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                     {
+                        Node.blockChain.refreshSignatures(tb, true);
                         Node.blockProcessor.handleSigFreezedBlock(tb);
                     }
                     lock (pendingBlocks)
@@ -356,7 +360,7 @@ namespace DLT
 
                     bool ignoreWalletState = true;
 
-                    if (Config.recoverFromFile || Config.storeFullHistory)
+                    if (b.blockNum > wsSyncConfirmedBlockNum)
                     {
                         ignoreWalletState = false;
                     }
@@ -384,7 +388,7 @@ namespace DLT
 
                     // TODO: carefully verify this
                     // Apply transactions when rolling forward from a recover file without a synced WS
-                    if (Config.recoverFromFile || Config.storeFullHistory)
+                    if (b.blockNum > wsSyncConfirmedBlockNum)
                     {
                         Node.blockProcessor.applyAcceptedBlock(b);
                         byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
@@ -393,6 +397,10 @@ namespace DLT
                             Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                             synchronizing = false;
                             return;
+                        }
+                        if (b.blockNum % 1000 == 0)
+                        {
+                            DLTNode.Meta.WalletStateStorage.saveWalletState(b.blockNum);
                         }
                     }
                     else
@@ -416,7 +424,7 @@ namespace DLT
                     if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                     {
                         //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                        if (!Config.recoverFromFile && !Config.storeFullHistory)
+                        if (b.blockNum <= wsSyncConfirmedBlockNum)
                         {
                             TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
                         }
@@ -630,7 +638,7 @@ namespace DLT
             lock (pendingBlocks)
             {
                 // ignore any block num higher than confirmed WS
-                if (wsSyncConfirmedBlockNum > 0 && b.blockNum > wsSyncConfirmedBlockNum)
+                if (b.blockNum > syncTargetBlockNum)
                 {
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                     return;
@@ -709,12 +717,21 @@ namespace DLT
 
             if (synchronizing)
             {
-                if(block_height > syncTargetBlockNum)
+                if (block_height > syncTargetBlockNum)
                 {
                     Logging.info(String.Format("Sync target increased from {0} to {1}.",
                         syncTargetBlockNum, block_height));
+
                     Node.blockProcessor.highestNetworkBlockNum = block_height;
                     syncTargetBlockNum = block_height;
+
+                    ulong firstBlock = Node.getLastBlockHeight();
+
+                    lock (pendingBlocks)
+                    {
+                        ulong lastBlock = syncTargetBlockNum;
+                        missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
+                    }
                 }
             } else
             {
@@ -725,6 +742,13 @@ namespace DLT
 
                     Node.blockProcessor.highestNetworkBlockNum = block_height;
                     syncTargetBlockNum = block_height;
+                    if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                    {
+                        Logging.info("WS Checksum is equal");
+                        wsSyncConfirmedBlockNum = block_height;
+                        wsSynced = true;
+                        wsSyncConfirmedVersion = Node.walletState.version;
+                    }
                     startSync();
                 }
             }

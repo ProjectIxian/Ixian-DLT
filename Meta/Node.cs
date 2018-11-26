@@ -206,6 +206,24 @@ namespace DLT.Meta
                 }
                 else
                 {
+                    ulong blockNum = DLTNode.Meta.WalletStateStorage.restoreWalletState();
+                    if(blockNum > 0)
+                    {
+                        Block b = blockChain.getBlock(blockNum, true);
+                        if (b != null)
+                        {
+                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount());
+                        }else
+                        {
+                            walletState.clear();
+
+                        }
+                    }
+
+                    // start the server for ping purposes
+                    serverStarted = true;
+                    NetworkServer.beginNetworkOperations();
+
                     // Start the network client manager
                     NetworkClientManager.start();
                 }
@@ -245,10 +263,10 @@ namespace DLT.Meta
             }
 
             // Check for sufficient node balance
-            if (checkMasternodeBalance() == false)
+            /*if (checkMasternodeBalance() == false)
             {
                 running = false;
-            }
+            }*/
 
             return running;
         }

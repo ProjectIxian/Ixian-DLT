@@ -27,6 +27,8 @@ namespace DLT
             private static TcpListener listener;
             private static List<RemoteEndpoint> connectedClients = new List<RemoteEndpoint>();
 
+            Dictionary<string, DateTime> nodeBlacklist = new Dictionary<string, DateTime>();
+
             static NetworkServer()
             {
             }
@@ -62,8 +64,6 @@ namespace DLT
                 // Retrieve the public-accessible IP address
                 publicIPAddress = Config.publicServerIP; // CoreNetworkUtils.GetLocalIPAddress();
 
-              //  WebClient client = new WebClient();
-            //    publicIPAddress = client.DownloadString("http://seed1.ixian.io/myip");
 
                 Logging.info(string.Format("Public network node address: {0} port {1}", publicIPAddress, Config.serverPort));
 
@@ -277,6 +277,7 @@ namespace DLT
 
                 if(!Node.blockProcessor.operating)
                 {
+                    clientSocket.Send(CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.bye, new byte[1]));
                     clientSocket.Disconnect(true);
                     clientSocket.Shutdown(SocketShutdown.Both);
                     return;
@@ -291,6 +292,7 @@ namespace DLT
                     {
                         Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port));
+                        clientSocket.Send(CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.bye, new byte[1]));
                         clientSocket.Disconnect(true);
                         clientSocket.Shutdown(SocketShutdown.Both);
                         return;
@@ -301,6 +303,7 @@ namespace DLT
                     {
                         Logging.warn(String.Format("Client {0}:{1} already connected as {2}.",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port, existing_clients.First().ToString()));
+                        clientSocket.Send(CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.bye, new byte[1]));
                         clientSocket.Disconnect(true);
                         clientSocket.Shutdown(SocketShutdown.Both);
                         return;
@@ -358,6 +361,34 @@ namespace DLT
                     }
                     return lastClient;
                 }
+            }
+
+
+            // Adds a node to the blacklist
+            public void blacklistNode(string ip)
+            {
+                lock (nodeBlacklist)
+                {
+                    nodeBlacklist.AddOrReplace(ip, DateTime.Now);
+                }
+            }
+
+            // Returns true if node is blacklisted
+            public bool isNodeBlacklisted(string ip)
+            {
+                lock (nodeBlacklist)
+                {
+                    if (nodeBlacklist.ContainsKey(ip))
+                    {
+                        DateTime dt = nodeBlacklist[ip];
+                        if ((DateTime.Now - dt).TotalSeconds > 600)
+                        {
+                            nodeBlacklist.Remove(ip);
+                        }
+                        return true;
+                    }
+                }
+                return false;
             }
         }
     }
