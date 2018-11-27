@@ -258,11 +258,17 @@ namespace DLTNode
             Logging.info(String.Format("API Port: {0}", Config.apiPort));
             Logging.info(String.Format("Wallet File: {0}", Config.walletFile));
 
+            if (noStart)
+            {
+                Thread.Sleep(1000);
+                return;
+            }
+
             // Initialize the crypto manager
             CryptoManager.initLib();
 
-            // Start the actual DLT node
-            Node.start();
+            // Initialize the node
+            Node.init();
 
             // Start the HTTP JSON API server
             apiServer = new APIServer();
@@ -272,11 +278,8 @@ namespace DLTNode
                 System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
             }
 
-            if (noStart)
-            {
-                Thread.Sleep(1000);
-                return;
-            }
+            // Start the actual DLT node
+            Node.start();
 
 
             // Setup a timer to handle routine updates

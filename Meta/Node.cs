@@ -40,8 +40,8 @@ namespace DLT.Meta
 
         private static bool running = false;
 
-
-        static public void start()
+        // Perform basic initialization of node
+        static public void init()
         {
             running = true;
 
@@ -50,7 +50,7 @@ namespace DLT.Meta
 
             // Load or Generate the wallet
             walletStorage = new WalletStorage(Config.walletFile);
-            if(walletStorage.publicKey == null)
+            if (walletStorage.publicKey == null)
             {
                 running = false;
                 DLTNode.Program.noStart = true;
@@ -59,7 +59,11 @@ namespace DLT.Meta
 
             // Initialize the wallet state
             walletState = new WalletState();
+        }
 
+        // Start the node
+        static public void start()
+        {
             // debug
             if (Config.networkDumpFile != "")
             {
