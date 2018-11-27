@@ -958,7 +958,7 @@ namespace DLT
 
                                             byeV1 = true;
 
-                                            Logging.error(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+                                            Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
 
                                             if (byeCode == 600)
                                             {
@@ -967,6 +967,7 @@ namespace DLT
                                                     if (NetworkClientManager.getConnectedClients().Length == 1)
                                                     {
                                                         Config.publicServerIP = byeData;
+                                                        Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
                                                     }
                                                 }
                                             }

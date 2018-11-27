@@ -104,7 +104,7 @@ namespace DLT.Meta
                             Logging.info(String.Format("UPNP-determined public IP: {0}. Attempting to configure a port-forwarding rule.", public_ip.ToString()));
                             if(upnp.MapPublicPort(Config.serverPort, primary_local))
                             {
-                                Config.publicServerIP = upnp.getMappedIP();
+                                Config.publicServerIP = public_ip.ToString(); //upnp.getMappedIP();
                                 Logging.info(string.Format("Network configured. Public IP is: {0}", Config.publicServerIP));
                             } else
                             {
