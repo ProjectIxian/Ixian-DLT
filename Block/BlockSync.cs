@@ -783,7 +783,6 @@ namespace DLT
             {
                 if ((DateTime.Now - watchDogTime).TotalSeconds > 60) // stuck on the same block for 60 seconds
                 {
-                    watchDogBlockNum = 0;
                     if (wsSyncConfirmedBlockNum > 0)
                     {
                         lastBlockToReadFromStorage = WalletStateStorage.restoreWalletState(wsSyncConfirmedBlockNum - 1);
@@ -793,12 +792,14 @@ namespace DLT
                     }
 
                     Block b = Node.blockChain.getBlock(lastBlockToReadFromStorage, true);
-                    if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
+                    if (b == null || !Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
                     {
                         Logging.error("BlockSync WatchDog: Wallet state mismatch");
                         wsSyncConfirmedBlockNum = lastBlockToReadFromStorage - 1;
                         return;
                     }
+
+                    watchDogBlockNum = 0;
 
                     for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
                     { 
