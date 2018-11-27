@@ -202,7 +202,9 @@ namespace DLT.Meta
             {
                 if (Config.recoverFromFile)
                 {
-                    Storage.readFromStorage();
+                    ulong blockNum = Meta.Storage.getLastBlockNum();
+                    Block b = Meta.Storage.getBlock(blockNum);
+                    blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), Meta.Storage.getLastBlockNum() - 1);
                 }
                 else
                 {
@@ -212,7 +214,7 @@ namespace DLT.Meta
                         Block b = blockChain.getBlock(blockNum, true);
                         if (b != null)
                         {
-                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount());
+                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), Meta.Storage.getLastBlockNum() - 6);
                         }else
                         {
                             walletState.clear();

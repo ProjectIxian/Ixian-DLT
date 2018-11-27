@@ -21,6 +21,7 @@ namespace DLT
         DateTime lastChunkRequested;
         Dictionary<ulong, long> requestedBlockTimes = new Dictionary<ulong, long>();
 
+        ulong lastBlockToReadFromStorage = 0;
 
         ulong syncTargetBlockNum;
         int maxBlockRequests = 50; // Maximum number of block requests per iteration
@@ -174,9 +175,13 @@ namespace DLT
                             }
                         }
                     }
-
+                    bool readFromStorage = false;
+                    if(blockNum < lastBlockToReadFromStorage)
+                    {
+                        readFromStorage = true;
+                    }
                     // First check if the missing block can be found in storage
-                    Block block = Node.blockChain.getBlock(blockNum, true);
+                    Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
                     if (block != null)
                     {
                         Node.blockSync.onBlockReceived(block);
@@ -707,7 +712,7 @@ namespace DLT
             }
         }
 
-        public void onHelloDataReceived(ulong block_height, byte[] block_checksum, byte[] walletstate_checksum, int consensus)
+        public void onHelloDataReceived(ulong block_height, byte[] block_checksum, byte[] walletstate_checksum, int consensus, ulong last_block_to_read_from_storage = 0)
         {
             Logging.info("SYNC HEADER DATA");
             Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));
@@ -737,6 +742,7 @@ namespace DLT
             {
                 if(Node.blockProcessor.operating == false)
                 {
+                    lastBlockToReadFromStorage = last_block_to_read_from_storage;
                     // This should happen when node first starts up.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
 

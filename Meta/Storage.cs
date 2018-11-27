@@ -137,7 +137,7 @@ namespace DLT
 
             public static ulong getLastBlockNum()
             {
-                string sql = string.Format("SELECT * FROM blocks ORDER BY blockNum DESC LIMIT 1");
+                string sql = string.Format("SELECT * FROM `blocks` ORDER BY `blockNum` DESC LIMIT 1");
                 var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
 
                 if (_storage_block == null)
@@ -149,46 +149,6 @@ namespace DLT
                 _storage_Block blk = _storage_block[0];
 
                 return (ulong)blk.blockNum;
-            }
-
-            public static bool readFromStorage()
-            {
-                Logging.info("Reading blockchain from storage");
-
-                string sql = string.Format("SELECT * FROM blocks ORDER BY blockNum DESC LIMIT 1");
-                var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
-
-                if (_storage_block == null)
-                    return false;
-
-                if (_storage_block.Length < 1)
-                    return false;
-
-                _storage_Block blk = _storage_block[0];
-
-                Logging.info(string.Format("Storage blockchain goes up to block #{0}", blk.blockNum));
-
-                // Synchronize to last block num - 5 to guarantee correct sigfreeze
-                ulong numSkippedBlocks = 5;
-                if (Config.recoverFromFile)
-                {
-                    // Full recovery from file goes up to the second latest block
-                    numSkippedBlocks = 1;
-                }
-
-                Node.blockSync.onHelloDataReceived((ulong)blk.blockNum - numSkippedBlocks, blk.blockChecksum, blk.walletStateChecksum, 1);
-
-                return true;
-            }
-
-            public static bool appendToStorage(byte[] data)
-            {
-                // Check if history is enabled
-                if (Config.storeFullHistory == true)
-                {
-                    return false;
-                }
-                return true;
             }
 
             public static bool insertBlockInternal(Block block)

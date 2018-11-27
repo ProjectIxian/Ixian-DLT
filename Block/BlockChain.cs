@@ -127,6 +127,19 @@ namespace DLT
             return block;
         }
 
+        public List<Block> getBlocks(int fromIndex = 0, int count = 0)
+        {
+            lock(blocks)
+            {
+                List<Block> blockList = blocks.Skip(fromIndex).ToList();
+                if (count == 0)
+                {
+                    return blockList;
+                }
+                return blockList.Take(count).ToList();
+            }
+        }
+
         // Attempts to retrieve a block from memory or from storage
         // Returns null if no block is found
         public Block getBlockByHash(byte[] hash, bool search_in_storage = false)

@@ -32,7 +32,7 @@ namespace DLT.Meta
 
         public static ulong restoreWalletState()
         {
-            ulong blockNum = ((ulong)(DLT.Meta.Storage.getLastBlockNum() / 1000)) * 1000;
+            ulong blockNum = ((ulong)((DLT.Meta.Storage.getLastBlockNum() - 6) / 1000)) * 1000;
             FileStream fs = null;
             while (fs == null)
             {

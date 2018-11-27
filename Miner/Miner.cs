@@ -214,18 +214,21 @@ namespace DLT
         // Returns the most recent block without a PoW flag in the redacted blockchain
         private void searchForBlock()
         {
-            ulong lastBlockNum = Node.blockChain.getLastBlockNum();
-            ulong oldestRedactedBlock = 0;
-            if (lastBlockNum > CoreConfig.redactedWindowSize)
-                oldestRedactedBlock = lastBlockNum - CoreConfig.redactedWindowSize;
-
-            for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
+            lock (solvedBlocks)
             {
-                Block block = Node.blockChain.getBlock(i);
-                if(block == null)
+                List<ulong> tmpSolvedBlocks = new List<ulong>(solvedBlocks);
+                foreach (ulong blockNum in tmpSolvedBlocks)
                 {
-                    continue;
+                    if (Node.blockChain.getBlock(blockNum).powField != null)
+                    {
+                        solvedBlocks.Remove(blockNum);
+                    }
                 }
+            }
+            Random rnd = new Random();
+            List<Block> blockList = Node.blockChain.getBlocks((int)Node.blockChain.Count / 2, (int)Node.blockChain.Count / 2).OrderBy(x => rnd.Next()).ToList();
+            foreach (Block block in blockList)
+            {
                 if (block.powField == null)
                 {
                     if(block.version == 0 && block.difficulty > 128)
