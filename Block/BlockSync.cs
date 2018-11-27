@@ -42,6 +42,8 @@ namespace DLT
         private ulong watchDogBlockNum = 0;
         private DateTime watchDogTime = DateTime.Now;
 
+        private bool noNetworkSynchronization = false; // Flag to determine if it ever started a network sync
+
         public BlockSync()
         {
             synchronizing = false;
@@ -501,6 +503,10 @@ namespace DLT
 
         private void stopSyncStartBlockProcessing()
         {
+            // Don't finish sync if we never synchronized from network
+            if (noNetworkSynchronization == true)
+                return;
+
             // if we reach here, we are synchronized
             synchronizing = false;
 
@@ -697,6 +703,9 @@ namespace DLT
         {
             if(synchronizing == true && wsSyncConfirmedBlockNum == 0)
             {
+                // If we reach this point, it means it started synchronization from network
+                noNetworkSynchronization = false;
+
                 long chunks = ws_count / CoreConfig.walletStateChunkSplit;
                 if(ws_count % CoreConfig.walletStateChunkSplit > 0)
                 {
@@ -737,6 +746,12 @@ namespace DLT
 
                     Node.blockProcessor.highestNetworkBlockNum = block_height;
 
+                    // Start a wallet state synchronization if no network sync was done before
+                    if(noNetworkSynchronization)
+                    {
+                        startWalletStateSync();                        
+                    }
+
                     ulong firstBlock = Node.getLastBlockHeight();
 
                     lock (pendingBlocks)
@@ -753,7 +768,7 @@ namespace DLT
             } else
             {
                 if(Node.blockProcessor.operating == false)
-                {
+                {                    
                     lastBlockToReadFromStorage = last_block_to_read_from_storage;
                     // This should happen when node first starts up.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
@@ -767,6 +782,9 @@ namespace DLT
                         wsSyncConfirmedVersion = Node.walletState.version;
                     }
                     startSync();
+
+
+                    noNetworkSynchronization = true;
                 }
             }
         }
