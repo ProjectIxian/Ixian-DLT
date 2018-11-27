@@ -438,6 +438,7 @@ namespace DLT
                             }
                             Node.blockChain.appendBlock(b);
                             resetWatchDog(b);
+                            missingBlocks.RemoveAll(x => x < b.blockNum);
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
