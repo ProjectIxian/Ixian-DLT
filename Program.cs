@@ -261,6 +261,14 @@ namespace DLTNode
             // Initialize the crypto manager
             CryptoManager.initLib();
 
+            // Start the HTTP JSON API server
+            apiServer = new APIServer();
+
+            if (IXICore.Platform.onMono() == false)
+            {
+                System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
+            }
+
             // Start the actual DLT node
             Node.start();
 
@@ -270,36 +278,14 @@ namespace DLTNode
                 return;
             }
 
-            // Start the HTTP JSON API server
-            apiServer = new APIServer();
 
             // Setup a timer to handle routine updates
             mainLoopTimer = new System.Timers.Timer(1000);
             mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
             mainLoopTimer.Start();
-            // DEBUG: manual update
-            /*while(Node.update())
-            {
-                Console.WriteLine(" -> PRESS ENTER TO UPDATE (B) for next block<- ");
-                ConsoleKeyInfo key = Console.ReadKey();
-                if(key.Key == ConsoleKey.B)
-                {
-                    Node.forceNextBlock = true;
-                }
-                if(key.Key == ConsoleKey.W)
-                {
-                    string ws_checksum = Node.walletState.calculateWalletStateChecksum();
-                    Console.WriteLine(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
-                        Node.walletState.numWallets, Node.walletState.hasSnapshot, ws_checksum));
-                }
-            }/**/
 
             Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
 
-            if (IXICore.Platform.onMono() == false)
-            {
-                System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
-            }
         }
 
         static void onUpdate(object source, ElapsedEventArgs e)
@@ -332,6 +318,10 @@ namespace DLTNode
                     }
                     Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
                     Console.ResetColor();
+                }
+                if(key.Key == ConsoleKey.Escape)
+                {
+                    Environment.Exit(-1);
                 }
 
             }

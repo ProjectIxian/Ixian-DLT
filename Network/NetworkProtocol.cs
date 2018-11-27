@@ -414,7 +414,9 @@ namespace DLT
                     {
                         using (BinaryWriter w = new BinaryWriter(reply_stream))
                         {
+                            w.Write(601);
                             w.Write("External IP:Port not reachable!");
+                            w.Write("");
                             endpoint.sendData(ProtocolMessageCode.bye, reply_stream.ToArray());
                         }
                     }
@@ -970,6 +972,10 @@ namespace DLT
                                                         Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
                                                     }
                                                 }
+                                            }else if(byeCode == 601)
+                                            {
+                                                Logging.error("This node must be connectable from the internet, to connect to the network.");
+                                                Logging.error("Please setup uPNP and/or port forwarding on your router for port "+Config.serverPort+".");
                                             }
 
                                         }

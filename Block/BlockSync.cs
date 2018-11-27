@@ -761,7 +761,6 @@ namespace DLT
                     syncTargetBlockNum = block_height;
                     if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
                     {
-                        Logging.info("WS Checksum is equal");
                         wsSyncConfirmedBlockNum = block_height;
                         wsSynced = true;
                         wsSyncConfirmedVersion = Node.walletState.version;
@@ -791,6 +790,15 @@ namespace DLT
                     {
                         lastBlockToReadFromStorage = WalletStateStorage.restoreWalletState();
                     }
+
+                    Block b = Node.blockChain.getBlock(lastBlockToReadFromStorage, true);
+                    if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
+                    {
+                        Logging.error("BlockSync WatchDog: Wallet state mismatch");
+                        wsSyncConfirmedBlockNum = lastBlockToReadFromStorage - 1;
+                        return;
+                    }
+
                     for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
                     { 
                         Node.blockChain.removeBlock(blockNum);
