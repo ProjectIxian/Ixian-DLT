@@ -261,6 +261,9 @@ namespace DLTNode
             // Initialize the crypto manager
             CryptoManager.initLib();
 
+            // Start the actual DLT node
+            Node.start();
+
             // Start the HTTP JSON API server
             apiServer = new APIServer();
 
@@ -268,9 +271,6 @@ namespace DLTNode
             {
                 System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
             }
-
-            // Start the actual DLT node
-            Node.start();
 
             if (noStart)
             {
