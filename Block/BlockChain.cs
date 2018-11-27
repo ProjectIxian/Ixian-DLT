@@ -10,10 +10,7 @@ namespace DLT
 {
     class BlockChain
     {
-        List<Block> blocks = new List<Block>((int)CoreConfig.redactedWindowSize);
-
-        Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
-
+        SortedDictionary<ulong, Block> blocks = new SortedDictionary<ulong, Block>();
 
         public long Count
         {
@@ -39,18 +36,15 @@ namespace DLT
                 int begin_size = blocks.Count();
                 while ((ulong)blocks.Count() > CoreConfig.redactedWindowSize)
                 {
-                    TransactionPool.redactTransactionsForBlock(blocks[0]); // Remove from Transaction Pool
+                    Block block = blocks.ElementAt(0).Value;
+                    TransactionPool.redactTransactionsForBlock(block); // Remove from Transaction Pool
 
                     // Check if this is a full history node
                     if (Config.storeFullHistory == false)
                     {
-                        Storage.removeBlock(blocks[0]); // Remove from storage
+                        Storage.removeBlock(block); // Remove from storage
                     }
-                    lock (blocksDictionary)
-                    {
-                        blocksDictionary.Remove(blocks[0].blockNum);
-                    }
-                    blocks.RemoveAt(0); // Remove from memory
+                    blocks.Remove(block.blockNum); // Remove from memory
                 }
                 if (begin_size > blocks.Count())
                 {
@@ -66,42 +60,42 @@ namespace DLT
                 // special case when we are starting up and have an empty chain
                 if (blocks.Count == 0)
                 {
-                    blocks.Add(b);
-                    lock (blocksDictionary)
-                    {
-                        blocksDictionary.Add(b.blockNum, b);
-                    }
+                    blocks.Add(b.blockNum, b);
                     Storage.insertBlock(b);
                     return true;
                 }
                 // check for invalid block appending
-                if (b.blockNum != blocks[blocks.Count - 1].blockNum + 1)
+                if (b.blockNum != blocks.Last().Value.blockNum + 1)
                 {
                     Logging.warn(String.Format("Attempting to add non-sequential block #{0} after block #{1}.",
                         b.blockNum,
-                        blocks[blocks.Count - 1].blockNum));
+                        blocks.Last().Value.blockNum));
                     return false;
                 }
-                if (!b.lastBlockChecksum.SequenceEqual(blocks[blocks.Count - 1].blockChecksum))
+                if (!b.lastBlockChecksum.SequenceEqual(blocks.Last().Value.blockChecksum))
                 {
                     Logging.error(String.Format("Attempting to add a block #{0} with invalid lastBlockChecksum!", b.blockNum));
                     return false;
                 }
-                if (b.signatureFreezeChecksum != null && blocks.Count > 5 && !blocks[blocks.Count - 5].calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
+                if (b.signatureFreezeChecksum != null && blocks.Count > 5 && !blocks.ElementAt(blocks.Count - 5).Value.calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
                 {
                     Logging.error(String.Format("Attempting to add a block #{0} with invalid sigFreezeChecksum!", b.blockNum));
                     return false;
                 }
-                blocks.Add(b);
-                lock (blocksDictionary)
-                {
-                    blocksDictionary.Add(b.blockNum, b);
-                }
+                blocks.Add(b.blockNum, b);
             }
             // Add block to storage
             Storage.insertBlock(b);
             redactChain();
             return true;           
+        }
+
+        public bool removeBlock(ulong blockNum)
+        {
+            lock (blocks)
+            {
+                return blocks.Remove(blockNum);
+            }
         }
 
         // Attempts to retrieve a block from memory or from storage
@@ -111,10 +105,10 @@ namespace DLT
             Block block = null;
 
             // Search memory
-            lock (blocksDictionary)
+            lock (blocks)
             {
-                if(blocksDictionary.ContainsKey(blocknum))
-                    block = blocksDictionary[blocknum];
+                if(blocks.ContainsKey(blocknum))
+                    block = blocks[blocknum];
             }
 
             if (block != null)
@@ -131,7 +125,7 @@ namespace DLT
         {
             lock(blocks)
             {
-                List<Block> blockList = blocks.Skip(fromIndex).ToList();
+                List<Block> blockList = blocks.Select(x => x.Value).Skip(fromIndex).ToList();
                 if (count == 0)
                 {
                     return blockList;
@@ -149,7 +143,7 @@ namespace DLT
             // Search memory
             lock (blocks)
             {
-                block = blocks.Find(x => x.blockChecksum.SequenceEqual(hash));
+                block = blocks.Select(x => x.Value).Where(x => x.blockChecksum.SequenceEqual(hash)).First();
             }
 
             if (block != null)
@@ -167,7 +161,7 @@ namespace DLT
             lock (blocks)
             {
                 if (blocks.Count == 0) return 0;
-                return blocks[blocks.Count - 1].blockNum;
+                return blocks.Last().Value.blockNum;
             }
         }
 
@@ -181,7 +175,7 @@ namespace DLT
                 int blockCount = blocks.Count - blockOffset < 10 ? blocks.Count - blockOffset : 10;
                 for (int i = 0; i < blockCount; i++)
                 {
-                    totalConsensus += blocks[blocks.Count - i - blockOffset - 1].signatures.Count;
+                    totalConsensus += blocks.ElementAt(blocks.Count - i - blockOffset - 1).Value.signatures.Count;
                 }
                 int consensus = (int)Math.Ceiling(totalConsensus / blockCount * CoreConfig.networkConsensusRatio);
                 if (consensus < 2)
@@ -197,7 +191,7 @@ namespace DLT
             lock(blocks)
             {
                 if (blocks.Count == 0) return null;
-                return blocks[blocks.Count - 1].blockChecksum;
+                return blocks.Last().Value.blockChecksum;
             }
         }
 
@@ -206,7 +200,7 @@ namespace DLT
             lock(blocks)
             {
                 if (blocks.Count == 0) return null;
-                return blocks[blocks.Count - 1].walletStateChecksum;
+                return blocks.Last().Value.walletStateChecksum;
             }
         }
 
@@ -215,7 +209,7 @@ namespace DLT
             lock(blocks)
             {
                 if (blocks.Count - index - 1 < 0) return 0;
-                return blocks[blocks.Count - index - 1].signatures.Count();
+                return blocks.ElementAt(blocks.Count - index - 1).Value.signatures.Count();
             }
         }
 
@@ -236,24 +230,24 @@ namespace DLT
 
             lock (blocks)
             {
-                int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum.SequenceEqual(b.blockChecksum));
-                if (idx > 0)
+                Block block = blocks[b.blockNum];
+                if (block != null && block.blockChecksum.SequenceEqual(b.blockChecksum))
                 {
-                    byte[] beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
-                    beforeSigs = blocks[idx].signatures.Count;
+                    byte[] beforeSigsChecksum = block.calculateSignatureChecksum();
+                    beforeSigs = block.signatures.Count;
                     if (forceRefresh)
                     {
-                        blocks[idx].signatures = b.signatures;
+                        block.signatures = b.signatures;
                     }
                     else
                     {
-                        blocks[idx].addSignaturesFrom(b);
+                        block.addSignaturesFrom(b);
                     }
-                    byte[] afterSigsChecksum = blocks[idx].calculateSignatureChecksum();
-                    afterSigs = blocks[idx].signatures.Count;
+                    byte[] afterSigsChecksum = block.calculateSignatureChecksum();
+                    afterSigs = block.signatures.Count;
                     if (!beforeSigsChecksum.SequenceEqual(afterSigsChecksum))
                     {
-                        updatestorage_block = blocks[idx];
+                        updatestorage_block = block;
                     }
                 }
             }
@@ -311,9 +305,9 @@ namespace DLT
             {
                 firstBlockNum = Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize;
             }
-            lock (blocksDictionary)
+            lock (blocks)
             {
-                foreach (KeyValuePair<ulong,Block> entry in blocksDictionary)
+                foreach (KeyValuePair<ulong,Block> entry in blocks)
                 {
                     if(entry.Key < firstBlockNum)
                     {

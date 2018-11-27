@@ -511,7 +511,7 @@ namespace DLT
                         continue;
                 }
 
-                Transaction t = TransactionPool.getTransaction(txid, Node.blockSync.synchronizing);
+                Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
                     if(fetchTransactions)
@@ -528,10 +528,6 @@ namespace DLT
                         break;
                     }
                     continue;
-                }else if(Node.blockSync.synchronizing && TransactionPool.getTransaction(txid) == null)
-                {
-                    t.applied = 0;
-                    TransactionPool.addTransaction(t, true, null, false);
                 }
                 // TODO TODO TODO TODO plus balances should also be added to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(t.from))
@@ -681,7 +677,7 @@ namespace DLT
 
             sw.Stop();
             TimeSpan elapsed = sw.Elapsed;
-            Logging.info(string.Format("VerifyBlock duration: {0}ms", elapsed.TotalMilliseconds));
+            //Logging.info(string.Format("VerifyBlock duration: {0}ms", elapsed.TotalMilliseconds));
 
 
             // TODO: blacklisting would happen here - whoever sent us an invalid block is problematic
@@ -1631,10 +1627,7 @@ namespace DLT
                 List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, ws_snapshot);
                 foreach (Transaction transaction in transactions)
                 {
-                    if (!TransactionPool.addTransaction(transaction, true))
-                    {
-                        Logging.warn("An error occured while trying to add staking transaction");
-                    }
+                    TransactionPool.addTransaction(transaction, true);
                 }
             }
             

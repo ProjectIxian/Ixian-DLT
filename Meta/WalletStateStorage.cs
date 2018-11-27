@@ -30,9 +30,12 @@ namespace DLT.Meta
             fs.Close();
         }
 
-        public static ulong restoreWalletState()
+        public static ulong restoreWalletState(ulong blockNum = 0)
         {
-            ulong blockNum = ((ulong)((DLT.Meta.Storage.getLastBlockNum() - 6) / 1000)) * 1000;
+            if (blockNum == 0)
+            {
+                blockNum = ((ulong)((DLT.Meta.Storage.getLastBlockNum() - 6) / 1000)) * 1000;
+            }
             FileStream fs = null;
             while (fs == null)
             {

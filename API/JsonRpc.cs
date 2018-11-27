@@ -2,6 +2,7 @@
 using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -223,7 +224,7 @@ namespace DLTNode.API
         {
             Dictionary<string, string> walletAmountArr = (Dictionary<string, string>)parameters[1];
 
-            Dictionary<byte[], IxiNumber> toList = new Dictionary<byte[], IxiNumber>();
+            SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
 
             foreach (KeyValuePair<string, string> walletAmount in walletAmountArr)
             {

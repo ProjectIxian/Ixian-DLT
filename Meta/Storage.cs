@@ -279,7 +279,7 @@ namespace DLT
                     block.transactions.Add(s1);
                 }
 
-                Logging.info(String.Format("Read block #{0} from storage.", block.blockNum));
+                //Logging.info(String.Format("Read block #{0} from storage.", block.blockNum));
 
                 return block;
             }
@@ -401,6 +401,7 @@ namespace DLT
                 transaction.signature = tx.signature;
                 transaction.version = tx.version;
                 transaction.pubKey = tx.pubKey;
+                // note - don't ever read .applied field, otherwise there will be issues with sync
 
                 // Add toList
                 string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);

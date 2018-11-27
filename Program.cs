@@ -295,6 +295,11 @@ namespace DLTNode
             }/**/
 
             Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
+
+            if (IXICore.Platform.onMono() == false)
+            {
+                System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
+            }
         }
 
         static void onUpdate(object source, ElapsedEventArgs e)

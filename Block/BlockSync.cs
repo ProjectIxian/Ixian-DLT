@@ -39,6 +39,9 @@ namespace DLT
 
         private bool running = false;
 
+        private ulong watchDogBlockNum = 0;
+        private DateTime watchDogTime = DateTime.Now;
+
         public BlockSync()
         {
             synchronizing = false;
@@ -294,166 +297,163 @@ namespace DLT
                 }
             }
 
-            int pendingBlockCount = 0;
-
-            lock(pendingBlocks)
-            {
-                pendingBlockCount = pendingBlocks.Count;
-            }
-
-            // Loop until we have no more pending blocks
-            while (pendingBlockCount > 0)
+            lock (pendingBlocks)
             {
 
-                ulong next_to_apply = lowestBlockNum;
-                if (Node.blockChain.Count > 0)
+                // Loop until we have no more pending blocks
+                while (pendingBlocks.Count > 0)
                 {
-                    next_to_apply = Node.blockChain.getLastBlockNum() + 1;
-                }
+                    handleWatchDog();
 
-                if (next_to_apply > syncToBlock)
-                {
-                    // we have everything, clear pending blocks and break
-                    lock (pendingBlocks)
+                    ulong next_to_apply = lowestBlockNum;
+                    if (Node.blockChain.Count > 0)
                     {
+                        next_to_apply = Node.blockChain.getLastBlockNum() + 1;
+                    }
+
+                    if (next_to_apply > syncToBlock)
+                    {
+                        // we have everything, clear pending blocks and break
                         pendingBlocks.Clear();
+                        break;
                     }
-                    break;
-                }
-                Block b = null;
-                lock (pendingBlocks)
-                {
-                    b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
-                }
-                if (b == null)
-                {
-                    Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
-                    ProtocolMessage.broadcastGetBlock(next_to_apply);
-                    sleep = true;
-                    break;
-                }
-
-
-
-                ulong targetBlock = next_to_apply - 5;
-
-                Block tb = null;
-                lock (pendingBlocks)
-                {
-                    tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
-                }
-                if (tb != null)
-                {
-                    if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                    Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
+                    if (b == null)
                     {
-                        Node.blockChain.refreshSignatures(tb, true);
-                        Node.blockProcessor.handleSigFreezedBlock(tb);
+                        if (!missingBlocks.Contains(next_to_apply))
+                        {
+                            Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
+                            ProtocolMessage.broadcastGetBlock(next_to_apply);
+                            sleep = true;
+                        }
+                        break;
                     }
-                    lock (pendingBlocks)
+
+
+
+                    ulong targetBlock = next_to_apply - 5;
+
+                    Block tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
+                    if (tb != null)
                     {
+                        if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                        {
+                            Node.blockChain.refreshSignatures(tb, true);
+                            Node.blockProcessor.handleSigFreezedBlock(tb);
+                        }
                         pendingBlocks.RemoveAll(x => x.blockNum == tb.blockNum);
                     }
-                }
 
-                try
-                {
-
-                    b.powField = null;
-
-                    Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
-                        b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
-
-                    bool ignoreWalletState = true;
-
-                    if (b.blockNum > wsSyncConfirmedBlockNum)
+                    try
                     {
-                        ignoreWalletState = false;
-                    }
 
-                    // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
-                    // verify with a parameter to ignore WS tests, but do all the others
-                    BlockVerifyStatus b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
+                        b.powField = null;
 
-                    if (b_status == BlockVerifyStatus.Indeterminate)
-                    {
-                        Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
-                        Thread.Sleep(100);
-                        return;
-                    }
-                    if (b_status == BlockVerifyStatus.Invalid)
-                    {
-                        Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
-                        lock (pendingBlocks)
+                        Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
+                            b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
+
+                        bool ignoreWalletState = true;
+
+                        if (b.blockNum > wsSyncConfirmedBlockNum)
                         {
-                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            ignoreWalletState = false;
                         }
-                        ProtocolMessage.broadcastGetBlock(b.blockNum);
-                        return;
-                    }
 
-                    // TODO: carefully verify this
-                    // Apply transactions when rolling forward from a recover file without a synced WS
-                    if (b.blockNum > wsSyncConfirmedBlockNum)
-                    {
-                        Node.blockProcessor.applyAcceptedBlock(b);
-                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                        if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+
+                        // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
+                        // verify with a parameter to ignore WS tests, but do all the others
+                        BlockVerifyStatus b_status = BlockVerifyStatus.Valid;
+
+                        if (b.blockNum > lastBlockToReadFromStorage)
                         {
-                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                            synchronizing = false;
+                            b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
+                        }
+                        else
+                        {
+                            foreach (string txid in b.transactions)
+                            {
+                                Transaction t = TransactionPool.getTransaction(txid, true);
+                                if (t != null)
+                                {
+                                    TransactionPool.addTransaction(t, true, null, false);
+                                }
+                            }
+                        }
+
+                        if (b_status == BlockVerifyStatus.Indeterminate)
+                        {
+                            Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
+                            Thread.Sleep(100);
                             return;
                         }
-                        if (b.blockNum % 1000 == 0)
+                        if (b_status == BlockVerifyStatus.Invalid)
                         {
-                            DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
+                            Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            ProtocolMessage.broadcastGetBlock(b.blockNum);
+                            return;
                         }
-                    }
-                    else
-                    {
-                        if (syncToBlock == b.blockNum)
+
+                        // TODO: carefully verify this
+                        // Apply transactions when rolling forward from a recover file without a synced WS
+                        if (b.blockNum > wsSyncConfirmedBlockNum)
                         {
+                            Node.blockProcessor.applyAcceptedBlock(b);
                             byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                             if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                             {
-                                Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
-                                lock (pendingBlocks)
-                                {
-                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                }
-                                ProtocolMessage.broadcastGetBlock(b.blockNum);
+                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                synchronizing = false;
                                 return;
                             }
+                            if (b.blockNum % 1000 == 0)
+                            {
+                                DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
+                            }
                         }
-                    }
-                    bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
-                    if (Node.blockChain.Count <= 5 || sigFreezeCheck)
-                    {
-                        //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                        if (b.blockNum <= wsSyncConfirmedBlockNum)
+                        else
                         {
-                            TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
+                            if (syncToBlock == b.blockNum)
+                            {
+                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                {
+                                    Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
+                                    lock (pendingBlocks)
+                                    {
+                                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                    }
+                                    ProtocolMessage.broadcastGetBlock(b.blockNum);
+                                    return;
+                                }
+                            }
                         }
-                        Node.blockChain.appendBlock(b);
-                    }
-                    else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
-                    {
-                        // invalid sigfreeze, waiting for the correct block
-                        lock (pendingBlocks)
+                        bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
+                        if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                         {
+                            //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
+                            if (b.blockNum <= wsSyncConfirmedBlockNum)
+                            {
+                                TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
+                            }
+                            Node.blockChain.appendBlock(b);
+                            resetWatchDog(b);
+                        }
+                        else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
+                        {
+                            // invalid sigfreeze, waiting for the correct block
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            return;
                         }
-                        return;
                     }
-                }catch(Exception e)
-                {
-                    Logging.error(String.Format("Exception occured while syncing block #{0}: {1}", b.blockNum, e));
-                }
+                    catch (Exception e)
+                    {
+                        Logging.error(String.Format("Exception occured while syncing block #{0}: {1}", b.blockNum, e));
+                    }
 
-                lock (pendingBlocks)
-                {
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                }
 
+                }
             }
             if (!sleep && Node.blockChain.getLastBlockNum() == syncToBlock)
             {
@@ -642,10 +642,17 @@ namespace DLT
             if (synchronizing == false) return;
             lock (pendingBlocks)
             {
-                // ignore any block num higher than confirmed WS
                 if (b.blockNum > syncTargetBlockNum)
                 {
-                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                    if (missingBlocks != null)
+                    {
+                        for (ulong i = 1; syncTargetBlockNum + i < b.blockNum; i++)
+                        {
+                            missingBlocks.Add(syncTargetBlockNum + i);
+                        }
+                        receivedAllMissingBlocks = false;
+                    }
+                    syncTargetBlockNum = b.blockNum;
                     return;
                 }
 
@@ -728,15 +735,19 @@ namespace DLT
                         syncTargetBlockNum, block_height));
 
                     Node.blockProcessor.highestNetworkBlockNum = block_height;
-                    syncTargetBlockNum = block_height;
 
                     ulong firstBlock = Node.getLastBlockHeight();
 
                     lock (pendingBlocks)
                     {
-                        ulong lastBlock = syncTargetBlockNum;
-                        missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
+                        for(ulong i = 1; syncTargetBlockNum + i < block_height; i++)
+                        {
+                            missingBlocks.Add(syncTargetBlockNum + i);
+                        }
+                        receivedAllMissingBlocks = false;
+                        syncTargetBlockNum = block_height;
                     }
+
                 }
             } else
             {
@@ -756,6 +767,46 @@ namespace DLT
                         wsSyncConfirmedVersion = Node.walletState.version;
                     }
                     startSync();
+                }
+            }
+        }
+
+        private void resetWatchDog(Block b)
+        {
+            watchDogBlockNum = b.blockNum;
+            watchDogTime = DateTime.Now;
+        }
+
+        private void handleWatchDog()
+        {
+            if(watchDogBlockNum > 0)
+            {
+                if ((DateTime.Now - watchDogTime).TotalSeconds > 60) // stuck on the same block for 60 seconds
+                {
+                    watchDogBlockNum = 0;
+                    if (wsSyncConfirmedBlockNum > 0)
+                    {
+                        lastBlockToReadFromStorage = WalletStateStorage.restoreWalletState(wsSyncConfirmedBlockNum - 1);
+                    }else
+                    {
+                        lastBlockToReadFromStorage = WalletStateStorage.restoreWalletState();
+                    }
+                    for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
+                    { 
+                        Node.blockChain.removeBlock(blockNum);
+                    }
+                    wsSyncConfirmedBlockNum = lastBlockToReadFromStorage;
+
+                    lock (pendingBlocks)
+                    {
+                        ulong firstBlock = Node.getLastBlockHeight();
+                        ulong lastBlock = syncTargetBlockNum;
+                        if (missingBlocks == null)
+                        {
+                            missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
+                        }
+                        pendingBlocks.Clear();
+                    }
                 }
             }
         }
