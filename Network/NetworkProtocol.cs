@@ -993,10 +993,14 @@ namespace DLT
                                         // Retrieve the message
                                         string message = reader.ReadString();
 
+                                        if (message.Length > 0)
+                                            Logging.error(string.Format("Disconnected with message: {0}", message));
+                                        else
+                                            Logging.error("Disconnected");
+
                                         // Convert to Worker node if possible
-                                        if(message.StartsWith("Insufficient funds"))
+                                        if (message.StartsWith("Insufficient funds"))
                                         {
-                                            Logging.warn(string.Format("Disconnected with message: {0}", message));
 
                                             if (Config.disableMiner == false)
                                             {
@@ -1006,7 +1010,7 @@ namespace DLT
                                             return;
                                         }
 
-                                        Logging.error(string.Format("Disconnected with message: {0}", message));
+                                        
                                         
                                     }
                                 }
