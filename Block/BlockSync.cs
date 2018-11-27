@@ -793,6 +793,12 @@ namespace DLT
                     }
 
                     Block b = Node.blockChain.getBlock(lastBlockToReadFromStorage, true);
+                    if(b == null)
+                    {
+                        Logging.error("BlockSync WatchDog: Null block");
+                        return;
+                    }
+
                     if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
                     {
                         Logging.error("BlockSync WatchDog: Wallet state mismatch");

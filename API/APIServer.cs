@@ -486,7 +486,9 @@ namespace DLTNode
                 byte[] address = Node.walletStorage.getWalletAddress();
                 IxiNumber balance = Node.walletState.getWalletBalance(address);
                 string sync_status = "ready";
-                if (Node.blockSync.synchronizing)
+
+                // If blockSync is null or it's currently synchronizing, show the sync status
+                if (Node.blockSync == null || Node.blockSync.synchronizing)
                     sync_status = "sync";
 
                 string[] statArray = new String[3];

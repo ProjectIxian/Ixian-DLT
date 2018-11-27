@@ -13,12 +13,12 @@ namespace DLT.Meta
     class Node
     {
         // Public
-        public static BlockChain blockChain;
-        public static BlockProcessor blockProcessor;
-        public static BlockSync blockSync;
-        public static WalletStorage walletStorage;
-        public static Miner miner;
-        public static WalletState walletState;
+        public static BlockChain blockChain = null;
+        public static BlockProcessor blockProcessor = null;
+        public static BlockSync blockSync = null;
+        public static WalletStorage walletStorage = null;
+        public static Miner miner = null;
+        public static WalletState walletState = null;
 
         public static UPnP upnp;
 
