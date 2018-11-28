@@ -100,6 +100,11 @@ namespace DLT
             }
             // Add block to storage
             Storage.insertBlock(b);
+            if (b.version == 2)
+            {
+                CoreConfig.redactedWindowSize = 20000;
+                CoreConfig.minimumRedactedWindowSize = 20000;
+            }
             redactChain();
             return true;
         }
