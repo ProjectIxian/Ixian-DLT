@@ -91,6 +91,7 @@ namespace DLT
                         if (requestMissingBlocks())
                         {
                             // If blocks were requested, wait for next iteration
+                            Thread.Sleep(100);
                             continue;
                         }
 
@@ -457,7 +458,7 @@ namespace DLT
                                 TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
                             }
                             Node.blockChain.appendBlock(b);
-                            resetWatchDog(b);
+                            resetWatchDog(b.blockNum);
                             missingBlocks.RemoveAll(x => x <= b.blockNum);
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
@@ -476,15 +477,17 @@ namespace DLT
 
                 }
             }
-            if (!sleep && Node.blockChain.getLastBlockNum() == syncToBlock)
+            if (!sleep && Node.blockChain.getLastBlockNum() >= syncToBlock)
             {
-                if(!verifyLastBlock())
+                if(verifyLastBlock())
+                {
+                    watchDogBlockNum = 0;
+                    sleep = false;
+                }
+                else
                 {
                     handleWatchDog(true);
                     sleep = true;
-                }else
-                {
-                    sleep = false;
                 }
             }
             
@@ -784,6 +787,7 @@ namespace DLT
                     {
                         startWalletStateSync();                        
                     }
+                    noNetworkSynchronization = false;
 
                     ulong firstBlock = Node.getLastBlockHeight();
 
@@ -833,9 +837,9 @@ namespace DLT
             }
         }
 
-        private void resetWatchDog(Block b)
+        private void resetWatchDog(ulong blockNum)
         {
-            watchDogBlockNum = b.blockNum;
+            watchDogBlockNum = blockNum;
             watchDogTime = DateTime.Now;
         }
 
@@ -846,7 +850,7 @@ namespace DLT
                 return;
             }
 
-            if (forceWsUpdate || (DateTime.Now - watchDogTime).TotalSeconds > 60) // stuck on the same block for 60 seconds
+            if (forceWsUpdate || (DateTime.Now - watchDogTime).TotalSeconds > 120) // stuck on the same block for 120 seconds
             {
                 if (lastBlockToReadFromStorage > 0)
                 {

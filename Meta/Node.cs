@@ -208,7 +208,7 @@ namespace DLT.Meta
                 {
                     ulong blockNum = Meta.Storage.getLastBlockNum();
                     Block b = Meta.Storage.getBlock(blockNum);
-                    blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), Meta.Storage.getLastBlockNum() - 1);
+                    blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), Meta.Storage.getLastBlockNum() - 6);
                 }
                 else
                 {
@@ -226,7 +226,7 @@ namespace DLT.Meta
                         }
                     }else
                     {
-                        blockSync.lastBlockToReadFromStorage = Meta.Storage.getLastBlockNum();
+                        blockSync.lastBlockToReadFromStorage = Meta.Storage.getLastBlockNum() - 6;
                     }
 
                     // start the server for ping purposes
