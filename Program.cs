@@ -199,7 +199,7 @@ namespace DLTNode
             prepareConsole();
 
             // Start logging
-            Logging.start(Config.maxLogSize, Config.maxLogCount);
+            Logging.start();
 
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
@@ -238,6 +238,9 @@ namespace DLTNode
                 Thread.Sleep(1000);
                 return;
             }
+
+            // Set the logging options
+            Logging.setOptions(Config.maxLogSize, Config.maxLogCount, Config.verboseConsoleOutput);
 
             Logging.info(string.Format("Starting IXIAN DLT {0}", Config.version));
 
