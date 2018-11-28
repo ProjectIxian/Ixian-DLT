@@ -621,7 +621,7 @@ namespace DLT
         }*/
 
         // Verify if a PoW transaction is valid
-        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum)
+        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, bool verify_pow = true)
         {
             blocknum = 0;
 
@@ -638,6 +638,11 @@ namespace DLT
                     blocknum = reader.ReadUInt64();
                     nonce = reader.ReadString();
                 }
+            }
+
+            if(verify_pow == false)
+            {
+                return true;
             }
 
             try
@@ -698,7 +703,7 @@ namespace DLT
                             b.blockNum, Crypto.hashToString(b.blockChecksum), txid));
                         return false;
                     }
-                    applyPowTransaction(tx, b, blockSolutionsDictionary, null, true);
+                    applyPowTransaction(tx, b, blockSolutionsDictionary, null, true, false);
                     setAppliedFlag(txid, b.blockNum);
                 }
                 // set PoW fields
@@ -996,7 +1001,7 @@ namespace DLT
         // Checks if a transaction is a pow transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
         // be careful when changing/updating ws_snapshot related things in this function as the parameter relies on sync as well
-        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, List<Transaction> failedTransactions, bool ws_snapshot = false)
+        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, List<Transaction> failedTransactions, bool ws_snapshot = false, bool verify_pow = true)
         {
             if (tx.type != (int)Transaction.Type.PoWSolution)
             {
@@ -1010,7 +1015,7 @@ namespace DLT
             }
 
             // Verify if the solution is correct
-            if (verifyPoWTransaction(tx, out ulong powBlockNum) == true)
+            if (verifyPoWTransaction(tx, out ulong powBlockNum, verify_pow) == true)
             {
                 // Check if we already have a key matching the block number
                 if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)

@@ -94,7 +94,6 @@ namespace DLT
                             Thread.Sleep(100);
                             continue;
                         }
-
                     }
                 }
                 // Check if we can perform the walletstate synchronization
@@ -171,7 +170,8 @@ namespace DLT
                     missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
                 }
 
-                int count = 0;
+                int total_count = 0;
+                int requested_count = 0;
 
                 // whatever is left in missingBlocks is what we need to request
                 Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
@@ -213,6 +213,7 @@ namespace DLT
                         }
                         else
                         {
+                            requested_count++;
                             // Set the block request time
                             lock (requestedBlockTimes)
                             {
@@ -221,10 +222,10 @@ namespace DLT
                         }
                     }
 
-                    count++;
-                    if (count >= maxBlockRequests) break;
+                    total_count++;
+                    if (total_count >= maxBlockRequests) break;
                 }
-                if (count > 0)
+                if (requested_count > 0)
                     return true;
             }
 

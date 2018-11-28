@@ -448,6 +448,7 @@ namespace DLT
                 }
                 if (verifyDifficulty)
                 {
+                    Logging.info("Verifying difficulty for #" + b.blockNum);
                     ulong expectedDifficulty = calculateDifficulty(b.version);
                     if (b.difficulty != expectedDifficulty)
                     {
@@ -462,25 +463,8 @@ namespace DLT
             return BlockVerifyStatus.Valid;
         }
 
-        public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
+        private BlockVerifyStatus verifyBlockTransactions(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
         {
-
-            var sw = new System.Diagnostics.Stopwatch();
-            sw.Start();
-
-            BlockVerifyStatus basicVerification = verifyBlockBasic(b);
-
-            if (basicVerification != BlockVerifyStatus.Valid)
-            {
-                return basicVerification;
-            }
-
-            if (Node.blockChain.Count > 0 && Node.blockChain.getLastBlockNum() + 1 != b.blockNum)
-            {
-                // TODO TODO TODO verify if the block matches the one in blockchain and validate it
-                return BlockVerifyStatus.Indeterminate;
-            }
-
             // Check all transactions in the block against our TXpool, make sure all is legal
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Indeterminate
             bool hasAllTransactions = true;
@@ -493,7 +477,7 @@ namespace DLT
                     txTimeout = fetchingTxForBlocks[b.blockNum];
                 }
             }
-            if (txTimeout > 100) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
+            if (txTimeout > 20) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
             {
                 Logging.info("fetchingTxTimeout EXPIRED");
                 txTimeout = 0;
@@ -501,6 +485,7 @@ namespace DLT
             }
             int txCount = 0;
             int missing = 0;
+
             Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
             foreach (string txid in b.transactions)
             {
@@ -514,7 +499,7 @@ namespace DLT
                 Transaction t = TransactionPool.getTransaction(txid);
                 if (t == null)
                 {
-                    if(fetchTransactions)
+                    if (fetchTransactions)
                     {
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
                         ProtocolMessage.broadcastGetTransaction(txid, endpoint);
@@ -543,7 +528,7 @@ namespace DLT
                         IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
                         minusBalances[t.from] = new_minus_balance;
                     }
-                    else if(t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         object multisig_data = t.GetMultisigData();
                         string orig_txid = "";
@@ -571,7 +556,7 @@ namespace DLT
                         int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type) + 1;
                         if (num_valid_multisigs < from_w.requiredSigs)
                         {
-                            Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}", 
+                            Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
                                 t.id, num_valid_multisigs, from_w.requiredSigs));
                             return BlockVerifyStatus.Invalid;
                         }
@@ -586,7 +571,8 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
             }
-            if((ulong)txCount > CoreConfig.maximumTransactionsPerBlock + 10)
+
+            if ((ulong)txCount > CoreConfig.maximumTransactionsPerBlock + 10)
             {
                 Logging.warn(String.Format("Block has more transactions than the maximumTransactionsPerBlock setting {0}/{1}", txCount, CoreConfig.maximumTransactionsPerBlock + 10));
                 return BlockVerifyStatus.Invalid;
@@ -620,14 +606,7 @@ namespace DLT
                 fetchingTxForBlocks.Remove(b.blockNum);
             }
 
-            // Note: This part depends on no one else messing with WS while it runs.
-            // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
-            // the generate thread is paused, so we need to lock
-            // Note: This function is also called from BlockSync, which uses it to determine if the blocks it is syncing
-            // from neighbors are OK.  However, BlockSync applies blocks before the current WS, so sometimes it doesn't
-            // want to check WS checksums
-            byte[] ws_checksum = null;
-            if (ignore_walletstate == false)
+            if(ignore_walletstate == false)
             {
                 // overspending
                 foreach (byte[] addr in minusBalances.Keys)
@@ -640,6 +619,47 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
+            }
+
+            return BlockVerifyStatus.Valid;
+        }
+
+        public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
+        {
+
+            var sw = new System.Diagnostics.Stopwatch();
+            sw.Start();
+
+            BlockVerifyStatus basicVerification = verifyBlockBasic(b);
+
+            if (basicVerification != BlockVerifyStatus.Valid)
+            {
+                return basicVerification;
+            }
+
+            if (Node.blockChain.Count > 0 && Node.blockChain.getLastBlockNum() + 1 != b.blockNum)
+            {
+                // TODO TODO TODO verify if the block matches the one in blockchain and validate it
+                return BlockVerifyStatus.Indeterminate;
+            }
+
+
+            BlockVerifyStatus txVerification = verifyBlockTransactions(b, ignore_walletstate, endpoint);
+            if (txVerification != BlockVerifyStatus.Valid)
+            {
+                return txVerification;
+            }
+
+
+            // Note: This part depends on no one else messing with WS while it runs.
+            // Sometimes generateNewBlock is called from the other thread and this is invoked by network while
+            // the generate thread is paused, so we need to lock
+            // Note: This function is also called from BlockSync, which uses it to determine if the blocks it is syncing
+            // from neighbors are OK.  However, BlockSync applies blocks before the current WS, so sometimes it doesn't
+            // want to check WS checksums
+            byte[] ws_checksum = null;
+            if (ignore_walletstate == false)
+            {
 
                 lock (localBlockLock)
                 {

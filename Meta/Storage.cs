@@ -369,10 +369,10 @@ namespace DLT
                 Transaction transaction = null;
 
                 string sql = "select * from transactions where `id` = ? LIMIT 1";
-                _storage_Transaction[] _storage_tx = null;
+                List<_storage_Transaction> _storage_tx = null;
                 try
                 {
-                    _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid).ToArray();
+                    _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
                 }
                 catch (Exception e)
                 {
@@ -383,7 +383,7 @@ namespace DLT
                 if (_storage_tx == null)
                     return transaction;
 
-                if (_storage_tx.Length < 1)
+                if (_storage_tx.Count < 1)
                     return transaction;
 
                 _storage_Transaction tx = _storage_tx[0];
