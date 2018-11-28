@@ -47,13 +47,13 @@ namespace DLT
             {
                 bool prepare_database = false;
                 // Check if the database file does not exist
-                if (File.Exists(filename) == false)
+                if (File.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + filename) == false)
                 {
                     prepare_database = true;
                 }
 
                 // Bind the connection
-                sqlConnection = new SQLiteConnection(filename);
+                sqlConnection = new SQLiteConnection(Config.dataFoldername + Path.DirectorySeparatorChar + filename);
 
                 // The database needs to be prepared first
                 if (prepare_database)
@@ -80,7 +80,7 @@ namespace DLT
                     if(tableInfo.Exists(x => x.Name == "to"))
                     {
                         sqlConnection.Close();
-                        File.Delete(filename);
+                        File.Delete(Config.dataFoldername + Path.DirectorySeparatorChar + filename);
                         return prepareStorage();
                     }
 
