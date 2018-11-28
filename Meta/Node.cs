@@ -224,6 +224,9 @@ namespace DLT.Meta
                             walletState.clear();
 
                         }
+                    }else
+                    {
+                        blockSync.lastBlockToReadFromStorage = Meta.Storage.getLastBlockNum();
                     }
 
                     // start the server for ping purposes

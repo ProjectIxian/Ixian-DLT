@@ -994,9 +994,9 @@ namespace DLT
                                         string message = reader.ReadString();
 
                                         if (message.Length > 0)
-                                            Logging.error(string.Format("Disconnected with message: {0}", message));
+                                            Logging.info(string.Format("Disconnected with message: {0}", message));
                                         else
-                                            Logging.error("Disconnected");
+                                            Logging.info("Disconnected");
 
                                         // Convert to Worker node if possible
                                         if (message.StartsWith("Insufficient funds"))

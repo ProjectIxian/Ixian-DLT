@@ -21,7 +21,7 @@ namespace DLT
         DateTime lastChunkRequested;
         Dictionary<ulong, long> requestedBlockTimes = new Dictionary<ulong, long>();
 
-        ulong lastBlockToReadFromStorage = 0;
+        public ulong lastBlockToReadFromStorage = 0;
 
         ulong syncTargetBlockNum;
         int maxBlockRequests = 50; // Maximum number of block requests per iteration
@@ -125,14 +125,42 @@ namespace DLT
                 return false;
             }
 
-            if (requestedBlockTimes.Count > maxBlockRequests)
-                return true;
+            long currentTime = Core.getCurrentTimestamp();
+
+            // Check if the block has already been requested
+            lock (requestedBlockTimes)
+            {
+                Dictionary<ulong, long> tmpRequestedBlockTimes = new Dictionary<ulong, long>(requestedBlockTimes);
+                foreach (var entry in tmpRequestedBlockTimes)
+                {
+                    ulong blockNum = entry.Key;
+                    // Check if the request expired (after 25 seconds)
+                    if (currentTime - requestedBlockTimes[blockNum] > 25)
+                    {
+                        // Re-request block
+                        if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                        {
+                            Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
+                            Thread.Sleep(500);
+                        }
+                        else
+                        {
+                            // Re-set the block request time
+                            requestedBlockTimes[blockNum] = currentTime;
+                        }
+                    }
+                }
+                if(requestedBlockTimes.Count > 50)
+                {
+                    return true;
+                }
+            }
+
 
             ulong syncToBlock = syncTargetBlockNum;
 
             ulong firstBlock = getLowestBlockNum();
 
-            long currentTime = Core.getCurrentTimestamp();
 
             lock (pendingBlocks)
             {
@@ -156,28 +184,11 @@ namespace DLT
 
                 foreach (ulong blockNum in tmpMissingBlocks)
                 {
-                    // Check if the block has already been requested
                     lock (requestedBlockTimes)
                     {
                         if (requestedBlockTimes.ContainsKey(blockNum))
                         {
-                            // Check if the request expired (after 25 seconds)
-                            if (requestedBlockTimes[blockNum] > currentTime + 25)
-                            {
-                                // Re-request block
-                                if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
-                                {
-                                    Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
-                                }
-                                // Re-set the block request time
-                                requestedBlockTimes[blockNum] = currentTime;
-                                continue;
-                            }
-                            else
-                            {
-                                // Wait a bit before requesting this block again
-                                continue;
-                            }
+                            continue;
                         }
                     }
                     bool readFromStorage = false;
@@ -197,12 +208,15 @@ namespace DLT
                         if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
                         {
                             Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
+                            Thread.Sleep(500);
                         }
-
-                        // Set the block request time
-                        lock (requestedBlockTimes)
+                        else
                         {
-                            requestedBlockTimes.Add(blockNum, currentTime);
+                            // Set the block request time
+                            lock (requestedBlockTimes)
+                            {
+                                requestedBlockTimes.Add(blockNum, currentTime);
+                            }
                         }
                     }
 
@@ -317,6 +331,10 @@ namespace DLT
                     {
                         // we have everything, clear pending blocks and break
                         pendingBlocks.Clear();
+                        lock (requestedBlockTimes)
+                        {
+                            requestedBlockTimes.Clear();
+                        }
                         break;
                     }
                     Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
@@ -405,7 +423,7 @@ namespace DLT
                             if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                             {
                                 Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                synchronizing = false;
+                                handleWatchDog(true);
                                 return;
                             }
                             if (b.blockNum % 1000 == 0)
@@ -460,8 +478,14 @@ namespace DLT
             }
             if (!sleep && Node.blockChain.getLastBlockNum() == syncToBlock)
             {
-                verifyLastBlock();
-                return;
+                if(!verifyLastBlock())
+                {
+                    handleWatchDog(true);
+                    sleep = true;
+                }else
+                {
+                    sleep = false;
+                }
             }
             
             if(sleep)
@@ -515,6 +539,10 @@ namespace DLT
 
             lock(pendingBlocks)
             {
+                lock (requestedBlockTimes)
+                {
+                    requestedBlockTimes.Clear();
+                }
                 pendingBlocks.Clear();
                 missingBlocks.Clear();
                 missingBlocks = null;
@@ -690,6 +718,11 @@ namespace DLT
         public void startSync()
         {
             // clear out current state
+            lock (requestedBlockTimes)
+            {
+                requestedBlockTimes.Clear();
+            }
+
             lock (pendingBlocks)
             {
                 pendingBlocks.Clear();
@@ -747,7 +780,7 @@ namespace DLT
                     Node.blockProcessor.highestNetworkBlockNum = block_height;
 
                     // Start a wallet state synchronization if no network sync was done before
-                    if(noNetworkSynchronization)
+                    if (noNetworkSynchronization && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                     {
                         startWalletStateSync();                        
                     }
@@ -768,13 +801,24 @@ namespace DLT
             } else
             {
                 if(Node.blockProcessor.operating == false)
-                {                    
-                    lastBlockToReadFromStorage = last_block_to_read_from_storage;
+                {
+                    if (last_block_to_read_from_storage > 0)
+                    {
+                        lastBlockToReadFromStorage = last_block_to_read_from_storage;
+                    }
                     // This should happen when node first starts up.
                     Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
 
-                    Node.blockProcessor.highestNetworkBlockNum = block_height;
-                    syncTargetBlockNum = block_height;
+                    if (lastBlockToReadFromStorage > block_height)
+                    {
+                        Node.blockProcessor.highestNetworkBlockNum = lastBlockToReadFromStorage;
+                        syncTargetBlockNum = lastBlockToReadFromStorage;
+                    }
+                    else
+                    {
+                        Node.blockProcessor.highestNetworkBlockNum = block_height;
+                        syncTargetBlockNum = block_height;
+                    }
                     if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
                     {
                         wsSyncConfirmedBlockNum = block_height;
@@ -795,20 +839,37 @@ namespace DLT
             watchDogTime = DateTime.Now;
         }
 
-        private void handleWatchDog()
+        private void handleWatchDog(bool forceWsUpdate = false)
         {
-            if(watchDogBlockNum > 0)
+            if (!forceWsUpdate && watchDogBlockNum == 0)
             {
-                if ((DateTime.Now - watchDogTime).TotalSeconds > 60) // stuck on the same block for 60 seconds
+                return;
+            }
+
+            if (forceWsUpdate || (DateTime.Now - watchDogTime).TotalSeconds > 60) // stuck on the same block for 60 seconds
+            {
+                if (lastBlockToReadFromStorage > 0)
                 {
                     if (wsSyncConfirmedBlockNum > 0)
                     {
+                        Logging.info("Restoring WS to " + wsSyncConfirmedBlockNum + " - 1");
                         lastBlockToReadFromStorage = WalletStateStorage.restoreWalletState(wsSyncConfirmedBlockNum - 1);
-                    }else
+                    }
+                    else
                     {
                         lastBlockToReadFromStorage = WalletStateStorage.restoreWalletState();
+                        Logging.info("Restored WS to " + lastBlockToReadFromStorage);
                     }
-
+                }
+                if (lastBlockToReadFromStorage == 0)
+                {
+                    Logging.info("Resetting sync to begin from 0");
+                    Node.walletState.clear();
+                    lastBlockToReadFromStorage = 0;
+                    wsSyncConfirmedBlockNum = 0;
+                }
+                else
+                {
                     Block b = Node.blockChain.getBlock(lastBlockToReadFromStorage, true);
                     if (b == null || !Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
                     {
@@ -816,25 +877,48 @@ namespace DLT
                         wsSyncConfirmedBlockNum = lastBlockToReadFromStorage - 1;
                         return;
                     }
+                    wsSyncConfirmedBlockNum = lastBlockToReadFromStorage;
+                }
 
-                    watchDogBlockNum = 0;
+                watchDogBlockNum = 0;
 
-                    for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
-                    { 
+                for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
+                {
+                    Block b = Node.blockChain.getBlock(blockNum);
+                    if (b != null)
+                    {
+                        foreach (Transaction t in b.getFullTransactions())
+                        {
+                            if (t.type == (int)Transaction.Type.PoWSolution)
+                            {
+                                ulong powBlockNum = BitConverter.ToUInt64(t.data, 0);
+                                Block powB = Node.blockChain.getBlock(powBlockNum);
+                                if (powB != null)
+                                {
+                                    powB.powField = null;
+                                }
+                            }
+                        }
+                        TransactionPool.redactTransactionsForBlock(b);
                         Node.blockChain.removeBlock(blockNum);
                     }
-                    wsSyncConfirmedBlockNum = lastBlockToReadFromStorage;
+                }
 
-                    lock (pendingBlocks)
+                lock (pendingBlocks)
+                {
+                    ulong firstBlock = Node.getLastBlockHeight();
+                    if(firstBlock == 0)
                     {
-                        ulong firstBlock = Node.getLastBlockHeight();
-                        ulong lastBlock = syncTargetBlockNum;
-                        if (missingBlocks == null)
-                        {
-                            missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
-                        }
-                        pendingBlocks.Clear();
+                        firstBlock = 1;
                     }
+                    ulong lastBlock = syncTargetBlockNum;
+                    missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
+                    pendingBlocks.Clear();
+                    receivedAllMissingBlocks = false;
+                }
+                lock (requestedBlockTimes)
+                {
+                    requestedBlockTimes.Clear();
                 }
             }
         }

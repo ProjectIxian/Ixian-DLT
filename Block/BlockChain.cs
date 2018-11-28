@@ -131,9 +131,12 @@ namespace DLT
         {
             lock (blocks)
             {
-                if(blocks.RemoveAll(x => x.blockNum == blockNum) > 0)
+                if (blocksDictionary.Remove(blockNum))
                 {
-                    return true;
+                    if (blocks.RemoveAll(x => x.blockNum == blockNum) > 0)
+                    {
+                        return true;
+                    }
                 }
                 return false;
             }

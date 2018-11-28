@@ -35,14 +35,17 @@ namespace DLT.Meta
             if (blockNum == 0)
             {
                 blockNum = DLT.Meta.Storage.getLastBlockNum();
-                if (blockNum > 0)
-                {
-                    blockNum = ((ulong)((DLT.Meta.Storage.getLastBlockNum() - 6) / 1000)) * 1000;
-                }
                 if(blockNum == 0)
                 {
                     return 0;
                 }
+            }
+            if (blockNum > 0)
+            {
+                blockNum = ((ulong)(blockNum / 1000)) * 1000;
+            }else
+            {
+                blockNum = ((ulong)((DLT.Meta.Storage.getLastBlockNum() - 6) / 1000)) * 1000;
             }
             FileStream fs = null;
             while (fs == null)
