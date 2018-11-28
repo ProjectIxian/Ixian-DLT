@@ -1276,12 +1276,8 @@ namespace DLT
                 localNewBlock.timestamp = Core.getCurrentTimestamp();
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
-                int blockVersion = 1;
+                int blockVersion = 2;
 
-                if (localNewBlock.blockNum < Legacy.up20181111)
-                {
-                    blockVersion = 0;
-                }
                 localNewBlock.version = blockVersion;
 
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));

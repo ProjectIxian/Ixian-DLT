@@ -278,7 +278,7 @@ namespace DLT
             {
 
                 IxiNumber expectedFee = transaction.calculateMinimumFee(CoreConfig.transactionPrice);
-                if (Node.blockChain.getLastBlockNum() < Legacy.up20181111)
+                if (transaction.version == 0)
                 {
                     expectedFee = CoreConfig.transactionPrice;
                 }
@@ -1357,7 +1357,7 @@ namespace DLT
             // TODO: adjust this dynamically
 
             IxiNumber expectedFee = tx.calculateMinimumFee(CoreConfig.transactionPrice);
-            if (Node.blockChain.getLastBlockNum() < Legacy.up20181111)
+            if (tx.version == 0)
             {
                 expectedFee = CoreConfig.transactionPrice;
             }
