@@ -29,12 +29,12 @@ namespace DLT
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
             public static string genesis2Address = ""; // For a secondary genesis node
-
-            public static string walletFile = "ixian.wal";
-
+           
             public static uint miningThreads = 1;
 
+            public static string dataFoldername = "data";
             public static string configFilename = "ixian.cfg";
+            public static string walletFile = "ixian.wal";
 
             public static int maxLogSize = 50;
             public static int maxLogCount = 10;
@@ -219,7 +219,7 @@ namespace DLT
                     apiPort = testnetApiPort;
                     Storage.filename = "testnet-blockchain.dat";
                     PeerStorage.peersFilename = "testnet-peers.dat";
-                    WalletStateStorage.baseFilename = "ws"+ Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
+                    WalletStateStorage.baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
                 }
 
 

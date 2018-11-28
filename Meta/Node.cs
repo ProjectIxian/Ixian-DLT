@@ -20,6 +20,8 @@ namespace DLT.Meta
         public static Miner miner = null;
         public static WalletState walletState = null;
 
+        public static StatsConsoleScreen statsConsoleScreen = null;
+
         public static UPnP upnp;
 
         public static bool genesisNode = false;
@@ -43,8 +45,16 @@ namespace DLT.Meta
         // Perform basic initialization of node
         static public void init()
         {
+            // Setup the stats console
+        /*    statsConsoleScreen = new StatsConsoleScreen();
+            
+            while(true)
+            {
+                Thread.Sleep(100);
+            }
+            */
             running = true;
-
+            
             // Upgrade any legacy files
             NodeLegacy.upgrade();
 
@@ -64,6 +74,9 @@ namespace DLT.Meta
         // Start the node
         static public void start()
         {
+            // First create the data folder if it does not already exist
+            checkDataFolder();
+
             // debug
             if (Config.networkDumpFile != "")
             {
@@ -684,6 +697,15 @@ namespace DLT.Meta
         public static ulong getLastBlockHeight()
         {
             return Node.blockChain.getLastBlockNum();
+        }
+
+        // Check if the data folder exists. Otherwise it creates it
+        public static void checkDataFolder()
+        {
+            if (!Directory.Exists(Config.dataFoldername))
+            {
+                Directory.CreateDirectory(Config.dataFoldername);
+            }
         }
     }
 }
