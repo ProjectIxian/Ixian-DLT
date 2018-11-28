@@ -34,6 +34,9 @@ namespace DLT
 
             public static string configFilename = "ixian.cfg";
 
+            public static int maxLogSize = 50;
+            public static int maxLogCount = 10;
+
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
@@ -81,6 +84,8 @@ namespace DLT
                 Console.WriteLine("    -n\t\t Specify which seed node to use");
                 Console.WriteLine("    --threads\t Specify number of threads to use for mining (default 1)");
                 Console.WriteLine("    --config\t Specify config filename (default ixian.cfg)");
+                Console.WriteLine("    --maxLogSize\t Specify maximum log file size in MB");
+                Console.WriteLine("    --maxLogCount\t Specify maximum number of log files");
                 Console.WriteLine("");
                 Console.WriteLine("----------- developer CLI flags -----------");
                 Console.WriteLine("    --netdump\t Enable netdump for debugging purposes");
@@ -167,6 +172,12 @@ namespace DLT
                             break;
                         case "addTestnetPeer":
                             Network.CoreNetworkUtils.seedTestNetNodes.Add(value);
+                            break;
+                        case "maxLogSize":
+                            maxLogSize = int.Parse(value);
+                            break;
+                        case "maxLogCount":
+                            maxLogCount = int.Parse(value);
                             break;
                         default:
                             // unknown key
@@ -256,6 +267,10 @@ namespace DLT
                 cmd_parser.Setup<string>('w', "wallet").Callback(value => walletFile = value).Required();
 
                 cmd_parser.Setup<string>('n', "node").Callback(value => seedNode = value).Required();
+
+                cmd_parser.Setup<int>("maxLogSize").Callback(value => maxLogSize = value).Required();
+
+                cmd_parser.Setup<int>("maxLogCount").Callback(value => maxLogCount = value).Required();
 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");

@@ -199,7 +199,7 @@ namespace DLTNode
             prepareConsole();
 
             // Start logging
-            Logging.start();
+            Logging.start(Config.maxLogSize, Config.maxLogCount);
 
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
