@@ -204,11 +204,16 @@ namespace DLT.Meta
             }
             else
             {
+                ulong lastLocalBlockNum = Meta.Storage.getLastBlockNum();
+                if(lastLocalBlockNum > 6)
+                {
+                    lastLocalBlockNum = lastLocalBlockNum - 6;
+                }
                 if (Config.recoverFromFile)
                 {
                     ulong blockNum = Meta.Storage.getLastBlockNum();
                     Block b = Meta.Storage.getBlock(blockNum);
-                    blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), Meta.Storage.getLastBlockNum() - 6);
+                    blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
                 }
                 else
                 {
@@ -218,7 +223,7 @@ namespace DLT.Meta
                         Block b = blockChain.getBlock(blockNum, true);
                         if (b != null)
                         {
-                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), Meta.Storage.getLastBlockNum() - 6);
+                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
                         }else
                         {
                             walletState.clear();
@@ -226,7 +231,7 @@ namespace DLT.Meta
                         }
                     }else
                     {
-                        blockSync.lastBlockToReadFromStorage = Meta.Storage.getLastBlockNum() - 6;
+                        blockSync.lastBlockToReadFromStorage = lastLocalBlockNum;
                     }
 
                     // start the server for ping purposes
