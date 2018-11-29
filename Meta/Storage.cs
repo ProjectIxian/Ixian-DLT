@@ -832,12 +832,17 @@ namespace DLT
             // Shuffle data storage bytes
             public static byte[] shuffleStorageBytes(byte[] bytes)
             {
+                if (bytes == null)
+                    return null;
                 return bytes.Reverse().ToArray();
             }
 
             // Unshuffle data storage bytes
             public static byte[] unshuffleStorageBytes(byte[] bytes)
             {
+                if (bytes == null)
+                    return null;
+
                 return bytes.Reverse().ToArray();
             }
 
