@@ -24,7 +24,7 @@ namespace DLT
                     {
                         ulong blockNum = reader.ReadUInt64();
                         bool requestAllTransactions = reader.ReadBoolean();
-                        Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
+                        //Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
 
                         // Get the requested block and corresponding transactions
                         Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
@@ -631,6 +631,20 @@ namespace DLT
                 return true;
             }
 
+            public static void sendBye(RemoteEndpoint endpoint, int code, string message, string data)
+            {
+                using (MemoryStream m2 = new MemoryStream())
+                {
+                    using (BinaryWriter writer = new BinaryWriter(m2))
+                    {
+                        writer.Write(code);
+                        writer.Write(message);
+                        writer.Write(data);
+                        endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
+                    }
+                }
+            }
+
             public static void sendHelloMessage(RemoteEndpoint endpoint, bool sendHelloData)
             {
                 using (MemoryStream m = new MemoryStream())
@@ -820,7 +834,13 @@ namespace DLT
                                     {
                                         ulong block_number = reader.ReadUInt64();
 
-                                        Logging.info(String.Format("Block #{0} has been requested.", block_number));
+                                        //Logging.info(String.Format("Block #{0} has been requested.", block_number));
+
+                                        if (block_number > Node.getLastBlockHeight())
+                                        {
+                                            return;
+                                        }
+
                                         // TODO TODO TODO full history node
                                         Block block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                                         if (block == null)
@@ -828,7 +848,7 @@ namespace DLT
                                             Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
                                             return;
                                         }
-                                        Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
+                                        //Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
                                         // Send the block
                                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
 
