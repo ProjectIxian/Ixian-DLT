@@ -47,6 +47,7 @@ namespace DLT
             public static readonly string version = "xdc-0.5.8a"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
+            public static readonly ulong maxBlocksPerDatabase = 1000;
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
             public static readonly ulong compileTimeBlockNumber = 43200;
 
