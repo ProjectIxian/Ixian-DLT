@@ -44,7 +44,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.5.8"; // DLT Node version
+            public static readonly string version = "xdc-0.5.8a"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
