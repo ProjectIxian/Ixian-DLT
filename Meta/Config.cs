@@ -32,7 +32,7 @@ namespace DLT
            
             public static uint miningThreads = 1;
 
-            public static string dataFoldername = "data";
+            public static string dataFoldername = ".";
             public static string configFilename = "ixian.cfg";
             public static string walletFile = "ixian.wal";
 
@@ -219,7 +219,7 @@ namespace DLT
                     apiPort = testnetApiPort;
                     Storage.filename = "testnet-blockchain.dat";
                     PeerStorage.peersFilename = "testnet-peers.dat";
-                    WalletStateStorage.baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
+                    WalletStateStorage.baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
                 }
 
 

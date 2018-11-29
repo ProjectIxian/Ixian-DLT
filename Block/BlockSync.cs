@@ -798,7 +798,7 @@ namespace DLT
                     // Start a wallet state synchronization if no network sync was done before
                     if (noNetworkSynchronization && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                     {
-                        startWalletStateSync();                        
+                        startWalletStateSync();
                     }
                     noNetworkSynchronization = false;
 
@@ -806,7 +806,7 @@ namespace DLT
 
                     lock (pendingBlocks)
                     {
-                        for(ulong i = 1; syncTargetBlockNum + i < block_height; i++)
+                        for(ulong i = 1; syncTargetBlockNum + i <= block_height; i++)
                         {
                             missingBlocks.Add(syncTargetBlockNum + i);
                         }

@@ -7,11 +7,16 @@ namespace DLT.Meta
 
     public class WalletStateStorage
     {
-        public static string baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "wsStorage.dat";
+        public static string baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "wsStorage.dat";
 
         public static void saveWalletState(ulong blockNum)
         {
             Node.checkDataFolder();
+
+            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "ws"))
+            {
+                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "ws");
+            }
 
             FileStream fs = File.Open(baseFilename + "." + blockNum, FileMode.Create, FileAccess.Write, FileShare.None);
             fs.Write(BitConverter.GetBytes(Node.walletState.version), 0, 4);
