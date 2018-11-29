@@ -16,25 +16,17 @@ namespace DLT
         {
             public static string filename = "blockchain.dat";
 
+            // Sql connections
             private static SQLiteConnection sqlConnection = null;
+            private static readonly object storageLock = new object(); // This should always be placed when performing direct sql operations
 
-            private static readonly object storageLock = new object();
-
-            private static ulong current_seek = 1;
-
+            // Threading
             private static Thread thread = null;
             private static bool running = false;
 
             // Storage cache
             private static ulong cached_lastBlockNum = 0;
-
-            /// <summary>
-            /// TODO:
-            /// add proper transaction lookup, scan all db files
-            /// add getLastBlockNum solution
-            /// add transaction data shuffling
-            /// </summary>
-
+            private static ulong current_seek = 1;
 
             private enum QueueStorageCode
             {
@@ -48,6 +40,9 @@ namespace DLT
                 public QueueStorageCode code;
                 public object data;
             }
+            
+            // Maintain a queue of sql statements
+            private static List<QueueStorageMessage> queueStatements = new List<QueueStorageMessage>();
 
             public class _storage_Block
             {
@@ -83,9 +78,31 @@ namespace DLT
                 public int version { get; set; }
             }
 
-            // Maintain a queue of sql statements
-            private static List<QueueStorageMessage> queueStatements = new List<QueueStorageMessage>();
 
+
+            // Creates the storage file if not found
+            public static bool prepareStorage()
+            {
+                // Get latest block number to initialize the cache as well
+                ulong last_block = getLastBlockNum();
+                Logging.info(string.Format("Last storage block number is: #{0}", last_block));
+
+                // Start thread
+                running = true;
+                thread = new Thread(new ThreadStart(threadLoop));
+                thread.Start();
+
+                // Check for an older database and upgrade if found
+                checkForOlderDatabase();
+
+                return true;
+            }
+
+            // Shutdown storage thread
+            public static void stopStorage()
+            {
+                running = false;
+            }
 
             // Returns true if connection to matching blocknum range database is established
             public static bool seekDatabase(ulong blocknum = 0)
@@ -97,11 +114,8 @@ namespace DLT
                     // Check if the current seek location matches this block range
                     if (current_seek == db_blocknum)
                     {
-                        //Logging.info(String.Format("Already seeked {0}", db_blocknum));
                         return true;
                     }
-
-                    //Logging.info(String.Format("Seeking for {0} : {1}", blocknum, db_blocknum));
 
                     string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
 
@@ -168,35 +182,9 @@ namespace DLT
                     }
                 }
 
+                // Seek the found database
                 return seekDatabase(db_blocknum);
             }
-
-
-
-            // Creates the storage file if not found
-            public static bool prepareStorage()
-            {
-                // Get latest block number to initialize the cache as well
-                ulong last_block = getLastBlockNum();
-                Logging.info(string.Format("Last storage block number is: #{0}", last_block));
-
-                // Start thread
-                running = true;
-                thread = new Thread(new ThreadStart(threadLoop));
-                thread.Start();
-
-                // Check for an older database and upgrade if found
-                checkForOlderDatabase();
-
-                return true;
-            }
-
-            // Shutdown storage thread
-            public static void stopStorage()
-            {
-                running = false;
-            }
-
 
             public static ulong getLastBlockNum()
             {
