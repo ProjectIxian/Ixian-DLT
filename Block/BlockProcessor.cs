@@ -288,7 +288,7 @@ namespace DLT
         public void onBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
             if (operating == false) return;
-            Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getUniqueSignatureCount()));
+            //Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getUniqueSignatureCount()));
 
             if(isBlockBlacklisted(b))
             {
@@ -334,7 +334,14 @@ namespace DLT
 
             b.powField = null;
 
-            if (verifyBlock(b, false, endpoint) != BlockVerifyStatus.Valid)
+            BlockVerifyStatus b_status = verifyBlock(b, false, endpoint);
+
+            /*if(b_status == BlockVerifyStatus.Invalid)
+            {
+                ProtocolMessage.sendBye(endpoint, 100, "Invalid block", "");
+            }*/
+
+            if (b_status != BlockVerifyStatus.Valid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
@@ -442,13 +449,13 @@ namespace DLT
                     {
                         verifyDifficulty = true;
                     }
-                }else if(b.blockNum == (ulong)Node.blockChain.Count + 1)
+                }else
                 {
                     verifyDifficulty = true;
                 }
                 if (verifyDifficulty)
                 {
-                    Logging.info("Verifying difficulty for #" + b.blockNum);
+                    //Logging.info("Verifying difficulty for #" + b.blockNum);
                     ulong expectedDifficulty = calculateDifficulty(b.version);
                     if (b.difficulty != expectedDifficulty)
                     {
@@ -1276,7 +1283,7 @@ namespace DLT
                 localNewBlock.timestamp = Core.getCurrentTimestamp();
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
-                int blockVersion = 2;
+                int blockVersion = 1;
 
                 localNewBlock.version = blockVersion;
 

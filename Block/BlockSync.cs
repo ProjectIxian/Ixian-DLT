@@ -134,12 +134,13 @@ namespace DLT
                 foreach (var entry in tmpRequestedBlockTimes)
                 {
                     ulong blockNum = entry.Key;
-                    // Check if the request expired (after 25 seconds)
-                    if (currentTime - requestedBlockTimes[blockNum] > 25)
+                    // Check if the request expired (after 10 seconds)
+                    if (currentTime - requestedBlockTimes[blockNum] > 10)
                     {
                         // Re-request block
                         if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
                         {
+                            watchDogTime = DateTime.Now;
                             Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
                         }
@@ -208,6 +209,7 @@ namespace DLT
                         // Didn't find the block in storage, request it from the network
                         if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
                         {
+                            watchDogTime = DateTime.Now;
                             Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
                         }
@@ -342,6 +344,7 @@ namespace DLT
                     Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
                     if (b == null)
                     {
+                        resetWatchDog(next_to_apply - 1);
                         if (!missingBlocks.Contains(next_to_apply))
                         {
                             Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
@@ -350,6 +353,7 @@ namespace DLT
                         }
                         break;
                     }
+                    b = new Block(b);
 
 
 
@@ -386,11 +390,7 @@ namespace DLT
                         // verify with a parameter to ignore WS tests, but do all the others
                         BlockVerifyStatus b_status = BlockVerifyStatus.Valid;
 
-                        if (b.blockNum > lastBlockToReadFromStorage)
-                        {
-                            b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
-                        }
-                        else
+                        if(b.blockNum <= lastBlockToReadFromStorage)
                         {
                             foreach (string txid in b.transactions)
                             {
@@ -402,6 +402,11 @@ namespace DLT
                             }
                         }
 
+                        if (b.blockNum > lastBlockToReadFromStorage)
+                        {
+                            b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
+                        }
+
                         if (b_status == BlockVerifyStatus.Indeterminate)
                         {
                             Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
@@ -411,6 +416,14 @@ namespace DLT
                         if (b_status == BlockVerifyStatus.Invalid)
                         {
                             Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            ProtocolMessage.broadcastGetBlock(b.blockNum);
+                            return;
+                        }
+
+                        if (b.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                        {
+                            Logging.warn(String.Format("Block #{0} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             ProtocolMessage.broadcastGetBlock(b.blockNum);
                             return;
@@ -446,6 +459,7 @@ namespace DLT
                                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                                     }
                                     ProtocolMessage.broadcastGetBlock(b.blockNum);
+                                    handleWatchDog(true);
                                     return;
                                 }
                             }
@@ -524,6 +538,8 @@ namespace DLT
                 return false;
             }
 
+            resetWatchDog(b.blockNum);
+
             stopSyncStartBlockProcessing();
 
             return true;
@@ -531,6 +547,7 @@ namespace DLT
 
         private void stopSyncStartBlockProcessing()
         {
+
             // Don't finish sync if we never synchronized from network
             if (noNetworkSynchronization == true)
                 return;
