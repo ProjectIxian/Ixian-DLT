@@ -32,7 +32,7 @@ namespace DLT
            
             public static uint miningThreads = 1;
 
-            public static string dataFoldername = ".";
+            public static string dataFoldername = "data";
             public static string configFilename = "ixian.cfg";
             public static string walletFile = "ixian.wal";
 
