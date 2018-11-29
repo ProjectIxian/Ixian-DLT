@@ -166,7 +166,12 @@ namespace DLT
                 while (continueRunning)
                 {
                     handleDisconnectedClients();
-                    if (connectedClients.Count < CoreConfig.maximumServerMasterNodes)
+                    int clientsCount = 0;
+                    lock (connectedClients)
+                    {
+                        clientsCount = connectedClients.Count;
+                    }
+                    if (clientsCount < CoreConfig.maximumServerMasterNodes)
                     {
                         // Use a blocking mechanism
                         try
