@@ -702,13 +702,8 @@ namespace DLT
                 {
                     if (missingBlocks != null)
                     {
-                        for (ulong i = 1; syncTargetBlockNum + i < b.blockNum; i++)
-                        {
-                            missingBlocks.Add(syncTargetBlockNum + i);
-                        }
-                        receivedAllMissingBlocks = false;
+                        missingBlocks.RemoveAll(x => x == b.blockNum);
                     }
-                    syncTargetBlockNum = b.blockNum;
                     return;
                 }
 

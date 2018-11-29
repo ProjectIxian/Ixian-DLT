@@ -421,7 +421,7 @@ namespace DLT
                             // TODO: Blacklisting point
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if full consensus is reached on the block
-                        if (b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()) // if at least 2 blocks behind
+                        if (b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() / 2) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
                         }
@@ -726,7 +726,7 @@ namespace DLT
                 {
                     if(localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                     {
-                        Logging.info("This is the block we are currently working on. Merging signatures.");
+                        Logging.info(String.Format("Block #{0} received from the network is the block we are currently working on. Merging signatures.", b.blockNum));
                         if(localNewBlock.addSignaturesFrom(b))
                         {
                             if (Node.isWorkerNode())
