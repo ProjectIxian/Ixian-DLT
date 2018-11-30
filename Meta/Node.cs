@@ -45,14 +45,8 @@ namespace DLT.Meta
         // Perform basic initialization of node
         static public void init()
         {
-            // Setup the stats console
-        /*    statsConsoleScreen = new StatsConsoleScreen();
-            
-            while(true)
-            {
-                Thread.Sleep(100);
-            }
-            */
+
+
             running = true;
             
             // Upgrade any legacy files
@@ -65,6 +59,12 @@ namespace DLT.Meta
                 running = false;
                 DLTNode.Program.noStart = true;
                 return;
+            }
+
+            // Setup the stats console
+            if (Config.verboseConsoleOutput == false)
+            {
+                statsConsoleScreen = new StatsConsoleScreen();
             }
 
             // Initialize the wallet state
@@ -337,6 +337,12 @@ namespace DLT.Meta
 
             // Stop the storage thread
             Storage.stopStorage();
+
+            // Stop the console stats screen
+            if (Config.verboseConsoleOutput == false)
+            {
+                statsConsoleScreen.stop();
+            }
 
             NetDump.Instance.shutdown();
 
