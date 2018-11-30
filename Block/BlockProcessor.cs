@@ -506,7 +506,7 @@ namespace DLT
             return BlockVerifyStatus.Valid;
         }
 
-        private BlockVerifyStatus verifyBlockTransactions(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
+        public BlockVerifyStatus verifyBlockTransactions(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
         {
             // Check all transactions in the block against our TXpool, make sure all is legal
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Indeterminate
@@ -557,11 +557,13 @@ namespace DLT
                     }
                     continue;
                 }
+                
                 // TODO TODO TODO TODO plus balances should also be added to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(t.from))
                 {
                     minusBalances.Add(t.from, 0);
                 }
+
                 try
                 {
                     // TODO: check to see if other transaction types need additional verification

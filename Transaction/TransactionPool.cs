@@ -644,13 +644,17 @@ namespace DLT
                 }
             }
 
-            if(verify_pow == false)
+            if(blocknum >= Node.getLastBlockHeight())
             {
-                return true;
+                if(blocknum < Node.blockProcessor.highestNetworkBlockNum)
+                {
+                    return true;
+                }
+                return false;
             }
 
             try
-            {                
+            {
                 Block block = Node.blockChain.getBlock(blocknum);
 
                 if(block == null)
@@ -663,6 +667,11 @@ namespace DLT
                 {
                     Logging.warn("PoW already applied");
                     return false;
+                }
+
+                if (verify_pow == false)
+                {
+                    return true;
                 }
 
                 if (block.version == 0)

@@ -138,9 +138,12 @@ namespace DLT
                     if (currentTime - requestedBlockTimes[blockNum] > 10)
                     {
                         // Re-request block
-                        if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 0) == false)
                         {
-                            watchDogTime = DateTime.Now;
+                            if (blockNum > watchDogBlockNum - 5 && blockNum < watchDogBlockNum + 1)
+                            {
+                                watchDogTime = DateTime.Now;
+                            }
                             Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
                         }
@@ -150,10 +153,6 @@ namespace DLT
                             requestedBlockTimes[blockNum] = currentTime;
                         }
                     }
-                }
-                if(requestedBlockTimes.Count > 50)
-                {
-                    return true;
                 }
             }
 
@@ -193,6 +192,12 @@ namespace DLT
                             continue;
                         }
                     }
+
+                    if (blockNum > Node.getLastBlockHeight() + (ulong)maxBlockRequests)
+                    {
+                        break;
+                    }
+
                     bool readFromStorage = false;
                     if(blockNum < lastBlockToReadFromStorage)
                     {
@@ -202,14 +207,18 @@ namespace DLT
                     Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
                     if (block != null)
                     {
-                        Node.blockSync.onBlockReceived(block);
+                        Node.blockSync.onBlockReceived(block, null);
                     }
                     else
                     {
+                        ProtocolMessage.broadcastGetBlockTransactions(blockNum, false, null); // TODO TODO TODO This line is here temporary until other nodes upgrade
                         // Didn't find the block in storage, request it from the network
-                        if (ProtocolMessage.broadcastGetBlock(blockNum) == false)
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 0) == false) // TODO TODO TODO change this 0 to 1 once others upgrade
                         {
-                            watchDogTime = DateTime.Now;
+                            if (blockNum > watchDogBlockNum - 5 && blockNum < watchDogBlockNum + 1)
+                            {
+                                watchDogTime = DateTime.Now;
+                            }
                             Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
                         }
@@ -223,9 +232,7 @@ namespace DLT
                             }
                         }
                     }
-
                     total_count++;
-                    if (total_count >= maxBlockRequests) break;
                 }
                 if (requested_count > 0)
                     return true;
@@ -702,7 +709,7 @@ namespace DLT
             }
         }
 
-        public void onBlockReceived(Block b)
+        public void onBlockReceived(Block b, RemoteEndpoint endpoint)
         {
             if (synchronizing == false) return;
             lock (pendingBlocks)
