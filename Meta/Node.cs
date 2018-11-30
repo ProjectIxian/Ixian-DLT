@@ -290,10 +290,10 @@ namespace DLT.Meta
             }
 
             // Check for sufficient node balance
-            /*if (checkMasternodeBalance() == false)
+            if (checkMasternodeBalance() == false)
             {
-                running = false;
-            }*/
+                //running = false;
+            }
 
             return running;
         }
@@ -489,8 +489,8 @@ namespace DLT.Meta
                     {
                         Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", 
                             CoreConfig.minimumMasterNodeFunds, Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.address)));
-                        Node.stop();
-                        running = false;
+                        //Node.stop();
+                        //running = false;
                         return false;
                     }
                 }

@@ -15,7 +15,11 @@ namespace DLT
     {
         Valid,
         Invalid,
-        Indeterminate
+        Indeterminate,
+        IndeterminateFutureBlock,
+        IndeterminatePastBlock,
+        AlreadyProcessed,
+        PotentiallyForkedBlock
     }
     class BlockProcessor
     {
@@ -328,6 +332,28 @@ namespace DLT
                             ProtocolMessage.broadcastNewBlock(localBlock);
                         }
                     }
+                }else
+                {
+                    BlockVerifyStatus past_block_status = verifyBlock(b, true, null);
+                    if(past_block_status == BlockVerifyStatus.AlreadyProcessed)
+                    {
+                        // likely the node is missing sigs, let's send the full block
+                        Block block = Node.blockChain.getBlock(b.blockNum);
+                        ProtocolMessage.broadcastNewBlock(block);
+                    }else if(past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
+                    {
+                        // the node seems to be way behind, send the current last block
+                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(Node.getLastBlockHeight()));
+                    }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
+                    {
+                        // the block is different than our own, we should disconnect the node as it is likely on a forked network
+                        ProtocolMessage.sendBye(endpoint, 100, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
+                    }
+                    else
+                    {
+                        // the block is invalid, we should disconnect the node as it is likely on a forked network
+                        ProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                    }
                 }
                 return;
             }
@@ -336,17 +362,19 @@ namespace DLT
 
             BlockVerifyStatus b_status = verifyBlock(b, false, endpoint);
 
-            /*if(b_status == BlockVerifyStatus.Invalid)
+            if(b_status == BlockVerifyStatus.Invalid)
             {
-                ProtocolMessage.sendBye(endpoint, 100, "Invalid block", "");
-            }*/
-
-            if (b_status != BlockVerifyStatus.Valid)
+                // the block is invalid, we should disconnect the node as it is likely on a forked network
+                ProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                return;
+            }else if (b_status != BlockVerifyStatus.Valid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
                 return;
             }
+
+
             // remove signatures without PL entry but not if we're catching up with the network
             if (b.blockNum > highestNetworkBlockNum - 5 && removeSignaturesWithoutPlEntry(b))
             {
@@ -421,7 +449,7 @@ namespace DLT
                             // TODO: Blacklisting point
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if full consensus is reached on the block
-                        if (b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus() / 2) // if at least 2 blocks behind
+                        if (b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
                         }
@@ -644,12 +672,24 @@ namespace DLT
                 return basicVerification;
             }
 
-            if (Node.blockChain.Count > 0 && Node.blockChain.getLastBlockNum() + 1 != b.blockNum)
+            if (Node.blockChain.Count > 0 && b.blockNum > Node.blockChain.getLastBlockNum() + 1)
             {
-                // TODO TODO TODO verify if the block matches the one in blockchain and validate it
-                return BlockVerifyStatus.Indeterminate;
+                return BlockVerifyStatus.IndeterminateFutureBlock;
             }
 
+            if (Node.blockChain.Count > 0 && b.blockNum <= Node.blockChain.getLastBlockNum())
+            {
+
+                Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
+                if (tmpBlock == null)
+                {
+                    return BlockVerifyStatus.IndeterminatePastBlock;
+                }else if(tmpBlock.blockChecksum.SequenceEqual(b.blockChecksum))
+                {
+                    return BlockVerifyStatus.AlreadyProcessed;
+                }
+                return BlockVerifyStatus.PotentiallyForkedBlock;
+            }
 
             BlockVerifyStatus txVerification = verifyBlockTransactions(b, ignore_walletstate, endpoint);
             if (txVerification != BlockVerifyStatus.Valid)

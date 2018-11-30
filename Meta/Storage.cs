@@ -245,7 +245,7 @@ namespace DLT
                 if(result)
                 {
                     // Update the cached last block number if necessary
-                    if (cached_lastBlockNum < block.blockNum)
+                    if (getLastBlockNum() < block.blockNum)
                         cached_lastBlockNum = block.blockNum;
                 }
 
@@ -263,7 +263,7 @@ namespace DLT
                 bool result = false;
                 lock (storageLock)
                 {
-                    seekDatabase(transaction.blockHeight);
+                    seekDatabase(transaction.applied);
 
                     byte[] tx_data_shuffled = shuffleStorageBytes(transaction.data);
 
@@ -399,7 +399,7 @@ namespace DLT
                         if (_storage_block.Length > 0)
                             found = true;
 
-                    ulong db_blocknum = cached_lastBlockNum;
+                    ulong db_blocknum = getLastBlockNum();
                     while (!found)
                     {
                         // Block not found yet, seek to another database
@@ -525,7 +525,7 @@ namespace DLT
                     
 
                     
-                    ulong db_blocknum = cached_lastBlockNum;
+                    ulong db_blocknum = getLastBlockNum();
                     while (!found)
                     {
                         // Transaction not found yet, seek to another database
@@ -989,7 +989,7 @@ namespace DLT
                 transaction.signature = tx.signature;
                 transaction.version = tx.version;
                 transaction.pubKey = tx.pubKey;
-                // note - don't ever read .applied field, otherwise there will be issues with sync
+                transaction.applied = (ulong)tx.applied;
 
                 // Add toList
                 string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);

@@ -282,6 +282,7 @@ namespace DLT
 
                 if(!Node.blockProcessor.operating)
                 {
+                    Thread.Sleep(100); // wait a bit for check connectivity purposes
                     clientSocket.Send(CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.bye, new byte[1]));
                     clientSocket.Disconnect(true);
                     clientSocket.Shutdown(SocketShutdown.Both);
