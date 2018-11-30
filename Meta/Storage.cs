@@ -364,8 +364,11 @@ namespace DLT
                     block.transactions.Add(s1);
                 }
 
+                block.fromLocalStorage = true;
+                    
                 //Logging.info(String.Format("Read block #{0} from storage.", block.blockNum));
-                
+
+
                 return block;
             }
 

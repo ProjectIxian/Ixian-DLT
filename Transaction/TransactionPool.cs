@@ -348,7 +348,7 @@ namespace DLT
             return true;
         }
 
-        public static bool setAppliedFlag(string txid, ulong blockNum)
+        public static bool setAppliedFlag(string txid, ulong blockNum, bool add_to_storage = true)
         {
             Transaction t;
             lock (transactions)
@@ -357,22 +357,20 @@ namespace DLT
                 {
                     t = transactions[txid];
                     t.applied = blockNum;
-                    bool insertTx = true;
-                    if (Node.blockSync.synchronizing)
+
+                    if (add_to_storage)
                     {
-                        insertTx = false;
-                        if(!Config.recoverFromFile)
+                        bool insertTx = true;
+                        if (Node.blockSync.synchronizing && Config.recoverFromFile)
                         {
-                            if (Meta.Storage.getTransaction(txid) == null)
-                            {
-                                insertTx = true;
-                            }
+                            insertTx = false;
+                        }
+                        if (insertTx)
+                        {
+                            Meta.Storage.insertTransaction(t);
                         }
                     }
-                    if (insertTx)
-                    {
-                        Meta.Storage.insertTransaction(t);
-                    }
+
                     // TODO TODO TODO TODO talk with Z - these checks should perhaps be done in verify and before the tx is even added to the block, this function is strictly and simply to set the applied parameter
                     if (t.type == (int)Transaction.Type.MultisigTX)
                     {
@@ -704,7 +702,7 @@ namespace DLT
                         return false;
                     }
                     applyPowTransaction(tx, b, blockSolutionsDictionary, null, true, false);
-                    setAppliedFlag(txid, b.blockNum);
+                    setAppliedFlag(txid, b.blockNum, !b.fromLocalStorage);
                 }
                 // set PoW fields
                 for (int i = 0; i < blockSolutionsDictionary.Count; i++)

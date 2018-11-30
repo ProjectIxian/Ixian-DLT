@@ -59,7 +59,7 @@ namespace DLT
             }
         }
 
-        public bool appendBlock(Block b)
+        public bool appendBlock(Block b, bool add_to_storage = true)
         {
             lock (blocks)
             {
@@ -98,8 +98,13 @@ namespace DLT
                     blocksDictionary.Add(b.blockNum, b);
                 }
             }
-            // Add block to storage
-            Storage.insertBlock(b);
+
+            if (add_to_storage)
+            {
+                // Add block to storage
+                Storage.insertBlock(b);
+            }
+
             if (b.version == 2)
             {
                 CoreConfig.redactedWindowSize = 20000;
@@ -241,6 +246,7 @@ namespace DLT
 
         public bool refreshSignatures(Block b, bool forceRefresh = false)
         {
+            // TODO TODO TODO TODO verify consensus of the block on force refresh
             if (!forceRefresh)
             {
                 // we refuse to change sig numbers older than 4 blocks

@@ -410,16 +410,7 @@ namespace DLT
                 if (CoreNetworkUtils.PingAddressReachable(hostname) == false)
                 {
                     Logging.warn("New node was not reachable on the advertised address.");
-                    using (MemoryStream reply_stream = new MemoryStream())
-                    {
-                        using (BinaryWriter w = new BinaryWriter(reply_stream))
-                        {
-                            w.Write(601);
-                            w.Write("External IP:Port not reachable!");
-                            w.Write("");
-                            endpoint.sendData(ProtocolMessageCode.bye, reply_stream.ToArray());
-                        }
-                    }
+                    sendBye(endpoint, 601, "External IP:Port not reachable!", "");
                     return false;
                 }
                 return true;
@@ -518,18 +509,9 @@ namespace DLT
                     else
                     if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
                     {
-                        using (MemoryStream m2 = new MemoryStream())
-                        {
-                            using (BinaryWriter writer = new BinaryWriter(m2))
-                            {
-                                writer.Write(600);
-                                writer.Write("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP:");
-                                writer.Write(endpoint.address);
-                                Logging.warn(string.Format("Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.address));
-                                endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                                return false;
-                            }
-                        }
+                        sendBye(endpoint, 600, "Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP:", endpoint.address);
+                        Logging.warn(string.Format("Connected node used an incorrect signature in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.address));
+                        return false;
                     }
 
                     // if we're a client update the network time difference
@@ -631,7 +613,7 @@ namespace DLT
                 return true;
             }
 
-            public static void sendBye(RemoteEndpoint endpoint, int code, string message, string data)
+            public static void sendBye(RemoteEndpoint endpoint, int code, string message, string data, bool removeAddressEntry = true)
             {
                 using (MemoryStream m2 = new MemoryStream())
                 {
@@ -642,6 +624,11 @@ namespace DLT
                         writer.Write(data);
                         endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
                     }
+                }
+                if (removeAddressEntry)
+                {
+                    PresenceList.removeAddressEntry(Base58Check.Base58CheckEncoding.DecodePlain(endpoint.presenceAddress.address), endpoint.presenceAddress);
+                    //PeerStorage.removePeer(endpoint.getFullAddress(true));
                 }
             }
 
@@ -1003,7 +990,7 @@ namespace DLT
                                             }
 
                                         }
-                                        catch (Exception e)
+                                        catch (Exception)
                                         {
 
                                         }

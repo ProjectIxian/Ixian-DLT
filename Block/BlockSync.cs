@@ -375,7 +375,7 @@ namespace DLT
 
                         b.powField = null;
 
-                        Logging.info(String.Format("Applying pending block #{0}. Left to apply: {1}.",
+                        Logging.info(String.Format("Sync: Applying block #{0}/{1}.",
                             b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
 
                         bool ignoreWalletState = true;
@@ -402,7 +402,7 @@ namespace DLT
                             }
                         }
 
-                        if (b.blockNum > lastBlockToReadFromStorage)
+                        if (b.blockNum > wsSyncConfirmedBlockNum)
                         {
                             b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
                         }
@@ -413,7 +413,7 @@ namespace DLT
                             Thread.Sleep(100);
                             return;
                         }
-                        if (b_status == BlockVerifyStatus.Invalid)
+                        if (b_status != BlockVerifyStatus.Valid)
                         {
                             Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
@@ -472,7 +472,7 @@ namespace DLT
                             {
                                 TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
                             }
-                            Node.blockChain.appendBlock(b);
+                            Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                             resetWatchDog(b.blockNum);
                             missingBlocks.RemoveAll(x => x <= b.blockNum);
                         }

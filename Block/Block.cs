@@ -31,6 +31,11 @@ namespace DLT
         // Locally calculated
         public byte[] powField = null;
 
+
+        // if block was read from local storage
+        public bool fromLocalStorage = false;
+
+
         // Generate the genesis block
         static Block createGenesisBlock()
         {
@@ -81,6 +86,8 @@ namespace DLT
             timestamp = block.timestamp;
             difficulty = block.difficulty;
             powField = block.powField;
+
+            fromLocalStorage = block.fromLocalStorage;
         }
 
         public Block(byte[] bytes)
