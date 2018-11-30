@@ -364,8 +364,13 @@ namespace DLT
                     {
                         if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                         {
-                            Node.blockChain.refreshSignatures(tb, true);
-                            Node.blockProcessor.handleSigFreezedBlock(tb);
+                            if (tb.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(tb.blockNum))
+                            {
+                                Node.blockChain.refreshSignatures(tb, true);
+                            }else
+                            {
+                                Logging.warn("Target block " + tb.blockNum + " does not have the required consensus.");
+                            }
                         }
                         pendingBlocks.RemoveAll(x => x.blockNum == tb.blockNum);
                     }

@@ -310,26 +310,39 @@ namespace DLT
                     {
                         if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
                         {
-                            if (handleSigFreezedBlock(b, endpoint))
+                            if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
                             {
-                                if (b.blockNum > Node.blockChain.getLastBlockNum() - 5)
+                                if (handleSigFreezedBlock(b, endpoint))
                                 {
-                                    removeSignaturesWithoutPlEntry(b);
-                                    removeSignaturesWithLowBalance(b);
-                                    if (Node.blockChain.refreshSignatures(b))
+                                    if (b.blockNum > Node.blockChain.getLastBlockNum() - 5)
                                     {
-                                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                                        ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                        removeSignaturesWithoutPlEntry(b);
+                                        if (Node.blockChain.refreshSignatures(b))
+                                        {
+                                            // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                                            Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                                            ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                        }
                                     }
-                                }
+                                } // else do nothing as handleSigFreezedBlock took care of it
                             }
+                            else
+                            {
+                                Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
+                                // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
+                                ProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
+                            }
+
                         }
-                        else
+                        else if(b.blockChecksum.SequenceEqual(localBlock.blockChecksum))
                         {
                             // we likely have the correct block, resend
                             // TODO TODO TODO this might go into an endless loop between 2 nodes
                             ProtocolMessage.broadcastNewBlock(localBlock);
+                        }else
+                        {
+                            // the block is invalid, we should disconnect the node as it is likely on a forked network
+                            ProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                         }
                     }
                 }else
@@ -381,11 +394,6 @@ namespace DLT
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
             }
-            if (removeSignaturesWithLowBalance(b))
-            {
-                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                // TODO: Blacklisting point
-            }
             if (b.signatures.Count == 0)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which has no valid signatures!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
@@ -433,16 +441,16 @@ namespace DLT
 
             if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the missing blocks
             {
+                if (removeSignaturesWithLowBalance(b))
+                {
+                    Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                    // TODO: Blacklisting point
+                }
                 if (!Node.blockSync.synchronizing)
                 {
                     // Don't request block 0
                     if (b.blockNum - 1 > 0 && highestNetworkBlockNum < b.blockNum)
                     {
-                        if (removeSignaturesWithLowBalance(b))
-                        {
-                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                            // TODO: Blacklisting point
-                        }
                         if (removeSignaturesWithoutPlEntry(b))
                         {
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));

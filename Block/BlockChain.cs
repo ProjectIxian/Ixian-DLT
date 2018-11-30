@@ -217,6 +217,34 @@ namespace DLT
             }
         }
 
+        public int getRequiredConsensus(ulong block_num)
+        {
+            int block_offset = 6;
+            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-X blocks
+            lock (blocks)
+            {
+                int total_consensus = 0;
+                int block_count = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset - 1;
+                    Block b = blocks.Find(x => x.blockNum == consensus_block_num);
+                    if(b == null)
+                    {
+                        break;
+                    }
+                    total_consensus += b.signatures.Count;
+                    block_count++;
+                }
+                int consensus = (int)Math.Ceiling(total_consensus / block_count * CoreConfig.networkConsensusRatio);
+                if (consensus < 2)
+                {
+                    consensus = 2;
+                }
+                return consensus;
+            }
+        }
+
         public byte[] getLastBlockChecksum()
         {
             lock (blocks)
