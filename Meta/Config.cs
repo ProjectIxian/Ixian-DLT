@@ -25,7 +25,7 @@ namespace DLT
             public static bool recoverFromFile = false; // Flag allowing recovery from file
             public static bool disableMiner = true; // Flag to disable miner
 
-            public static bool verboseConsoleOutput = true; // Flag for verbose console output
+            public static bool verboseConsoleOutput = false; // Flag for verbose console output
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
             public static string genesis2Address = ""; // For a secondary genesis node

@@ -37,14 +37,15 @@ namespace DLT.Meta
         {
             while (running)
             {
-                drawScreen();
+                if(Config.verboseConsoleOutput == false)
+                    drawScreen();
 
                 Thread.Sleep(2000);
                 Thread.Yield();
             }
         }
 
-        private void drawScreen()
+        public void drawScreen()
         {
             // Set the background color
             Console.BackgroundColor = ConsoleColor.DarkGreen;
@@ -97,6 +98,9 @@ namespace DLT.Meta
             TimeSpan elapsed = DateTime.Now - startTime;
 
             Console.WriteLine(" Running for {0} days {1}h {2}m {3}s", elapsed.Days, elapsed.Hours, elapsed.Minutes, elapsed.Seconds);
+            Console.WriteLine("");
+            Console.WriteLine(" Press V to toggle stats. Ctrl-C to exit.");
+
         }
 
     }

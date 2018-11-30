@@ -290,6 +290,7 @@ namespace DLTNode
             mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
             mainLoopTimer.Start();
 
+            if(Config.verboseConsoleOutput)
             Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
 
         }
@@ -309,7 +310,14 @@ namespace DLTNode
                     Logging.info(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
                         Node.walletState.numWallets, Node.walletState.hasSnapshot, ws_checksum));
                 }
-                if(key.Key == ConsoleKey.H)
+                else if (key.Key == ConsoleKey.V)
+                {
+                    Config.verboseConsoleOutput = !Config.verboseConsoleOutput;
+                    Logging.consoleOutput = Config.verboseConsoleOutput;
+                    if (Config.verboseConsoleOutput == false)
+                        Node.statsConsoleScreen.drawScreen();
+                }               
+                else if (key.Key == ConsoleKey.H)
                 {
                     ulong[] temp = new ulong[ProtocolMessage.recvByteHist.Length];
                     lock (ProtocolMessage.recvByteHist)
@@ -325,7 +333,7 @@ namespace DLTNode
                     Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
                     Console.ResetColor();
                 }
-                if(key.Key == ConsoleKey.Escape)
+                else if(key.Key == ConsoleKey.Escape)
                 {
                     Environment.Exit(-1);
                 }
