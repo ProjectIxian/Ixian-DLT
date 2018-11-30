@@ -706,6 +706,16 @@ namespace DLT.Meta
             {
                 Directory.CreateDirectory(Config.dataFoldername);
             }
+
+            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "ws"))
+            {
+                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "ws");
+            }
+
+            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks"))
+            {
+                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks");
+            }
         }
     }
 }
