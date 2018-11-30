@@ -358,6 +358,12 @@ namespace DLT
                     t = transactions[txid];
                     t.applied = blockNum;
 
+                    if(t.applied == 0)
+                    {
+                        Logging.error("An error occured while adding tx " + txid + " to storage, applied was 0.");
+                        return false;
+                    }
+
                     if (add_to_storage)
                     {
                         bool insertTx = true;
