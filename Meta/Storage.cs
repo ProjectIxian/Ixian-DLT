@@ -262,18 +262,22 @@ namespace DLT
 
                 bool result = false;
                 lock (storageLock)
-                {
-                    seekDatabase(transaction.applied);
-
+                {                   
                     byte[] tx_data_shuffled = shuffleStorageBytes(transaction.data);
 
+                    // Go through all databases starting from latest and search for the transaction
                     if (getTransaction(transaction.id) == null)
                     {
+                        // Transaction was not found in any existing database, seek to the proper database
+                        seekDatabase(transaction.applied);
+
                         string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
                         result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, transaction.from, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                     }
                     else
                     {
+                        // Transaction found. Seeked database was set by getTransaction
+
                         // Likely already have the tx stored, update the old entry
                         string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
                         result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, transaction.from, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
