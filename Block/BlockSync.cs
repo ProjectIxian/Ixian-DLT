@@ -429,21 +429,25 @@ namespace DLT
                             return;
                         }
 
-                        // TODO: carefully verify this
+                        bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
+
                         // Apply transactions when rolling forward from a recover file without a synced WS
                         if (b.blockNum > wsSyncConfirmedBlockNum)
                         {
-                            Node.blockProcessor.applyAcceptedBlock(b);
-                            byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                            if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                            if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                             {
-                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                handleWatchDog(true);
-                                return;
-                            }
-                            if (b.blockNum % 1000 == 0)
-                            {
-                                DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
+                                Node.blockProcessor.applyAcceptedBlock(b);
+                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                {
+                                    Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                    handleWatchDog(true);
+                                    return;
+                                }
+                                if (b.blockNum % 1000 == 0)
+                                {
+                                    DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
+                                }
                             }
                         }
                         else
@@ -464,7 +468,7 @@ namespace DLT
                                 }
                             }
                         }
-                        bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
+
                         if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                         {
                             //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
