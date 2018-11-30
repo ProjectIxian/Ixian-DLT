@@ -28,6 +28,10 @@ namespace DLT
             private static ulong cached_lastBlockNum = 0;
             private static ulong current_seek = 1;
 
+            public static bool upgrading = false;
+            public static ulong upgradeProgress = 0;
+            public static ulong upgradeMaxBlockNum = 0;
+
             private enum QueueStorageCode
             {
                 insertTransaction,
@@ -848,6 +852,8 @@ namespace DLT
                 if (File.Exists(filename) == false)
                     return false;
 
+                upgrading = true;
+
                 // Bind the connection
                 SQLiteConnection sqlConnectionOld = new SQLiteConnection(filename);
 
@@ -871,6 +877,8 @@ namespace DLT
                 if (_seek_block.Length < 1)
                     return false;
                 _storage_Block sblk = _seek_block[0];
+
+                upgradeMaxBlockNum = (ulong)sblk.blockNum;
 
                 for (long i = 0; i < sblk.blockNum; i++)
                 {
@@ -913,6 +921,8 @@ namespace DLT
                         version = blk.version
                     };
 
+                    upgradeProgress = block.blockNum;
+
                     // Add signatures
                     string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
                     int sigcounter = 0;
@@ -954,6 +964,8 @@ namespace DLT
                 sqlConnectionOld.Close();
                 Logging.info("Upgrading complete, removing old blockchain file...");
                 File.Delete(filename);
+
+                upgrading = false;
 
                 return true;
             }

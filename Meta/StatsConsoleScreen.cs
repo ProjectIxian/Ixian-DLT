@@ -48,7 +48,7 @@ namespace DLT.Meta
         public void drawScreen()
         {
             // Set the background color
-            Console.BackgroundColor = ConsoleColor.DarkGreen;
+            //Console.BackgroundColor = ConsoleColor.DarkGreen;
             Console.Clear();
             Console.SetCursorPosition(0, 0);
 
@@ -62,9 +62,14 @@ namespace DLT.Meta
             Console.WriteLine("____________________________________________\n");
 
             Console.WriteLine(" Thank you for running an Ixian DLT node.\n For help please visit www.ixian.io");
-            Console.WriteLine("____________________________________________\n\n");
+            Console.WriteLine("____________________________________________\n");
 
-            if(Node.serverStarted == false)
+            if (Storage.upgrading)
+            {
+                Console.WriteLine("Upgrading database: " + Storage.upgradeProgress + "/" + Storage.upgradeMaxBlockNum);
+            }
+
+            if (Node.serverStarted == false)
             {
                 return;
             }
@@ -77,6 +82,7 @@ namespace DLT.Meta
             int connections = NetworkServer.getConnectedClients().Count() + NetworkClientManager.getConnectedClients().Count();
             if (connections < 1)
                 dltStatus = "connecting";
+
 
             Console.WriteLine("\tStatus:\t\t{0}\n", dltStatus);
             Console.WriteLine("\tBlock Height:\t\t{0}", Node.blockChain.getLastBlockNum());
