@@ -144,24 +144,27 @@ namespace DLT
                         prepare_database = true;
                     }
 
-
+                    if (sqlConnection != null)
+                    {
+                        sqlConnection.Close();
+                        sqlConnection = null;
+                    }
 
                     // Update the cached latest database if necessary
                     if (db_blocknum > cached_latestDBBlocknum)
                     {
                         if (latestDBSqlConnection != null)
+                        {
                             latestDBSqlConnection.Close();
+                            latestDBSqlConnection = null;
+                        }
 
                         latestDBSqlConnection = new SQLiteConnection(db_path);
                         cached_latestDBBlocknum = db_blocknum;
                         sqlConnection = latestDBSqlConnection;
                     }
                     else
-                    {
-                        if (sqlConnection != null)
-                        {
-                            sqlConnection.Close();
-                        }
+                    {                      
                         // Bind the connection
                         sqlConnection = new SQLiteConnection(db_path);
                     }
