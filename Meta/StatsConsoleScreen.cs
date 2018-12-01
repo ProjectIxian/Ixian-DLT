@@ -19,6 +19,8 @@ namespace DLT.Meta
         {          
             Console.Clear();
 
+            Console.CursorVisible = Config.verboseConsoleOutput;
+
             // Start thread
             running = true;
             thread = new Thread(new ThreadStart(threadLoop));
@@ -45,11 +47,18 @@ namespace DLT.Meta
             }
         }
 
-        public void drawScreen()
+        public void clearScreen()
         {
-            // Set the background color
             //Console.BackgroundColor = ConsoleColor.DarkGreen;
             Console.Clear();
+            drawScreen();
+        }
+
+        public void drawScreen()
+        {
+            if (Storage.upgrading)
+                Console.Clear();
+
             Console.SetCursorPosition(0, 0);
 
             Console.WriteLine(" d888888b db    db d888888b  .d8b.  d8b   db");

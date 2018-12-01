@@ -314,8 +314,9 @@ namespace DLTNode
                 {
                     Config.verboseConsoleOutput = !Config.verboseConsoleOutput;
                     Logging.consoleOutput = Config.verboseConsoleOutput;
+                    Console.CursorVisible = Config.verboseConsoleOutput;
                     if (Config.verboseConsoleOutput == false)
-                        Node.statsConsoleScreen.drawScreen();
+                        Node.statsConsoleScreen.clearScreen();
                 }               
                 else if (key.Key == ConsoleKey.H)
                 {
