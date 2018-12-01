@@ -891,9 +891,9 @@ namespace DLT
 
             if (forceWsUpdate || (DateTime.Now - watchDogTime).TotalSeconds > 120) // stuck on the same block for 120 seconds
             {
-                if (lastBlockToReadFromStorage > 100)
+                if (Node.getLastBlockHeight() > 100)
                 {
-                    lastBlockToReadFromStorage -= 100;
+                    lastBlockToReadFromStorage = Node.getLastBlockHeight() - 100;
                 }else
                 {
                     lastBlockToReadFromStorage = 0;
