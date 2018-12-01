@@ -356,11 +356,18 @@ namespace DLT
                         resetWatchDog(next_to_apply - 1);
                         lock (requestedBlockTimes)
                         {
-                            if (!missingBlocks.Contains(next_to_apply))
+                            if (missingBlocks != null)
                             {
-                                Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
-                                missingBlocks.Add(next_to_apply);
-                                missingBlocks.Sort();
+                                if (!missingBlocks.Contains(next_to_apply))
+                                {
+                                    Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
+                                    missingBlocks.Add(next_to_apply);
+                                    missingBlocks.Sort();
+                                    sleep = true;
+                                }
+                            }else
+                            {
+                                // the node isn't connected yet, wait a while
                                 sleep = true;
                             }
                         }

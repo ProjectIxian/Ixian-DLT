@@ -12,6 +12,7 @@ namespace DLT
     class TransactionPool
     {
         static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
+
         public static int activeTransactions
         {
             get
