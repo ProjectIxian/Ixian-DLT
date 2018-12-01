@@ -84,13 +84,13 @@ namespace DLT.Meta
             }
 
             // Node status
-            string dltStatus = "active";
+            string dltStatus =  "active       ";
             if (Node.blockSync.synchronizing)
-                dltStatus = "synchronizing";
+                dltStatus =     "synchronizing";
 
             int connections = NetworkServer.getConnectedClients().Count() + NetworkClientManager.getConnectedClients().Count();
             if (connections < 1)
-                dltStatus = "connecting";
+                dltStatus =     "connecting   ";
 
 
             Console.WriteLine("\tStatus:\t\t{0}\n", dltStatus);
@@ -102,7 +102,7 @@ namespace DLT.Meta
             // Mining status
             string mineStatus = "stopped";
             if (Node.miner.lastHashRate > 0)
-                mineStatus = "active";
+                mineStatus =    "active ";
 
             Console.WriteLine("");
             Console.WriteLine("\tMining:\t\t\t{0}", mineStatus);

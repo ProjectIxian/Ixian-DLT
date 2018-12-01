@@ -19,6 +19,7 @@ namespace DLT
             // Sql connections
             private static SQLiteConnection sqlConnection = null;
             private static readonly object storageLock = new object(); // This should always be placed when performing direct sql operations
+           
 
             // Threading
             private static Thread thread = null;
@@ -27,6 +28,9 @@ namespace DLT
             // Storage cache
             private static ulong cached_lastBlockNum = 0;
             private static ulong current_seek = 1;
+
+            private static SQLiteConnection latestDBSqlConnection = null;
+            private static ulong cached_latestDBBlocknum = 0;
 
             public static bool upgrading = false;
             public static ulong upgradeProgress = 0;
@@ -121,6 +125,16 @@ namespace DLT
                         return true;
                     }
 
+                    // Update the current seek number
+                    current_seek = db_blocknum;
+
+                    // Check if we should use the cached latest database
+                    if (cached_latestDBBlocknum > 0 && db_blocknum == cached_latestDBBlocknum)
+                    {
+                        sqlConnection = latestDBSqlConnection;
+                        return true;
+                    }
+
                     string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
 
                     bool prepare_database = false;
@@ -130,17 +144,27 @@ namespace DLT
                         prepare_database = true;
                     }
 
-                    if (sqlConnection != null)
+
+
+                    // Update the cached latest database if necessary
+                    if (db_blocknum > cached_latestDBBlocknum)
                     {
-                        sqlConnection.Close();
+                        if (latestDBSqlConnection != null)
+                            latestDBSqlConnection.Close();
+
+                        latestDBSqlConnection = new SQLiteConnection(db_path);
+                        cached_latestDBBlocknum = db_blocknum;
+                        sqlConnection = latestDBSqlConnection;
                     }
-
-                    // Bind the connection
-                    sqlConnection = new SQLiteConnection(db_path);
-
-                    // Update the current seek number
-                    current_seek = db_blocknum;
-
+                    else
+                    {
+                        if (sqlConnection != null)
+                        {
+                            sqlConnection.Close();
+                        }
+                        // Bind the connection
+                        sqlConnection = new SQLiteConnection(db_path);
+                    }
                     // The database needs to be prepared first
                     if (prepare_database)
                     {
@@ -159,6 +183,8 @@ namespace DLT
                         sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
                         executeSQL(sql);
                     }
+
+
                 }
                 return true;
             }
