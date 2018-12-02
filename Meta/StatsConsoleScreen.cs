@@ -103,7 +103,9 @@ namespace DLT.Meta
             writeLine("\tTransaction Pool:\t{0}", TransactionPool.getUnappliedTransactions().Count());
 
             // Mining status
-            string mineStatus = "stopped";
+            string mineStatus = "disabled";
+            if (!Config.disableMiner)
+                mineStatus = "stopped";
             if (Node.miner.lastHashRate > 0)
                 mineStatus =    "active ";
 

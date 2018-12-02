@@ -203,7 +203,7 @@ namespace DLT
                 {
                     printMinerStatus();
                     Block tmpBlock = Node.blockChain.getBlock(currentBlockNum);
-                    if (tmpBlock != null && tmpBlock.powField != null)
+                    if (tmpBlock == null || tmpBlock.powField != null)
                     {
                         blockFound = false;
                         continue;
@@ -220,7 +220,8 @@ namespace DLT
                 List<ulong> tmpSolvedBlocks = new List<ulong>(solvedBlocks);
                 foreach (ulong blockNum in tmpSolvedBlocks)
                 {
-                    if (Node.blockChain.getBlock(blockNum).powField != null)
+                    Block b = Node.blockChain.getBlock(blockNum);
+                    if (b == null || b.powField != null)
                     {
                         solvedBlocks.Remove(blockNum);
                     }

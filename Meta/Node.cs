@@ -721,9 +721,19 @@ namespace DLT.Meta
                 Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "ws");
             }
 
+            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000"))
+            {
+                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
+            }
+
             if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks"))
             {
                 Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks");
+            }
+
+            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000"))
+            {
+                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000"))
             }
         }
     }

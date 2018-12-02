@@ -219,9 +219,8 @@ namespace DLT
                     }
                     else
                     {
-                        ProtocolMessage.broadcastGetBlockTransactions(blockNum, false, null); // TODO TODO TODO This line is here temporary until other nodes upgrade
                         // Didn't find the block in storage, request it from the network
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 0) == false) // TODO TODO TODO change this 0 to 1 once others upgrade
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 1) == false)
                         {
                             if (blockNum > watchDogBlockNum - 5 && blockNum < watchDogBlockNum + 1)
                             {
