@@ -191,6 +191,7 @@ namespace DLT
                     {
                         if (requestedBlockTimes.ContainsKey(blockNum))
                         {
+                            requested_count++;
                             continue;
                         }
                     }
@@ -240,7 +241,7 @@ namespace DLT
                         }
                     }
                 }
-                if (total_count > 0)
+                if (requested_count > 0)
                     return true;
             }
 
