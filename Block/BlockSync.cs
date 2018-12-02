@@ -195,10 +195,14 @@ namespace DLT
                         }
                     }
 
-                    if (blockNum > Node.getLastBlockHeight() + (ulong)maxBlockRequests)
+                    ulong last_block_height = Node.getLastBlockHeight();
+                    if (blockNum > last_block_height  + (ulong)maxBlockRequests)
                     {
-                        Thread.Sleep(100);
-                        break;
+                        if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
+                        {
+                            Thread.Sleep(100);
+                            break;
+                        }
                     }
 
                     bool readFromStorage = false;
@@ -318,7 +322,7 @@ namespace DLT
 
             ulong syncToBlock = syncTargetBlockNum;
 
-            if (Node.blockChain.Count > 0)
+            if (Node.blockChain.Count > 5)
             {
                 lock (pendingBlocks)
                 {
@@ -330,7 +334,7 @@ namespace DLT
             {
 
                 // Loop until we have no more pending blocks
-                while (pendingBlocks.Count > 0)
+                do
                 {
                     handleWatchDog();
 
@@ -365,7 +369,8 @@ namespace DLT
                                     missingBlocks.Sort();
                                     sleep = true;
                                 }
-                            }else
+                            }
+                            else
                             {
                                 // the node isn't connected yet, wait a while
                                 sleep = true;
@@ -376,23 +381,26 @@ namespace DLT
                     b = new Block(b);
 
 
-
-                    ulong targetBlock = next_to_apply - 5;
-
-                    Block tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
-                    if (tb != null)
+                    if (next_to_apply > 5)
                     {
-                        if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                        ulong targetBlock = next_to_apply - 5;
+
+                        Block tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
+                        if (tb != null)
                         {
-                            if (tb.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(tb.blockNum))
+                            if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                             {
-                                Node.blockChain.refreshSignatures(tb, true);
-                            }else
-                            {
-                                Logging.warn("Target block " + tb.blockNum + " does not have the required consensus.");
+                                if (tb.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(tb.blockNum))
+                                {
+                                    Node.blockChain.refreshSignatures(tb, true);
+                                }
+                                else
+                                {
+                                    Logging.warn("Target block " + tb.blockNum + " does not have the required consensus.");
+                                }
                             }
+                            pendingBlocks.RemoveAll(x => x.blockNum == tb.blockNum);
                         }
-                        pendingBlocks.RemoveAll(x => x.blockNum == tb.blockNum);
                     }
 
                     try
@@ -415,7 +423,7 @@ namespace DLT
                         // verify with a parameter to ignore WS tests, but do all the others
                         BlockVerifyStatus b_status = BlockVerifyStatus.Valid;
 
-                        if(b.blockNum <= lastBlockToReadFromStorage)
+                        if (b.blockNum <= lastBlockToReadFromStorage)
                         {
                             foreach (string txid in b.transactions)
                             {
@@ -519,7 +527,7 @@ namespace DLT
 
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
 
-                }
+                } while (pendingBlocks.Count > 0);
             }
             if (!sleep && Node.blockChain.getLastBlockNum() >= syncToBlock)
             {
@@ -730,18 +738,21 @@ namespace DLT
             if (synchronizing == false) return;
             lock (pendingBlocks)
             {
-                if (b.blockNum > syncTargetBlockNum)
+                // Remove from requestedblocktimes, as the block has been received 
+                lock (requestedBlockTimes)
                 {
-                    if (missingBlocks != null)
-                    {
-                        missingBlocks.RemoveAll(x => x == b.blockNum);
-                    }
-                    return;
+                    if (requestedBlockTimes.ContainsKey(b.blockNum))
+                        requestedBlockTimes.Remove(b.blockNum);
                 }
 
                 if (missingBlocks != null)
                 {
                     missingBlocks.RemoveAll(x => x == b.blockNum);
+                }
+
+                if (b.blockNum > syncTargetBlockNum)
+                {
+                    return;
                 }
 
                 int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);
@@ -753,13 +764,6 @@ namespace DLT
                 {
                     pendingBlocks.Add(b);
                 }
-            }
-
-            // Remove from requestedblocktimes, as the block has been received 
-            lock (requestedBlockTimes)
-            {
-                if (requestedBlockTimes.ContainsKey(b.blockNum))
-                    requestedBlockTimes.Remove(b.blockNum);
             }
         }
         
@@ -898,19 +902,11 @@ namespace DLT
 
             if (forceWsUpdate || (DateTime.Now - watchDogTime).TotalSeconds > 120) // stuck on the same block for 120 seconds
             {
+                wsSyncConfirmedBlockNum = 0;
                 if (Node.getLastBlockHeight() > 100)
                 {
-                    lastBlockToReadFromStorage = Node.getLastBlockHeight() - 100;
-                }else
-                {
-                    lastBlockToReadFromStorage = 0;
-                    wsSyncConfirmedBlockNum = 0;
-                }
-
-                if (lastBlockToReadFromStorage > 0)
-                {
                     Logging.info("Restoring WS to " + lastBlockToReadFromStorage);
-                    wsSyncConfirmedBlockNum = WalletStateStorage.restoreWalletState(lastBlockToReadFromStorage);
+                    wsSyncConfirmedBlockNum = WalletStateStorage.restoreWalletState(Node.getLastBlockHeight() - 100);
                 }
 
                 if (wsSyncConfirmedBlockNum == 0)

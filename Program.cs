@@ -276,7 +276,7 @@ namespace DLTNode
             // Start the HTTP JSON API server
             apiServer = new APIServer();
 
-            if (IXICore.Platform.onMono() == false)
+            if (IXICore.Platform.onMono() == false && !Config.disableWebStart)
             {
                 System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
             }

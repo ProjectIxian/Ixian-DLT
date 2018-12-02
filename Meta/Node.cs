@@ -222,6 +222,10 @@ namespace DLT.Meta
                 {
                     lastLocalBlockNum = lastLocalBlockNum - 6;
                 }
+                if(Config.lastGoodBlock < lastLocalBlockNum)
+                {
+                    lastLocalBlockNum = Config.lastGoodBlock;
+                }
                 if (Config.recoverFromFile)
                 {
                     ulong blockNum = Meta.Storage.getLastBlockNum();

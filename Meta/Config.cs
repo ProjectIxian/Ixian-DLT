@@ -39,6 +39,9 @@ namespace DLT
             public static int maxLogSize = 50;
             public static int maxLogCount = 10;
 
+            public static ulong lastGoodBlock = 0;
+            public static bool disableWebStart = false;
+
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
@@ -89,6 +92,8 @@ namespace DLT
                 Console.WriteLine("    --config\t Specify config filename (default ixian.cfg)");
                 Console.WriteLine("    --maxLogSize\t Specify maximum log file size in MB");
                 Console.WriteLine("    --maxLogCount\t Specify maximum number of log files");
+                Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
+                Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
                 Console.WriteLine("");
                 Console.WriteLine("----------- developer CLI flags -----------");
                 Console.WriteLine("    --netdump\t Enable netdump for debugging purposes");
@@ -275,6 +280,11 @@ namespace DLT
 
                 cmd_parser.Setup<int>("maxLogCount").Callback(value => maxLogCount = value).Required();
 
+                cmd_parser.Setup<long>("lastGoodBlock").Callback(value => lastGoodBlock = (ulong)value).Required();
+
+                cmd_parser.Setup<bool>("disableWebStart").Callback(value => disableWebStart = true).Required();
+
+                
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
