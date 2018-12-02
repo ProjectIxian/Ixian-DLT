@@ -559,10 +559,9 @@ namespace DLT.Meta
         // Cleans the storage cache and logs
         public static bool cleanCacheAndLogs()
         {
-            if(File.Exists(Storage.filename))
-            {
-                File.Delete(Storage.filename);
-            }
+            Storage.deleteCache();
+
+            WalletStateStorage.deleteCache();
 
             PeerStorage.deletePeersFile();
 

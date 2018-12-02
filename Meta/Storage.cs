@@ -19,7 +19,7 @@ namespace DLT
             // Sql connections
             private static SQLiteConnection sqlConnection = null;
             private static readonly object storageLock = new object(); // This should always be placed when performing direct sql operations
-           
+
 
             // Threading
             private static Thread thread = null;
@@ -48,7 +48,7 @@ namespace DLT
                 public QueueStorageCode code;
                 public object data;
             }
-            
+
             // Maintain a queue of sql statements
             private static List<QueueStorageMessage> queueStatements = new List<QueueStorageMessage>();
 
@@ -146,7 +146,10 @@ namespace DLT
 
                     if (sqlConnection != null)
                     {
-                        sqlConnection.Close();
+                        if (sqlConnection != latestDBSqlConnection)
+                        {
+                            sqlConnection.Close();
+                        }
                         sqlConnection = null;
                     }
 
@@ -164,7 +167,7 @@ namespace DLT
                         sqlConnection = latestDBSqlConnection;
                     }
                     else
-                    {                      
+                    {
                         // Bind the connection
                         sqlConnection = new SQLiteConnection(db_path);
                     }
@@ -221,7 +224,7 @@ namespace DLT
 
             public static ulong getLastBlockNum()
             {
-                if(cached_lastBlockNum == 0)
+                if (cached_lastBlockNum == 0)
                 {
                     lock (storageLock)
                     {
@@ -263,11 +266,15 @@ namespace DLT
                 {
                     if (getBlock(block.blockNum) == null)
                     {
+                        seekDatabase(block.blockNum);
+
                         string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
                         result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version);
                     }
                     else
                     {
+                        seekDatabase(block.blockNum);
+
                         // Likely already have the block stored, update the old entry
                         string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ?, `version` = ? WHERE `blockNum` = ?";
                         //Console.WriteLine("SQL: {0}", sql);
@@ -275,7 +282,7 @@ namespace DLT
                     }
                 }
 
-                if(result)
+                if (result)
                 {
                     // Update the cached last block number if necessary
                     if (getLastBlockNum() < block.blockNum)
@@ -295,7 +302,7 @@ namespace DLT
 
                 bool result = false;
                 lock (storageLock)
-                {                   
+                {
                     byte[] tx_data_shuffled = shuffleStorageBytes(transaction.data);
 
                     // Go through all databases starting from latest and search for the transaction
@@ -310,6 +317,7 @@ namespace DLT
                     else
                     {
                         // Transaction found. Seeked database was set by getTransaction
+                        seekDatabase(transaction.applied);
 
                         // Likely already have the tx stored, update the old entry
                         string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
@@ -330,15 +338,15 @@ namespace DLT
 
                 Block block = null;
                 string sql = "select * from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
-                _storage_Block[] _storage_block = null;
+                List<_storage_Block> _storage_block = null;
 
                 lock (storageLock)
                 {
                     seekDatabase(blocknum);
-                  
+
                     try
                     {
-                        _storage_block = sqlConnection.Query<_storage_Block>(sql, (long)blocknum).ToArray();
+                        _storage_block = sqlConnection.Query<_storage_Block>(sql, (long)blocknum);
                     }
                     catch (Exception e)
                     {
@@ -350,7 +358,7 @@ namespace DLT
                 if (_storage_block == null)
                     return block;
 
-                if (_storage_block.Length < 1)
+                if (_storage_block.Count < 1)
                     return block;
 
                 _storage_Block blk = _storage_block[0];
@@ -402,7 +410,7 @@ namespace DLT
                 }
 
                 block.fromLocalStorage = true;
-                    
+
                 //Logging.info(String.Format("Read block #{0} from storage.", block.blockNum));
 
 
@@ -449,7 +457,7 @@ namespace DLT
                             _storage_block = sqlConnection.Query<_storage_Block>(sql, hash).ToArray();
 
                         }
-                        catch (Exception e)
+                        catch (Exception)
                         {
                             if (db_blocknum > Config.maxBlocksPerDatabase)
                                 db_blocknum -= Config.maxBlocksPerDatabase;
@@ -550,6 +558,7 @@ namespace DLT
                     bool found = false;
                     try
                     {
+                        seekDatabase(getLastBlockNum());
                         _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
 
                     }
@@ -560,11 +569,11 @@ namespace DLT
                     }
 
                     if (_storage_tx != null)
-                        if(_storage_tx.Count > 0)
+                        if (_storage_tx.Count > 0)
                             found = true;
-                    
 
-                    
+
+
                     ulong db_blocknum = getLastBlockNum();
                     while (!found)
                     {
@@ -573,9 +582,9 @@ namespace DLT
                         try
                         {
                             _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
-                            
+
                         }
-                        catch (Exception e)
+                        catch (Exception)
                         {
                             if (db_blocknum > Config.maxBlocksPerDatabase)
                                 db_blocknum -= Config.maxBlocksPerDatabase;
@@ -681,7 +690,7 @@ namespace DLT
             // Removes a transaction from the storage database
             // Warning: make sure this is called on the corresponding database (seeked to the blocknum of this transaction)
             public static bool removeTransaction(string txid)
-            {               
+            {
                 string sql = "DELETE FROM transactions where `id` = ?";
                 return executeSQL(sql, txid);
             }
@@ -840,7 +849,8 @@ namespace DLT
                             // Sleep for 10ms to prevent cpu waste
                             Thread.Sleep(10);
                         }
-                    }catch(Exception e)
+                    }
+                    catch (Exception e)
                     {
                         Logging.error("Exception occured in storage thread loop: " + e);
                     }
@@ -1056,7 +1066,15 @@ namespace DLT
 
                 return transaction;
             }
+
+            public static void deleteCache()
+            {
+                string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks");
+                foreach(string fileName in fileNames)
+                {
+                    File.Delete(fileName);
+                }
+            }
         }
-        
     }
 }

@@ -107,5 +107,13 @@ namespace DLT.Meta
             return blockNum;
         }
 
+        public static void deleteCache()
+        {
+            string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "ws");
+            foreach (string fileName in fileNames)
+            {
+                File.Delete(fileName);
+            }
+        }
     }
 }

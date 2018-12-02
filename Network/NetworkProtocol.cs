@@ -620,7 +620,10 @@ namespace DLT
                 }
                 if (removeAddressEntry)
                 {
-                    PresenceList.removeAddressEntry(Base58Check.Base58CheckEncoding.DecodePlain(endpoint.presenceAddress.address), endpoint.presenceAddress);
+                    if (endpoint.presence != null && endpoint.presence.wallet != null && endpoint.presenceAddress != null)
+                    {
+                        PresenceList.removeAddressEntry(endpoint.presence.wallet, endpoint.presenceAddress);
+                    }
                     //PeerStorage.removePeer(endpoint.getFullAddress(true));
                 }
             }
