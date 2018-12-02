@@ -733,7 +733,7 @@ namespace DLT.Meta
 
             if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000"))
             {
-                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000"))
+                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
             }
         }
     }

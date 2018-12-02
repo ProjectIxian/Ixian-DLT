@@ -337,6 +337,7 @@ namespace DLTNode
                 else if(key.Key == ConsoleKey.Escape)
                 {
                     Node.stop();
+                    Environment.Exit(0);
                 }
 
             }
