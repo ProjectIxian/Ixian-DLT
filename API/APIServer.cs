@@ -28,7 +28,8 @@ namespace DLTNode
         {
             try
             {
-                Console.Write("*");
+                if (Config.verboseConsoleOutput)
+                    Console.Write("*");
 
                 if (context.Request.Url.Segments.Length < 2)
                 {
