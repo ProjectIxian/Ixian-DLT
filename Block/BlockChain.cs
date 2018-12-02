@@ -198,6 +198,7 @@ namespace DLT
 
         public int getRequiredConsensus()
         {
+            // TODO TODO TODO cache
             int blockOffset = 6;
             lock (blocks)
             {
