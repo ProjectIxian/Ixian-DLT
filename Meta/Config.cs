@@ -225,7 +225,7 @@ namespace DLT
                     apiPort = testnetApiPort;
                     Storage.filename = "testnet-blockchain.dat";
                     PeerStorage.peersFilename = "testnet-peers.dat";
-                    WalletStateStorage.baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
+                    WalletStateStorage.baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
                 }
 
 

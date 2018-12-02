@@ -7,7 +7,7 @@ namespace DLT.Meta
 
     public class WalletStateStorage
     {
-        public static string baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "wsStorage.dat";
+        public static string baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "wsStorage.dat";
 
         public static void saveWalletState(ulong blockNum)
         {
@@ -109,7 +109,7 @@ namespace DLT.Meta
 
         public static void deleteCache()
         {
-            string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "ws");
+            string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
             foreach (string fileName in fileNames)
             {
                 File.Delete(fileName);

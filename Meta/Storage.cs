@@ -139,7 +139,7 @@ namespace DLT
                         return true;
                     }
 
-                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
+                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
 
                     bool prepare_database = false;
                     // Check if the database file does not exist
@@ -208,7 +208,7 @@ namespace DLT
 
                 while (!found)
                 {
-                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
+                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
                     if (File.Exists(db_path))
                     {
                         db_blocknum += Config.maxBlocksPerDatabase;
