@@ -131,6 +131,10 @@ namespace DLT
                     // Check if we should use the cached latest database
                     if (cached_latestDBBlocknum > 0 && db_blocknum == cached_latestDBBlocknum)
                     {
+                        if (sqlConnection != null)
+                        {
+                            sqlConnection.Close();
+                        }
                         sqlConnection = latestDBSqlConnection;
                         return true;
                     }
@@ -558,7 +562,6 @@ namespace DLT
                     bool found = false;
                     try
                     {
-                        seekDatabase(getLastBlockNum());
                         _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
 
                     }
