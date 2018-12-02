@@ -222,7 +222,7 @@ namespace DLT.Meta
                 {
                     lastLocalBlockNum = lastLocalBlockNum - 6;
                 }
-                if(Config.lastGoodBlock < lastLocalBlockNum)
+                if(Config.lastGoodBlock > 0 && Config.lastGoodBlock < lastLocalBlockNum)
                 {
                     lastLocalBlockNum = Config.lastGoodBlock;
                 }

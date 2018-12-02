@@ -903,10 +903,11 @@ namespace DLT
             if (forceWsUpdate || (DateTime.Now - watchDogTime).TotalSeconds > 120) // stuck on the same block for 120 seconds
             {
                 wsSyncConfirmedBlockNum = 0;
-                if (Node.getLastBlockHeight() > 100)
+                ulong lastBlockHeight = Node.getLastBlockHeight();
+                if (lastBlockHeight > 100)
                 {
-                    Logging.info("Restoring WS to " + lastBlockToReadFromStorage);
-                    wsSyncConfirmedBlockNum = WalletStateStorage.restoreWalletState(Node.getLastBlockHeight() - 100);
+                    Logging.info("Restoring WS to " + (lastBlockHeight - 100));
+                    wsSyncConfirmedBlockNum = WalletStateStorage.restoreWalletState(lastBlockHeight - 100);
                 }
 
                 if (wsSyncConfirmedBlockNum == 0)

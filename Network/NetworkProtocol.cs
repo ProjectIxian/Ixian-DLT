@@ -58,6 +58,7 @@ namespace DLT
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
+                            int txs_in_chunk = 0;
                             // Generate a chunk of transactions
                             for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk; j++)
                             {
@@ -79,11 +80,15 @@ namespace DLT
 
                                     writer.Write(txBytes.Length);
                                     writer.Write(txBytes);
+                                    txs_in_chunk++;
                                 }
                             }
 
-                            // Send a chunk
-                            endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                            if (txs_in_chunk > 0)
+                            {
+                                // Send a chunk
+                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                            }
                         }
                     }
                 }
@@ -828,7 +833,6 @@ namespace DLT
                                             return;
                                         }
 
-                                        // TODO TODO TODO full history node
                                         Block block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                                         if (block == null)
                                         {

@@ -96,7 +96,7 @@ namespace DLT.Meta
 
             Console.WriteLine("\tStatus:\t\t{0}\n", dltStatus);
             Console.WriteLine("\tBlock Height:\t\t{0}", Node.blockChain.getLastBlockNum());
-            Console.WriteLine("\tConnections (I/O):\t\t{0}", connectionsIn + "/" + connectionsOut);
+            Console.WriteLine("\tConnections (I/O):\t{0}", connectionsIn + "/" + connectionsOut);
             Console.WriteLine("\tPresences:\t\t{0}", PresenceList.getTotalPresences());
             Console.WriteLine("\tTransaction Pool:\t{0}", TransactionPool.getUnappliedTransactions().Count());
 
