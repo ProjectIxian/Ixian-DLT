@@ -367,6 +367,7 @@ namespace DLT
                                     Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
                                     missingBlocks.Add(next_to_apply);
                                     missingBlocks.Sort();
+                                    receivedAllMissingBlocks = false;
                                     sleep = true;
                                 }
                             }
@@ -452,6 +453,7 @@ namespace DLT
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             missingBlocks.Add(b.blockNum);
                             missingBlocks.Sort();
+                            receivedAllMissingBlocks = false;
                             return;
                         }
 
@@ -461,6 +463,7 @@ namespace DLT
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             missingBlocks.Add(b.blockNum);
                             missingBlocks.Sort();
+                            receivedAllMissingBlocks = false;
                             return;
                         }
 
@@ -496,6 +499,7 @@ namespace DLT
                                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                                     missingBlocks.Add(b.blockNum);
                                     missingBlocks.Sort();
+                                    receivedAllMissingBlocks = false;
                                     handleWatchDog(true);
                                     return;
                                 }
@@ -926,6 +930,8 @@ namespace DLT
                     }
                 }
 
+                lastBlockToReadFromStorage = wsSyncConfirmedBlockNum;
+
                 watchDogBlockNum = 0;
 
                 for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
@@ -958,6 +964,10 @@ namespace DLT
                         firstBlock = 1;
                     }
                     ulong lastBlock = lastBlockToReadFromStorage;
+                    if(syncTargetBlockNum > lastBlock)
+                    {
+                        lastBlock = syncTargetBlockNum;
+                    }
                     missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
                     missingBlocks.Sort();
                     pendingBlocks.Clear();

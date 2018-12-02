@@ -45,6 +45,7 @@ namespace DLT
         private static Random random = new Random(); // Used for random nonce
 
         private static List<ulong> solvedBlocks = new List<ulong>(); // Maintain a list of solved blocks to prevent duplicate work
+        private static long solvedBlockCount = 0;
 
         public Miner()
         {
@@ -309,6 +310,7 @@ namespace DLT
                 lock (solvedBlocks)
                 {
                     solvedBlocks.Add(activeBlock.blockNum);
+                    solvedBlockCount++;
                 }
 
                 lastSolvedBlockNum = activeBlock.blockNum;
@@ -353,6 +355,7 @@ namespace DLT
                 lock (solvedBlocks)
                 {
                     solvedBlocks.Add(activeBlock.blockNum);
+                    solvedBlockCount++;
                 }
 
                 lastSolvedBlockNum = activeBlock.blockNum;
@@ -598,11 +601,11 @@ namespace DLT
         }
 
         // Returns the number of locally solved blocks
-        public int getSolvedBlocksCount()
+        public long getSolvedBlocksCount()
         {
             lock(solvedBlocks)
             {
-                return solvedBlocks.Count();
+                return solvedBlockCount;
             }
         }
 
