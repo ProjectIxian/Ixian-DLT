@@ -231,6 +231,23 @@ namespace DLT
             }
         }
 
+        public bool Equals(Block b)
+        {
+            if (!b.blockChecksum.SequenceEqual(blockChecksum))
+            {
+                return false;
+            }
+            if (!b.signatureFreezeChecksum.SequenceEqual(signatureFreezeChecksum))
+            {
+                return false;
+            }
+            if(!b.calculateSignatureChecksum().SequenceEqual(calculateSignatureChecksum()))
+            {
+                return false;
+            }
+            return true;
+        }
+
         public bool addTransaction(Transaction transaction)
         {
             // TODO: this assumes the transaction is properly validated as it's already in the Transaction Pool
@@ -273,6 +290,10 @@ namespace DLT
                 rawData.AddRange(signatureFreezeChecksum);
             }
             rawData.AddRange(BitConverter.GetBytes(difficulty));
+            if(version > 1)
+            {
+                rawData.Add(1); // for this versions future incompatibility with higher version blocks
+            }
             return Crypto.sha512sqTrunc(rawData.ToArray());
         }
 

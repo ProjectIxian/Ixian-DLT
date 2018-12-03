@@ -228,7 +228,7 @@ namespace DLT
                 }
             }
             Random rnd = new Random();
-            List<Block> blockList = Node.blockChain.getBlocks((int)Node.blockChain.Count / 2, (int)Node.blockChain.Count / 2).OrderBy(x => rnd.Next()).ToList();
+            List<Block> blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).OrderBy(x => rnd.Next()).ToList();
             foreach (Block block in blockList)
             {
                 if (block.powField == null)

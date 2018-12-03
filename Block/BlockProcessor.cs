@@ -352,7 +352,7 @@ namespace DLT
                     {
                         // likely the node is missing sigs, let's send the full block
                         Block block = Node.blockChain.getBlock(b.blockNum);
-                        if (!b.getBytes().SequenceEqual(block.getBytes()))
+                        if (!b.Equals(block))
                         {
                             ProtocolMessage.broadcastNewBlock(block);
                         }
