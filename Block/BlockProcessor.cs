@@ -464,7 +464,7 @@ namespace DLT
                     }
                     ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
                 }
-                return BlockVerifyStatus.Indeterminate;
+                return BlockVerifyStatus.IndeterminateFutureBlock;
             }
             // Verify sigfreeze
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
@@ -680,11 +680,6 @@ namespace DLT
             if (basicVerification != BlockVerifyStatus.Valid)
             {
                 return basicVerification;
-            }
-
-            if (Node.blockChain.Count > 0 && b.blockNum > Node.blockChain.getLastBlockNum() + 1)
-            {
-                return BlockVerifyStatus.IndeterminateFutureBlock;
             }
 
             if (Node.blockChain.Count > 0 && b.blockNum <= Node.blockChain.getLastBlockNum())

@@ -451,8 +451,11 @@ namespace DLT
                         {
                             Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            missingBlocks.Add(b.blockNum);
-                            missingBlocks.Sort();
+                            if (missingBlocks != null)
+                            {
+                                missingBlocks.Add(b.blockNum);
+                                missingBlocks.Sort();
+                            }
                             receivedAllMissingBlocks = false;
                             return;
                         }
@@ -461,8 +464,11 @@ namespace DLT
                         {
                             Logging.warn(String.Format("Block #{0} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            missingBlocks.Add(b.blockNum);
-                            missingBlocks.Sort();
+                            if (missingBlocks != null)
+                            {
+                                missingBlocks.Add(b.blockNum);
+                                missingBlocks.Sort();
+                            }
                             receivedAllMissingBlocks = false;
                             return;
                         }
@@ -497,8 +503,11 @@ namespace DLT
                                 {
                                     Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
                                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                    missingBlocks.Add(b.blockNum);
-                                    missingBlocks.Sort();
+                                    if (missingBlocks != null)
+                                    {
+                                        missingBlocks.Add(b.blockNum);
+                                        missingBlocks.Sort();
+                                    }
                                     receivedAllMissingBlocks = false;
                                     handleWatchDog(true);
                                     return;
@@ -515,7 +524,10 @@ namespace DLT
                             }
                             Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                             resetWatchDog(b.blockNum);
-                            missingBlocks.RemoveAll(x => x <= b.blockNum);
+                            if (missingBlocks != null)
+                            {
+                                missingBlocks.RemoveAll(x => x <= b.blockNum);
+                            }
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
@@ -609,8 +621,11 @@ namespace DLT
                     requestedBlockTimes.Clear();
                 }
                 pendingBlocks.Clear();
-                missingBlocks.Clear();
-                missingBlocks = null;
+                if (missingBlocks != null)
+                {
+                    missingBlocks.Clear();
+                    missingBlocks = null;
+                }
             }
 
             if (!Config.recoverFromFile)
@@ -846,11 +861,14 @@ namespace DLT
 
                     lock (pendingBlocks)
                     {
-                        for(ulong i = 1; syncTargetBlockNum + i <= block_height; i++)
+                        if (missingBlocks != null)
                         {
-                            missingBlocks.Add(syncTargetBlockNum + i);
+                            for (ulong i = 1; syncTargetBlockNum + i <= block_height; i++)
+                            {
+                                missingBlocks.Add(syncTargetBlockNum + i);
+                            }
+                            missingBlocks.Sort();
                         }
-                        missingBlocks.Sort();
                         receivedAllMissingBlocks = false;
                         syncTargetBlockNum = block_height;
                     }
