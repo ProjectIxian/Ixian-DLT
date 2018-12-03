@@ -296,7 +296,7 @@ namespace DLT
             if (syncToBlock > CoreConfig.redactedWindowSize)
             {
                 lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize + 1;
-                if (wsSyncConfirmedBlockNum > 0 && wsSyncConfirmedBlockNum < lowestBlockNum)
+                if (wsSyncConfirmedBlockNum > 0 && wsSyncConfirmedBlockNum <= lowestBlockNum)
                 {
                     if (wsSyncConfirmedBlockNum > CoreConfig.redactedWindowSize)
                     {
