@@ -407,8 +407,8 @@ namespace DLT
                 string hostname = endpoint.getFullAddress(true);
                 if (CoreNetworkUtils.PingAddressReachable(hostname) == false)
                 {
-                    Logging.warn("New node was not reachable on the advertised address.");
-                    CoreProtocolMessage.sendBye(endpoint, 601, "External IP:Port not reachable!", "");
+                    Logging.warn("Node {0} was not reachable on the advertised address.", hostname);
+                    CoreProtocolMessage.sendBye(endpoint, 601, "External " + hostname + " not reachable!", "");
                     return false;
                 }
                 return true;

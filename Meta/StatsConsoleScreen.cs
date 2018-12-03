@@ -97,7 +97,17 @@ namespace DLT.Meta
 
 
             writeLine("\tStatus:\t\t{0}\n", dltStatus);
-            writeLine("\tBlock Height:\t\t{0} ({1} sigs)", Node.blockChain.getLastBlockNum(), Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).signatures.Count());
+            ulong lastBlockNum = Node.blockChain.getLastBlockNum();
+            int sigCount = 0;
+            if(lastBlockNum > 0)
+            {
+                Block b = Node.blockChain.getBlock(lastBlockNum);
+                if(b != null)
+                {
+                    sigCount = b.signatures.Count();
+                }
+            }
+            writeLine("\tBlock Height:\t\t{0} ({1} sigs)", lastBlockNum, sigCount);
             writeLine("\tConnections (I/O):\t{0}", connectionsIn + "/" + connectionsOut);
             writeLine("\tPresences:\t\t{0}", PresenceList.getTotalPresences());
             writeLine("\tTransaction Pool:\t{0}", TransactionPool.getUnappliedTransactions().Count());
