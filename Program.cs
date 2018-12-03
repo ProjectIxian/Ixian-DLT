@@ -240,7 +240,7 @@ namespace DLTNode
             }
 
             // Set the logging options
-            Logging.setOptions(Config.maxLogSize, Config.maxLogCount, Config.verboseConsoleOutput);
+            Logging.setOptions(Config.maxLogSize, Config.maxLogCount);
 
             Logging.info(string.Format("Starting IXIAN DLT {0}", Config.version));
 
@@ -290,8 +290,8 @@ namespace DLTNode
             mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
             mainLoopTimer.Start();
 
-            if(Config.verboseConsoleOutput)
-            Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
+            if (Config.verboseConsoleOutput)
+                Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
 
         }
 

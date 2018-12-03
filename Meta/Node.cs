@@ -156,6 +156,10 @@ namespace DLT.Meta
             // Start the network queue
             NetworkQueue.start();
 
+            Logging.consoleOutput = Config.verboseConsoleOutput;
+            Logging.flush();
+            Console.Clear();
+
             // Distribute genesis funds
             IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
 

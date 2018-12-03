@@ -352,7 +352,10 @@ namespace DLT
                     {
                         // likely the node is missing sigs, let's send the full block
                         Block block = Node.blockChain.getBlock(b.blockNum);
-                        ProtocolMessage.broadcastNewBlock(block);
+                        if (!b.getBytes().SequenceEqual(block.getBytes()))
+                        {
+                            ProtocolMessage.broadcastNewBlock(block);
+                        }
                     }else if(past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
                     {
                         // the node seems to be way behind, send the current last block

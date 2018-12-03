@@ -1072,7 +1072,7 @@ namespace DLT
 
             public static void deleteCache()
             {
-                string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks");
+                string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
                 foreach(string fileName in fileNames)
                 {
                     File.Delete(fileName);
