@@ -228,6 +228,9 @@ namespace DLTNode
 
         static void onStart(string[] args)
         {
+            bool verboseConsoleOutputSetting = Config.verboseConsoleOutput;
+            Config.verboseConsoleOutput = true;
+
             Console.WriteLine(string.Format("IXIAN DLT {0}", Config.version));
 
             // Read configuration from command line
@@ -282,7 +285,7 @@ namespace DLTNode
             }
 
             // Start the actual DLT node
-            Node.start();
+            Node.start(verboseConsoleOutputSetting);
 
 
             // Setup a timer to handle routine updates

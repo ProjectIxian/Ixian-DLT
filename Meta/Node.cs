@@ -62,17 +62,14 @@ namespace DLT.Meta
             }
 
             // Setup the stats console
-            if (Config.verboseConsoleOutput == false)
-            {
-                statsConsoleScreen = new StatsConsoleScreen();
-            }
+            statsConsoleScreen = new StatsConsoleScreen();
 
             // Initialize the wallet state
             walletState = new WalletState();
         }
 
         // Start the node
-        static public void start()
+        static public void start(bool verboseConsoleOutput)
         {
             // First create the data folder if it does not already exist
             checkDataFolder();
@@ -95,16 +92,16 @@ namespace DLT.Meta
                 List<IPAndMask> local_ips = CoreNetworkUtils.GetAllLocalIPAddressesAndMasks();
                 foreach (IPAndMask local_ip in local_ips)
                 {
-                    if(IPv4Subnet.IsPublicIP(local_ip.Address))
+                    if (IPv4Subnet.IsPublicIP(local_ip.Address))
                     {
                         Logging.info(String.Format("Public IP detected: {0}, mask {1}.", local_ip.Address.ToString(), local_ip.SubnetMask.ToString()));
                         Config.publicServerIP = local_ip.Address.ToString();
                     }
                 }
-                if(Config.publicServerIP == "")
+                if (Config.publicServerIP == "")
                 {
                     IPAddress primary_local = CoreNetworkUtils.GetPrimaryIPAddress();
-                    if(primary_local == null)
+                    if (primary_local == null)
                     {
                         Logging.warn("Unable to determine primary IP address.");
                         showIPmenu();
@@ -112,14 +109,14 @@ namespace DLT.Meta
                     {
                         Logging.warn(String.Format("None of the locally configured IP addresses are public. Attempting UPnP..."));
                         IPAddress public_ip = upnp.GetExternalIPAddress();
-                        if(public_ip == null)
+                        if (public_ip == null)
                         {
                             Logging.warn("UPnP failed.");
                             showIPmenu();
                         } else
                         {
                             Logging.info(String.Format("UPNP-determined public IP: {0}. Attempting to configure a port-forwarding rule.", public_ip.ToString()));
-                            if(upnp.MapPublicPort(Config.serverPort, primary_local))
+                            if (upnp.MapPublicPort(Config.serverPort, primary_local))
                             {
                                 Config.publicServerIP = public_ip.ToString(); //upnp.getMappedIP();
                                 Logging.info(string.Format("Network configured. Public IP is: {0}", Config.publicServerIP));
@@ -156,9 +153,14 @@ namespace DLT.Meta
             // Start the network queue
             NetworkQueue.start();
 
-            Logging.consoleOutput = Config.verboseConsoleOutput;
+            // prepare stats screen
+            Config.verboseConsoleOutput = verboseConsoleOutput;
+            Logging.consoleOutput = verboseConsoleOutput;
             Logging.flush();
-            Console.Clear();
+            if (Config.verboseConsoleOutput == false)
+            {
+                statsConsoleScreen.clearScreen();
+            }
 
             // Distribute genesis funds
             IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
