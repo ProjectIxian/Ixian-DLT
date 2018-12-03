@@ -273,10 +273,6 @@ namespace DLT
                 rawData.AddRange(signatureFreezeChecksum);
             }
             rawData.AddRange(BitConverter.GetBytes(difficulty));
-            if(version == 2) // force version 2 to be incompatible with other versions for smooth upgrade to a smaller redacted window
-            {
-                rawData.AddRange(BitConverter.GetBytes(2));
-            }
             return Crypto.sha512sqTrunc(rawData.ToArray());
         }
 
