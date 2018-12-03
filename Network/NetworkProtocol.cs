@@ -408,7 +408,7 @@ namespace DLT
                 if (CoreNetworkUtils.PingAddressReachable(hostname) == false)
                 {
                     Logging.warn("New node was not reachable on the advertised address.");
-                    sendBye(endpoint, 601, "External IP:Port not reachable!", "");
+                    CoreProtocolMessage.sendBye(endpoint, 601, "External IP:Port not reachable!", "");
                     return false;
                 }
                 return true;
@@ -507,7 +507,7 @@ namespace DLT
                     else
                     if (CryptoManager.lib.verifySignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + device_id + "-" + timestamp + "-" + endpoint.getFullAddress(true)), pubkey, signature) == false)
                     {
-                        sendBye(endpoint, 600, "Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP:", endpoint.address);
+                        CoreProtocolMessage.sendBye(endpoint, 600, "Verify signature failed in hello message, likely an incorrect IP was specified. Detected IP:", endpoint.address);
                         Logging.warn(string.Format("Connected node used an incorrect signature in hello message, likely an incorrect IP was specified. Detected IP: {0}", endpoint.address));
                         return false;
                     }
@@ -609,28 +609,6 @@ namespace DLT
                     }
                 }
                 return true;
-            }
-
-            public static void sendBye(RemoteEndpoint endpoint, int code, string message, string data, bool removeAddressEntry = true)
-            {
-                using (MemoryStream m2 = new MemoryStream())
-                {
-                    using (BinaryWriter writer = new BinaryWriter(m2))
-                    {
-                        writer.Write(code);
-                        writer.Write(message);
-                        writer.Write(data);
-                        endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                    }
-                }
-                if (removeAddressEntry)
-                {
-                    if (endpoint.presence != null && endpoint.presence.wallet != null && endpoint.presenceAddress != null)
-                    {
-                        PresenceList.removeAddressEntry(endpoint.presence.wallet, endpoint.presenceAddress);
-                    }
-                    //PeerStorage.removePeer(endpoint.getFullAddress(true));
-                }
             }
 
             public static void sendHelloMessage(RemoteEndpoint endpoint, bool sendHelloData)
@@ -985,7 +963,10 @@ namespace DLT
 
                                             byeV1 = true;
 
-                                            Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+                                            if (byeCode != 200)
+                                            {
+                                                Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+                                            }
 
                                             if (byeCode == 600)
                                             {

@@ -330,7 +330,7 @@ namespace DLT
                             {
                                 Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
                                 // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
-                                ProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
+                                CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
                             }
 
                         }
@@ -342,7 +342,7 @@ namespace DLT
                         }else
                         {
                             // the block is invalid, we should disconnect the node as it is likely on a forked network
-                            ProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                            CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                         }
                     }
                 }else
@@ -360,12 +360,12 @@ namespace DLT
                     }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
                         // the block is different than our own, we should disconnect the node as it is likely on a forked network
-                        ProtocolMessage.sendBye(endpoint, 100, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
+                        CoreProtocolMessage.sendBye(endpoint, 100, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
                     }
                     else
                     {
                         // the block is invalid, we should disconnect the node as it is likely on a forked network
-                        ProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                        CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                     }
                 }
                 return;
@@ -378,7 +378,7 @@ namespace DLT
             if(b_status == BlockVerifyStatus.Invalid)
             {
                 // the block is invalid, we should disconnect the node as it is likely on a forked network
-                ProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                 return;
             }else if (b_status != BlockVerifyStatus.Valid)
             {

@@ -291,25 +291,11 @@ namespace DLT
         {
             ulong lowestBlockNum = 1;
 
-            ulong syncToBlock = syncTargetBlockNum;
+            ulong syncToBlock = wsSyncConfirmedBlockNum;
 
             if (syncToBlock > CoreConfig.redactedWindowSize)
             {
                 lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize + 1;
-                if (wsSyncConfirmedBlockNum > 0 && wsSyncConfirmedBlockNum <= lowestBlockNum)
-                {
-                    if (wsSyncConfirmedBlockNum > CoreConfig.redactedWindowSize)
-                    {
-                        lowestBlockNum = wsSyncConfirmedBlockNum - CoreConfig.redactedWindowSize + 1;
-                    }
-                    else
-                    {
-                        lowestBlockNum = 1;
-                    }
-                }else if(wsSyncConfirmedBlockNum == 0)
-                {
-                    lowestBlockNum = 1;
-                }
             }
             return lowestBlockNum;
         }
