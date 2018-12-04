@@ -442,7 +442,9 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
-            if (prevBlock == null && Node.blockChain.Count > 1) // block not found but blockChain is not empty, request the missing blocks
+            ulong lastBlockNum = Node.getLastBlockHeight();
+
+            if (prevBlock == null && lastBlockNum > 1) // block not found but blockChain is not empty, request the missing blocks
             {
                 if (removeSignaturesWithLowBalance(b))
                 {
@@ -460,17 +462,23 @@ namespace DLT
                             // TODO: Blacklisting point
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if full consensus is reached on the block
-                        if (b.blockNum > Node.blockChain.getLastBlockNum() + 2 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
+                        if (b.blockNum > lastBlockNum + 2 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
                         }
                     }
-                    ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
+                    ProtocolMessage.broadcastGetBlock(lastBlockNum + 1);
                 }
-                return BlockVerifyStatus.IndeterminateFutureBlock;
+                if (b.blockNum > lastBlockNum + 1)
+                {
+                    return BlockVerifyStatus.IndeterminateFutureBlock;
+                }else if(b.blockNum <= lastBlockNum - CoreConfig.redactedWindowSize)
+                {
+                    return BlockVerifyStatus.IndeterminatePastBlock;
+                }
             }
             // Verify sigfreeze
-            if (b.blockNum <= Node.blockChain.getLastBlockNum())
+            if (b.blockNum <= lastBlockNum)
             {
                 if (!verifySignatureFreezeChecksum(b))
                 {
@@ -479,7 +487,7 @@ namespace DLT
             }
 
             // verify difficulty
-            if (Node.blockChain.getLastBlockNum() + 1 == b.blockNum)
+            if (lastBlockNum + 1 == b.blockNum)
             {
                 bool verifyDifficulty = false;
                 if(b.blockNum > CoreConfig.minimumRedactedWindowSize)
