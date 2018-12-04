@@ -554,6 +554,7 @@ namespace DLT
                 ret = BitConverter.ToString(hash).Replace("-", string.Empty);
                 Marshal.FreeHGlobal(data_ptr);
                 Marshal.FreeHGlobal(result_ptr);
+                Marshal.FreeHGlobal(salt_ptr);
             }
             catch (Exception e)
             {
@@ -583,6 +584,7 @@ namespace DLT
                 Marshal.Copy(result_ptr, hash, 0, 32);
                 Marshal.FreeHGlobal(data_ptr);
                 Marshal.FreeHGlobal(result_ptr);
+                Marshal.FreeHGlobal(salt_ptr);
                 return hash;
             }
             catch(Exception e)
