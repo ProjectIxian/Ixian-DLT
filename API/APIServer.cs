@@ -3,6 +3,7 @@ using DLT.Meta;
 using DLT.Network;
 using DLTNode.API;
 using IXICore;
+using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -10,9 +11,23 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text;
 
 namespace DLTNode
 {
+    class JsonError
+    {
+        public int code = 0;
+        public string message = null;
+    }
+
+    class JsonResponse
+    {
+        public object result = null;
+        public JsonError error = null;
+        public string id = null;
+    }
+
     class APIServer : GenericAPIServer
     {
 
@@ -24,6 +39,25 @@ namespace DLTNode
             start(String.Format("http://localhost:{0}/", Config.apiPort), Config.apiUsers);
         }
 
+        public void sendResponse(HttpListenerResponse responseObject, JsonResponse response)
+        {
+            string responseString = JsonConvert.SerializeObject(response);
+
+            byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+
+            try
+            {
+                responseObject.ContentLength64 = buffer.Length;
+                Stream output = responseObject.OutputStream;
+                output.Write(buffer, 0, buffer.Length);
+                output.Close();
+            }
+            catch (Exception e)
+            {
+                Logging.error(String.Format("APIServer: {0}", e.ToString()));
+            }
+        }
+
         protected override void onUpdate(HttpListenerContext context)
         {
             try
@@ -33,8 +67,6 @@ namespace DLTNode
 
                 if (context.Request.Url.Segments.Length < 2)
                 {
-                    //sendError(context, "{\"message\":\"no parameters supplied\"}");
-
                     // We will now show an embedded wallet if the API is called with no parameters
                     sendWallet(context);
                     return;
@@ -44,20 +76,19 @@ namespace DLTNode
 
                 if (methodName == null)
                 {
-                    sendError(context, "{\"message\":\"invalid parameters\"}");
+                    JsonError error = new JsonError { code = 404, message = "Unknown action." };                    
+                    sendResponse(context.Response, new JsonResponse { error = error });
                     return;
                 }
 
                 try
                 {
-                    if (parseRequest(context, methodName) == false)
-                    {
-                        sendError(context, "{\"message\":\"error\"}");
-                    }
+                    parseRequest(context, methodName);
                 }
                 catch (Exception e)
                 {
-                    sendError(context, "{\"message\":\"error\"}");
+                    JsonError error = new JsonError { code = 404, message = "Unknown error occured, see log for details." };
+                    sendResponse(context.Response, new JsonResponse { error = error });
                     Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e.ToString()));
 
                 }
@@ -88,271 +119,524 @@ namespace DLTNode
             }
         }
 
-
-
-        private bool parseRequest(HttpListenerContext context, string methodName)
+        private void parseRequest(HttpListenerContext context, string methodName)
         {
             HttpListenerRequest request = context.Request;
             // Set the content type to plain to prevent xml parsing errors in various browsers
             context.Response.ContentType = "application/json";
 
+            JsonResponse response = new JsonResponse();
 
             if (methodName.Equals("shutdown", StringComparison.OrdinalIgnoreCase))
             {
-                string responseString = JsonConvert.SerializeObject("Node shutdown");
-                sendResponse(context.Response, responseString);
-
-                forceShutdown = true;
-
-                return true;
+                response = onShutdown();
             }
 
             if (methodName.Equals("reconnect", StringComparison.OrdinalIgnoreCase))
             {
-                string responseString = JsonConvert.SerializeObject("Reconnecting node to network now.");
-                sendResponse(context.Response, responseString);
-
-                Node.reconnect();
-
-                return true;
+                response = onReconnect();
             }
 
             if (methodName.Equals("connect", StringComparison.OrdinalIgnoreCase))
             {
-                string to = request.QueryString["to"];
-
-                NetworkClientManager.connectTo(to);
-
-                string responseString = JsonConvert.SerializeObject(string.Format("Connecting to node {0}", to));
-                sendResponse(context.Response, responseString);
-
-                return true;
+                response = onConnect(request);
             }
 
             if (methodName.Equals("isolate", StringComparison.OrdinalIgnoreCase))
             {
-                string responseString = JsonConvert.SerializeObject("Isolating from network now.");
-                sendResponse(context.Response, responseString);
-
-                Node.isolate();
-
-                return true;
+                response = onIsolate();
             }
-
-
 
             if (methodName.Equals("sync", StringComparison.OrdinalIgnoreCase))
             {
-                string responseString = JsonConvert.SerializeObject("Synchronizing to network now.");
-                sendResponse(context.Response, responseString);
-
-                Node.synchronize();
-
-                return true;
+                response = onSync();
             }
 
             if (methodName.Equals("addtransaction", StringComparison.OrdinalIgnoreCase))
             {
-                // Add a new transaction. This test allows sending and receiving from arbitrary addresses
-                string responseString = "Incorrect transaction parameters.";
-
-                byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
-                string amount_string = request.QueryString["amount"];
-                IxiNumber amount = new IxiNumber(amount_string); // Subtract the fee
-                IxiNumber fee = CoreConfig.transactionPrice;
-
-                // Only create a transaction if there is a valid amount
-                if(amount > (long)0)
-                {
-                    byte[] from = Node.walletStorage.address;
-
-                    if (!Address.validateChecksum(to))
-                    {
-                        responseString = "Incorrect to address.";
-                    }
-                    else
-                    {
-                        byte[] pubKey = Node.walletStorage.publicKey;
-
-
-                        // Check if this wallet's public key is already in the WalletState
-                        Wallet mywallet = Node.walletState.getWallet(from, true);
-                        if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(Node.walletStorage.publicKey))
-                        {
-                            // Walletstate public key matches, we don't need to send the public key in the transaction
-                            pubKey = null;
-                        }
-
-                        Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
-                        if (TransactionPool.addTransaction(transaction))
-                        {
-                            responseString = JsonConvert.SerializeObject(transaction);
-                        }
-                        else
-                        {
-                            responseString = "There was an error adding the transaction.";
-                        }
-                    }
-                }
-
-                // Respond with the transaction details
-                sendResponse(context.Response, responseString);
-
-                return true;
+                response = onAddTransaction(request);
             }
 
             if (methodName.Equals("addmultisigtransaction", StringComparison.OrdinalIgnoreCase))
             {
-                // Add a new transaction. This test allows sending and receiving from arbitrary addresses
-                string responseString = "Incorrect transaction parameters.";
-
-                string orig_txid = request.QueryString["origtx"];
-                byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
-                byte[] to = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["to"]);
-                string amount_string = request.QueryString["amount"];
-                IxiNumber amount = new IxiNumber(amount_string); // Subtract the fee
-                IxiNumber fee = CoreConfig.transactionPrice;
-
-                // Only create a transaction if there is a valid amount
-                if (amount > (long)0)
-                {
-                    if (!Address.validateChecksum(to))
-                    {
-                        responseString = "Incorrect to address.";
-                    }
-                    else
-                    {
-                        Transaction transaction = Transaction.multisigTransaction(orig_txid, amount, fee, to, from, Node.blockChain.getLastBlockNum());
-                        if (TransactionPool.addTransaction(transaction))
-                        {
-                            responseString = JsonConvert.SerializeObject(transaction);
-                        }
-                        else
-                        {
-                            responseString = "There was an error adding the transaction.";
-                        }
-                    }
-                }
-
-                // Respond with the transaction details
-                sendResponse(context.Response, responseString);
-
-                return true;
+                response = onAddMultiSigTransaction(request);
             }
 
             if (methodName.Equals("addmultisigkey", StringComparison.OrdinalIgnoreCase))
             {
-                // transaction which alters a multisig wallet
-                string responseString = "Incorrect transaction parameters.";
-
-                string orig_txid = request.QueryString["origtx"];
-                byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-                string signer = request.QueryString["signer"];
-                byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
-                IxiNumber fee = CoreConfig.transactionPrice;
-
-                Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
-                if (TransactionPool.addTransaction(transaction))
-                {
-                    responseString = JsonConvert.SerializeObject(transaction);
-                }
-                else
-                {
-                    responseString = "There was an error adding the transaction.";
-                }
-
-                // Respond with the transaction details
-                sendResponse(context.Response, responseString);
-
-                return true;
+                response = onAddMultiSigKey(request);
             }
 
             if (methodName.Equals("delmultisigkey", StringComparison.OrdinalIgnoreCase))
             {
-                // transaction which alters a multisig wallet
-                string responseString = "Incorrect transaction parameters.";
-
-                string orig_txid = request.QueryString["origtx"];
-                byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-                string signer = request.QueryString["signer"];
-                byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
-
-                IxiNumber fee = CoreConfig.transactionPrice;
-
-                Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
-                if (TransactionPool.addTransaction(transaction))
-                {
-                    responseString = JsonConvert.SerializeObject(transaction);
-                }
-                else
-                {
-                    responseString = "There was an error adding the transaction.";
-                }
-
-                // Respond with the transaction details
-                sendResponse(context.Response, responseString);
-
-                return true;
+                response = onDelMultiSigKey(request);
             }
 
             if (methodName.Equals("changemultisigs", StringComparison.OrdinalIgnoreCase))
             {
-                // transaction which alters a multisig wallet
-                string responseString = "Incorrect transaction parameters.";
-
-                string orig_txid = request.QueryString["origtx"];
-                byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-                string sigs = request.QueryString["sigs"];
-                IxiNumber fee = CoreConfig.transactionPrice;
-                if (byte.TryParse(sigs, out byte reqSigs))
-                {
-
-                    Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
-                    if (TransactionPool.addTransaction(transaction))
-                    {
-                        responseString = JsonConvert.SerializeObject(transaction);
-                    }
-                    else
-                    {
-                        responseString = "There was an error adding the transaction.";
-                    }
-                }
-
-                // Respond with the transaction details
-                sendResponse(context.Response, responseString);
-
-                return true;
+                response = onChangeMultiSigs(request);
             }
 
             if (methodName.Equals("getbalance", StringComparison.OrdinalIgnoreCase))
             {
-                byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["address"]);
-
-                IxiNumber balance = Node.walletState.getWalletBalance(address);
-
-                // Respond with the transaction details
-                string responseString = JsonConvert.SerializeObject(balance.ToString());
-                sendResponse(context.Response, responseString);
-
-                return true;
+                response = onGetBalance(request);
             }
 
             if (methodName.Equals("getblock", StringComparison.OrdinalIgnoreCase))
             {
-                string blocknum_string = request.QueryString["num"];
-                ulong block_num = 0;
-                try
+                response = onGetBlock(request);
+            }
+
+            if (methodName.Equals("getlastblocks", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetLastBlocks();
+            }
+
+            if (methodName.Equals("getfullblock", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetFullBlock(request);
+            }
+
+            if (methodName.Equals("stress", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onStress(request);
+            }
+
+            if (methodName.Equals("mywallet", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onMyWallet();
+            }
+
+            if (methodName.Equals("mypubkey", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onMyPubKey();
+            }
+
+            if (methodName.Equals("getwallet", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetWallet(request);
+            }
+
+            if (methodName.Equals("walletlist", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onWalletList();
+            }
+
+            if (methodName.Equals("pl", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onPl();
+            }
+
+            if (methodName.Equals("clients", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onClients();
+            }
+
+            if (methodName.Equals("servers", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onServers();
+            }
+
+            if (methodName.Equals("tx", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onTx();
+            }
+
+            if (methodName.Equals("txu", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onTxu();
+            }
+
+            if (methodName.Equals("status", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onStatus();
+            }
+
+            if (methodName.Equals("minerstats", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onMinerStats();
+            }
+
+            if (methodName.Equals("blockheight", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onBlockHeight();
+            }
+
+            if (methodName.Equals("supply", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onSupply();
+            }
+
+            if (methodName.Equals("jsonrpc", StringComparison.OrdinalIgnoreCase))
+            {
+                response = jsonRpc.processRequest(context);
+            }
+
+            if (methodName.Equals("debugsave", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onDebugSave();
+            }
+
+            if (methodName.Equals("debugload", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onDebugLoad();
+            }
+
+            sendResponse(context.Response, response);
+            context.Response.Close();
+        }
+
+        public JsonResponse onShutdown()
+        {
+            JsonError error = null;
+
+            forceShutdown = true;
+
+            return new JsonResponse { result = "Node shutdown", error = error };
+        }
+
+        public JsonResponse onReconnect()
+        {
+            JsonError error = null;
+
+            Node.reconnect();
+
+            return new JsonResponse { result = "Reconnecting node to network now.", error = error };
+        }
+
+        public JsonResponse onConnect(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            string to = request.QueryString["to"];
+
+            NetworkClientManager.connectTo(to);
+
+            return new JsonResponse { result = string.Format("Connecting to node {0}", to), error = error };
+        }
+
+        public JsonResponse onIsolate()
+        {
+            JsonError error = null;
+
+            Node.isolate();
+
+            return new JsonResponse { result = "Isolating from network now.", error = error };
+        }
+
+        public JsonResponse onSync()
+        {
+            JsonError error = null;
+
+            Node.synchronize();
+
+            return new JsonResponse { result = "Synchronizing to network now.", error = error };
+        }
+
+        public JsonResponse onAddTransaction(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // Add a new transaction. This test allows sending and receiving from arbitrary addresses
+            object res = "Incorrect transaction parameters.";
+
+            IxiNumber amount = 0;
+            IxiNumber fee = CoreConfig.transactionPrice;
+            SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+            string[] to_split = request.QueryString["to"].Split('.');
+            if (to_split.Length > 0)
+            {
+                foreach (string single_to in to_split)
                 {
-                    block_num = Convert.ToUInt64(blocknum_string);
+                    string[] single_to_split = single_to.Split('_');
+                    byte[] single_to_address = Base58Check.Base58CheckEncoding.DecodePlain(single_to_split[0]);
+                    if (!Address.validateChecksum(single_to_address))
+                    {
+                        res = "Incorrect to address.";
+                        amount = 0;
+                        break;
+                    }
+                    IxiNumber singleToAmount = new IxiNumber(single_to_split[1]);
+                    if (singleToAmount < 0 || singleToAmount == 0)
+                    {
+                        res = "Incorrect amount.";
+                        amount = 0;
+                        break;
+                    }
+                    amount += singleToAmount;
+                    toList.Add(single_to_address, singleToAmount);
                 }
-                catch (OverflowException)
+            }
+            string fee_string = request.QueryString["fee"];
+            if (fee_string.Length > 0)
+            {
+                fee = new IxiNumber(fee_string);
+            }
+
+            // Only create a transaction if there is a valid amount
+            if (amount > 0)
+            {
+                byte[] from = Node.walletStorage.address;
+                byte[] pubKey = Node.walletStorage.publicKey;
+
+                // Check if this wallet's public key is already in the WalletState
+                Wallet mywallet = Node.walletState.getWallet(from, true);
+                if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(Node.walletStorage.publicKey))
                 {
-                    block_num = 0;
+                    // Walletstate public key matches, we don't need to send the public key in the transaction
+                    pubKey = null;
                 }
 
-                Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
+
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                if (mywallet.balance < transaction.amount + transaction.fee)
+                {
+                    res = "Your account's balance is less than the sending amount + fee.";
+                }
+                else
+                {
+                    if (TransactionPool.addTransaction(transaction))
+                    {
+                        res = transaction.toDictionary();
+                    }
+                    else
+                    {
+                        res = "There was an error adding the transaction.";
+                    }
+                }
+            }
+
+            return new JsonResponse { result = res, error = error };
+        }
+
+        public JsonResponse onAddMultiSigTransaction(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // Add a new transaction. This test allows sending and receiving from arbitrary addresses
+            object res = "Incorrect transaction parameters.";
+
+
+            IxiNumber amount = 0;
+            IxiNumber fee = CoreConfig.transactionPrice;
+            SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+            string[] to_split = request.QueryString["to"].Split('.');
+            if (to_split.Length > 0)
+            {
+                foreach (string single_to in to_split)
+                {
+                    string[] single_to_split = single_to.Split('_');
+                    byte[] single_to_address = Base58Check.Base58CheckEncoding.DecodePlain(single_to_split[0]);
+                    if (!Address.validateChecksum(single_to_address))
+                    {
+                        res = "Incorrect to address.";
+                        amount = 0;
+                        break;
+                    }
+                    IxiNumber singleToAmount = new IxiNumber(single_to_split[1]);
+                    if (singleToAmount < 0 || singleToAmount == 0)
+                    {
+                        res = "Incorrect amount.";
+                        amount = 0;
+                        break;
+                    }
+                    amount += singleToAmount;
+                    toList.Add(single_to_address, singleToAmount);
+                }
+            }
+            string fee_string = request.QueryString["fee"];
+            if (fee_string.Length > 0)
+            {
+                fee = new IxiNumber(fee_string);
+            }
+
+            string orig_txid = request.QueryString["origtx"];
+            byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
+
+            // Only create a transaction if there is a valid amount
+            if (amount > 0)
+            {
+                // TODO TODO TODO TODO Z, this needs to be properly taken care of to get the relevant pubkey
+                // Check if this wallet's public key is already in the WalletState
+                Wallet mywallet = Node.walletState.getWallet(from, true);
+                if (mywallet.publicKey == null)
+                {
+                    error = new JsonError { code = 404, message = "Multisig wallet does not have a pubkey in the WS." };
+                    return new JsonResponse { result = res, error = error };
+                }
+
+                Wallet wallet = Node.walletState.getWallet(from);
+                Transaction transaction = Transaction.multisigTransaction(orig_txid, fee, toList, from, Node.blockChain.getLastBlockNum());
+                if (wallet.balance < transaction.amount + transaction.fee)
+                {
+                    res = "Your account's balance is less than the sending amount + fee.";
+                }
+                else
+                {
+                    if (TransactionPool.addTransaction(transaction))
+                    {
+                        res = transaction.toDictionary();
+                    }
+                    else
+                    {
+                        res = "There was an error adding the transaction.";
+                    }
+                }
+            }
+
+            return new JsonResponse { result = res, error = error };
+        }
+
+        public JsonResponse onAddMultiSigKey(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            string orig_txid = request.QueryString["origtx"];
+            byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            string signer = request.QueryString["signer"];
+            byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
+            IxiNumber fee = CoreConfig.transactionPrice;
+
+            Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
+            if (TransactionPool.addTransaction(transaction))
+            {
+                res = transaction.toDictionary();
+            }
+            else
+            {
+                res = "There was an error adding the transaction.";
+            }
+
+            return new JsonResponse { result = res, error = error };
+        }
+
+        public JsonResponse onDelMultiSigKey(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            string orig_txid = request.QueryString["origtx"];
+            byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            string signer = request.QueryString["signer"];
+            byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
+
+            IxiNumber fee = CoreConfig.transactionPrice;
+
+            Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
+            if (TransactionPool.addTransaction(transaction))
+            {
+                res = transaction.toDictionary();
+            }
+            else
+            {
+                res = "There was an error adding the transaction.";
+            }
+
+            return new JsonResponse { result = res, error = error };
+        }
+
+        public JsonResponse onChangeMultiSigs(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            string orig_txid = request.QueryString["origtx"];
+            byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            string sigs = request.QueryString["sigs"];
+            IxiNumber fee = CoreConfig.transactionPrice;
+            if (byte.TryParse(sigs, out byte reqSigs))
+            {
+
+                Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
+                if (TransactionPool.addTransaction(transaction))
+                {
+                    res = transaction.toDictionary();
+                }
+                else
+                {
+                    res = "There was an error adding the transaction.";
+                }
+            }
+
+            return new JsonResponse { result = res, error = error };
+        }
+
+        public JsonResponse onGetBalance(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["address"]);
+
+            IxiNumber balance = Node.walletState.getWalletBalance(address);
+
+
+            return new JsonResponse { result = balance.ToString(), error = error };
+        }
+
+        public JsonResponse onGetBlock(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            string blocknum_string = request.QueryString["num"];
+            ulong block_num = 0;
+            try
+            {
+                block_num = Convert.ToUInt64(blocknum_string);
+            }
+            catch (OverflowException)
+            {
+                block_num = 0;
+            }
+            Dictionary<string, string> blockData = null;
+            Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
+            if (block == null)
+            {
+                error = new JsonError { code = 404, message = "Block not found." };
+            }else
+            {
+                blockData = new Dictionary<string, string>();
+
+                blockData.Add("Block Number", block.blockNum.ToString());
+                blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
+                blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
+                blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
+                blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
+                blockData.Add("PoW field", Crypto.hashToString(block.powField));
+                blockData.Add("Timestamp", block.timestamp.ToString());
+                blockData.Add("Difficulty", block.difficulty.ToString());
+                blockData.Add("Signature count", block.signatures.Count.ToString());
+                blockData.Add("Transaction count", block.transactions.Count.ToString());
+                blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
+                blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
+                blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
+            }
+
+
+            return new JsonResponse { result = blockData, error = error };
+        }
+
+        public JsonResponse onGetLastBlocks()
+        {
+            JsonError error = null;
+
+            Dictionary<string, string>[] blocks = new Dictionary<string, string>[10];
+            long blockCnt = Node.blockChain.Count > 10 ? 10 : Node.blockChain.Count;
+            for (ulong i = 0; i < (ulong)blockCnt; i++)
+            {
+                Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
                 if (block == null)
-                    return false;
+                {
+                    error = new JsonError { code = 404, message = "An unknown error occured, while getting one of the last 10 blocks." };
+                    blocks = null;
+                    break;
+                }
 
                 Dictionary<string, string> blockData = new Dictionary<string, string>();
 
@@ -370,64 +654,36 @@ namespace DLTNode
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
 
-                // Respond with the block details
-                string responseString = JsonConvert.SerializeObject(blockData);
-                sendResponse(context.Response, responseString);
-                return true;
+                blocks[i] = blockData;
             }
 
-            if (methodName.Equals("getlastblocks", StringComparison.OrdinalIgnoreCase))
+            return new JsonResponse { result = blocks, error = error };
+        }
+
+        public JsonResponse onGetFullBlock(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            string blocknum_string = request.QueryString["num"];
+            ulong block_num = 0;
+            try
             {
-                Dictionary<string, string>[] blocks = new Dictionary<string, string>[10];
-                long blockCnt = Node.blockChain.Count > 10 ? 10 : Node.blockChain.Count;
-                for (ulong i = 0; i < (ulong)blockCnt; i++)
-                {
-                    Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
-                    if (block == null)
-                        return false;
-
-                    Dictionary<string, string> blockData = new Dictionary<string, string>();
-
-                    blockData.Add("Block Number", block.blockNum.ToString());
-                    blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
-                    blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
-                    blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
-                    blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
-                    blockData.Add("PoW field", Crypto.hashToString(block.powField));
-                    blockData.Add("Timestamp", block.timestamp.ToString());
-                    blockData.Add("Difficulty", block.difficulty.ToString());
-                    blockData.Add("Signature count", block.signatures.Count.ToString());
-                    blockData.Add("Transaction count", block.transactions.Count.ToString());
-                    blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
-                    blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
-                    blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
-
-                    blocks[i] = blockData;
-                }
-                // Respond with the block details
-                string responseString = JsonConvert.SerializeObject(blocks).ToString();
-                sendResponse(context.Response, responseString);
-                return true;
+                block_num = Convert.ToUInt64(blocknum_string);
             }
-
-            if (methodName.Equals("getfullblock", StringComparison.OrdinalIgnoreCase))
+            catch (OverflowException)
             {
-                string blocknum_string = request.QueryString["num"];
-                ulong block_num = 0;
-                try
-                {
-                    block_num = Convert.ToUInt64(blocknum_string);
-                }
-                catch (OverflowException)
-                {
-                    block_num = 0;
-                }
+                block_num = 0;
+            }
+            Dictionary<string, string> blockData = null;
+            Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
+            if (block == null)
+            {
+                error = new JsonError { code = 404, message = "Block not found." };
+            }
+            else
+            {
 
-                Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
-                if (block == null)
-                    return false;
-
-                Dictionary<string, string> blockData = new Dictionary<string, string>();
+                blockData = new Dictionary<string, string>();
 
                 blockData.Add("Block Number", block.blockNum.ToString());
                 blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
@@ -443,350 +699,313 @@ namespace DLTNode
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
                 blockData.Add("Transactions", JsonConvert.SerializeObject(block.getFullTransactionsAsArray(Config.storeFullHistory)));
-
-                // Respond with the block details
-                string responseString = JsonConvert.SerializeObject(blockData);
-                sendResponse(context.Response, responseString);
-                return true;
             }
 
-            if (methodName.Equals("stress", StringComparison.OrdinalIgnoreCase))
+            return new JsonResponse { result = blockData, error = error };
+        }
+
+        public JsonResponse onStress(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            string type_string = request.QueryString["type"];
+            if (type_string == null)
             {
-                string type_string = request.QueryString["type"];
-                if(type_string == null)
+                type_string = "txspam";
+            }
+
+            int txnum = 0;
+            string txnumstr = request.QueryString["num"];
+            if (txnumstr != null)
+            {
+                try
                 {
-                    type_string = "txspam";
+                    txnum = Convert.ToInt32(txnumstr);
                 }
-
-                int txnum = 0;
-                string txnumstr = request.QueryString["num"];
-                if(txnumstr != null)
+                catch (OverflowException)
                 {
-                    try
-                    {
-                        txnum = Convert.ToInt32(txnumstr);
-                    }
-                    catch (OverflowException)
-                    {
-                        txnum = 0;
-                    }
+                    txnum = 0;
                 }
-
-
-                // Used for performing various tests.
-                StressTest.start(type_string, txnum);
-
-                string responseString = JsonConvert.SerializeObject("Stress test");
-                sendResponse(context.Response, responseString);
-                return true;
             }
 
-            if (methodName.Equals("mywallet", StringComparison.OrdinalIgnoreCase))
+
+            // Used for performing various tests.
+            StressTest.start(type_string, txnum);
+
+            return new JsonResponse { result = "Stress test started", error = error };
+        }
+
+        public JsonResponse onMyWallet()
+        {
+            JsonError error = null;
+
+            // Show own address, balance and blockchain synchronization status
+            byte[] address = Node.walletStorage.getWalletAddress();
+            IxiNumber balance = Node.walletState.getWalletBalance(address);
+            string sync_status = "ready";
+
+            // If blockSync is null or it's currently synchronizing, show the sync status
+            if (Node.blockSync == null || Node.blockSync.synchronizing)
+                sync_status = "sync";
+
+            string[] statArray = new String[3];
+            statArray[0] = Base58Check.Base58CheckEncoding.EncodePlain(address);
+            statArray[1] = balance.ToString();
+            statArray[2] = sync_status;
+
+            return new JsonResponse { result = statArray, error = error };
+        }
+
+        public JsonResponse onMyPubKey()
+        {
+            JsonError error = null;
+
+            // Show own address, balance and blockchain synchronization status
+            byte[] pubkey = Node.walletStorage.publicKey;
+
+            string[] statArray = new String[1];
+            statArray[0] = Crypto.hashToString(pubkey);
+
+            return new JsonResponse { result = statArray, error = error };
+        }
+
+        public JsonResponse onGetWallet(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // Show own address, balance and blockchain synchronization status
+            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["id"]);
+            Wallet w = Node.walletState.getWallet(address);
+
+            Dictionary<string, string> walletData = new Dictionary<string, string>();
+            walletData.Add("id", Base58Check.Base58CheckEncoding.EncodePlain(w.id));
+            walletData.Add("balance", w.balance.ToString());
+            walletData.Add("type", w.type.ToString());
+            walletData.Add("requiredSigs", w.requiredSigs.ToString());
+            if (w.allowedSigners != null)
             {
-                // Show own address, balance and blockchain synchronization status
-                byte[] address = Node.walletStorage.getWalletAddress();
-                IxiNumber balance = Node.walletState.getWalletBalance(address);
-                string sync_status = "ready";
-
-                // If blockSync is null or it's currently synchronizing, show the sync status
-                if (Node.blockSync == null || Node.blockSync.synchronizing)
-                    sync_status = "sync";
-
-                string[] statArray = new String[3];
-                statArray[0] = Base58Check.Base58CheckEncoding.EncodePlain(address);
-                statArray[1] = balance.ToString();
-                statArray[2] = sync_status;
-
-                string responseString = JsonConvert.SerializeObject(statArray);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if (methodName.Equals("mypubkey", StringComparison.OrdinalIgnoreCase))
-            {
-                // Show own address, balance and blockchain synchronization status
-                byte[] pubkey = Node.walletStorage.publicKey;
-
-                string[] statArray = new String[1];
-                statArray[0] = Crypto.hashToString(pubkey);
-
-                string responseString = JsonConvert.SerializeObject(statArray);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if (methodName.Equals("getwallet", StringComparison.OrdinalIgnoreCase))
-            {
-                // Show own address, balance and blockchain synchronization status
-                byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["id"]);
-                Wallet w = Node.walletState.getWallet(address);
-
-                Dictionary<string, string> walletData = new Dictionary<string, string>();
-                walletData.Add("id", Base58Check.Base58CheckEncoding.EncodePlain(w.id));
-                walletData.Add("balance", w.balance.ToString());
-                walletData.Add("type", w.type.ToString());
-                walletData.Add("requiredSigs", w.requiredSigs.ToString());
                 if (w.allowedSigners != null)
                 {
-                    if (w.allowedSigners != null)
-                    {
-                        walletData.Add("allowedSigners", "(" + (w.allowedSigners.Length+1) + " keys): " +
-                            w.allowedSigners.Aggregate(Base58Check.Base58CheckEncoding.EncodePlain(w.id), (aggr, n) => aggr += "," + Base58Check.Base58CheckEncoding.EncodePlain(n), aggr => aggr)
-                            );
-                    }else
-                    {
-                        walletData.Add("allowedSigners", "null");
-                    }
+                    walletData.Add("allowedSigners", "(" + (w.allowedSigners.Length + 1) + " keys): " +
+                        w.allowedSigners.Aggregate(Base58Check.Base58CheckEncoding.EncodePlain(w.id), (aggr, n) => aggr += "," + Base58Check.Base58CheckEncoding.EncodePlain(n), aggr => aggr)
+                        );
                 }
                 else
                 {
                     walletData.Add("allowedSigners", "null");
                 }
-                if (w.data != null)
-                {
-                    walletData.Add("extraData", w.data.ToString());
-                } else
-                {
-                    walletData.Add("extraData", "null");
-                }
-
-                string responseString = JsonConvert.SerializeObject(walletData);
-                sendResponse(context.Response, responseString);
-                return true;
             }
-
-            if (methodName.Equals("walletlist", StringComparison.OrdinalIgnoreCase))
+            else
             {
-                // Show a list of wallets - capped to 50
-                Wallet[] wallets = Node.walletState.debugGetWallets();
-                string[][] walletStates = new string[wallets.Length][];
-                int count = 0;
-                foreach (Wallet w in wallets)
-                {
-                    walletStates[count] = new string[4];
-                    walletStates[count][0] = Base58Check.Base58CheckEncoding.EncodePlain(w.id);
-                    walletStates[count][1] = w.balance.ToString();
-                    if (w.publicKey != null)
-                    {
-                        walletStates[count][3] = Base58Check.Base58CheckEncoding.EncodePlain(w.publicKey);
-                    }
-                    count++;
-                }
-
-                string responseString = JsonConvert.SerializeObject(walletStates);
-                sendResponse(context.Response, responseString);
-                return true;
+                walletData.Add("allowedSigners", "null");
             }
-
-            if (methodName.Equals("pl", StringComparison.OrdinalIgnoreCase))
+            if (w.data != null)
             {
-                string responseString = "None";
-
-                // Show a list of presences
-                lock (PresenceList.presences)
-                {
-                    var json = PresenceList.presences;
-                    responseString = JsonConvert.SerializeObject(json, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore, Formatting = Formatting.Indented });
-                }
-
-                sendResponse(context.Response, responseString);
-
-                return true;
+                walletData.Add("extraData", w.data.ToString());
             }
-
-            if (methodName.Equals("clients", StringComparison.OrdinalIgnoreCase))
+            else
             {
-                String[] res = NetworkServer.getConnectedClients();
-                string responseString = JsonConvert.SerializeObject(res);
-                sendResponse(context.Response, responseString);
-                return true;
+                walletData.Add("extraData", "null");
             }
 
-            if (methodName.Equals("servers", StringComparison.OrdinalIgnoreCase))
-            {
-                String[] res = NetworkClientManager.getConnectedClients();
-                string responseString = JsonConvert.SerializeObject(res);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if (methodName.Equals("tx", StringComparison.OrdinalIgnoreCase))
-            {
-                // Show a list of transactions
-                Transaction[] transactions = TransactionPool.getAllTransactions();
-                string[][] formattedTransactions = new string[transactions.Length][];
-                int count = 0;
-                foreach (Transaction t in transactions)
-                {
-                    formattedTransactions[count] = new string[5];
-                    formattedTransactions[count][0] = t.id;
-                    formattedTransactions[count][1] = string.Format("{0}", t.amount);
-                    formattedTransactions[count][2] = t.timeStamp.ToString();
-                    formattedTransactions[count][3] = t.applied.ToString();
-                    formattedTransactions[count][4] = ((Transaction.Type)t.type).ToString();
-
-                    count++;
-                }
-
-                string responseString = JsonConvert.SerializeObject(formattedTransactions);
-                sendResponse(context.Response, responseString);
-
-                return true;
-            }
-
-            if (methodName.Equals("txu", StringComparison.OrdinalIgnoreCase))
-            {
-                // Show a list of unapplied transactions
-                Transaction[] transactions = TransactionPool.getUnappliedTransactions();
-                string[][] formattedTransactions = new string[transactions.Length][];
-                int count = 0;
-                foreach (Transaction t in transactions)
-                {
-                    formattedTransactions[count] = new string[5];
-                    formattedTransactions[count][0] = t.id;
-                    formattedTransactions[count][1] = string.Format("{0}", t.amount);
-                    formattedTransactions[count][2] = t.timeStamp.ToString();
-                    formattedTransactions[count][3] = t.applied.ToString();
-                    formattedTransactions[count][4] = ((Transaction.Type)t.type).ToString();
-
-                    count++;
-                }
-
-                string responseString = JsonConvert.SerializeObject(formattedTransactions);
-                sendResponse(context.Response, responseString);
-
-                return true;
-            }
-
-            if (methodName.Equals("status", StringComparison.OrdinalIgnoreCase))
-            {
-                Dictionary<string, Object> networkArray = new Dictionary<string, Object>();
-
-                networkArray.Add("Node Version", Config.version);
-                string netType = "mainnet";
-                if(Config.isTestNet)
-                {
-                    netType = "testnet";
-                }
-                networkArray.Add("Network type", netType);
-                networkArray.Add("My time", Clock.getTimestamp(DateTime.Now));
-                networkArray.Add("Network time difference", Core.networkTimeDifference);
-                networkArray.Add("My External IP", Config.publicServerIP);
-                //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
-                networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
-                    + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                    + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount());
-                networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
-
-                string dltStatus = "Active";
-                if (Node.blockSync.synchronizing)
-                    dltStatus = "Synchronizing";
-                networkArray.Add("DLT Status", dltStatus);
-
-                string bpStatus = "Stopped";
-                if (Node.blockProcessor.operating)
-                    bpStatus = "Running";
-                networkArray.Add("Block Processor Status", bpStatus);
-
-                networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
-                networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-                networkArray.Add("Wallets", Node.walletState.numWallets);
-                networkArray.Add("Presences", PresenceList.getTotalPresences());
-                networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
-                networkArray.Add("Applied TX Count", TransactionPool.getAllTransactions().Count() - TransactionPool.getUnappliedTransactions().Count());
-                networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
-
-                networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
-                networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
-
-                networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
-                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
-
-                string responseString = JsonConvert.SerializeObject(networkArray);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if (methodName.Equals("minerstats", StringComparison.OrdinalIgnoreCase))
-            {
-                Dictionary<string, Object> minerArray = new Dictionary<string, Object>();
-
-                List<int> blocksCount = Node.miner.getBlocksCount();
-
-                // Last hashrate
-                minerArray.Add("Hashrate", Node.miner.lastHashRate);
-
-                // Current block
-                minerArray.Add("Current Block", Node.miner.currentBlockNum);
-
-                // Current block difficulty
-                minerArray.Add("Current Difficulty", Node.miner.currentBlockDifficulty);
-
-                // Show how many blocks calculated
-                minerArray.Add("Solved Blocks (Local)", Node.miner.getSolvedBlocksCount());
-                minerArray.Add("Solved Blocks (Network)", blocksCount[1]);
-
-                // Number of empty blocks
-                minerArray.Add("Empty Blocks", blocksCount[0]);
-
-                // Last solved block number
-                minerArray.Add("Last Solved Block", Node.miner.lastSolvedBlockNum);
-
-                // Last block solved mins ago
-                minerArray.Add("Last Solved Block Time", Node.miner.getLastSolvedBlockRelativeTime());
-
-                string responseString = JsonConvert.SerializeObject(minerArray);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if (methodName.Equals("blockheight", StringComparison.OrdinalIgnoreCase))
-            {
-                ulong blockheight = Node.blockChain.getLastBlockNum();
-                string responseString = JsonConvert.SerializeObject(blockheight);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-            
-            if (methodName.Equals("supply", StringComparison.OrdinalIgnoreCase))
-            {
-                string supply = Node.walletState.calculateTotalSupply().ToString();
-                string responseString = JsonConvert.SerializeObject(supply);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if(methodName.Equals("jsonrpc", StringComparison.OrdinalIgnoreCase))
-            {
-                jsonRpc.processRequest(context);
-                return true;
-            }
-
-            if (methodName.Equals("debugsave", StringComparison.OrdinalIgnoreCase))
-            {
-                string outstring = "Failed";
-                if (DebugSnapshot.save())
-                    outstring = "Debug Snapshot SAVED";
-
-                string responseString = JsonConvert.SerializeObject(outstring);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            if (methodName.Equals("debugload", StringComparison.OrdinalIgnoreCase))
-            {
-                string outstring = "Failed";
-                if (DebugSnapshot.load())
-                    outstring = "Debug Snapshot LOADED";
-
-                string responseString = JsonConvert.SerializeObject(outstring);
-                sendResponse(context.Response, responseString);
-                return true;
-            }
-
-            return false;
+            return new JsonResponse { result = walletData, error = error };
         }
 
+        public JsonResponse onWalletList()
+        {
+            JsonError error = null;
 
+            // Show a list of wallets - capped to 50
+            Wallet[] wallets = Node.walletState.debugGetWallets();
+            string[][] walletStates = new string[wallets.Length][];
+            int count = 0;
+            foreach (Wallet w in wallets)
+            {
+                walletStates[count] = new string[4];
+                walletStates[count][0] = Base58Check.Base58CheckEncoding.EncodePlain(w.id);
+                walletStates[count][1] = w.balance.ToString();
+                if (w.publicKey != null)
+                {
+                    walletStates[count][3] = Base58Check.Base58CheckEncoding.EncodePlain(w.publicKey);
+                }
+                count++;
+            }
+
+            return new JsonResponse { result = walletStates, error = error };
+        }
+
+        public JsonResponse onPl()
+        {
+            JsonError error = null;
+
+            // Show a list of presences
+            lock (PresenceList.presences)
+            {
+                var json = PresenceList.presences;
+                return new JsonResponse { result = json, error = error };
+            }
+
+        }
+
+        public JsonResponse onClients()
+        {
+            JsonError error = null;
+
+            String[] res = NetworkServer.getConnectedClients();
+
+            return new JsonResponse { result = res, error = error };
+        }
+        public JsonResponse onServers()
+        {
+            JsonError error = null;
+
+            String[] res = NetworkClientManager.getConnectedClients();
+
+            return new JsonResponse { result = res, error = error };
+        }
+
+        public JsonResponse onTx()
+        {
+            JsonError error = null;
+
+            Transaction[] transactions = TransactionPool.getAllTransactions();
+
+            return new JsonResponse { result = transactions, error = error };
+        }
+
+        public JsonResponse onTxu()
+        {
+            JsonError error = null;
+
+            Transaction[] transactions = TransactionPool.getUnappliedTransactions();
+
+            return new JsonResponse { result = transactions, error = error };
+        }
+
+        public JsonResponse onStatus()
+        {
+            JsonError error = null;
+
+            Dictionary<string, object> networkArray = new Dictionary<string, object>();
+
+            networkArray.Add("Node Version", Config.version);
+            string netType = "mainnet";
+            if (Config.isTestNet)
+            {
+                netType = "testnet";
+            }
+            networkArray.Add("Network type", netType);
+            networkArray.Add("My time", Clock.getTimestamp(DateTime.Now));
+            networkArray.Add("Network time difference", Core.networkTimeDifference);
+            networkArray.Add("My External IP", Config.publicServerIP);
+            //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
+            networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
+                + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
+                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount());
+            networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
+
+            string dltStatus = "Active";
+            if (Node.blockSync.synchronizing)
+                dltStatus = "Synchronizing";
+            networkArray.Add("DLT Status", dltStatus);
+
+            string bpStatus = "Stopped";
+            if (Node.blockProcessor.operating)
+                bpStatus = "Running";
+            networkArray.Add("Block Processor Status", bpStatus);
+
+            networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
+            networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
+            networkArray.Add("Wallets", Node.walletState.numWallets);
+            networkArray.Add("Presences", PresenceList.getTotalPresences());
+            networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
+            networkArray.Add("Applied TX Count", TransactionPool.getAllTransactions().Count() - TransactionPool.getUnappliedTransactions().Count());
+            networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
+
+            networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
+            networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
+
+            networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
+            networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
+
+            return new JsonResponse { result = networkArray, error = error };
+        }
+
+        public JsonResponse onMinerStats()
+        {
+            JsonError error = null;
+
+            Dictionary<string, Object> minerArray = new Dictionary<string, Object>();
+
+            List<int> blocksCount = Node.miner.getBlocksCount();
+
+            // Last hashrate
+            minerArray.Add("Hashrate", Node.miner.lastHashRate);
+
+            // Current block
+            minerArray.Add("Current Block", Node.miner.currentBlockNum);
+
+            // Current block difficulty
+            minerArray.Add("Current Difficulty", Node.miner.currentBlockDifficulty);
+
+            // Show how many blocks calculated
+            minerArray.Add("Solved Blocks (Local)", Node.miner.getSolvedBlocksCount());
+            minerArray.Add("Solved Blocks (Network)", blocksCount[1]);
+
+            // Number of empty blocks
+            minerArray.Add("Empty Blocks", blocksCount[0]);
+
+            // Last solved block number
+            minerArray.Add("Last Solved Block", Node.miner.lastSolvedBlockNum);
+
+            // Last block solved mins ago
+            minerArray.Add("Last Solved Block Time", Node.miner.getLastSolvedBlockRelativeTime());
+
+            return new JsonResponse { result = minerArray, error = error };
+        }
+
+        public JsonResponse onBlockHeight()
+        {
+            JsonError error = null;
+
+            ulong blockheight = Node.blockChain.getLastBlockNum();
+
+            return new JsonResponse { result = blockheight, error = error };
+        }
+
+        public JsonResponse onSupply()
+        {
+            JsonError error = null;
+
+            string supply = Node.walletState.calculateTotalSupply().ToString();
+
+            return new JsonResponse { result = supply, error = error };
+        }
+
+        public JsonResponse onDebugSave()
+        {
+            JsonError error = null;
+
+            string outstring = "Failed";
+            if (DebugSnapshot.save())
+                outstring = "Debug Snapshot SAVED";
+            else
+                error = new JsonError { code = 400, message = "failed" };
+
+            return new JsonResponse { result = outstring, error = error };
+        }
+
+        public JsonResponse onDebugLoad()
+        {
+            JsonError error = null;
+
+            string outstring = "Failed";
+            if (DebugSnapshot.load())
+                outstring = "Debug Snapshot LOADED";
+            else
+                error = new JsonError { code = 400, message = "failed" };
+
+            return new JsonResponse { result = outstring, error = error };
+        }
     }
 }

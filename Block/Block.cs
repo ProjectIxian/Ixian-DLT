@@ -667,7 +667,7 @@ namespace DLT
             List<Transaction> txList = new List<Transaction>();
             for (int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = t = TransactionPool.getTransaction(transactions[i]);
+                Transaction t = TransactionPool.getTransaction(transactions[i]);
                 if (t == null)
                 {
                     Logging.error(string.Format("nulltx: {0}", transactions[i]));
@@ -691,40 +691,7 @@ namespace DLT
                     continue;
                 }
 
-                Dictionary<string, object> tDic = new Dictionary<string, object>();
-                tDic.Add("id", t.id);
-                tDic.Add("blockHeight", t.blockHeight.ToString());
-                tDic.Add("nonce", t.nonce.ToString());
-
-                if (t.signature != null)
-                {
-                    tDic.Add("signature", Crypto.hashToString(t.signature));
-                }
-
-                if(t.pubKey != null)
-                {
-                    tDic.Add("pubKey", Base58Check.Base58CheckEncoding.EncodePlain(t.pubKey));
-                }
-
-                if (t.data != null)
-                {
-                    tDic.Add("data", t.data.ToString());
-                }
-
-                tDic.Add("timeStamp", t.timeStamp.ToString());
-                tDic.Add("type", t.type.ToString());
-                tDic.Add("amount", t.amount.ToString());
-                tDic.Add("applied", t.applied.ToString());
-                tDic.Add("checksum", Crypto.hashToString(t.checksum));
-                tDic.Add("from", Base58Check.Base58CheckEncoding.EncodePlain(t.from));
-                Dictionary<string, string> toList = new Dictionary<string, string>();
-                foreach(var entry in t.toList)
-                {
-                    toList.Add(Base58Check.Base58CheckEncoding.EncodePlain(entry.Key), entry.Value.ToString());
-                }
-                tDic.Add("to", toList);
-                tDic.Add("fee", t.fee.ToString());
-                txList.Add(tDic);
+                txList.Add(t.toDictionary());
 
             }
             return txList;

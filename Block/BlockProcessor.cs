@@ -334,12 +334,19 @@ namespace DLT
                             }
 
                         }
-                        else if(b.blockChecksum.SequenceEqual(localBlock.blockChecksum))
+                        else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum))
                         {
-                            // we likely have the correct block, resend
-                            // TODO TODO TODO this might go into an endless loop between 2 nodes
-                            ProtocolMessage.broadcastNewBlock(localBlock);
-                        }else
+                            // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
+                            if(b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
+                            {
+                                ProtocolMessage.broadcastNewBlock(localBlock);
+                            }else
+                            {
+                                // the block is invalid, we should disconnect the node as it is likely on a forked network
+                                CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                            }
+                        }
+                        else
                         {
                             // the block is invalid, we should disconnect the node as it is likely on a forked network
                             CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());

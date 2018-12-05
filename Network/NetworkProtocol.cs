@@ -529,15 +529,6 @@ namespace DLT
                         }
 
                         ((NetworkClient)endpoint).timeDifference = timeDiff;
-                    }else
-                    {
-                        if (node_type == 'M' || node_type == 'H' || node_type == 'R')
-                        {
-                            if (!checkNodeConnectivity(endpoint))
-                            {
-                                return false;
-                            }
-                        }
                     }
 
                     // Store the presence address for this remote endpoint
@@ -587,6 +578,17 @@ namespace DLT
                             }
                         }*/
 
+                    }
+
+                    if (endpoint.GetType() != typeof(NetworkClient))
+                    {
+                        if (node_type == 'M' || node_type == 'H' || node_type == 'R')
+                        {
+                            if (!checkNodeConnectivity(endpoint))
+                            {
+                                return false;
+                            }
+                        }
                     }
 
 
@@ -972,7 +974,7 @@ namespace DLT
                                             {
                                                 if (Node.validateIPv4(byeData))
                                                 {
-                                                    if (NetworkClientManager.getConnectedClients().Length == 1)
+                                                    if (NetworkClientManager.getConnectedClients().Length < 2)
                                                     {
                                                         Config.publicServerIP = byeData;
                                                         Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");

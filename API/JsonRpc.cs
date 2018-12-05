@@ -60,19 +60,6 @@ namespace DLTNode.API
         RPC_WALLET_ALREADY_UNLOCKED = -17, //! Wallet is already unlocked
     };
 
-    class JsonRpcError
-    {
-        public int code = 0;
-        public string message = null;
-    }
-
-    class JsonRpcResponse
-    {
-        public object result = null;
-        public JsonRpcError error = null;
-        public string id = null;
-    }
-
     class JsonRpcRequest
     {
         public int jsonrpc = 0;
@@ -84,7 +71,7 @@ namespace DLTNode.API
     class JsonRpc
     {
 
-        public void sendResponse(HttpListenerResponse responseObject, JsonRpcResponse response)
+        public void sendResponse(HttpListenerResponse responseObject, JsonResponse response)
         {
             string responseString = JsonConvert.SerializeObject(response);
 
@@ -103,12 +90,12 @@ namespace DLTNode.API
             }
         }
 
-        public void processRequest(HttpListenerContext context)
+        public JsonResponse processRequest(HttpListenerContext context)
         {
             string  body = new StreamReader(context.Request.InputStream).ReadToEnd();
             JsonRpcRequest requestObject = JsonConvert.DeserializeObject<JsonRpcRequest>(body);
 
-            JsonRpcResponse response = new JsonRpcResponse();
+            JsonResponse response = new JsonResponse();
 
             switch(requestObject.method)
             {
@@ -168,9 +155,7 @@ namespace DLTNode.API
             }
 
             response.id = requestObject.id;
-            sendResponse(context.Response, response);
-            context.Response.Close();
-
+            return response;
         }
 
         public void addmultisigaddress()
@@ -178,41 +163,41 @@ namespace DLTNode.API
 
         }
 
-        public JsonRpcResponse addnode(Dictionary<string, string> parameters)
+        public JsonResponse addnode(Dictionary<string, string> parameters)
         {
             string type = (string)parameters["type"];
             string address = (string)parameters["address"];
 
-            JsonRpcError rpcError = null;
+            JsonError rpcError = null;
 
             if (type == "add" || type == "onetry")
             {
                 if(!PeerStorage.addPeerToPeerList(address, null))
                 {
-                    rpcError = new JsonRpcError { code = (int)RPCErrorCode.RPC_CLIENT_NODE_ALREADY_ADDED, message = "Error: Node already added." };
+                    rpcError = new JsonError { code = (int)RPCErrorCode.RPC_CLIENT_NODE_ALREADY_ADDED, message = "Error: Node already added." };
                 }
             }
             else if(type == "remove")
             {
                 if(!PeerStorage.removePeer(address))
                 {
-                    rpcError = new JsonRpcError { code = (int)RPCErrorCode.RPC_CLIENT_NODE_NOT_ADDED, message = "Error: Node has not been added." };
+                    rpcError = new JsonError { code = (int)RPCErrorCode.RPC_CLIENT_NODE_NOT_ADDED, message = "Error: Node has not been added." };
                 }
             }
-            return new JsonRpcResponse { result = null, error = rpcError };
+            return new JsonResponse { result = null, error = rpcError };
         }
 
-        public JsonRpcResponse backupwallet(string parameters)
+        public JsonResponse backupwallet(string parameters)
         {
             string destination = parameters;
 
-            JsonRpcError rpcError = null;
+            JsonError rpcError = null;
 
             if (!Node.walletStorage.backup(destination))
             {
-                rpcError = new JsonRpcError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error: Wallet backup failed!" };
+                rpcError = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error: Wallet backup failed!" };
             }
-            return new JsonRpcResponse { result = null, error = rpcError };
+            return new JsonResponse { result = null, error = rpcError };
         }
 
         public void createmultisig(Dictionary<object, object> parameters)
@@ -220,7 +205,7 @@ namespace DLTNode.API
 
         }
 
-        public JsonRpcResponse createrawtransaction(Dictionary<int, object> parameters)
+        public JsonResponse createrawtransaction(Dictionary<int, object> parameters)
         {
             Dictionary<string, string> walletAmountArr = (Dictionary<string, string>)parameters[1];
 
@@ -241,10 +226,10 @@ namespace DLTNode.API
             Transaction t = new Transaction((int)Transaction.Type.Normal, CoreConfig.transactionPrice, toList, Node.walletStorage.address, null, pubKey, Node.blockChain.getLastBlockNum());
             t.signature = null;
 
-            return new JsonRpcResponse { result = Crypto.hashToString(t.getBytes()), error = null };
+            return new JsonResponse { result = Crypto.hashToString(t.getBytes()), error = null };
         }
 
-        public JsonRpcResponse decoderawtransaction(string hexString)
+        public JsonResponse decoderawtransaction(string hexString)
         {
             Transaction t = new Transaction(Crypto.stringToHash(hexString));
 
@@ -274,20 +259,20 @@ namespace DLTNode.API
             tDic.Add("vout", vout);
 
 
-            return new JsonRpcResponse { result = JsonConvert.SerializeObject(tDic), error = null };
+            return new JsonResponse { result = JsonConvert.SerializeObject(tDic), error = null };
         }
 
-        public JsonRpcResponse getbalance()
+        public JsonResponse getbalance()
         {
-            return new JsonRpcResponse { result = Node.walletState.getWalletBalance(Node.walletStorage.address).ToString(), error = null };
+            return new JsonResponse { result = Node.walletState.getWalletBalance(Node.walletStorage.address).ToString(), error = null };
         }
 
-        public JsonRpcResponse getbestblockhash()
+        public JsonResponse getbestblockhash()
         {
-            return new JsonRpcResponse { result = Node.blockChain.getLastBlockChecksum(), error = null };
+            return new JsonResponse { result = Node.blockChain.getLastBlockChecksum(), error = null };
         }
 
-        public JsonRpcResponse getblock(byte[] hash)
+        public JsonResponse getblock(byte[] hash)
         {
             Block b = Node.blockChain.getBlockByHash(hash, true);
 
@@ -311,30 +296,30 @@ namespace DLTNode.API
                 bDic.Add("nextblockhash", Node.blockChain.getBlock(b.blockNum + 1, true).blockChecksum);
             }
 
-            return new JsonRpcResponse { result = bDic, error = null };
+            return new JsonResponse { result = bDic, error = null };
         }
 
-        public JsonRpcResponse getblockcount()
+        public JsonResponse getblockcount()
         {
-            return new JsonRpcResponse { result = Node.blockChain.getLastBlockNum(), error = null };
+            return new JsonResponse { result = Node.blockChain.getLastBlockNum(), error = null };
         }
 
-        public JsonRpcResponse getblockhash(ulong blockHeight)
+        public JsonResponse getblockhash(ulong blockHeight)
         {
-            return new JsonRpcResponse { result = Node.blockChain.getBlock(blockHeight, true), error = null };
+            return new JsonResponse { result = Node.blockChain.getBlock(blockHeight, true), error = null };
         }
 
-        public JsonRpcResponse getconnectioncount()
+        public JsonResponse getconnectioncount()
         {
-            return new JsonRpcResponse { result = NetworkClientManager.getConnectedClients().Count() + NetworkServer.getConnectedClients().Count(), error = null };
+            return new JsonResponse { result = NetworkClientManager.getConnectedClients().Count() + NetworkServer.getConnectedClients().Count(), error = null };
         }
 
-        public JsonRpcResponse getdifficulty()
+        public JsonResponse getdifficulty()
         {
-            return new JsonRpcResponse { result = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum(), true).difficulty, error = null };
+            return new JsonResponse { result = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum(), true).difficulty, error = null };
         }
 
-        public JsonRpcResponse getinfo()
+        public JsonResponse getinfo()
         {
             Dictionary<string, object> iDic = new Dictionary<string, object>();
             iDic.Add("version", Config.version);
@@ -356,10 +341,10 @@ namespace DLTNode.API
             iDic.Add("unlocked_until", "");
             iDic.Add("errors", "");
 
-            return new JsonRpcResponse { result = iDic, error = null };
+            return new JsonResponse { result = iDic, error = null };
         }
         
-        public JsonRpcResponse getmininginfo()
+        public JsonResponse getmininginfo()
         {
             Dictionary<string, object> iDic = new Dictionary<string, object>();
             iDic.Add("blocks", Node.blockChain.getLastBlockNum());
@@ -370,18 +355,18 @@ namespace DLTNode.API
             iDic.Add("pooledtx", TransactionPool.getAllTransactions().Count());
             iDic.Add("hashespersec", Node.miner.lastHashRate);
 
-            return new JsonRpcResponse { result = iDic, error = null };
+            return new JsonResponse { result = iDic, error = null };
         }
 
-        public JsonRpcResponse getnewaddress()
+        public JsonResponse getnewaddress()
         {
 
             byte[] address = Node.walletStorage.generateNewAddress();
 
-            return new JsonRpcResponse { result = Base58Check.Base58CheckEncoding.EncodePlain(address), error = null };
+            return new JsonResponse { result = Base58Check.Base58CheckEncoding.EncodePlain(address), error = null };
         }
 
-        public JsonRpcResponse gettransaction(string txid)
+        public JsonResponse gettransaction(string txid)
         {
             Transaction t = TransactionPool.getTransaction(txid, true);
             Dictionary<string, object> iDic = new Dictionary<string, object>();
@@ -411,7 +396,7 @@ namespace DLTNode.API
 
             iDic.Add("to", toList);
 
-            return new JsonRpcResponse { result = iDic, error = null };
+            return new JsonResponse { result = iDic, error = null };
         }
 
         public void help()
