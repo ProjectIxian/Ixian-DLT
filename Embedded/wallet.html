@@ -101,7 +101,7 @@
                     </div>
                     
                     <div class="send_address">
-                        enter address or choose recipient
+                        enter address or scan QR code
                     </div>
                     
 					<form id="sendForm">
@@ -166,7 +166,7 @@
             var dltAPI = "#IXIAN#NODE#URL#";
 			$.getJSON(dltAPI+"mywallet", { } )
                 .done(function (data) {
-
+                    data = data["result"];
                     var sync_status = data[2];
                     balance = data[1];
                     var address = data[0];
@@ -217,7 +217,7 @@
             
 //            console.log("Sending " + amount + " to " + address);
             
-            var dltAPI = "#IXIAN#NODE#URL#"+"addtransaction?to="+address+"&amount="+amount;						
+            var dltAPI = "#IXIAN#NODE#URL#"+"addtransaction?to="+address+"_"+amount;						
 			$.getJSON(dltAPI, {format : "json"})
 				.done(function(data) {
 					getMyWallet();

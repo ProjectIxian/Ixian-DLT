@@ -150,39 +150,42 @@ namespace DLT
             {
                 byte[][] sig = b.signatures[i];
 
-                Presence p = null;
-                // Check if we have a public key instead of an address
-                if (sig[1].Length > 70)
+                lock (PresenceList.presences)
                 {
-                    p = PresenceList.presences.Find(x => x.pubkey.SequenceEqual(sig[1]));
-                }
-                else
-                {
-                    p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(sig[1]));
-                }
-
-                if(p != null)
-                {
-                    bool masterEntryFound = false;
-                    foreach(PresenceAddress pa in p.addresses)
+                    Presence p = null;
+                    // Check if we have a public key instead of an address
+                    if (sig[1].Length > 70)
                     {
-                        if(pa.type == 'M' || pa.type == 'H')
+                        p = PresenceList.presences.Find(x => x.pubkey.SequenceEqual(sig[1]));
+                    }
+                    else
+                    {
+                        p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(sig[1]));
+                    }
+
+                    if(p != null)
+                    {
+                        bool masterEntryFound = false;
+                        foreach(PresenceAddress pa in p.addresses)
                         {
-                            masterEntryFound = true;
-                            break;
+                            if(pa.type == 'M' || pa.type == 'H')
+                            {
+                                masterEntryFound = true;
+                                break;
+                            }
+                        }
+                        if(!masterEntryFound)
+                        {
+                            p = null;
                         }
                     }
-                    if(!masterEntryFound)
-                    {
-                        p = null;
-                    }
-                }
 
-                //Logging.info(String.Format("Searching for {0}", parts[1]));                 
-                if (p == null)
-                {
-                    sigs.Add(sig);
-                    continue;
+                    //Logging.info(String.Format("Searching for {0}", parts[1]));                 
+                    if (p == null)
+                    {
+                        sigs.Add(sig);
+                        continue;
+                    }
                 }
             }
             return sigs;
@@ -339,7 +342,7 @@ namespace DLT
                             // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
                             if(b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
                             {
-                                ProtocolMessage.broadcastNewBlock(localBlock);
+                                ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
                             }else
                             {
                                 // the block is invalid, we should disconnect the node as it is likely on a forked network
@@ -352,21 +355,23 @@ namespace DLT
                             CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                         }
                     }
-                }else
+                }else // b.blockNum < Node.blockChain.getLastBlockNum() - 5
                 {
                     BlockVerifyStatus past_block_status = verifyBlock(b, true, null);
-                    if(past_block_status == BlockVerifyStatus.AlreadyProcessed)
+                    if(past_block_status == BlockVerifyStatus.AlreadyProcessed || past_block_status == BlockVerifyStatus.Valid)
                     {
-                        // likely the node is missing sigs, let's send the full block
+                        // likely the node is missing sigs or has his very own custom block, let's send our block and also send the latest block, since he's obviously falling behind
                         Block block = Node.blockChain.getBlock(b.blockNum);
                         if (!b.Equals(block))
                         {
-                            ProtocolMessage.broadcastNewBlock(block);
+                            ProtocolMessage.broadcastNewBlock(block, null, endpoint);
+                            ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(Node.getLastBlockHeight()), null, endpoint);
                         }
-                    }else if(past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
+                    }
+                    else if(past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
                     {
                         // the node seems to be way behind, send the current last block
-                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(Node.getLastBlockHeight()));
+                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(Node.getLastBlockHeight()), null, endpoint);
                     }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
                         // the block is different than our own, we should disconnect the node as it is likely on a forked network
@@ -416,7 +421,7 @@ namespace DLT
             {
                 if (b.blockNum > Node.blockChain.getLastBlockNum())
                 {
-                    onBlockReceived_currentBlock(b);
+                    onBlockReceived_currentBlock(b, endpoint);
                 }
             }
         }
@@ -429,7 +434,6 @@ namespace DLT
             if (prevBlock != null && !b.lastBlockChecksum.SequenceEqual(prevBlock.blockChecksum)) // block found but checksum doesn't match
             {
                 Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
-                // TODO Blacklisting point?
                 return BlockVerifyStatus.Invalid;
             }
 
@@ -456,7 +460,6 @@ namespace DLT
                 if (removeSignaturesWithLowBalance(b))
                 {
                     Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                    // TODO: Blacklisting point
                 }
                 if (!Node.blockSync.synchronizing)
                 {
@@ -466,7 +469,6 @@ namespace DLT
                         if (removeSignaturesWithoutPlEntry(b))
                         {
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                            // TODO: Blacklisting point
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if full consensus is reached on the block
                         if (b.blockNum > lastBlockNum + 2 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
@@ -775,7 +777,7 @@ namespace DLT
             return BlockVerifyStatus.Valid;
         }
 
-        private void onBlockReceived_currentBlock(Block b)
+        private void onBlockReceived_currentBlock(Block b, RemoteEndpoint endpoint)
         {
             if (b.blockNum != Node.blockChain.getLastBlockNum() + 1)
             {
@@ -820,7 +822,7 @@ namespace DLT
                                 return;
                             // discard with a warning, likely spam, resend our local block
                             Logging.info(String.Format("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
                         }
                     }
                 }

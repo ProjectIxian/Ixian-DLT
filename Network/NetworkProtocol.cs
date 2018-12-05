@@ -151,10 +151,21 @@ namespace DLT
                 }
             }
 
-            public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null)
+            public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
-                //Logging.info(String.Format("Broadcasting block #{0} : {1}.", b.blockNum, b.blockChecksum));
-                return broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
+                if (endpoint != null)
+                {
+                    if (endpoint.isConnected())
+                    {
+                        endpoint.sendData(ProtocolMessageCode.newBlock, b.getBytes());
+                        return true;
+                    }
+                    return false;
+                }
+                else
+                {
+                    return broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
+                }
             }
 
             public static bool broadcastGetTransaction(string txid, RemoteEndpoint endpoint = null)
@@ -1220,16 +1231,19 @@ namespace DLT
                                     {
                                         int walletLen = reader.ReadInt32();
                                         byte[] wallet = reader.ReadBytes(walletLen);
-                                        // TODO re-verify this
-                                        Presence p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(wallet));
-                                        if (p != null)
+                                        lock (PresenceList.presences)
                                         {
-                                            endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes());
-                                        }
-                                        else
-                                        {
-                                            // TODO blacklisting point
-                                            Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Base58Check.Base58CheckEncoding.EncodePlain(wallet)));
+                                            // TODO re-verify this
+                                            Presence p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(wallet));
+                                            if (p != null)
+                                            {
+                                                endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes());
+                                            }
+                                            else
+                                            {
+                                                // TODO blacklisting point
+                                                Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Base58Check.Base58CheckEncoding.EncodePlain(wallet)));
+                                            }
                                         }
                                     }
                                 }

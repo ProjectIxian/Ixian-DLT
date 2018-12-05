@@ -54,7 +54,7 @@ namespace DLTNode
             }
             catch (Exception e)
             {
-                Logging.error(String.Format("APIServer: {0}", e.ToString()));
+                Logging.error(String.Format("APIServer: {0}", e));
             }
         }
 
@@ -89,7 +89,7 @@ namespace DLTNode
                 {
                     JsonError error = new JsonError { code = 404, message = "Unknown error occured, see log for details." };
                     sendResponse(context.Response, new JsonResponse { error = error });
-                    Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e.ToString()));
+                    Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e));
 
                 }
             }
@@ -824,6 +824,7 @@ namespace DLTNode
                 walletStates[count] = new string[4];
                 walletStates[count][0] = Base58Check.Base58CheckEncoding.EncodePlain(w.id);
                 walletStates[count][1] = w.balance.ToString();
+                walletStates[count][2] = w.type.ToString();
                 if (w.publicKey != null)
                 {
                     walletStates[count][3] = Base58Check.Base58CheckEncoding.EncodePlain(w.publicKey);
@@ -870,7 +871,14 @@ namespace DLTNode
 
             Transaction[] transactions = TransactionPool.getAllTransactions();
 
-            return new JsonResponse { result = transactions, error = error };
+            Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
+
+            foreach (Transaction t in transactions)
+            {
+                tx_list.Add(t.id, t.toDictionary());
+            }
+
+            return new JsonResponse { result = tx_list, error = error };
         }
 
         public JsonResponse onTxu()
@@ -879,7 +887,14 @@ namespace DLTNode
 
             Transaction[] transactions = TransactionPool.getUnappliedTransactions();
 
-            return new JsonResponse { result = transactions, error = error };
+            Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
+
+            foreach(Transaction t in transactions)
+            {
+                tx_list.Add(t.id, t.toDictionary());
+            }
+            
+            return new JsonResponse { result = tx_list, error = error };
         }
 
         public JsonResponse onStatus()
@@ -927,6 +942,12 @@ namespace DLTNode
 
             networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
             networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
+
+            networkArray.Add("Masters", PresenceList.countPresences('M'));
+            networkArray.Add("Relays", PresenceList.countPresences('R'));
+            networkArray.Add("Clients", PresenceList.countPresences('C'));
+            networkArray.Add("Workers", PresenceList.countPresences('W'));
+
 
             return new JsonResponse { result = networkArray, error = error };
         }
