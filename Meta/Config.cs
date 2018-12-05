@@ -81,7 +81,7 @@ namespace DLT
                 Console.WriteLine("    -s\t\t Saves full history");
                 Console.WriteLine("    -m\t\t Enables mining");
                 Console.WriteLine("    -x\t\t Change password of an existing wallet");
-                Console.WriteLine("    -c\t\t Removes blockchain.dat, peers.dat and ixian.log files before starting");
+                Console.WriteLine("    -c\t\t Removes blockchain cache, walletstate cache, peers.dat and ixian.log files before starting");
                 Console.WriteLine("    -p\t\t Port to listen on");
                 Console.WriteLine("    -a\t\t HTTP/API port to listen on");
                 Console.WriteLine("    -i\t\t External IP Address to use");
