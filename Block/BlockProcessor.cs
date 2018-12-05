@@ -324,7 +324,14 @@ namespace DLT
                                         {
                                             // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
                                             Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                                            ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                            if(updatedBlock.calculateSignatureChecksum().SequenceEqual(b.calculateSignatureChecksum()))
+                                            {
+                                                ProtocolMessage.broadcastNewBlock(updatedBlock, endpoint);
+                                            }
+                                            else
+                                            {
+                                                ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                            }
                                         }
                                     }
                                 } // else do nothing as handleSigFreezedBlock took care of it
