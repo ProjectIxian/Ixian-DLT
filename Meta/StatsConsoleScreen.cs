@@ -28,7 +28,7 @@ namespace DLT.Meta
             thread = new Thread(new ThreadStart(threadLoop));
             thread.Start();
 
-            startTime = DateTime.Now;
+            startTime = DateTime.UtcNow;
         }
 
         // Shutdown console thread
@@ -127,7 +127,7 @@ namespace DLT.Meta
             writeLine("\tSolved Blocks:\t\t{0}", Node.miner.getSolvedBlocksCount());
             writeLine("____________________________________________");
 
-            TimeSpan elapsed = DateTime.Now - startTime;
+            TimeSpan elapsed = DateTime.UtcNow - startTime;
 
             writeLine(" Running for {0} days {1}h {2}m {3}s", elapsed.Days, elapsed.Hours, elapsed.Minutes, elapsed.Seconds);
             writeLine("");

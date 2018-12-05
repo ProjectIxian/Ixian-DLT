@@ -51,7 +51,7 @@ namespace DLT
 
         public Miner()
         {
-            lastStatTime = DateTime.Now;
+            lastStatTime = DateTime.UtcNow;
 
         }
 
@@ -185,7 +185,7 @@ namespace DLT
 
                 if (pause)
                 {
-                    lastStatTime = DateTime.Now;
+                    lastStatTime = DateTime.UtcNow;
                     lastHashRate = hashesPerSecond;
                     hashesPerSecond = 0;
                     Thread.Sleep(500);
@@ -209,7 +209,7 @@ namespace DLT
                 }
 
                 // Output mining stats
-                TimeSpan timeSinceLastStat = DateTime.Now - lastStatTime;
+                TimeSpan timeSinceLastStat = DateTime.UtcNow - lastStatTime;
                 if (timeSinceLastStat.TotalSeconds > 1)
                 {
                     printMinerStatus();
@@ -331,7 +331,7 @@ namespace DLT
                 }
 
                 lastSolvedBlockNum = activeBlock.blockNum;
-                lastSolvedTime = DateTime.Now;
+                lastSolvedTime = DateTime.UtcNow;
 
                 // Reset the block found flag so we can search for another block
                 blockFound = false;
@@ -376,7 +376,7 @@ namespace DLT
                 }
 
                 lastSolvedBlockNum = activeBlock.blockNum;
-                lastSolvedTime = DateTime.Now;
+                lastSolvedTime = DateTime.UtcNow;
 
                 // Reset the block found flag so we can search for another block
                 blockFound = false;
@@ -608,7 +608,7 @@ namespace DLT
         private void printMinerStatus()
         {
             // Console.WriteLine("Miner: Block #{0} | Hashes per second: {1}", currentBlockNum, hashesPerSecond);
-            lastStatTime = DateTime.Now;
+            lastStatTime = DateTime.UtcNow;
             lastHashRate = hashesPerSecond;
             hashesPerSecond = 0;
         }

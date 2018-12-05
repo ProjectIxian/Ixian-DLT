@@ -526,7 +526,7 @@ namespace DLT
                     // if we're a client update the network time difference
                     if(endpoint.GetType() == typeof(NetworkClient))
                     {
-                        long curTime = Clock.getTimestamp(DateTime.Now);
+                        long curTime = Clock.getTimestamp();
 
                         long timeDiff = 0;
 

@@ -392,6 +392,10 @@ namespace DLT
                         continue;
 
                     string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                    if(split_sig.Length < 2)
+                    {
+                        continue;
+                    }
                     byte[][] newSig = new byte[2][];
                     newSig[0] = Convert.FromBase64String(split_sig[0]);
                     newSig[1] = Convert.FromBase64String(split_sig[1]);

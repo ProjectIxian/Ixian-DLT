@@ -368,7 +368,7 @@ namespace DLTNode
                 }
             }
             string fee_string = request.QueryString["fee"];
-            if (fee_string.Length > 0)
+            if (fee_string != null && fee_string.Length > 0)
             {
                 fee = new IxiNumber(fee_string);
             }
@@ -445,7 +445,7 @@ namespace DLTNode
                 }
             }
             string fee_string = request.QueryString["fee"];
-            if (fee_string.Length > 0)
+            if (fee_string != null && fee_string.Length > 0)
             {
                 fee = new IxiNumber(fee_string);
             }
@@ -910,7 +910,7 @@ namespace DLTNode
                 netType = "testnet";
             }
             networkArray.Add("Network type", netType);
-            networkArray.Add("My time", Clock.getTimestamp(DateTime.Now));
+            networkArray.Add("My time", Clock.getTimestamp());
             networkArray.Add("Network time difference", Core.networkTimeDifference);
             networkArray.Add("My External IP", Config.publicServerIP);
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());

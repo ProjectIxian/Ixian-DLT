@@ -375,7 +375,7 @@ namespace DLT
             {
                 lock (nodeBlacklist)
                 {
-                    nodeBlacklist.AddOrReplace(ip, DateTime.Now);
+                    nodeBlacklist.AddOrReplace(ip, DateTime.UtcNow);
                 }
             }
 
@@ -387,7 +387,7 @@ namespace DLT
                     if (nodeBlacklist.ContainsKey(ip))
                     {
                         DateTime dt = nodeBlacklist[ip];
-                        if ((DateTime.Now - dt).TotalSeconds > 600)
+                        if ((DateTime.UtcNow - dt).TotalSeconds > 600)
                         {
                             nodeBlacklist.Remove(ip);
                         }

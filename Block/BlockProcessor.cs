@@ -47,7 +47,7 @@ namespace DLT
 
         public BlockProcessor()
         {
-            lastBlockStartTime = DateTime.Now;
+            lastBlockStartTime = DateTime.UtcNow;
             localNewBlock = null;
             operating = false;
             firstBlockAfterSync = false;
@@ -56,7 +56,7 @@ namespace DLT
         public void resumeOperation()
         {
             Logging.info("BlockProcessor resuming normal operation.");
-            lastBlockStartTime = DateTime.Now;
+            lastBlockStartTime = DateTime.UtcNow;
             operating = true;
 
             lock (localBlockLock)
@@ -84,7 +84,7 @@ namespace DLT
             while (operating)
             {
                 // check if it is time to generate a new block
-                TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+                TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
                 if (Node.blockChain.getLastBlockNum() < 10)
                 {
                     blockGenerationInterval = 5;
@@ -106,7 +106,7 @@ namespace DLT
                 {
                     blacklistBlock(localNewBlock);
                     localNewBlock = null;
-                    lastBlockStartTime = DateTime.Now.AddSeconds(blockGenerationInterval * 10);
+                    lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
                 }
 
                 //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
@@ -134,7 +134,7 @@ namespace DLT
         // returns offset depending on time since last block and block generation interval. This function will return -1 if more than 10 block generation intervals have passed
         public int getElectedNodeOffset()
         {
-            TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+            TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
             if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
             {
                 return -1;
@@ -506,16 +506,15 @@ namespace DLT
             if (lastBlockNum + 1 == b.blockNum)
             {
                 bool verifyDifficulty = false;
-                if(b.blockNum > CoreConfig.minimumRedactedWindowSize)
+                
+                if(Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0)
                 {
-                    if((ulong)Node.blockChain.Count >= CoreConfig.minimumRedactedWindowSize)
-                    {
-                        verifyDifficulty = true;
-                    }
-                }else
+                    verifyDifficulty = true;
+                }else if((ulong)Node.blockChain.Count >= CoreConfig.redactedWindowSize)
                 {
                     verifyDifficulty = true;
                 }
+
                 if (verifyDifficulty)
                 {
                     //Logging.info("Verifying difficulty for #" + b.blockNum);
@@ -877,7 +876,7 @@ namespace DLT
                 {
                     blacklistedBlocks = new Dictionary<byte[], DateTime>(new ByteArrayComparer());
                 }
-                blacklistedBlocks.AddOrReplace(b.blockChecksum, DateTime.Now);
+                blacklistedBlocks.AddOrReplace(b.blockChecksum, DateTime.UtcNow);
                 blockBlacklist.AddOrReplace(b.blockNum, blacklistedBlocks);
             }
         }
@@ -893,7 +892,7 @@ namespace DLT
                     if (bbl.ContainsKey(b.blockChecksum))
                     {
                         DateTime dt = bbl[b.blockChecksum];
-                        if ((DateTime.Now - dt).TotalSeconds > blockGenerationInterval * 10)
+                        if ((DateTime.UtcNow - dt).TotalSeconds > blockGenerationInterval * 10)
                         {
                             blockBlacklist[b.blockNum].Remove(b.blockChecksum);
                             if (blockBlacklist[b.blockNum].Count() == 0)
@@ -946,13 +945,13 @@ namespace DLT
                         if(!verifySignatureFreezeChecksum(localNewBlock))
                         {
                             Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
-                            TimeSpan timeSinceLastBlock = DateTime.Now - lastBlockStartTime;
+                            TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
                             Random rnd = new Random();
                             if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
                             {
                                 blacklistBlock(localNewBlock);
                                 localNewBlock = null;
-                                lastBlockStartTime = DateTime.Now.AddSeconds(blockGenerationInterval * 10);
+                                lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
                             }
                             return;
                         }
@@ -989,7 +988,7 @@ namespace DLT
                             {
                                 Node.blockChain.appendBlock(localNewBlock);
                                 Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
-                                lastBlockStartTime = DateTime.Now;
+                                lastBlockStartTime = DateTime.UtcNow;
                                 localNewBlock.logBlockDetails();
                                 localNewBlock = null;
 

@@ -40,7 +40,7 @@ namespace DLT
         private bool running = false;
 
         private ulong watchDogBlockNum = 0;
-        private DateTime watchDogTime = DateTime.Now;
+        private DateTime watchDogTime = DateTime.UtcNow;
 
         private bool noNetworkSynchronization = false; // Flag to determine if it ever started a network sync
 
@@ -142,7 +142,7 @@ namespace DLT
                         {
                             if (blockNum > watchDogBlockNum - 5 && blockNum < watchDogBlockNum + 1)
                             {
-                                watchDogTime = DateTime.Now;
+                                watchDogTime = DateTime.UtcNow;
                             }
                             Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
@@ -224,7 +224,7 @@ namespace DLT
                         {
                             if (blockNum > watchDogBlockNum - 5 && blockNum < watchDogBlockNum + 1)
                             {
-                                watchDogTime = DateTime.Now;
+                                watchDogTime = DateTime.UtcNow;
                             }
                             Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
@@ -300,6 +300,27 @@ namespace DLT
             return lowestBlockNum;
         }
 
+        private void requestBlockAgain(ulong blockNum)
+        {
+            lock (pendingBlocks)
+            {
+                if (missingBlocks != null)
+                {
+                    if (!missingBlocks.Contains(blockNum))
+                    {
+                        Logging.info(String.Format("Requesting missing block #{0} again.", blockNum));
+                        missingBlocks.Add(blockNum);
+                        missingBlocks.Sort();
+
+                        requestedBlockTimes.Add(blockNum, Clock.getTimestamp() - 10);
+
+                        receivedAllMissingBlocks = false;
+
+                    }
+                }
+            }
+        }
+
         private void rollForward()
         {
             bool sleep = false;
@@ -346,22 +367,9 @@ namespace DLT
                         resetWatchDog(next_to_apply - 1);
                         lock (requestedBlockTimes)
                         {
-                            if (missingBlocks != null)
-                            {
-                                if (!missingBlocks.Contains(next_to_apply))
-                                {
-                                    Logging.info(String.Format("Requesting missing block #{0}", next_to_apply));
-                                    missingBlocks.Add(next_to_apply);
-                                    missingBlocks.Sort();
-                                    receivedAllMissingBlocks = false;
-                                    sleep = true;
-                                }
-                            }
-                            else
-                            {
-                                // the node isn't connected yet, wait a while
-                                sleep = true;
-                            }
+                            requestBlockAgain(next_to_apply);
+                            // the node isn't connected yet, wait a while
+                            sleep = true;
                         }
                         break;
                     }
@@ -396,7 +404,7 @@ namespace DLT
                         b.powField = null;
 
                         Logging.info(String.Format("Sync: Applying block #{0}/{1}.",
-                            b.blockNum, syncToBlock - Node.blockChain.getLastBlockNum()));
+                            b.blockNum, syncToBlock));
 
                         bool ignoreWalletState = true;
 
@@ -425,6 +433,9 @@ namespace DLT
                         if (b.blockNum > wsSyncConfirmedBlockNum)
                         {
                             b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
+                        }else
+                        {
+                            b_status = Node.blockProcessor.verifyBlockBasic(b);
                         }
 
                         if (b_status == BlockVerifyStatus.Indeterminate)
@@ -437,12 +448,7 @@ namespace DLT
                         {
                             Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            if (missingBlocks != null)
-                            {
-                                missingBlocks.Add(b.blockNum);
-                                missingBlocks.Sort();
-                            }
-                            receivedAllMissingBlocks = false;
+                            requestBlockAgain(b.blockNum);
                             return;
                         }
 
@@ -450,12 +456,7 @@ namespace DLT
                         {
                             Logging.warn(String.Format("Block #{0} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            if (missingBlocks != null)
-                            {
-                                missingBlocks.Add(b.blockNum);
-                                missingBlocks.Sort();
-                            }
-                            receivedAllMissingBlocks = false;
+                            requestBlockAgain(b.blockNum);
                             return;
                         }
 
@@ -489,12 +490,7 @@ namespace DLT
                                 {
                                     Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
                                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                    if (missingBlocks != null)
-                                    {
-                                        missingBlocks.Add(b.blockNum);
-                                        missingBlocks.Sort();
-                                    }
-                                    receivedAllMissingBlocks = false;
+                                    requestBlockAgain(b.blockNum);
                                     handleWatchDog(true);
                                     return;
                                 }
@@ -663,7 +659,7 @@ namespace DLT
 
             lock (pendingWsChunks)
             {
-                if (wsSyncCount == 0 || (DateTime.Now - lastChunkRequested).TotalSeconds > 150)
+                if (wsSyncCount == 0 || (DateTime.UtcNow - lastChunkRequested).TotalSeconds > 150)
                 {
                     wsSyncCount = 0;
                     pendingWsBlockNum = Node.blockChain.getLastBlockNum();
@@ -702,7 +698,7 @@ namespace DLT
                 Logging.warn("Neighbor is requesting WalletState chunks, but we are synchronizing!");
                 return;
             }
-            lastChunkRequested = DateTime.Now;
+            lastChunkRequested = DateTime.UtcNow;
             lock (pendingWsChunks)
             {
                 if (chunk_num >= 0 && chunk_num < pendingWsChunks.Count)
@@ -898,7 +894,7 @@ namespace DLT
         private void resetWatchDog(ulong blockNum)
         {
             watchDogBlockNum = blockNum;
-            watchDogTime = DateTime.Now;
+            watchDogTime = DateTime.UtcNow;
         }
 
         private void handleWatchDog(bool forceWsUpdate = false)
@@ -908,7 +904,7 @@ namespace DLT
                 return;
             }
 
-            if (forceWsUpdate || (DateTime.Now - watchDogTime).TotalSeconds > 120) // stuck on the same block for 120 seconds
+            if (forceWsUpdate || (DateTime.UtcNow - watchDogTime).TotalSeconds > 120) // stuck on the same block for 120 seconds
             {
                 wsSyncConfirmedBlockNum = 0;
                 ulong lastBlockHeight = Node.getLastBlockHeight();
