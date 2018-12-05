@@ -115,9 +115,11 @@ namespace DLT.Meta
             // Mining status
             string mineStatus = "disabled";
             if (!Config.disableMiner)
-                mineStatus = "stopped";
+                mineStatus =    "stopped";
             if (Node.miner.lastHashRate > 0)
                 mineStatus =    "active ";
+            if (Node.miner.pause)
+                mineStatus =    "paused ";
 
             writeLine("");
             writeLine("\tMining:\t\t\t{0}", mineStatus);

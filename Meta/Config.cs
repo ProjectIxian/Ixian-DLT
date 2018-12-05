@@ -292,10 +292,16 @@ namespace DLT
 
                 cmd_parser.Parse(args);
 
+
+                // Validate parameters
+
                 if (start_clean)
                 {
                     Node.cleanCacheAndLogs();
                 }
+
+                if (miningThreads < 1)
+                    miningThreads = 1;
 
                 if (seedNode != "")
                 {

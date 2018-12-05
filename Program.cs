@@ -342,6 +342,14 @@ namespace DLTNode
                     Node.stop();
                     Environment.Exit(0);
                 }
+                else if (key.Key == ConsoleKey.M)
+                {
+                    if (Node.miner != null)
+                        Node.miner.pause = !Node.miner.pause;
+
+                    if (Config.verboseConsoleOutput == false)
+                        Node.statsConsoleScreen.clearScreen();
+                }
 
             }
             if (Node.update() == false)

@@ -23,6 +23,8 @@ namespace DLT
                                  IntPtr salt, UIntPtr salt_len,
                                  IntPtr output, UIntPtr output_len);
 
+        public bool pause = false; // Flag to toggle miner activity
+
         public long lastHashRate = 0; // Last reported hash rate
         public ulong currentBlockNum = 0; // Mining block number
         public int currentBlockVersion = 0;
@@ -181,6 +183,15 @@ namespace DLT
                     continue;
                 }
 
+                if (pause)
+                {
+                    lastStatTime = DateTime.Now;
+                    lastHashRate = hashesPerSecond;
+                    hashesPerSecond = 0;
+                    Thread.Sleep(500);
+                    continue;
+                }
+
                 if (blockFound == false)
                 {
                     searchForBlock();
@@ -210,6 +221,11 @@ namespace DLT
                     }
                 }
             }
+        }
+
+        public void forceSearchForBlock()
+        {
+            blockFound = false;
         }
 
         // Returns the most recent block without a PoW flag in the redacted blockchain
