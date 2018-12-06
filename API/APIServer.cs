@@ -388,7 +388,7 @@ namespace DLTNode
                 }
 
 
-                Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, from, null, pubKey, Node.getHighestKnownNetworkBlockHeight());
                 if (mywallet.balance < transaction.amount + transaction.fee)
                 {
                     res = "Your account's balance is less than the sending amount + fee.";
@@ -397,6 +397,7 @@ namespace DLTNode
                 {
                     if (TransactionPool.addTransaction(transaction))
                     {
+                        TransactionPool.addPendingLocalTransaction(transaction);
                         res = transaction.toDictionary();
                     }
                     else
@@ -475,6 +476,7 @@ namespace DLTNode
                 {
                     if (TransactionPool.addTransaction(transaction))
                     {
+                        TransactionPool.addPendingLocalTransaction(transaction);
                         res = transaction.toDictionary();
                     }
                     else
@@ -503,6 +505,7 @@ namespace DLTNode
             Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
+                TransactionPool.addPendingLocalTransaction(transaction);
                 res = transaction.toDictionary();
             }
             else
@@ -530,6 +533,7 @@ namespace DLTNode
             Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
+                TransactionPool.addPendingLocalTransaction(transaction);
                 res = transaction.toDictionary();
             }
             else
@@ -557,6 +561,7 @@ namespace DLTNode
                 Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
                 {
+                    TransactionPool.addPendingLocalTransaction(transaction);
                     res = transaction.toDictionary();
                 }
                 else

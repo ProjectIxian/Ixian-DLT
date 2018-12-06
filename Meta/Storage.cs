@@ -664,15 +664,6 @@ namespace DLT
                 return transaction;
             }
 
-
-            // Retrieve a bunch of transactions from the sql database
-            public static List<Transaction> getTransactions(List<string> txids)
-            {
-                List<Transaction> transactions = new List<Transaction>();
-                return transactions;
-            }
-
-
             // Removes a block from the storage database
             // Also removes all transactions linked to this block
             public static bool removeBlock(Block block, bool removePreviousBlocks = false)

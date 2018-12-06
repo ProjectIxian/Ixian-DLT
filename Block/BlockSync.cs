@@ -425,7 +425,7 @@ namespace DLT
                         // verify with a parameter to ignore WS tests, but do all the others
                         BlockVerifyStatus b_status = BlockVerifyStatus.Valid;
 
-                        if (b.blockNum <= lastBlockToReadFromStorage)
+                        if (b.fromLocalStorage)
                         {
                             foreach (string txid in b.transactions)
                             {
@@ -445,7 +445,7 @@ namespace DLT
                             }
                         }
 
-                        if (b.blockNum > wsSyncConfirmedBlockNum)
+                        if (b.blockNum > wsSyncConfirmedBlockNum || b.fromLocalStorage == false)
                         {
                             b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
                         }else

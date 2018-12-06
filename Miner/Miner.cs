@@ -543,8 +543,14 @@ namespace DLT
 
             Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getWalletAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
-            // Broadcast this transaction to the network
-            ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, tx.getBytes());
+            if (TransactionPool.addTransaction(tx))
+            {
+                TransactionPool.addPendingLocalTransaction(tx);
+            }
+            else
+            {
+                Logging.error("An unknown error occured while sending PoW solution.");
+            }
         }
 
         private static string findHash_v0(byte[] p1, string p2)

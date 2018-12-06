@@ -38,7 +38,7 @@ namespace DLT.Meta
         private static bool autoKeepalive = false;
         private static bool workerMode = false;
 
-        private static Thread cleanupThread;
+        private static Thread maintenanceThread;
 
         private static bool running = false;
 
@@ -272,8 +272,8 @@ namespace DLT.Meta
             keepAliveThread.Start();
 
             // Start the cleanup thread
-            cleanupThread = new Thread(performCleanup);
-            cleanupThread.Start();
+            maintenanceThread = new Thread(performMaintenance);
+            maintenanceThread.Start();
         }
 
         static public bool update()
@@ -324,10 +324,10 @@ namespace DLT.Meta
                 keepAliveThread = null;
             }
 
-            if (cleanupThread != null)
+            if (maintenanceThread != null)
             {
-                cleanupThread.Abort();
-                cleanupThread = null;
+                maintenanceThread.Abort();
+                maintenanceThread = null;
             }
 
             // Stop the network queue
@@ -650,12 +650,14 @@ namespace DLT.Meta
         }
 
         // Perform periodic cleanup tasks
-        private static void performCleanup()
+        private static void performMaintenance()
         {
             while (running)
             {
                 // Sleep a while to prevent cpu usage
                 Thread.Sleep(1000);
+
+                TransactionPool.processPendingTransactions();
 
                 // Cleanup transaction pool
                 TransactionPool.performCleanup();
@@ -741,6 +743,18 @@ namespace DLT.Meta
             {
                 Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
             }
+        }
+
+        public static ulong getHighestKnownNetworkBlockHeight()
+        {
+            ulong bh = getLastBlockHeight();
+
+            if(bh < blockProcessor.highestNetworkBlockNum)
+            {
+                bh = blockProcessor.highestNetworkBlockNum;
+            }
+
+            return bh;
         }
     }
 }
