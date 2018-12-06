@@ -344,6 +344,11 @@ namespace DLTNode
                     if (Config.verboseConsoleOutput == false)
                         Node.statsConsoleScreen.clearScreen();
                 }
+                else if (key.Key == ConsoleKey.N)
+                {
+                    if (Node.miner != null)
+                        Node.miner.forceSearchForBlock();
+                }
 
             }
             if (Node.update() == false)
