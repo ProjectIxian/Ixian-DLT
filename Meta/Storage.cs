@@ -20,7 +20,6 @@ namespace DLT
             private static SQLiteConnection sqlConnection = null;
             private static readonly object storageLock = new object(); // This should always be placed when performing direct sql operations
 
-
             // Threading
             private static Thread thread = null;
             private static bool running = false;
@@ -525,6 +524,10 @@ namespace DLT
                         continue;
 
                     string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                    if (split_sig.Length < 2)
+                    {
+                        continue;
+                    }
                     byte[][] newSig = new byte[2][];
                     newSig[0] = Convert.FromBase64String(split_sig[0]);
                     newSig[1] = Convert.FromBase64String(split_sig[1]);
@@ -648,6 +651,10 @@ namespace DLT
                         continue;
 
                     string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                    if(split_to.Length < 2)
+                    {
+                        continue;
+                    }
                     byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
                     IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
                     transaction.toList.AddOrReplace(address, amount);
@@ -779,6 +786,7 @@ namespace DLT
                 catch (Exception e)
                 {
                     Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    // TODO TODO TODO TODO this may indicate a corrupt database, usually exception message is simply Corrupt, probably in this case we should delete the file and re-create it
                     return false;
                 }
                 return true;

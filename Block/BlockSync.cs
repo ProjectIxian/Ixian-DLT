@@ -196,21 +196,25 @@ namespace DLT
                         }
                     }
 
+                    bool readFromStorage = false;
+                    if (blockNum < lastBlockToReadFromStorage)
+                    {
+                        readFromStorage = true;
+                    }
+
                     ulong last_block_height = Node.getLastBlockHeight();
                     if (blockNum > last_block_height  + (ulong)maxBlockRequests)
                     {
                         if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
                         {
-                            Thread.Sleep(100);
+                            if (!readFromStorage)
+                            {
+                                Thread.Sleep(100);
+                            }
                             break;
                         }
                     }
 
-                    bool readFromStorage = false;
-                    if(blockNum < lastBlockToReadFromStorage)
-                    {
-                        readFromStorage = true;
-                    }
                     // First check if the missing block can be found in storage
                     Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
                     if (block != null)
@@ -300,7 +304,7 @@ namespace DLT
             return lowestBlockNum;
         }
 
-        private void requestBlockAgain(ulong blockNum)
+        private bool requestBlockAgain(ulong blockNum)
         {
             lock (pendingBlocks)
             {
@@ -315,10 +319,11 @@ namespace DLT
                         requestedBlockTimes.Add(blockNum, Clock.getTimestamp() - 10);
 
                         receivedAllMissingBlocks = false;
-
+                        return true;
                     }
                 }
             }
+            return false;
         }
 
         private void rollForward()
@@ -367,9 +372,11 @@ namespace DLT
                         resetWatchDog(next_to_apply - 1);
                         lock (requestedBlockTimes)
                         {
-                            requestBlockAgain(next_to_apply);
-                            // the node isn't connected yet, wait a while
-                            sleep = true;
+                            if (requestBlockAgain(next_to_apply))
+                            {
+                                // the node isn't connected yet, wait a while
+                                sleep = true;
+                            }
                         }
                         break;
                     }
@@ -423,9 +430,17 @@ namespace DLT
                             foreach (string txid in b.transactions)
                             {
                                 Transaction t = TransactionPool.getTransaction(txid, true);
+                                bool added = false;
                                 if (t != null)
                                 {
-                                    TransactionPool.addTransaction(t, true, null, false);
+                                    if (TransactionPool.addTransaction(t, true, null, false))
+                                    {
+                                        added = true;
+                                    }
+                                }
+                                if(!added)
+                                {
+                                    ProtocolMessage.broadcastGetTransaction(txid);
                                 }
                             }
                         }

@@ -478,6 +478,13 @@ namespace DLT
                 {
                     return false;
                 }
+            }else
+            {
+                if(!transaction.checksum.SequenceEqual(Transaction.calculateChecksum(transaction)))
+                {
+                    Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
+                    return false;
+                }
             }
 
             //Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
