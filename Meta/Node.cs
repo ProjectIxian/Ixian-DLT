@@ -271,7 +271,7 @@ namespace DLT.Meta
             keepAliveThread = new Thread(keepAlive);
             keepAliveThread.Start();
 
-            // Start the cleanup thread
+            // Start the maintenance thread
             maintenanceThread = new Thread(performMaintenance);
             maintenanceThread.Start();
         }
