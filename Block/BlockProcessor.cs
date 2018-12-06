@@ -243,7 +243,7 @@ namespace DLT
             return false;
         }
 
-        // Checks if the block has been sigFreezed and if all the hashes match, returns false if the block should be discarded
+        // Checks if the block has been sigFreezed and if all the hashes match, returns false if the block shouldn't be processed further
         public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null, RemoteEndpoint skipEndpoint = null)
         {
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
@@ -269,7 +269,6 @@ namespace DLT
                     if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
                     {
                         // we already have the correct block but the sender does not, broadcast our block
-                        //ProtocolMessage.broadcastNewBlock(targetBlock);
                         endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes());
                     }
                     return false;
@@ -277,9 +276,19 @@ namespace DLT
                 if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
                 {
                     Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                    // this is likely the correct block, update and broadcast to others
-                    Node.blockChain.refreshSignatures(b, true);
-                    ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
+                    if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
+                    {
+                        // this is likely the correct block, update and broadcast to others
+                        Node.blockChain.refreshSignatures(b, true);
+                        ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
+                    }
+                    else
+                    {
+                        Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
+                        // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
+                        CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
+                    }
+
                     return false;
                 }
                 else
@@ -313,36 +322,26 @@ namespace DLT
                     {
                         if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
                         {
-                            if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
+                            if (handleSigFreezedBlock(b, endpoint))
                             {
-                                if (handleSigFreezedBlock(b, endpoint))
+                                if (b.blockNum > Node.blockChain.getLastBlockNum() - 5)
                                 {
-                                    if (b.blockNum > Node.blockChain.getLastBlockNum() - 5)
+                                    removeSignaturesWithoutPlEntry(b);
+                                    if (Node.blockChain.refreshSignatures(b))
                                     {
-                                        removeSignaturesWithoutPlEntry(b);
-                                        if (Node.blockChain.refreshSignatures(b))
+                                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
+                                        if(updatedBlock.calculateSignatureChecksum().SequenceEqual(b.calculateSignatureChecksum()))
                                         {
-                                            // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                            Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                                            if(updatedBlock.calculateSignatureChecksum().SequenceEqual(b.calculateSignatureChecksum()))
-                                            {
-                                                ProtocolMessage.broadcastNewBlock(updatedBlock, endpoint);
-                                            }
-                                            else
-                                            {
-                                                ProtocolMessage.broadcastNewBlock(updatedBlock);
-                                            }
+                                            ProtocolMessage.broadcastNewBlock(updatedBlock, endpoint);
+                                        }
+                                        else
+                                        {
+                                            ProtocolMessage.broadcastNewBlock(updatedBlock);
                                         }
                                     }
-                                } // else do nothing as handleSigFreezedBlock took care of it
+                                }
                             }
-                            else
-                            {
-                                Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
-                                // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
-                                CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
-                            }
-
                         }
                         else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum))
                         {
