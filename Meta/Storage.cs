@@ -20,6 +20,8 @@ namespace DLT
             private static SQLiteConnection sqlConnection = null;
             private static readonly object storageLock = new object(); // This should always be placed when performing direct sql operations
 
+            private static Dictionary<string, object[]> connectionCache = new Dictionary<string, object[]>();
+
             // Threading
             private static Thread thread = null;
             private static bool running = false;
@@ -27,9 +29,6 @@ namespace DLT
             // Storage cache
             private static ulong cached_lastBlockNum = 0;
             private static ulong current_seek = 1;
-
-            private static SQLiteConnection latestDBSqlConnection = null;
-            private static ulong cached_latestDBBlocknum = 0;
 
             public static bool upgrading = false;
             public static ulong upgradeProgress = 0;
@@ -111,69 +110,39 @@ namespace DLT
                 running = false;
             }
 
-            // Returns true if connection to matching blocknum range database is established
-            public static bool seekDatabase(ulong blocknum = 0)
+            private static SQLiteConnection getSQLiteConnection(string path, bool cache = false)
             {
-                lock (storageLock)
+                lock (connectionCache)
                 {
-                    ulong db_blocknum = ((ulong)(blocknum / Config.maxBlocksPerDatabase)) * Config.maxBlocksPerDatabase;
-
-                    // Check if the current seek location matches this block range
-                    if (current_seek == db_blocknum)
+                    if (connectionCache.ContainsKey(path))
                     {
-                        return true;
-                    }
-
-                    // Update the current seek number
-                    current_seek = db_blocknum;
-
-                    // Check if we should use the cached latest database
-                    if (cached_latestDBBlocknum > 0 && db_blocknum == cached_latestDBBlocknum)
-                    {
-                        if (sqlConnection != null)
+                        long curTime = Clock.getTimestamp();
+                        connectionCache[path][1] = curTime;
+                        Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
+                        foreach(var entry in tmpConnectionCache)
                         {
-                            sqlConnection.Close();
+                            if(curTime - (long)entry.Value[1] > 60)
+                            {
+                                ((SQLiteConnection)entry.Value[0]).Close();
+                                connectionCache.Remove(entry.Key);
+                            }
                         }
-                        sqlConnection = latestDBSqlConnection;
-                        return true;
+                        return (SQLiteConnection)connectionCache[path][0];
                     }
-
-                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
 
                     bool prepare_database = false;
                     // Check if the database file does not exist
-                    if (File.Exists(db_path) == false)
+                    if (File.Exists(path) == false)
                     {
                         prepare_database = true;
                     }
 
-                    if (sqlConnection != null)
+                    SQLiteConnection connection = new SQLiteConnection(path);
+                    if (cache)
                     {
-                        if (sqlConnection != latestDBSqlConnection)
-                        {
-                            sqlConnection.Close();
-                        }
-                        sqlConnection = null;
+                        connectionCache.Add(path, new object[2] { connection, Clock.getTimestamp() });
                     }
 
-                    // Update the cached latest database if necessary
-                    if (db_blocknum > cached_latestDBBlocknum)
-                    {
-                        if (latestDBSqlConnection != null)
-                        {
-                            latestDBSqlConnection.Close();
-                            latestDBSqlConnection = null;
-                        }
-
-                        latestDBSqlConnection = new SQLiteConnection(db_path);
-                        cached_latestDBBlocknum = db_blocknum;
-                        sqlConnection = latestDBSqlConnection;
-                    }
-                    else
-                    {
-                        // Bind the connection
-                        sqlConnection = new SQLiteConnection(db_path);
-                    }
                     // The database needs to be prepared first
                     if (prepare_database)
                     {
@@ -193,7 +162,30 @@ namespace DLT
                         executeSQL(sql);
                     }
 
+                    return connection;
+                }
+            }
 
+            // Returns true if connection to matching blocknum range database is established
+            public static bool seekDatabase(ulong blocknum = 0, bool cache = false)
+            {
+                lock (storageLock)
+                {
+                    ulong db_blocknum = ((ulong)(blocknum / Config.maxBlocksPerDatabase)) * Config.maxBlocksPerDatabase;
+
+                    // Check if the current seek location matches this block range
+                    if (current_seek == db_blocknum)
+                    {
+                        return true;
+                    }
+
+                    // Update the current seek number
+                    current_seek = db_blocknum;
+
+                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
+
+                    // Bind the connection
+                    sqlConnection = getSQLiteConnection(db_path, cache);
                 }
                 return true;
             }
@@ -222,7 +214,7 @@ namespace DLT
                 }
 
                 // Seek the found database
-                return seekDatabase(db_blocknum);
+                return seekDatabase(db_blocknum, true);
             }
 
             public static ulong getLastBlockNum()
@@ -269,14 +261,14 @@ namespace DLT
                 {
                     if (getBlock(block.blockNum) == null)
                     {
-                        seekDatabase(block.blockNum);
+                        seekDatabase(block.blockNum, true);
 
                         string sql = "INSERT INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
                         result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version);
                     }
                     else
                     {
-                        seekDatabase(block.blockNum);
+                        seekDatabase(block.blockNum, true);
 
                         // Likely already have the block stored, update the old entry
                         string sql = "UPDATE `blocks` SET `blockChecksum` = ?, `lastBlockChecksum` = ?, `walletStateChecksum` = ?, `sigFreezeChecksum` = ?, `difficulty` = ?, `powField` = ?, `transactions` = ?, `signatures` = ?, `timestamp` = ?, `version` = ? WHERE `blockNum` = ?";
@@ -312,7 +304,7 @@ namespace DLT
                     if (getTransaction(transaction.id) == null)
                     {
                         // Transaction was not found in any existing database, seek to the proper database
-                        seekDatabase(transaction.applied);
+                        seekDatabase(transaction.applied, true);
 
                         string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
                         result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, transaction.from, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
@@ -320,7 +312,7 @@ namespace DLT
                     else
                     {
                         // Transaction found. Seeked database was set by getTransaction
-                        seekDatabase(transaction.applied);
+                        seekDatabase(transaction.applied, true);
 
                         // Likely already have the tx stored, update the old entry
                         string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
@@ -345,7 +337,7 @@ namespace DLT
 
                 lock (storageLock)
                 {
-                    seekDatabase(blocknum);
+                    seekDatabase(blocknum, true);
 
                     try
                     {
@@ -676,7 +668,7 @@ namespace DLT
 
                 lock (storageLock)
                 {
-                    seekDatabase(block.blockNum);
+                    seekDatabase(block.blockNum, true);
 
                     // First go through all transactions and remove them from storage
                     foreach (string txid in block.transactions)
@@ -717,7 +709,7 @@ namespace DLT
                 }
                 lock (storageLock)
                 {
-                    seekDatabase(blockheight);
+                    seekDatabase(blockheight, true);
 
                     // Calculate the window
                     ulong redactedWindow = blockheight - CoreConfig.redactedWindowSize;
@@ -862,15 +854,14 @@ namespace DLT
                     }
                     Thread.Yield();
                 }
-                if (sqlConnection != null)
+
+                lock(connectionCache)
                 {
-                    sqlConnection.Close();
-                    sqlConnection = null;
-                }
-                if (latestDBSqlConnection != null)
-                {
-                    latestDBSqlConnection.Close();
-                    latestDBSqlConnection = null;
+                    foreach(var entry in connectionCache)
+                    {
+                        ((SQLiteConnection)entry.Value[0]).Close();
+                    }
+                    connectionCache.Clear();
                 }
             }
 

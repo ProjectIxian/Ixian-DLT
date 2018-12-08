@@ -1,4 +1,5 @@
-﻿using SQLite;
+﻿using IXICore.Utils;
+using SQLite;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,6 +14,7 @@ namespace DLT.Meta
         TransactionSent = 101,
         MiningReward = 200,
         StakingReward = 201,
+        TxFeeReward = 202,
         ContactRequest = 300
     }
 
@@ -26,7 +28,7 @@ namespace DLT.Meta
     public class Activity
     {
         private string _id = null;
-        private SortedDictionary<byte[], IxiNumber> _cachedToListArray = new SortedDictionary<byte[], IxiNumber>();
+        private SortedDictionary<byte[], IxiNumber> _cachedToListArray = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
 
         public string wallet { get; set; }
         public string from { get; set; }

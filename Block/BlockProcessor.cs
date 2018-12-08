@@ -787,7 +787,12 @@ namespace DLT
             if (b.blockNum != Node.blockChain.getLastBlockNum() + 1)
             {
                 Logging.warn(String.Format("Received block #{0}, but next block should be #{1}.", b.blockNum, Node.blockChain.getLastBlockNum() + 1));
-                // TODO: keep a counter - if this happens too often, this node is falling behind the network
+                return;
+            }
+            if(b.version < Node.blockChain.getLastBlockVersion())
+            {
+                Logging.warn(String.Format("A current block with a smaller version was received than the last block in the blockchain, rejecting block #{0} with version {1}.", b.blockNum, b.version));
+                // TODO: keep a counter - if this happens too often, disconnect the node
                 return;
             }
             lock (localBlockLock)
@@ -1281,7 +1286,16 @@ namespace DLT
                 IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
                 Node.walletState.setWalletBalance(addressBytes, balance_after, ws_snapshot);
-
+                if(!ws_snapshot)
+                {
+                    if (signer_wallet.id.SequenceEqual(Node.walletStorage.address))
+                    {
+                        SortedDictionary<byte[], IxiNumber> to_list = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+                        to_list.Add(addressBytes, balance_after);
+                        Activity activity = new Activity(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Base58Check.Base58CheckEncoding.EncodePlain(CoreConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, null, balance_after.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum);
+                        ActivityStorage.insertActivity(activity);
+                    }
+                }
                 //Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
             }
 

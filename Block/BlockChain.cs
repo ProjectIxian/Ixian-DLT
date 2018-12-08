@@ -196,6 +196,15 @@ namespace DLT
             }
         }
 
+        public int getLastBlockVersion()
+        {
+            lock (blocks)
+            {
+                if (blocks.Count == 0) return 0;
+                return blocks[blocks.Count - 1].version;
+            }
+        }
+
         public int getRequiredConsensus()
         {
             // TODO TODO TODO cache
@@ -383,6 +392,8 @@ namespace DLT
             }
             return solved_blocks;
         }
+
+
 
     }
 }
