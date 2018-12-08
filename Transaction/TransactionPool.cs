@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -259,7 +260,8 @@ namespace DLT
             if (transaction.type == (int)Transaction.Type.PoWSolution)
             {
                 ulong tmp = 0;
-                if (!verifyPoWTransaction(transaction, out tmp))
+                string tmp2 = "";
+                if (!verifyPoWTransaction(transaction, out tmp, out tmp2))
                 {
                     return false;
                 }
@@ -364,7 +366,15 @@ namespace DLT
                     t = transactions[txid];
                     t.applied = blockNum;
 
-                    if(t.applied == 0)
+                    if (t.from.SequenceEqual(Node.walletStorage.address) || t.toList.ContainsKey(Node.walletStorage.address))
+                    {
+                        if (t.type == (int)Transaction.Type.Normal)
+                        {
+                            ActivityStorage.updateStatus(t.getBytes(), ActivityStatus.Final, t.applied);
+                        }
+                    }
+
+                    if (t.applied == 0)
                     {
                         Logging.error("An error occured while adding tx " + txid + " to storage, applied was 0.");
                         return false;
@@ -478,6 +488,40 @@ namespace DLT
             }
         }
 
+        private static void addTransactionToActivityStorage(Transaction transaction)
+        {
+            Activity activity = null;
+            int type = -1;
+            IxiNumber value = transaction.amount;
+            if (transaction.from.SequenceEqual(Node.walletStorage.address))
+            {
+                type = (int)ActivityType.TransactionSent;
+                if (transaction.type == (int)Transaction.Type.PoWSolution)
+                {
+                    type = (int)ActivityType.MiningReward;
+                    value = Miner.calculateRewardForBlock(BitConverter.ToUInt64(transaction.data, 0));
+                }
+            }
+            if (transaction.toList.ContainsKey(Node.walletStorage.address))
+            {
+                type = (int)ActivityType.TransactionReceived;
+                if (transaction.type == (int)Transaction.Type.StakingReward)
+                {
+                    type = (int)ActivityType.StakingReward;
+                }
+            }
+            if (type != -1)
+            {
+                int status = (int)ActivityStatus.Pending;
+                if (transaction.applied > 0)
+                {
+                    status = (int)ActivityStatus.Final;
+                }
+                activity = new Activity(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Base58Check.Base58CheckEncoding.EncodePlain(transaction.from), transaction.toList, type, transaction.getBytes(), value.ToString(), transaction.timeStamp, status, 0);
+                ActivityStorage.insertActivity(activity);
+            }
+        }
+
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
         public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint skipEndpoint = null, bool verifyTx = true)
@@ -508,6 +552,7 @@ namespace DLT
                 else
                 {
                     transactions.Add(transaction.id, transaction);
+                    addTransactionToActivityStorage(transaction);
                 }
             }
 
@@ -644,14 +689,13 @@ namespace DLT
         }*/
 
         // Verify if a PoW transaction is valid
-        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, bool verify_pow = true)
+        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, out string nonce, bool verify_pow = true)
         {
             blocknum = 0;
+            nonce = "";
 
             if (tx.type != (int)Transaction.Type.PoWSolution)
                 return false;
-
-            string nonce = "";
 
             // Extract the block number and nonce
             using (MemoryStream m = new MemoryStream(tx.data))
@@ -725,7 +769,7 @@ namespace DLT
             }
             lock (transactions)
             {
-                Dictionary<ulong, List<byte[]>> blockSolutionsDictionary = new Dictionary<ulong, List<byte[]>>();
+                Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
                 foreach (string txid in b.transactions)
                 {
                     Transaction tx = getTransaction(txid);
@@ -754,12 +798,12 @@ namespace DLT
                     if (block == null)
                         continue;
 
-                    List<byte[]> miners_to_reward = blockSolutionsDictionary[blockNum];
+                    List<object[]> miners_to_reward = blockSolutionsDictionary[blockNum];
 
                     List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes(string.Format("MINERS-{0}-", blockNum)));
-                    foreach (byte[] miner in miners_to_reward)
+                    foreach (var entry in miners_to_reward)
                     {
-                        checksum_source.AddRange(miner);
+                        checksum_source.AddRange((byte[])entry[0]);
                     }
 
                     // Set the powField as a checksum of all miners for this block
@@ -776,7 +820,7 @@ namespace DLT
             List<Transaction> staking_txs = null;
             if (ws_snapshot)
             {
-                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, ws_snapshot);
+                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, block.version, ws_snapshot);
             }
             else
             {
@@ -853,7 +897,7 @@ namespace DLT
             try
             {
                 // Maintain a dictionary of block solutions and the corresponding miners for solved blocks
-                IDictionary<ulong, List<byte[]>> blockSolutionsDictionary = new Dictionary<ulong, List<byte[]>>();
+                IDictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
 
                 // Maintain a list of failed transactions to remove them from the TxPool in one go
                 List<Transaction> failed_transactions = new List<Transaction>();
@@ -1033,7 +1077,7 @@ namespace DLT
         // Checks if a transaction is a pow transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
         // be careful when changing/updating ws_snapshot related things in this function as the parameter relies on sync as well
-        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, List<Transaction> failedTransactions, bool ws_snapshot = false, bool verify_pow = true)
+        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<object[]>> blockSolutionsDictionary, List<Transaction> failedTransactions, bool ws_snapshot = false, bool verify_pow = true)
         {
             if (tx.type != (int)Transaction.Type.PoWSolution)
             {
@@ -1047,15 +1091,24 @@ namespace DLT
             }
 
             // Verify if the solution is correct
-            if (verifyPoWTransaction(tx, out ulong powBlockNum, verify_pow) == true)
+            if (verifyPoWTransaction(tx, out ulong powBlockNum, out string nonce, verify_pow) == true)
             {
                 // Check if we already have a key matching the block number
                 if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
                 {
-                    blockSolutionsDictionary[powBlockNum] = new List<byte[]>();
+                    blockSolutionsDictionary[powBlockNum] = new List<object[]>();
                 }
-                // Add the miner to the block number dictionary reward list
-                blockSolutionsDictionary[powBlockNum].Add(tx.from);
+                if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tx.from) && (string)x[1] == nonce))
+                {
+                    // Add the miner to the block number dictionary reward list
+                    blockSolutionsDictionary[powBlockNum].Add(new object[3] { tx.from, nonce, tx });
+                }else
+                {
+                    if (failedTransactions != null)
+                    {
+                        failedTransactions.Add(tx);
+                    }
+                }
             }else
             {
                 if (failedTransactions != null)
@@ -1438,7 +1491,7 @@ namespace DLT
         }
 
         // Go through a dictionary of block numbers and respective miners and reward them
-        public static void rewardMiners(IDictionary<ulong, List<byte[]>> blockSolutionsDictionary, bool ws_snapshot = false)
+        public static void rewardMiners(IDictionary<ulong, List<object[]>> blockSolutionsDictionary, bool ws_snapshot = false)
         {
             for (int i = 0; i < blockSolutionsDictionary.Count; i++)
             {
@@ -1455,7 +1508,7 @@ namespace DLT
                 if (block == null)
                     continue;
 
-                List<byte[]> miners_to_reward = blockSolutionsDictionary[blockNum];
+                List<object[]> miners_to_reward = blockSolutionsDictionary[blockNum];
 
                 IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
 
@@ -1465,16 +1518,21 @@ namespace DLT
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
 
                 List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes(string.Format("MINERS-{0}-",blockNum)));
-                foreach (byte[] miner in miners_to_reward)
+                foreach (var entry in miners_to_reward)
                 {
                     // TODO add another address checksum here, just in case
                     // Update the wallet state
-                    Wallet miner_wallet = Node.walletState.getWallet(miner, ws_snapshot);
+                    Wallet miner_wallet = Node.walletState.getWallet((byte[])entry[0], ws_snapshot);
                     IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
-                    Node.walletState.setWalletBalance(miner, miner_balance_after, ws_snapshot);
+                    Node.walletState.setWalletBalance(miner_wallet.id, miner_balance_after, ws_snapshot);
 
-                    checksum_source.AddRange(miner);
+                    if (miner_wallet.id.SequenceEqual(Node.walletStorage.address))
+                    {
+                        ActivityStorage.updateValue(((Transaction)entry[2]).getBytes(), powRewardPart);
+                    }
+
+                    checksum_source.AddRange(miner_wallet.id);
                 }
 
                 // Ignore during snapshot

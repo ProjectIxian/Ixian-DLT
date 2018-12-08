@@ -47,12 +47,12 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.5.9a"; // DLT Node version
+            public static readonly string version = "xdc-0.6.0-dev"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
-            public static readonly ulong compileTimeBlockNumber = 43200;
+            public static readonly ulong compileTimeBlockNumber = 86400;
 
             // Debugging values
             public static string networkDumpFile = "";

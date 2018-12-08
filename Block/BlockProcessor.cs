@@ -1115,7 +1115,7 @@ namespace DLT
             }
 
             // Distribute staking rewards first
-            distributeStakingRewards(b, ws_snapshot);
+            distributeStakingRewards(b, b.version, ws_snapshot);
 
             // Apply transactions from block
             if(!TransactionPool.applyTransactionsFromBlock(b, ws_snapshot))
@@ -1367,7 +1367,7 @@ namespace DLT
 
                 // Apply staking transactions to block. 
                 // Generate the staking transactions with the blockgen flag, as we are the current block generator
-                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6);
+                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, blockVersion);
                 foreach (Transaction transaction in staking_transactions)
                 {
                     localNewBlock.addTransaction(transaction);
@@ -1406,7 +1406,8 @@ namespace DLT
                     {
                         // TODO: pre-validate the transaction in such a way it doesn't affect performance
                         ulong tmp = 0;
-                        if (!TransactionPool.verifyPoWTransaction(transaction, out tmp))
+                        string tmp2 = "";
+                        if (!TransactionPool.verifyPoWTransaction(transaction, out tmp, out tmp2))
                         {
                             continue;
                         }
@@ -1589,7 +1590,7 @@ namespace DLT
         }
 
         // Generate all the staking transactions for this block
-        public List<Transaction> generateStakingTransactions(ulong targetBlockNum, bool ws_snapshot = false)
+        public List<Transaction> generateStakingTransactions(ulong targetBlockNum, int block_version, bool ws_snapshot = false)
         {
             List<Transaction> transactions = new List<Transaction>();
             /// WARNING WARNING WARNING
@@ -1683,20 +1684,41 @@ namespace DLT
                 }
             }
 
-            for (int i = 0; i < stakers; i++)
+            if (block_version < 2)
             {
-                IxiNumber award = new IxiNumber(awards[i]);
-                if (award > (long)0)
+                for (int i = 0; i < stakers; i++)
                 {
-                    byte[] wallet_addr = stakeWallets[i];
-                    //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
+                    IxiNumber award = new IxiNumber(awards[i]);
+                    if (award > (long)0)
+                    {
+                        byte[] wallet_addr = stakeWallets[i];
+                        //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
-                    Transaction tx = new Transaction((int)Transaction.Type.StakingReward, award, new IxiNumber(0), wallet_addr, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0);
+                        Transaction tx = new Transaction((int)Transaction.Type.StakingReward, award, new IxiNumber(0), wallet_addr, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0);
 
-                    transactions.Add(tx);
+                        transactions.Add(tx);
+
+                    }
 
                 }
+            }else
+            {
+                SortedDictionary<byte[], IxiNumber> to_list = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+                for (int i = 0; i < stakers; i++)
+                {
+                    IxiNumber award = new IxiNumber(awards[i]);
+                    if (award > (long)0)
+                    {
+                        byte[] wallet_addr = stakeWallets[i];
+                        //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
+                        to_list.Add(wallet_addr, award);
 
+                    }
+
+                }
+                Transaction tx = new Transaction((int)Transaction.Type.StakingReward, new IxiNumber(0), to_list, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0);
+
+                transactions.Add(tx);
             }
             //Console.WriteLine("------");
             //Console.ResetColor();
@@ -1707,7 +1729,7 @@ namespace DLT
 
 
         // Distribute the staking rewards according to the 5th last block signatures
-        public bool distributeStakingRewards(Block b, bool ws_snapshot = false)
+        public bool distributeStakingRewards(Block b, int block_version, bool ws_snapshot = false)
         {
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
@@ -1717,7 +1739,7 @@ namespace DLT
 
             if (ws_snapshot == false)
             {
-                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, ws_snapshot);
+                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, block_version, ws_snapshot);
                 foreach (Transaction transaction in transactions)
                 {
                     TransactionPool.addTransaction(transaction, true);

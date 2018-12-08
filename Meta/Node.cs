@@ -141,6 +141,8 @@ namespace DLT.Meta
             // Initialize storage
             Storage.prepareStorage();
 
+            ActivityStorage.prepareStorage();
+
             // Initialize the block chain
             blockChain = new BlockChain();
 
@@ -347,6 +349,8 @@ namespace DLT.Meta
 
             // Stop the storage thread
             Storage.stopStorage();
+
+            ActivityStorage.stopStorage();
 
             // Stop the console stats screen
             if (Config.verboseConsoleOutput == false)
@@ -569,6 +573,8 @@ namespace DLT.Meta
         // Cleans the storage cache and logs
         public static bool cleanCacheAndLogs()
         {
+            ActivityStorage.deleteCache();
+
             Storage.deleteCache();
 
             WalletStateStorage.deleteCache();

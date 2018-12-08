@@ -862,7 +862,16 @@ namespace DLT
                     }
                     Thread.Yield();
                 }
-
+                if (sqlConnection != null)
+                {
+                    sqlConnection.Close();
+                    sqlConnection = null;
+                }
+                if (latestDBSqlConnection != null)
+                {
+                    latestDBSqlConnection.Close();
+                    latestDBSqlConnection = null;
+                }
             }
 
             public static int getQueuedQueryCount()

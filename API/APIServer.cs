@@ -282,6 +282,11 @@ namespace DLTNode
                 response = onDebugLoad();
             }
 
+            if (methodName.Equals("activity", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onActivity();
+            }
+
             sendResponse(context.Response, response);
             context.Response.Close();
         }
@@ -1032,6 +1037,15 @@ namespace DLTNode
                 error = new JsonError { code = 400, message = "failed" };
 
             return new JsonResponse { result = outstring, error = error };
+        }
+
+        public JsonResponse onActivity()
+        {
+            JsonError error = null;
+
+            List<Activity> res = ActivityStorage.getActivitiesByAddress(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), 0, 50, true);
+
+            return new JsonResponse { result = res, error = error };
         }
     }
 }
