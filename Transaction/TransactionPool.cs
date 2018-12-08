@@ -1098,15 +1098,23 @@ namespace DLT
                 {
                     blockSolutionsDictionary[powBlockNum] = new List<object[]>();
                 }
-                if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tx.from) && (string)x[1] == nonce))
+                if (block.version < 2)
                 {
-                    // Add the miner to the block number dictionary reward list
                     blockSolutionsDictionary[powBlockNum].Add(new object[3] { tx.from, nonce, tx });
-                }else
+                }
+                else
                 {
-                    if (failedTransactions != null)
+                    if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tx.from) && (string)x[1] == nonce))
                     {
-                        failedTransactions.Add(tx);
+                        // Add the miner to the block number dictionary reward list
+                        blockSolutionsDictionary[powBlockNum].Add(new object[3] { tx.from, nonce, tx });
+                    }
+                    else
+                    {
+                        if (failedTransactions != null)
+                        {
+                            failedTransactions.Add(tx);
+                        }
                     }
                 }
             }else
