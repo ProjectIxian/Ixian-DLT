@@ -117,7 +117,10 @@ namespace DLT
                     if (connectionCache.ContainsKey(path))
                     {
                         long curTime = Clock.getTimestamp();
-                        connectionCache[path][1] = curTime;
+                        if (cache)
+                        {
+                            connectionCache[path][1] = curTime;
+                        }
                         Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
                         foreach(var entry in tmpConnectionCache)
                         {

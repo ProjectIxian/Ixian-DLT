@@ -893,6 +893,10 @@ namespace DLT
 
                         case ProtocolMessageCode.getTransaction:
                             {
+                                if (Node.blockSync.synchronizing)
+                                {
+                                    return;
+                                }
                                 using (MemoryStream m = new MemoryStream(data))
                                 {
                                     using (BinaryReader reader = new BinaryReader(m))
