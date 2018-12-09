@@ -133,36 +133,31 @@ namespace DLT
                         return (SQLiteConnection)connectionCache[path][0];
                     }
 
-                    bool prepare_database = false;
-                    // Check if the database file does not exist
-                    if (File.Exists(path) == false)
-                    {
-                        prepare_database = true;
-                    }
-
                     SQLiteConnection connection = new SQLiteConnection(path);
                     if (cache)
                     {
                         connectionCache.Add(path, new object[2] { connection, Clock.getTimestamp() });
                     }
 
-                    // The database needs to be prepared first
-                    if (prepare_database)
+                    // check if database exists
+                    var tableInfo = connection.GetTableInfo("transactions");
+                    if (!tableInfo.Any())
                     {
+                        // The database needs to be prepared first
                         // Create the blocks table
                         string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, PRIMARY KEY(`blockNum`));";
-                        executeSQL(sql);
+                        executeSQL(connection, sql);
 
                         sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `from` BLOB,  `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
-                        executeSQL(sql);
+                        executeSQL(connection, sql);
                         sql = "CREATE INDEX `type` ON `transactions` (`type`);";
-                        executeSQL(sql);
+                        executeSQL(connection, sql);
                         sql = "CREATE INDEX `from` ON `transactions` (`from`);";
-                        executeSQL(sql);
+                        executeSQL(connection, sql);
                         sql = "CREATE INDEX `toList` ON `transactions` (`toList`);";
-                        executeSQL(sql);
+                        executeSQL(connection, sql);
                         sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
-                        executeSQL(sql);
+                        executeSQL(connection, sql);
                     }
 
                     return connection;
@@ -768,6 +763,22 @@ namespace DLT
                 try
                 {
                     sqlConnection.Execute(sql, sqlParameters);
+                }
+                catch (Exception e)
+                {
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    // TODO TODO TODO TODO this may indicate a corrupt database, usually exception message is simply Corrupt, probably in this case we should delete the file and re-create it
+                    return false;
+                }
+                return true;
+            }
+
+            // Escape and execute an sql command
+            private static bool executeSQL(SQLiteConnection connection, string sql, params object[] sqlParameters)
+            {
+                try
+                {
+                    connection.Execute(sql, sqlParameters);
                 }
                 catch (Exception e)
                 {
