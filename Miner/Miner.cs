@@ -65,6 +65,13 @@ namespace DLT
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
 
+            // Start secondary worker threads
+            for (int i = 0; i < Config.miningThreads - 1; i++)
+            {
+                Thread worker_thread = new Thread(secondaryThreadLoop);
+                worker_thread.Start();
+            }
+
             return true;
         }
 
@@ -219,6 +226,47 @@ namespace DLT
                         blockFound = false;
                         continue;
                     }
+                }
+            }
+        }
+
+        private void secondaryThreadLoop(object data)
+        {
+            while (!shouldStop)
+            {
+                // Wait for blockprocessor network synchronization
+                if (Node.blockProcessor.operating == false)
+                {
+                    Thread.Sleep(1000);
+                    continue;
+                }
+
+                // Edge case for seeds
+                if (Node.blockChain.getLastBlockNum() < 10)
+                {
+                    Thread.Sleep(1000);
+                    continue;
+                }
+
+                if (pause)
+                {
+                    Thread.Sleep(500);
+                    continue;
+                }
+
+                if (blockFound == false)
+                {
+                    Thread.Sleep(10);
+                    continue;
+                }
+
+                if (currentBlockVersion == 0)
+                {
+                    calculatePow_v0();
+                }
+                else
+                {
+                    calculatePow_v1(currentHashCeil);
                 }
             }
         }
