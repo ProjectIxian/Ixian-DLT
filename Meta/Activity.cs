@@ -87,7 +87,10 @@ namespace DLT.Meta
                         raw_data.AddRange(entry.Value.getAmount().ToByteArray());
                     }
                     raw_data.AddRange(BitConverter.GetBytes(type));
-                    raw_data.AddRange(data);
+                    if (data != null)
+                    {
+                        raw_data.AddRange(data);
+                    }
                     // value shouldn't be part of the id, as it can change
                     raw_data.AddRange(BitConverter.GetBytes(timestamp));
                     // status shouldn't be part of the id, as it can change
