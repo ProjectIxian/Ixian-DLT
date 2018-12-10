@@ -140,7 +140,7 @@ namespace DLT
                         // Re-request block
                         if (ProtocolMessage.broadcastGetBlock(blockNum, null, 0) == false)
                         {
-                            if (blockNum > watchDogBlockNum - 5 && blockNum < watchDogBlockNum + 1)
+                            if (blockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {
                                 watchDogTime = DateTime.UtcNow;
                             }
@@ -205,7 +205,7 @@ namespace DLT
                     ulong last_block_height = Node.getLastBlockHeight();
                     if (blockNum > last_block_height  + (ulong)maxBlockRequests)
                     {
-                        if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
+                        if (blockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                         {
                             if (!readFromStorage)
                             {
@@ -369,7 +369,6 @@ namespace DLT
                     Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
                     if (b == null)
                     {
-                        resetWatchDog(next_to_apply - 1);
                         lock (requestedBlockTimes)
                         {
                             if (requestBlockAgain(next_to_apply))
@@ -546,7 +545,7 @@ namespace DLT
             {
                 if(verifyLastBlock())
                 {
-                    watchDogBlockNum = 0;
+                    resetWatchDog(0);
                     sleep = false;
                 }
                 else
@@ -588,7 +587,7 @@ namespace DLT
                 return false;
             }
 
-            resetWatchDog(b.blockNum);
+            resetWatchDog(0);
 
             stopSyncStartBlockProcessing();
 
@@ -947,7 +946,7 @@ namespace DLT
 
                 lastBlockToReadFromStorage = wsSyncConfirmedBlockNum;
 
-                watchDogBlockNum = 0;
+                resetWatchDog(0);
 
                 for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
                 {

@@ -3,6 +3,7 @@ using SQLite;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 
@@ -87,10 +88,7 @@ namespace DLT.Meta
                         raw_data.AddRange(entry.Value.getAmount().ToByteArray());
                     }
                     raw_data.AddRange(BitConverter.GetBytes(type));
-                    if (data != null)
-                    {
-                        raw_data.AddRange(data);
-                    }
+                    raw_data.AddRange(data);
                     // value shouldn't be part of the id, as it can change
                     raw_data.AddRange(BitConverter.GetBytes(timestamp));
                     // status shouldn't be part of the id, as it can change
@@ -161,18 +159,12 @@ namespace DLT.Meta
         // Creates the storage file if not found
         public static bool prepareStorage()
         {
-            bool prepare_database = false;
-            // Check if the database file does not exist
-            if (File.Exists(filename) == false)
-            {
-                prepare_database = true;
-            }
-
             // Bind the connection
             sqlConnection = new SQLiteConnection(filename);
 
             // The database needs to be prepared first
-            if (prepare_database)
+            var tableInfo = sqlConnection.GetTableInfo("activity");
+            if (!tableInfo.Any())
             {
                 // Create the activity table
                 string sql = "CREATE TABLE `activity` (`id` TEXT, `wallet` TEXT, `from` TEXT, `toList` TEXT, `type` INTEGER, `data` BLOB UNIQUE, `value` TEXT, `timestamp` INTEGER, `status` INTEGER, `blockHeight` INTEGER, PRIMARY KEY(`id`));";
