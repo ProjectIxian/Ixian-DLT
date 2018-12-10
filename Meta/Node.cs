@@ -1,4 +1,5 @@
 ﻿using DLT.Network;
+using DLTNode;
 using IXICore;
 using System;
 using System.Collections.Generic;
@@ -22,6 +23,8 @@ namespace DLT.Meta
 
         public static StatsConsoleScreen statsConsoleScreen = null;
 
+        public static APIServer apiServer;
+
         public static UPnP upnp;
 
         public static bool genesisNode = false;
@@ -41,6 +44,7 @@ namespace DLT.Meta
         private static Thread maintenanceThread;
 
         private static bool running = false;
+
 
         // Perform basic initialization of node
         static public void init()

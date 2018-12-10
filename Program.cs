@@ -4,12 +4,9 @@ using System.Linq;
 using System.Timers;
 using DLT;
 using DLT.Meta;
-using Fclp;
 using System.Text;
 using DLT.Network;
 using System.Threading;
-using Newtonsoft.Json;
-using System.Numerics;
 using System.Diagnostics;
 using System.IO;
 using IXICore;
@@ -161,7 +158,6 @@ namespace DLTNode
         }
 
         private static System.Timers.Timer mainLoopTimer;
-        private static APIServer apiServer;
 
         public static bool noStart = false;
 
@@ -212,12 +208,12 @@ namespace DLTNode
 
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
                 e.Cancel = true;
-                apiServer.forceShutdown = true;
+                Node.apiServer.forceShutdown = true;
             };
 
-            if(apiServer != null)
+            if(Node.apiServer != null)
             { 
-                while (apiServer.forceShutdown == false)
+                while (Node.apiServer.forceShutdown == false)
                 {
                     Thread.Sleep(1000);
                 }
@@ -345,7 +341,7 @@ namespace DLTNode
             }
             if (Node.update() == false)
             {
-                apiServer.forceShutdown = true;
+                Node.apiServer.forceShutdown = true;
             }
         }
 
@@ -357,9 +353,9 @@ namespace DLTNode
             }
 
             // Stop the API server
-            if (apiServer != null)
+            if (Node.apiServer != null)
             {
-                apiServer.stop();
+                Node.apiServer.stop();
             }
 
             if (noStart == false)
