@@ -292,7 +292,7 @@ namespace DLT.Meta
                 if (block_height > 0)
                 {
                     string sql = "UPDATE `activity` SET `status` = ?, `blockHeight` = ? WHERE `id` = ?";
-                    result = executeSQL(sql, status, block_height, id);
+                    result = executeSQL(sql, status, (long)block_height, id);
                 }
                 else
                 {
@@ -312,7 +312,7 @@ namespace DLT.Meta
                 if (block_height > 0)
                 {
                     string sql = "UPDATE `activity` SET `status` = ?, `blockHeight` = ? WHERE `data` = ?";
-                    result = executeSQL(sql, status, block_height, data);
+                    result = executeSQL(sql, status, (long)block_height, data);
                 }
                 else
                 {

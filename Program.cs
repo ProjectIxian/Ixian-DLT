@@ -270,14 +270,6 @@ namespace DLTNode
             // Initialize the node
             Node.init();
 
-            // Start the HTTP JSON API server
-            apiServer = new APIServer();
-
-            if (IXICore.Platform.onMono() == false && !Config.disableWebStart)
-            {
-                System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
-            }
-
             // Start the actual DLT node
             Node.start(verboseConsoleOutputSetting);
 
