@@ -140,7 +140,7 @@ namespace DLT
                         // Re-request block
                         if (ProtocolMessage.broadcastGetBlock(blockNum, null, 0) == false)
                         {
-                            if (blockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
+                            if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {
                                 watchDogTime = DateTime.UtcNow;
                             }
@@ -205,7 +205,7 @@ namespace DLT
                     ulong last_block_height = Node.getLastBlockHeight();
                     if (blockNum > last_block_height  + (ulong)maxBlockRequests)
                     {
-                        if (blockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
+                        if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
                         {
                             if (!readFromStorage)
                             {
@@ -226,7 +226,7 @@ namespace DLT
                         // Didn't find the block in storage, request it from the network
                         if (ProtocolMessage.broadcastGetBlock(blockNum, null, 1) == false)
                         {
-                            if (blockNum > watchDogBlockNum - 5 && blockNum < watchDogBlockNum + 1)
+                            if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {
                                 watchDogTime = DateTime.UtcNow;
                             }
@@ -935,7 +935,6 @@ namespace DLT
                 }
                 else
                 {
-                    wsSyncConfirmedBlockNum -= 1;
                     Block b = Node.blockChain.getBlock(wsSyncConfirmedBlockNum, true);
                     if (b == null || !Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
                     {

@@ -116,18 +116,18 @@ namespace DLT
                 {
                     if (connectionCache.ContainsKey(path))
                     {
-                        long curTime = Clock.getTimestamp();
                         if (cache)
                         {
+                            long curTime = Clock.getTimestamp();
                             connectionCache[path][1] = curTime;
-                        }
-                        Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
-                        foreach(var entry in tmpConnectionCache)
-                        {
-                            if(curTime - (long)entry.Value[1] > 60)
+                            Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
+                            foreach(var entry in tmpConnectionCache)
                             {
-                                ((SQLiteConnection)entry.Value[0]).Close();
-                                connectionCache.Remove(entry.Key);
+                                if(curTime - (long)entry.Value[1] > 60)
+                                {
+                                    ((SQLiteConnection)entry.Value[0]).Close();
+                                    connectionCache.Remove(entry.Key);
+                                }
                             }
                         }
                         return (SQLiteConnection)connectionCache[path][0];
