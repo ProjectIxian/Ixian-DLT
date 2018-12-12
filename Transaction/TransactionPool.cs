@@ -1648,6 +1648,11 @@ namespace DLT
 
         public static void performCleanup()
         {
+            if(Node.blockSync.synchronizing)
+            {
+                return;
+            }
+
             ulong minBlockHeight = 1;
             if (Node.blockChain.getLastBlockNum() > CoreConfig.redactedWindowSize)
             {
@@ -1765,7 +1770,7 @@ namespace DLT
             {
                 foreach (var entry in b.transactions)
                 {
-                    //transactions[entry] = null;
+                    transactions[entry] = null;
                 }
             }
         }
