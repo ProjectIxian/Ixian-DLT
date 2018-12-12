@@ -402,7 +402,7 @@ namespace DLT
                     if (t.type == (int)Transaction.Type.MultisigTX)
                     {
                         // set applied to all signers (related multisig transactions)
-                        foreach(var related_tx in transactions.Values.Where(x => x.applied == 0))
+                        foreach(var related_tx in transactions.Values.Where(x => x != null && x.applied == 0))
                         {
                             object orig_txid = related_tx.GetMultisigData();
                             if ((orig_txid is string) && ((string)orig_txid) == txid)
@@ -413,7 +413,7 @@ namespace DLT
                         }
                     } else if(t.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
-                        foreach(var related_tx in transactions.Values.Where( x=> x.applied == 0))
+                        foreach(var related_tx in transactions.Values.Where( x=> x != null && x.applied == 0))
                         {
                             object multisig_type = related_tx.GetMultisigData();
                             bool apply = false;
@@ -451,6 +451,10 @@ namespace DLT
                 int num_related = 0;
                 foreach(var tx in transactions.Values)
                 {
+                    if (tx == null)
+                    {
+                        continue;
+                    }
                     if(tx.type == (int)tx_type)
                     {
                         object multisig_type = tx.GetMultisigData();
@@ -621,11 +625,11 @@ namespace DLT
             return true;
         }
 
-        public static Transaction[] getAllTransactions()
+        public static Transaction[] getLastTransactions()
         {
             lock(transactions)
             {
-                return transactions.Select(e => e.Value).ToArray();
+                return transactions.Select(e => e.Value).Where(x => x != null).ToArray();
             }
         }
 
@@ -633,7 +637,7 @@ namespace DLT
         {
             lock(transactions)
             {
-                return transactions.Select(e => e.Value).Where(x => x.applied == 0).ToArray();
+                return transactions.Select(e => e.Value).Where(x => x != null && x.applied == 0).ToArray();
             }
         }
 
@@ -780,7 +784,7 @@ namespace DLT
                         return false;
                     }
                     applyPowTransaction(tx, b, blockSolutionsDictionary, null, true, false);
-                    setAppliedFlag(txid, b.blockNum, !b.fromLocalStorage);
+                    setAppliedFlag(txid, b.blockNum, !tx.fromLocalStorage);
                 }
                 // set PoW fields
                 for (int i = 0; i < blockSolutionsDictionary.Count; i++)
@@ -826,7 +830,7 @@ namespace DLT
             {
                 lock (transactions)
                 {
-                    staking_txs = transactions.Select(e => e.Value).Where(x => x.type == (int)Transaction.Type.StakingReward && x.applied == 0).ToList();
+                    staking_txs = transactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.StakingReward && x.applied == 0).ToList();
                 }
             }
 
@@ -1652,7 +1656,7 @@ namespace DLT
 
             lock (transactions)
             {
-                var txList = transactions.Select(e => e.Value).Where(x => x.applied == 0 && x.type == (int)Transaction.Type.PoWSolution).ToArray();
+                var txList = transactions.Select(e => e.Value).Where(x => x != null && x.applied == 0 && x.type == (int)Transaction.Type.PoWSolution).ToArray();
                 foreach (var entry in txList)
                 {
                     ulong blocknum = 0;
@@ -1682,7 +1686,7 @@ namespace DLT
                     }
                 }
 
-                txList = transactions.Select(e => e.Value).Where(x => x.applied == 0 && x.blockHeight < minBlockHeight).ToArray();
+                txList = transactions.Values.Where(x => x != null && x.applied == 0 && x.blockHeight < minBlockHeight).ToArray();
                 foreach (var entry in txList)
                 {
                     transactions.Remove(entry.id);
@@ -1732,6 +1736,36 @@ namespace DLT
                         pendingTransactions[idx][1] = cur_time;
                     }
                     idx++;
+                }
+            }
+        }
+
+        public static void addTxIdsFromBlock(Block b)
+        {
+            lock (transactions)
+            {
+                foreach (var entry in b.transactions)
+                {
+                    transactions.Add(entry, null);
+                }
+            }
+        }
+
+        public static long getTransactionCount()
+        {
+            lock(transactions)
+            {
+                return transactions.LongCount();
+            }
+        }
+
+        public static void compactTransactionsForBlock(Block b)
+        {
+            lock (transactions)
+            {
+                foreach (var entry in b.transactions)
+                {
+                    //transactions[entry] = null;
                 }
             }
         }

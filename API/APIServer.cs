@@ -879,7 +879,7 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            Transaction[] transactions = TransactionPool.getAllTransactions();
+            Transaction[] transactions = TransactionPool.getLastTransactions();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -944,7 +944,7 @@ namespace DLTNode
             networkArray.Add("Wallets", Node.walletState.numWallets);
             networkArray.Add("Presences", PresenceList.getTotalPresences());
             networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
-            networkArray.Add("Applied TX Count", TransactionPool.getAllTransactions().Count() - TransactionPool.getUnappliedTransactions().Count());
+            networkArray.Add("Applied TX Count", TransactionPool.getTransactionCount() - TransactionPool.getUnappliedTransactions().Count());
             networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
 
             networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));

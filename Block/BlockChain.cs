@@ -111,6 +111,14 @@ namespace DLT
                 CoreConfig.minimumRedactedWindowSize = 20000;
             }
             redactChain();
+            if (b.blockNum > 100)
+            {
+                Block tmp_block = getBlock(b.blockNum - 100);
+                if (tmp_block != null)
+                {
+                    TransactionPool.compactTransactionsForBlock(tmp_block);
+                }
+            }
             return true;
         }
 

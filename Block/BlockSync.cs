@@ -299,7 +299,7 @@ namespace DLT
 
             if (syncToBlock > CoreConfig.redactedWindowSize)
             {
-                lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize + 1;
+                lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize;
             }
             return lowestBlockNum;
         }
@@ -407,8 +407,6 @@ namespace DLT
                     try
                     {
 
-                        b.powField = null;
-
                         Logging.info(String.Format("Sync: Applying block #{0}/{1}.",
                             b.blockNum, syncToBlock));
 
@@ -419,6 +417,7 @@ namespace DLT
                             ignoreWalletState = false;
                         }
 
+                        b.powField = null;
 
                         // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
                         // verify with a parameter to ignore WS tests, but do all the others
@@ -426,21 +425,26 @@ namespace DLT
 
                         if (b.fromLocalStorage)
                         {
+                            bool missing = false;
                             foreach (string txid in b.transactions)
                             {
                                 Transaction t = TransactionPool.getTransaction(txid, true);
-                                bool added = false;
                                 if (t != null)
                                 {
-                                    if (TransactionPool.addTransaction(t, true, null, false))
+                                    if(!TransactionPool.addTransaction(t, true, null, false))
                                     {
-                                        added = true;
+                                        Logging.error("Error adding a transaction {0} from storage", txid);
                                     }
-                                }
-                                if(!added)
+                                }else
                                 {
                                     ProtocolMessage.broadcastGetTransaction(txid);
+                                    missing = true;
                                 }
+                            }
+                            if(missing)
+                            {
+                                sleep = true;
+                                break;
                             }
                         }
 
@@ -514,10 +518,7 @@ namespace DLT
                         if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                         {
                             //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                            if (b.blockNum <= wsSyncConfirmedBlockNum)
-                            {
-                                TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
-                            }
+                            TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
                             Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                             resetWatchDog(b.blockNum);
                             if (missingBlocks != null)
@@ -897,6 +898,7 @@ namespace DLT
                         wsSynced = true;
                         wsSyncConfirmedVersion = Node.walletState.version;
                     }
+
                     startSync();
 
 

@@ -504,17 +504,7 @@ namespace DLT
             // verify difficulty
             if (lastBlockNum + 1 == b.blockNum)
             {
-                bool verifyDifficulty = false;
-                
-                if(Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0)
-                {
-                    verifyDifficulty = true;
-                }else if((ulong)Node.blockChain.Count >= CoreConfig.redactedWindowSize)
-                {
-                    verifyDifficulty = true;
-                }
-
-                if (verifyDifficulty)
+                if(Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0 || Node.blockChain.Count >= (long)CoreConfig.redactedWindowSize)
                 {
                     //Logging.info("Verifying difficulty for #" + b.blockNum);
                     ulong expectedDifficulty = calculateDifficulty(b.version);
@@ -726,7 +716,6 @@ namespace DLT
             {
                 return txVerification;
             }
-
 
             // Note: This part depends on no one else messing with WS while it runs.
             // Sometimes generateNewBlock is called from the other thread and this is invoked by network while

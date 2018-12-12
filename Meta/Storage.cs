@@ -650,6 +650,7 @@ namespace DLT
                     transaction.toList.AddOrReplace(address, amount);
                 }
 
+                transaction.fromLocalStorage = true;
 
                 return transaction;
             }

@@ -352,7 +352,7 @@ namespace DLTNode.API
             iDic.Add("currentblocktx", 0);
             iDic.Add("difficulty", Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).difficulty);
             iDic.Add("errors", "");
-            iDic.Add("pooledtx", TransactionPool.getAllTransactions().Count());
+            iDic.Add("pooledtx", TransactionPool.getTransactionCount());
             iDic.Add("hashespersec", Node.miner.lastHashRate);
 
             return new JsonResponse { result = iDic, error = null };
