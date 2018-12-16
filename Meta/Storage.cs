@@ -110,6 +110,25 @@ namespace DLT
                 running = false;
             }
 
+            private static void cleanConnectionCache()
+            {
+                long curTime = Clock.getTimestamp();
+                Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
+                foreach (var entry in tmpConnectionCache)
+                {
+                    if (curTime - (long)entry.Value[1] > 60)
+                    {
+                        if(entry.Value[0] == sqlConnection)
+                        {
+                            // never close the currently used sqlConnection
+                            continue;
+                        }
+                        ((SQLiteConnection)entry.Value[0]).Close();
+                        connectionCache.Remove(entry.Key);
+                    }
+                }
+            }
+
             private static SQLiteConnection getSQLiteConnection(string path, bool cache = false)
             {
                 lock (connectionCache)
@@ -118,23 +137,14 @@ namespace DLT
                     {
                         if (cache)
                         {
-                            long curTime = Clock.getTimestamp();
-                            connectionCache[path][1] = curTime;
-                            Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
-                            foreach(var entry in tmpConnectionCache)
-                            {
-                                if(curTime - (long)entry.Value[1] > 60)
-                                {
-                                    ((SQLiteConnection)entry.Value[0]).Close();
-                                    connectionCache.Remove(entry.Key);
-                                }
-                            }
+                            connectionCache[path][1] = Clock.getTimestamp();
+                            cleanConnectionCache();
                         }
                         return (SQLiteConnection)connectionCache[path][0];
                     }
 
                     SQLiteConnection connection = new SQLiteConnection(path);
-                    //connection.ExecuteScalar<string>("PRAGMA journal_mode=WAL;");
+                    connection.ExecuteScalar<string>("PRAGMA journal_mode=WAL;");
                     //connection.ExecuteScalar<string>("PRAGMA locking_mode=EXCLUSIVE;");
                     if (cache)
                     {
@@ -145,6 +155,7 @@ namespace DLT
                     var tableInfo = connection.GetTableInfo("transactions");
                     if (!tableInfo.Any())
                     {
+
                         // The database needs to be prepared first
                         // Create the blocks table
                         string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, PRIMARY KEY(`blockNum`));";
@@ -192,7 +203,7 @@ namespace DLT
 
             // Go through all database files until we discover the latest consecutive one
             // Doing it this way prevents skipping over inexistent databases
-            public static bool seekLatestDatabase()
+            public static ulong seekLatestDatabase()
             {
                 ulong db_blocknum = 0;
                 bool found = false;
@@ -213,8 +224,12 @@ namespace DLT
                     }
                 }
 
-                // Seek the found database
-                return seekDatabase(db_blocknum, true);
+                if (seekDatabase(db_blocknum, true))
+                {
+                    // Seek the found database
+                    return db_blocknum;
+                }
+                return 0;
             }
 
             public static ulong getLastBlockNum()
@@ -223,16 +238,20 @@ namespace DLT
                 {
                     lock (storageLock)
                     {
-                        seekLatestDatabase();
+                        ulong db_block_num = seekLatestDatabase();
 
-                        string sql = string.Format("SELECT * FROM `blocks` ORDER BY `blockNum` DESC LIMIT 1");
-                        var _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
+                        _storage_Block[] _storage_block = null;
+                        if (db_block_num > 0)
+                        {
+                            string sql = string.Format("SELECT * FROM `blocks` ORDER BY `blockNum` DESC LIMIT 1");
+                            _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();
+                        }
 
                         if (_storage_block == null)
-                            return 0;
+                            return db_block_num;
 
                         if (_storage_block.Length < 1)
-                            return 0;
+                            return db_block_num;
 
                         _storage_Block blk = _storage_block[0];
                         cached_lastBlockNum = (ulong)blk.blockNum;
