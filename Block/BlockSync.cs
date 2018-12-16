@@ -832,7 +832,7 @@ namespace DLT
             }
         }
 
-        public void onHelloDataReceived(ulong block_height, byte[] block_checksum, byte[] walletstate_checksum, int consensus, ulong last_block_to_read_from_storage = 0)
+        public void onHelloDataReceived(ulong block_height, byte[] block_checksum, byte[] walletstate_checksum, int consensus, ulong last_block_to_read_from_storage = 0, bool from_network = false)
         {
             Logging.info("SYNC HEADER DATA");
             Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));
@@ -906,6 +906,11 @@ namespace DLT
 
                     noNetworkSynchronization = true;
                 }
+            }
+
+            if (from_network)
+            {
+                noNetworkSynchronization = false;
             }
         }
 
