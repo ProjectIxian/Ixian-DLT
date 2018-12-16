@@ -75,33 +75,47 @@ namespace DLT.Meta
         // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
         static public void renameStorageFiles()
         {
-            if (!File.Exists("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "wsStorage.dat.1000")
-                && !File.Exists("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-wsStorage.dat.1000"))
-                return;
-
-            var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
-            foreach (var filename in files)
+            if (File.Exists("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "wsStorage.dat.1000"))
             {
-                var split_filenane = filename.Split('.');
-                string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
-                File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
+                var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
+                foreach (var filename in files)
+                {
+                    var split_filenane = filename.Split('.');
+                    string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
+                    File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
+                }
             }
 
-            if (!File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "blockchain.dat.0")
-                && !File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-blockchain.dat.0"))
-                return;
-
-            files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
-            foreach (var filename in files)
+            if (File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "blockchain.dat.0")
             {
-                if (filename.EndsWith("-shm") || filename.EndsWith("-wal"))
+                var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
+                foreach (var filename in files)
                 {
-                    File.Delete(filename);
-                    continue;
+                    if (filename.EndsWith("-shm") || filename.EndsWith("-wal"))
+                    {
+                        File.Delete(filename);
+                        continue;
+                    }
+                    var split_filenane = filename.Split('.');
+                    string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
+                    File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
                 }
-                var split_filenane = filename.Split('.');
-                string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
-                File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
+            }
+            
+            if (File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-blockchain.dat.0"))
+            {
+                var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
+                foreach (var filename in files)
+                {
+                    if (filename.EndsWith("-shm") || filename.EndsWith("-wal"))
+                    {
+                        File.Delete(filename);
+                        continue;
+                    }
+                    var split_filenane = filename.Split('.');
+                    string path = "data-testnet" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000";
+                    File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
+                }
             }
         }
 
@@ -775,8 +789,8 @@ namespace DLT.Meta
             if (!Directory.Exists(Config.dataFolderPath))
             {
                 Directory.CreateDirectory(Config.dataFolderPath);
-                File.SetAttributes(Config.dataFolderPath, FileAttributes.NotContentIndexed);
             }
+            File.SetAttributes(Config.dataFolderPath, FileAttributes.NotContentIndexed);
 
 
             if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "ws"))

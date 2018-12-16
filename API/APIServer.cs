@@ -348,7 +348,7 @@ namespace DLTNode
             IxiNumber amount = 0;
             IxiNumber fee = CoreConfig.transactionPrice;
             SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
-            string[] to_split = request.QueryString["to"].Split('.');
+            string[] to_split = request.QueryString["to"].Split('-');
             if (to_split.Length > 0)
             {
                 foreach (string single_to in to_split)
