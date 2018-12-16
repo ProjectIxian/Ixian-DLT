@@ -14,7 +14,7 @@ namespace DLT
     {
         public class Storage
         {
-            public static string filename = "blockchain.dat";
+            public static string path = Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks";
 
             // Sql connections
             private static SQLiteConnection sqlConnection = null;
@@ -134,6 +134,8 @@ namespace DLT
                     }
 
                     SQLiteConnection connection = new SQLiteConnection(path);
+                    //connection.ExecuteScalar<string>("PRAGMA journal_mode=WAL;");
+                    //connection.ExecuteScalar<string>("PRAGMA locking_mode=EXCLUSIVE;");
                     if (cache)
                     {
                         connectionCache.Add(path, new object[2] { connection, Clock.getTimestamp() });
@@ -180,7 +182,7 @@ namespace DLT
                     // Update the current seek number
                     current_seek = db_blocknum;
 
-                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
+                    string db_path = path + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + db_blocknum + ".dat";
 
                     // Bind the connection
                     sqlConnection = getSQLiteConnection(db_path, cache);
@@ -197,7 +199,7 @@ namespace DLT
 
                 while (!found)
                 {
-                    string db_path = Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + filename + "." + db_blocknum;
+                    string db_path = path + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + db_blocknum + ".dat";
                     if (File.Exists(db_path))
                     {
                         db_blocknum += Config.maxBlocksPerDatabase;
@@ -909,20 +911,20 @@ namespace DLT
             // Checks and upgrades an older database if found
             public static bool checkForOlderDatabase()
             {
-                if (File.Exists(filename) == false)
+                if (File.Exists("blockchain.dat") == false)
                     return false;
 
                 upgrading = true;
 
                 // Bind the connection
-                SQLiteConnection sqlConnectionOld = new SQLiteConnection(filename);
+                SQLiteConnection sqlConnectionOld = new SQLiteConnection("blockchain.dat");
 
                 // Check if the database is a very old, incompatible version
                 var tableInfo = sqlConnectionOld.GetTableInfo("transactions");
                 if (tableInfo.Exists(x => x.Name == "to"))
                 {
                     sqlConnectionOld.Close();
-                    File.Delete(filename);
+                    File.Delete("blockchain.dat");
                     return false;
                 }
 
@@ -1023,7 +1025,7 @@ namespace DLT
                 // Close the database and remove the file
                 sqlConnectionOld.Close();
                 Logging.info("Upgrading complete, removing old blockchain file...");
-                File.Delete(filename);
+                File.Delete("blockchain.dat");
 
                 upgrading = false;
 
@@ -1090,7 +1092,7 @@ namespace DLT
 
             public static void deleteCache()
             {
-                string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
+                string[] fileNames = Directory.GetFiles(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
                 foreach(string fileName in fileNames)
                 {
                     File.Delete(fileName);

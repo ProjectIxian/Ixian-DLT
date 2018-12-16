@@ -7,13 +7,15 @@ namespace DLT.Meta
 
     public class WalletStateStorage
     {
-        public static string baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "wsStorage.dat";
+        public static string path = Config.dataFolderPath + Path.DirectorySeparatorChar + "ws";
 
         public static void saveWalletState(ulong blockNum)
         {
             Node.checkDataFolder();
 
-            FileStream fs = File.Open(baseFilename + "." + blockNum, FileMode.Create, FileAccess.Write, FileShare.None);
+            string db_path = path + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + blockNum + ".dat";
+
+            FileStream fs = File.Open(db_path, FileMode.Create, FileAccess.Write, FileShare.None);
             fs.Write(BitConverter.GetBytes(Node.walletState.version), 0, 4);
 
             DLT.WsChunk[] chunk = Node.walletState.getWalletStateChunks(0, blockNum);
@@ -43,13 +45,15 @@ namespace DLT.Meta
                 }
             }
             blockNum = ((ulong)(blockNum / 1000)) * 1000;
+            string db_path = "";
 
             FileStream fs = null;
             while (fs == null)
             {
-                if (File.Exists(baseFilename + "." + blockNum))
+                db_path = path + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + blockNum + ".dat";
+                if (File.Exists(db_path))
                 {
-                    fs = File.Open(baseFilename + "." + blockNum, FileMode.Open, FileAccess.Read, FileShare.None);
+                    fs = File.Open(db_path, FileMode.Open, FileAccess.Read, FileShare.None);
                 }else
                 {
                     if (blockNum < 1000)
@@ -98,8 +102,8 @@ namespace DLT.Meta
             }catch(Exception e)
             {
                 fs.Close();
-                Logging.error("An exception occured while reading file '" + (baseFilename + "." + blockNum) + "': " + e);
-                File.Delete(baseFilename + "." + blockNum);
+                Logging.error("An exception occured while reading file '" + db_path + "': " + e);
+                File.Delete(db_path);
                 Node.walletState.clear();
                 restoreWalletState();
             }
@@ -109,7 +113,8 @@ namespace DLT.Meta
 
         public static void deleteCache()
         {
-            string[] fileNames = Directory.GetFiles(Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
+            string db_path = path + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar;
+            string[] fileNames = Directory.GetFiles(db_path);
             foreach (string fileName in fileNames)
             {
                 File.Delete(fileName);

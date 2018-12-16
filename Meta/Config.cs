@@ -32,7 +32,7 @@ namespace DLT
            
             public static uint miningThreads = 1;
 
-            public static string dataFoldername = "data";
+            public static string dataFolderPath = "data";
             public static string configFilename = "ixian.cfg";
             public static string walletFile = "ixian.wal";
 
@@ -223,9 +223,8 @@ namespace DLT
                 {
                     serverPort = testnetServerPort;
                     apiPort = testnetApiPort;
-                    Storage.filename = "testnet-blockchain.dat";
+                    dataFolderPath = "data-testnet";
                     PeerStorage.peersFilename = "testnet-peers.dat";
-                    WalletStateStorage.baseFilename = Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-wsStorage.dat";
                 }
 
 
@@ -284,7 +283,8 @@ namespace DLT
 
                 cmd_parser.Setup<bool>("disableWebStart").Callback(value => disableWebStart = true).Required();
 
-                
+                cmd_parser.Setup<string>("dataFolderPath").Callback(value => dataFolderPath = value).Required();
+
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 

@@ -72,11 +72,46 @@ namespace DLT.Meta
             walletState = new WalletState();
         }
 
+        // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
+        static public void renameStorageFiles()
+        {
+            if (!File.Exists("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "wsStorage.dat.1000")
+                && !File.Exists("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-wsStorage.dat.1000"))
+                return;
+
+            var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
+            foreach (var filename in files)
+            {
+                var split_filenane = filename.Split('.');
+                string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
+                File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
+            }
+
+            if (!File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "blockchain.dat.0")
+                && !File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-blockchain.dat.0"))
+                return;
+
+            files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
+            foreach (var filename in files)
+            {
+                if (filename.EndsWith("-shm") || filename.EndsWith("-wal"))
+                {
+                    File.Delete(filename);
+                    continue;
+                }
+                var split_filenane = filename.Split('.');
+                string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
+                File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
+            }
+        }
+
         // Start the node
         static public void start(bool verboseConsoleOutput)
         {
             // First create the data folder if it does not already exist
             checkDataFolder();
+
+            renameStorageFiles(); // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
 
             // debug
             if (Config.networkDumpFile != "")
@@ -737,29 +772,31 @@ namespace DLT.Meta
         // Check if the data folder exists. Otherwise it creates it
         public static void checkDataFolder()
         {
-            if (!Directory.Exists(Config.dataFoldername))
+            if (!Directory.Exists(Config.dataFolderPath))
             {
-                Directory.CreateDirectory(Config.dataFoldername);
+                Directory.CreateDirectory(Config.dataFolderPath);
+                File.SetAttributes(Config.dataFolderPath, FileAttributes.NotContentIndexed);
             }
 
-            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "ws"))
+
+            if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "ws"))
             {
-                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "ws");
+                Directory.CreateDirectory(Config.dataFolderPath + Path.DirectorySeparatorChar + "ws");
             }
 
-            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000"))
+            if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000"))
             {
-                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
+                Directory.CreateDirectory(Config.dataFolderPath + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
             }
 
-            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks"))
+            if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks"))
             {
-                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks");
+                Directory.CreateDirectory(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks");
             }
 
-            if (!Directory.Exists(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000"))
+            if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000"))
             {
-                Directory.CreateDirectory(Config.dataFoldername + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
+                Directory.CreateDirectory(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
             }
         }
 

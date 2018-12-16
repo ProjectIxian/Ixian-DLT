@@ -218,6 +218,11 @@ namespace DLTNode
                     Thread.Sleep(1000);
                 }
             }
+
+            if (noStart == false)
+            {
+                Console.WriteLine("Ixian DLT is stopping...");
+            }
             onStop();
 
         }
@@ -321,8 +326,7 @@ namespace DLTNode
                 }
                 else if(key.Key == ConsoleKey.Escape)
                 {
-                    Node.stop();
-                    Environment.Exit(0);
+                    Node.apiServer.forceShutdown = true;
                 }
                 else if (key.Key == ConsoleKey.M)
                 {
