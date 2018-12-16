@@ -518,9 +518,11 @@ namespace DLT
                         if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                         {
                             //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                            TransactionPool.setAppliedFlagToTransactionsFromBlock(b);
-                            Node.blockChain.appendBlock(b, !b.fromLocalStorage);
-                            resetWatchDog(b.blockNum);
+                            if (TransactionPool.setAppliedFlagToTransactionsFromBlock(b))
+                            {
+                                Node.blockChain.appendBlock(b, !b.fromLocalStorage);
+                                resetWatchDog(b.blockNum);
+                            }
                             if (missingBlocks != null)
                             {
                                 missingBlocks.RemoveAll(x => x <= b.blockNum);
