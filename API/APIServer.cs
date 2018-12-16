@@ -284,7 +284,7 @@ namespace DLTNode
 
             if (methodName.Equals("activity", StringComparison.OrdinalIgnoreCase))
             {
-                response = onActivity();
+                response = onActivity(request);
             }
 
             sendResponse(context.Response, response);
@@ -708,7 +708,7 @@ namespace DLTNode
                 blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
-                blockData.Add("Transactions", JsonConvert.SerializeObject(block.getFullTransactionsAsArray(Config.storeFullHistory)));
+                blockData.Add("Transactions", JsonConvert.SerializeObject(block.getFullTransactionsAsArray()));
             }
 
             return new JsonResponse { result = blockData, error = error };
@@ -1039,11 +1039,23 @@ namespace DLTNode
             return new JsonResponse { result = outstring, error = error };
         }
 
-        public JsonResponse onActivity()
+        public JsonResponse onActivity(HttpListenerRequest request)
         {
             JsonError error = null;
 
-            List<Activity> res = ActivityStorage.getActivitiesByAddress(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), 0, 50, true);
+            string fromIndex = request.QueryString["fromIndex"];
+            if (fromIndex == null)
+            {
+                fromIndex = "0";
+            }
+
+            string count = request.QueryString["count"];
+            if (count == null)
+            {
+                count = "50";
+            }
+
+            List<Activity> res = ActivityStorage.getActivitiesByAddress(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Int32.Parse(fromIndex), Int32.Parse(count), true);
 
             return new JsonResponse { result = res, error = error };
         }

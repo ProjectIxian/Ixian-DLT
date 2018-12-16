@@ -554,7 +554,7 @@ namespace DLT
                         continue;
                 }
 
-                Transaction t = TransactionPool.getTransaction(txid);
+                Transaction t = TransactionPool.getTransaction(txid, b.blockNum);
                 if (t == null)
                 {
                     if (fetchTransactions)
@@ -1202,7 +1202,7 @@ namespace DLT
             ulong txcount = 0;
             foreach(string txid in targetBlock.transactions)
             {
-                Transaction tx = TransactionPool.getTransaction(txid);               
+                Transaction tx = TransactionPool.getTransaction(txid, b.blockNum);               
                 if (tx != null)
                 {
                     if (tx.type == (int)Transaction.Type.Normal)

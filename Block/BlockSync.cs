@@ -428,7 +428,7 @@ namespace DLT
                             bool missing = false;
                             foreach (string txid in b.transactions)
                             {
-                                Transaction t = TransactionPool.getTransaction(txid, true);
+                                Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
                                 if (t != null)
                                 {
                                     if(!TransactionPool.addTransaction(t, true, null, false))

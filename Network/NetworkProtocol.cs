@@ -73,7 +73,7 @@ namespace DLT
                                         continue;
                                     }
                                 }
-                                Transaction tx = TransactionPool.getTransaction(txIdArr[tx_index], Config.storeFullHistory);
+                                Transaction tx = TransactionPool.getTransaction(txIdArr[tx_index], blockNum, true);
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
@@ -905,7 +905,7 @@ namespace DLT
                                         string txid = reader.ReadString();
 
                                         // Check for a transaction corresponding to this id
-                                        Transaction transaction = TransactionPool.getTransaction(txid, Config.storeFullHistory);
+                                        Transaction transaction = TransactionPool.getTransaction(txid, 0, true);
                                         if (transaction == null)
                                         {
                                             Logging.warn(String.Format("I do not have txid '{0}.", txid));
@@ -1301,7 +1301,7 @@ namespace DLT
                                             {
                                                 continue;
                                             }
-                                            if (TransactionPool.getTransaction(tx.id) != null)
+                                            if (TransactionPool.hasTransaction(tx.id))
                                             {
                                                 continue;
                                             }

@@ -581,26 +581,29 @@ namespace DLT
 
         // Attempts to retrieve a transaction from memory or from storage
         // Returns null if no transaction is found
-        public static Transaction getTransaction(string txid, bool search_in_storage = false)
+        public static Transaction getTransaction(string txid, ulong block_num = 0, bool search_in_storage = false)
         {
             Transaction transaction = null;
+
+            bool compacted_transaction = false;
 
             lock(transactions)
             {
                 //Logging.info(String.Format("Looking for transaction {{ {0} }}. Pool has {1}.", txid, transactions.Count));
-                transaction = transactions.ContainsKey(txid) ? transactions[txid] : null;
+                compacted_transaction = transactions.ContainsKey(txid);
+                transaction = compacted_transaction ? transactions[txid] : null;
             }
 
             if (transaction != null)
                 return transaction;
 
-            if (search_in_storage)
+            if (search_in_storage || compacted_transaction)
             {
                 // No transaction found in memory, look into storage
 
                 /*var sw = new System.Diagnostics.Stopwatch();
                 sw.Start();*/
-                transaction = Storage.getTransaction(txid);
+                transaction = Storage.getTransaction(txid, block_num);
                 /*sw.Stop();
                 TimeSpan elapsed = sw.Elapsed;
                 Logging.info(string.Format("StopWatch duration: {0}ms", elapsed.TotalMilliseconds));*/
@@ -776,7 +779,7 @@ namespace DLT
                 Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
                 foreach (string txid in b.transactions)
                 {
-                    Transaction tx = getTransaction(txid);
+                    Transaction tx = getTransaction(txid, b.blockNum);
                     if (tx == null)
                     {
                         Logging.error(String.Format("Attempted to set applied to transaction from block #{0} ({1}), but transaction {{ {2} }} was missing.",
@@ -947,7 +950,7 @@ namespace DLT
                     {
                         if (Node.blockSync.synchronizing && !Config.recoverFromFile && !Config.storeFullHistory)
                         {
-                            if (getTransaction(txid) == null)
+                            if (getTransaction(txid, block.blockNum) == null)
                             {
                                 Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
                             }
@@ -955,7 +958,7 @@ namespace DLT
                         continue;
                     }
 
-                    Transaction tx = getTransaction(txid);
+                    Transaction tx = getTransaction(txid, block.blockNum);
 
                     if (tx == null)
                     {

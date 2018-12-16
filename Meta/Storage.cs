@@ -320,7 +320,7 @@ namespace DLT
                     byte[] tx_data_shuffled = shuffleStorageBytes(transaction.data);
 
                     // Go through all databases starting from latest and search for the transaction
-                    if (getTransaction(transaction.id) == null)
+                    if (getTransaction(transaction.id, transaction.applied) == null)
                     {
                         // Transaction was not found in any existing database, seek to the proper database
                         seekDatabase(transaction.applied, true);
@@ -566,7 +566,7 @@ namespace DLT
             }
 
             // Retrieve a transaction from the sql database
-            public static Transaction getTransaction(string txid)
+            public static Transaction getTransaction(string txid, ulong block_num)
             {
                 Transaction transaction = null;
                 List<_storage_Transaction> _storage_tx = null;
@@ -580,6 +580,10 @@ namespace DLT
                     bool found = false;
                     try
                     {
+                        if(block_num > 0)
+                        {
+                            seekDatabase(block_num, true);
+                        }
                         _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
 
                     }
@@ -593,7 +597,10 @@ namespace DLT
                         if (_storage_tx.Count > 0)
                             found = true;
 
-
+                    if(!found && block_num > 0)
+                    {
+                        return transaction;
+                    }
 
                     ulong db_blocknum = getLastBlockNum();
                     while (!found)

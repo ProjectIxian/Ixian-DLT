@@ -200,8 +200,22 @@
 				qrcode.makeCode(address);
 				
 
-				});
+			});
+        }
+
+        function statusToString(status) {
+            switch (status) {
+                case 1:
+                    return "Pending";
+                case 2:
+                    return "Final";
+                case 3:
+                    return "Error";
+                default:
+                    return "Unknown - " + status;
             }
+
+        }
 
         function getActivity() {
             var dltAPI = "#IXIAN#NODE#URL#";
@@ -230,10 +244,12 @@
                         } else if (type == 201) {
                             htmlEl.className += " received";
                             htmlEl.getElementsByClassName("pamount")[0].innerHTML = data["result"][i]["value"];
-                            htmlEl.getElementsByClassName("pdesc")[0].innerHTML = data["result"][i]["from"];
                             htmlEl.getElementsByClassName("pdesc")[0].innerHTML += "<br/>Staking Reward";
                         }
-                            
+                        var date = new Date(data["result"][i]["timestamp"] * 1000);
+                        htmlEl.getElementsByClassName("psign")[0].innerHTML += date.getDay() + "." + date.getMonth() + "." + date.getFullYear() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+                        var status = statusToString(data["result"][i]["status"]);
+                        htmlEl.getElementsByClassName("pdesc")[0].innerHTML += " - " + status;
                     }
                 });
         }

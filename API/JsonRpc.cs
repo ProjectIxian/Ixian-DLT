@@ -368,7 +368,7 @@ namespace DLTNode.API
 
         public JsonResponse gettransaction(string txid)
         {
-            Transaction t = TransactionPool.getTransaction(txid, true);
+            Transaction t = TransactionPool.getTransaction(txid, 0, true);
             Dictionary<string, object> iDic = new Dictionary<string, object>();
             iDic.Add("amount", t.amount);
             iDic.Add("fee", t.fee);

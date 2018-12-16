@@ -667,7 +667,7 @@ namespace DLT
             List<Transaction> txList = new List<Transaction>();
             for (int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = TransactionPool.getTransaction(transactions[i]);
+                Transaction t = TransactionPool.getTransaction(transactions[i], blockNum);
                 if (t == null)
                 {
                     Logging.error(string.Format("nulltx: {0}", transactions[i]));
@@ -679,12 +679,12 @@ namespace DLT
         }
 
         // temporary function that will correctly JSON Serialize IxiNumber
-        public List<Dictionary<string, object>> getFullTransactionsAsArray(bool searchInStorage = false)
+        public List<Dictionary<string, object>> getFullTransactionsAsArray()
         {
             List<Dictionary<string, object>> txList = new List<Dictionary<string, object>>();
             for (int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = TransactionPool.getTransaction(transactions[i], searchInStorage);
+                Transaction t = TransactionPool.getTransaction(transactions[i], blockNum, true);
                 if (t == null)
                 {
                     Logging.error(string.Format("nulltx: {0}", transactions[i]));
@@ -703,7 +703,7 @@ namespace DLT
             IxiNumber val = 0;
             for(int i = 0; i < transactions.Count; i++)
             {
-                Transaction t = TransactionPool.getTransaction(transactions[i]);
+                Transaction t = TransactionPool.getTransaction(transactions[i], blockNum);
                 if (t == null)
                     Logging.error(string.Format("nulltx: {0}", transactions[i]));
                 else
