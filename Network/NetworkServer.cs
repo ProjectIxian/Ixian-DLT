@@ -284,8 +284,8 @@ namespace DLT
                 {
                     Thread.Sleep(100); // wait a bit for check connectivity purposes
                     clientSocket.Send(CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.bye, new byte[1]));
-                    clientSocket.Disconnect(true);
                     clientSocket.Shutdown(SocketShutdown.Both);
+                    clientSocket.Disconnect(true);
                     return;
                 }
 
@@ -299,8 +299,8 @@ namespace DLT
                         Logging.warn(string.Format("Maximum number of connected clients reached. Disconnecting client: {0}:{1}",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port));
                         clientSocket.Send(CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.bye, new byte[1]));
-                        clientSocket.Disconnect(true);
                         clientSocket.Shutdown(SocketShutdown.Both);
+                        clientSocket.Disconnect(true);
                         return;
                     }
 
@@ -310,17 +310,17 @@ namespace DLT
                         Logging.warn(String.Format("Client {0}:{1} already connected as {2}.",
                             clientEndpoint.Address.ToString(), clientEndpoint.Port, existing_clients.First().ToString()));
                         clientSocket.Send(CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.bye, new byte[1]));
-                        clientSocket.Disconnect(true);
                         clientSocket.Shutdown(SocketShutdown.Both);
+                        clientSocket.Disconnect(true);
                         return;
                     }
 
                     connectedClients.Add(remoteEndpoint);
+
+                    Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, CoreConfig.maximumServerMasterNodes));
+
+                    remoteEndpoint.start(clientSocket);
                 }
-
-                Logging.info(String.Format("Client connection accepted: {0} | #{1}/{2}", clientEndpoint.ToString(), connectedClients.Count + 1, CoreConfig.maximumServerMasterNodes));
-
-                remoteEndpoint.start(clientSocket);
             }
 
             // Removes an endpoint from the connected clients list

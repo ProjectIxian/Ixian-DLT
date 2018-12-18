@@ -453,7 +453,7 @@ namespace DLT
                             b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
                         }else
                         {
-                            b_status = Node.blockProcessor.verifyBlockBasic(b);
+                            b_status = Node.blockProcessor.verifyBlockBasic(b, false);
                         }
 
                         if (b_status == BlockVerifyStatus.Indeterminate)
@@ -927,7 +927,7 @@ namespace DLT
                 return;
             }
 
-            if (forceWsUpdate || (DateTime.UtcNow - watchDogTime).TotalSeconds > 120) // stuck on the same block for 120 seconds
+            if (forceWsUpdate || (DateTime.UtcNow - watchDogTime).TotalSeconds > 240) // stuck on the same block for 240 seconds
             {
                 wsSyncConfirmedBlockNum = 0;
                 ulong lastBlockHeight = Node.getLastBlockHeight();
@@ -956,35 +956,13 @@ namespace DLT
 
                 resetWatchDog(0);
 
-                for (ulong blockNum = Node.blockChain.getLastBlockNum(); blockNum > lastBlockToReadFromStorage; blockNum--)
-                {
-                    Block b = Node.blockChain.getBlock(blockNum);
-                    if (b != null)
-                    {
-                        foreach (Transaction t in b.getFullTransactions())
-                        {
-                            if (t.type == (int)Transaction.Type.PoWSolution)
-                            {
-                                ulong powBlockNum = BitConverter.ToUInt64(t.data, 0);
-                                Block powB = Node.blockChain.getBlock(powBlockNum);
-                                if (powB != null)
-                                {
-                                    powB.powField = null;
-                                }
-                            }
-                        }
-                        TransactionPool.redactTransactionsForBlock(b);
-                        Node.blockChain.removeBlock(blockNum);
-                    }
-                }
+                Node.blockChain.clear();
+
+                TransactionPool.clear();
 
                 lock (pendingBlocks)
                 {
-                    ulong firstBlock = Node.getLastBlockHeight();
-                    if(firstBlock == 0)
-                    {
-                        firstBlock = 1;
-                    }
+                    ulong firstBlock = getLowestBlockNum();
                     ulong lastBlock = lastBlockToReadFromStorage;
                     if(syncTargetBlockNum > lastBlock)
                     {

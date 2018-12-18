@@ -401,7 +401,17 @@ namespace DLT
             return solved_blocks;
         }
 
-
-
+        // Clears all the transactions in the pool
+        public void clear()
+        {
+            lock (blocksDictionary)
+            {
+                blocksDictionary.Clear();
+            }
+            lock (blocks)
+            {
+                blocks.Clear();
+            }
+        }
     }
 }

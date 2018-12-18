@@ -432,7 +432,7 @@ namespace DLT
             }
         }
 
-        public BlockVerifyStatus verifyBlockBasic(Block b)
+        public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true)
         {
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
@@ -452,11 +452,14 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
-            // Verify signatures
-            if (!b.verifySignatures())
+            if (verify_sig)
             {
-                Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
-                return BlockVerifyStatus.Invalid;
+                // Verify signatures
+                if (!b.verifySignatures())
+                {
+                    Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
+                    return BlockVerifyStatus.Invalid;
+                }
             }
 
             ulong lastBlockNum = Node.getLastBlockHeight();
