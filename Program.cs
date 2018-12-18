@@ -260,7 +260,12 @@ namespace DLTNode
 
             // Log the parameters to notice any changes
             Logging.info(String.Format("Mainnet: {0}", !Config.isTestNet));
-            Logging.info(String.Format("Miner: {0}", !Config.disableMiner));
+
+            if(Config.workerOnly)
+                Logging.info("Miner: worker-only");
+            else
+                Logging.info(String.Format("Miner: {0}", !Config.disableMiner));
+
             Logging.info(String.Format("Server Port: {0}", Config.serverPort));
             Logging.info(String.Format("API Port: {0}", Config.apiPort));
             Logging.info(String.Format("Wallet File: {0}", Config.walletFile));

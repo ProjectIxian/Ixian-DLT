@@ -90,7 +90,17 @@ namespace DLT.Meta
             if (Node.blockSync.synchronizing)
                 dltStatus =     "synchronizing";
 
-            int connectionsIn = NetworkServer.getConnectedClients().Count();
+
+            int connectionsIn = 0;
+
+            string connectionsInStr = "-";  // Default to no inbound connections accepted
+            if (NetworkServer.isRunning())
+            {
+                // If there server is running, show the number of inbound connections
+                connectionsIn = NetworkServer.getConnectedClients().Count();
+                connectionsInStr = String.Format("{0}", connectionsIn);
+            }
+
             int connectionsOut = NetworkClientManager.getConnectedClients().Count();
             if (connectionsIn + connectionsOut < 1)
                 dltStatus =     "connecting   ";
@@ -108,7 +118,7 @@ namespace DLT.Meta
                 }
             }
             writeLine("\tBlock Height:\t\t{0} ({1} sigs)", lastBlockNum, sigCount);
-            writeLine("\tConnections (I/O):\t{0}", connectionsIn + "/" + connectionsOut);
+            writeLine("\tConnections (I/O):\t{0}", connectionsInStr + "/" + connectionsOut);
             writeLine("\tPresences:\t\t{0}", PresenceList.getTotalPresences());
             writeLine("\tTransaction Pool:\t{0}", TransactionPool.getUnappliedTransactions().Count());
 

@@ -211,6 +211,15 @@ namespace DLT.Meta
                 System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
             }
 
+            // Check if we're in worker-only mode
+            if (Config.workerOnly)
+            {
+                // Enable miner
+                Config.disableMiner = false;
+                workerMode = true;
+                PresenceList.curNodePresenceAddress.type = 'W';
+            }
+
             miner = new Miner();
 
             // Start the network queue
@@ -320,7 +329,7 @@ namespace DLT.Meta
                         blockSync.lastBlockToReadFromStorage = lastLocalBlockNum;
                     }
 
-                    // start the server for ping purposes
+                    // Start the server for ping purposes
                     serverStarted = true;
                     NetworkServer.beginNetworkOperations();
 
@@ -551,6 +560,9 @@ namespace DLT.Meta
         // Checks the current balance of the masternode
         static public bool checkMasternodeBalance()
         {
+            if (Config.workerOnly)
+                return false;
+
             // First check if the block processor is running
             if (blockProcessor.operating == true)
             {

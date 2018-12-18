@@ -24,6 +24,7 @@ namespace DLT
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
             public static bool disableMiner = true; // Flag to disable miner
+            public static bool workerOnly = false; // Flag to disable masternode capability
 
             public static bool verboseConsoleOutput = false; // Flag for verbose console output
 
@@ -88,6 +89,7 @@ namespace DLT
                 Console.WriteLine("    -g\t\t Start node in genesis mode");
                 Console.WriteLine("    -w\t\t Specify location of the ixian.wal file");
                 Console.WriteLine("    -n\t\t Specify which seed node to use");
+                Console.WriteLine("    --worker\t Enables mining and disables masternode functionality");
                 Console.WriteLine("    --threads\t Specify number of threads to use for mining (default 1)");
                 Console.WriteLine("    --config\t Specify config filename (default ixian.cfg)");
                 Console.WriteLine("    --maxLogSize\t Specify maximum log file size in MB");
@@ -247,6 +249,9 @@ namespace DLT
 
                 // Toggle between mining and no mining mode
                 cmd_parser.Setup<bool>('m', "miner").Callback(value => disableMiner = false).Required();
+
+                // Toggle worker-only mode
+                cmd_parser.Setup<bool>("worker").Callback(value => workerOnly = true).Required();
 
                 // Check for password change
                 cmd_parser.Setup<bool>('x', "changepass").Callback(value => changePass = value).Required();

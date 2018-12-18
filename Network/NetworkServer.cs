@@ -22,7 +22,7 @@ namespace DLT
             public static string publicIPAddress = "127.0.0.1";
 
 
-            private static bool continueRunning;
+            private static bool continueRunning = false;
             private static Thread netControllerThread = null;
             private static TcpListener listener;
             private static List<RemoteEndpoint> connectedClients = new List<RemoteEndpoint>();
@@ -396,6 +396,13 @@ namespace DLT
                 }
                 return false;
             }
+
+            // Check if the server is running
+            public static bool isRunning()
+            {
+                return continueRunning;
+            }
+
         }
     }
 }
