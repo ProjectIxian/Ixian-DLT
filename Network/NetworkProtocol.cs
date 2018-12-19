@@ -136,15 +136,15 @@ namespace DLT
                 }
             }
 
-
-            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, byte includeTransactions = 0)
+            // Requests block with specified block height from the network, include_transactions value can be 0 - don't include transactions, 1 - include all but staking transactions or 2 - include all, including staking transactions
+            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, byte include_transactions = 0)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
                     using (BinaryWriter writerw = new BinaryWriter(mw))
                     {
                         writerw.Write(block_num);
-                        writerw.Write(includeTransactions);
+                        writerw.Write(include_transactions);
 
                         return broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
                     }
@@ -220,6 +220,7 @@ namespace DLT
                 }
             }
 
+            // Broadcasts protocol message to a single random node with block height higher than the one specified with parameter block_num
             public static bool broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode code, byte[] data, ulong block_num, RemoteEndpoint endpoint = null)
             {
                 if (data == null)
@@ -232,8 +233,18 @@ namespace DLT
                 {
                     lock (NetworkServer.connectedClients)
                     {
-                        List<NetworkClient> servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight >= block_num);
-                        List<RemoteEndpoint> clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight >= block_num);
+                        List<NetworkClient> servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight > block_num);
+                        List<RemoteEndpoint> clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight > block_num);
+
+                        if (servers.Count() == 0)
+                        {
+                            servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight == block_num);
+                        }
+
+                        if (clients.Count() == 0)
+                        {
+                            clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight == block_num);
+                        }
 
                         int serverCount = servers.Count();
                         int clientCount = clients.Count();

@@ -649,12 +649,12 @@ namespace DLT
                     {
                         fetchingBulkTxForBlocks.Add(b.blockNum, 0);
                         fetchingTxForBlocks.Add(b.blockNum, 0);
-                        bool requestAll = true;
+                        byte includeTransactions = 2;
                         if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && Config.storeFullHistory))
                         {
-                            requestAll = false;
+                            includeTransactions = 1;
                         }
-                        ProtocolMessage.broadcastGetBlockTransactions(b.blockNum, requestAll, endpoint);
+                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, includeTransactions);
                         Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
 
                     }
