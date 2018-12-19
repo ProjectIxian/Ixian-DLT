@@ -1734,7 +1734,7 @@ namespace DLT
 
                     if (cur_time - tx_time > 10 && cur_time - tx_time < 20) // if the transaction is pending for over 15 seconds, send inquiry
                     {
-                        ProtocolMessage.broadcastGetTransaction(t.id);
+                        ProtocolMessage.broadcastGetTransaction(t.id, 0);
                         pendingTransactions[idx][1] = tx_time + 10;
                     }
 

@@ -25,7 +25,7 @@ namespace DLT
             private static bool continueRunning = false;
             private static Thread netControllerThread = null;
             private static TcpListener listener;
-            private static List<RemoteEndpoint> connectedClients = new List<RemoteEndpoint>();
+            public static List<RemoteEndpoint> connectedClients = new List<RemoteEndpoint>();
 
             Dictionary<string, DateTime> nodeBlacklist = new Dictionary<string, DateTime>();
 

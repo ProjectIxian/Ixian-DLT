@@ -437,7 +437,7 @@ namespace DLT
                                     }
                                 }else
                                 {
-                                    ProtocolMessage.broadcastGetTransaction(txid);
+                                    ProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
                                     missing = true;
                                 }
                             }

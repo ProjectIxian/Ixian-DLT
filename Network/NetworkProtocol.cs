@@ -146,7 +146,7 @@ namespace DLT
                         writerw.Write(block_num);
                         writerw.Write(includeTransactions);
 
-                        return broadcastProtocolMessage(ProtocolMessageCode.getBlock, mw.ToArray(), skipEndpoint, true);
+                        return broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
                     }
                 }
             }
@@ -168,13 +168,14 @@ namespace DLT
                 }
             }
 
-            public static bool broadcastGetTransaction(string txid, RemoteEndpoint endpoint = null)
+            public static bool broadcastGetTransaction(string txid, ulong block_num, RemoteEndpoint endpoint = null)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
                     using (BinaryWriter writerw = new BinaryWriter(mw))
                     {
                         writerw.Write(txid);
+                        writerw.Write(block_num);
 
                         if (endpoint != null)
                         {
@@ -187,13 +188,13 @@ namespace DLT
                         }
                         else
                         {
-                            return broadcastProtocolMessage(ProtocolMessageCode.getTransaction, mw.ToArray(), null, true);
+                            return broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
                         }
                     }
                 }
             }
 
-            public static void broadcastGetBlockTransactions(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
+            public static bool broadcastGetBlockTransactions(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -204,11 +205,58 @@ namespace DLT
 
                         if (endpoint != null)
                         {
-                            endpoint.sendData(ProtocolMessageCode.getBlockTransactions, mw.ToArray());
-                        }else
-                        {
-                            broadcastProtocolMessage(ProtocolMessageCode.getBlockTransactions, mw.ToArray(), null, true);
+                            if (endpoint.isConnected())
+                            {
+                                endpoint.sendData(ProtocolMessageCode.getBlockTransactions, mw.ToArray());
+                                return true;
+                            }
+                            return false;
                         }
+                        else
+                        {
+                            return broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
+                        }
+                    }
+                }
+            }
+
+            public static bool broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode code, byte[] data, ulong block_num, RemoteEndpoint endpoint = null)
+            {
+                if (data == null)
+                {
+                    Logging.warn(string.Format("Invalid protocol message data for {0}", code));
+                    return false;
+                }
+
+                lock (NetworkClientManager.networkClients)
+                {
+                    lock (NetworkServer.connectedClients)
+                    {
+                        List<NetworkClient> servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight >= block_num);
+                        List<RemoteEndpoint> clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight >= block_num);
+
+                        int serverCount = servers.Count();
+                        int clientCount = clients.Count();
+
+                        Random r = new Random();
+                        int rIdx = r.Next(serverCount + clientCount);
+
+                        RemoteEndpoint re = null;
+
+                        if (rIdx < serverCount)
+                        {
+                            re = servers[rIdx];
+                        }
+                        else
+                        {
+                            re = clients[rIdx - serverCount];
+                        }
+                        if (re != null && re.isConnected())
+                        {
+                            re.sendData(code, data);
+                            return true;
+                        }
+                        return false;
                     }
                 }
             }
@@ -759,6 +807,7 @@ namespace DLT
 
                                         long myTimestamp = Core.getCurrentTimestamp();
 
+                                        endpoint.blockHeight = last_block_num;
 
                                         if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                         {
@@ -903,9 +952,27 @@ namespace DLT
                                     {
                                         // Retrieve the transaction id
                                         string txid = reader.ReadString();
+                                        ulong block_num = 0;
 
+                                        if (m.Position < m.Length - 1)
+                                        {
+                                            // TODO TODO TODO TODO this parameter is now optional, when most nodes upgrades if will be removed and it will be mandatory
+                                            block_num = reader.ReadUInt64();
+                                        }
+
+                                        Transaction transaction = null;
+
+                                        // TODO TODO TODO TODO uncomment this if, once the top if is removed and most nodes upgrade to the latest version
                                         // Check for a transaction corresponding to this id
-                                        Transaction transaction = TransactionPool.getTransaction(txid, 0, true);
+                                        /*if(block_num == 0)
+                                        {
+                                            transaction = TransactionPool.getTransaction(txid, 0, false);
+                                        }
+                                        else
+                                        {*/
+                                            transaction = TransactionPool.getTransaction(txid, block_num, true);
+                                        //}
+
                                         if (transaction == null)
                                         {
                                             Logging.warn(String.Format("I do not have txid '{0}.", txid));
@@ -1043,6 +1110,11 @@ namespace DLT
                         case ProtocolMessageCode.newBlock:
                             {
                                 Block block = new Block(data);
+                                if (endpoint.blockHeight < block.blockNum)
+                                {
+                                    endpoint.blockHeight = block.blockNum;
+                                }
+
                                 //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
                                 Node.blockSync.onBlockReceived(block, endpoint);
                                 Node.blockProcessor.onBlockReceived(block, endpoint);
@@ -1052,6 +1124,11 @@ namespace DLT
                         case ProtocolMessageCode.blockData:
                             {
                                 Block block = new Block(data);
+                                if (endpoint.blockHeight < block.blockNum)
+                                {
+                                    endpoint.blockHeight = block.blockNum;
+                                }
+
                                 Node.blockSync.onBlockReceived(block, endpoint);
                                 Node.blockProcessor.onBlockReceived(block, endpoint);
                             }

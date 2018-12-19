@@ -479,7 +479,7 @@ namespace DLT
                         {
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         }
-                        // blocknum is higher than the network's, switching to catch-up mode, but only if full consensus is reached on the block
+                        // blocknum is higher than the network's, switching to catch-up mode, but only if half of required consensus is reached on the block
                         if (b.blockNum > lastBlockNum + 2 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
@@ -563,7 +563,7 @@ namespace DLT
                     if (fetchTransactions)
                     {
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
-                        ProtocolMessage.broadcastGetTransaction(txid, endpoint);
+                        ProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
                         hasAllTransactions = false;
                         missing++;
                     }
