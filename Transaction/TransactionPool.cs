@@ -368,10 +368,7 @@ namespace DLT
 
                     if (t.from.SequenceEqual(Node.walletStorage.address) || t.toList.ContainsKey(Node.walletStorage.address))
                     {
-                        if (t.type == (int)Transaction.Type.Normal)
-                        {
-                            ActivityStorage.updateStatus(t.getBytes(), ActivityStatus.Final, t.applied);
-                        }
+                        ActivityStorage.updateStatus(t.getBytes(), ActivityStatus.Final, t.applied);
                     }
 
                     if (t.applied == 0)

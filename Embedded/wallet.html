@@ -247,7 +247,7 @@
                             htmlEl.getElementsByClassName("pdesc")[0].innerHTML += "<br/>Staking Reward";
                         }
                         var date = new Date(data["result"][i]["timestamp"] * 1000);
-                        htmlEl.getElementsByClassName("psign")[0].innerHTML += date.getDate() + "." + (date.getMonth() + 1) + "." + date.getFullYear() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+                        htmlEl.getElementsByClassName("psign")[0].innerHTML += date.toLocaleString();
                         var status = statusToString(data["result"][i]["status"]);
                         htmlEl.getElementsByClassName("pdesc")[0].innerHTML += " - " + status;
                     }
