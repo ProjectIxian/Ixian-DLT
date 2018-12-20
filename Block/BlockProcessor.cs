@@ -785,6 +785,7 @@ namespace DLT
             {
                 Logging.warn(String.Format("A current block with a smaller version was received than the last block in the blockchain, rejecting block #{0} with version {1}.", b.blockNum, b.version));
                 // TODO: keep a counter - if this happens too often, disconnect the node
+                // TODO TODO TODO TODO: disconnect?
                 return;
             }
             lock (localBlockLock)

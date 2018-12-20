@@ -198,6 +198,10 @@ namespace DLT
 
             public static void readFromCommandLine(string[] args)
             {
+                // for now force set forceTimeOffset to 0 (unless overridden by CLI), since the time sync implementation/solution is buggy
+                forceTimeOffset = 0;
+
+
                 //Logging.log(LogSeverity.info, "Reading config...");
 
                 // first pass
