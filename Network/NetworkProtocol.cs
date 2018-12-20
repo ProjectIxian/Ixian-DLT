@@ -146,7 +146,7 @@ namespace DLT
                         writerw.Write(block_num);
                         writerw.Write(include_transactions);
 
-                        return broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
+                        return broadcastProtocolMessageToSingleRandomNode(new char[]{ 'M' },  ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
                     }
                 }
             }
@@ -164,7 +164,7 @@ namespace DLT
                 }
                 else
                 {
-                    return broadcastProtocolMessage(ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
+                    return broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
                 }
             }
 
@@ -188,7 +188,7 @@ namespace DLT
                         }
                         else
                         {
-                            return broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
+                            return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
                         }
                     }
                 }
@@ -214,14 +214,14 @@ namespace DLT
                         }
                         else
                         {
-                            return broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
+                            return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
                         }
                     }
                 }
             }
 
             // Broadcasts protocol message to a single random node with block height higher than the one specified with parameter block_num
-            public static bool broadcastProtocolMessageToSingleRandomNode(ProtocolMessageCode code, byte[] data, ulong block_num, RemoteEndpoint endpoint = null)
+            public static bool broadcastProtocolMessageToSingleRandomNode(char[] types, ProtocolMessageCode code, byte[] data, ulong block_num, RemoteEndpoint endpoint = null)
             {
                 if (data == null)
                 {
@@ -233,21 +233,41 @@ namespace DLT
                 {
                     lock (NetworkServer.connectedClients)
                     {
-                        List<NetworkClient> servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight > block_num);
-                        List<RemoteEndpoint> clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight > block_num);
+                        int serverCount = 0;
+                        int clientCount = 0;
+                        List<NetworkClient> servers = null;
+                        List<RemoteEndpoint> clients = null;
 
-                        if (servers.Count() == 0)
+                        if (types == null)
                         {
-                            servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight == block_num);
+                            servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight > block_num);
+                            clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight > block_num);
+
+                            serverCount = servers.Count();
+                            clientCount = clients.Count();
+
+                            if (serverCount == 0 && clientCount == 0)
+                            {
+                                servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight == block_num);
+                                clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight == block_num);
+                            }
+                        }else
+                        {
+                            servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight > block_num && x.presenceAddress != null && types.Contains(x.presenceAddress.type));
+                            clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight > block_num && x.presenceAddress != null && types.Contains(x.presenceAddress.type));
+
+                            serverCount = servers.Count();
+                            clientCount = clients.Count();
+
+                            if (serverCount == 0 && clientCount == 0)
+                            {
+                                servers = NetworkClientManager.networkClients.FindAll(x => x.blockHeight == block_num && x.presenceAddress != null && types.Contains(x.presenceAddress.type));
+                                clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight == block_num && x.presenceAddress != null && types.Contains(x.presenceAddress.type));
+                            }
                         }
 
-                        if (clients.Count() == 0)
-                        {
-                            clients = NetworkServer.connectedClients.FindAll(x => x.blockHeight == block_num);
-                        }
-
-                        int serverCount = servers.Count();
-                        int clientCount = clients.Count();
+                        serverCount = servers.Count();
+                        clientCount = clients.Count();
 
                         Random r = new Random();
                         int rIdx = r.Next(serverCount + clientCount);
@@ -274,7 +294,7 @@ namespace DLT
 
             // Broadcast a protocol message across clients and nodes
             // Returns true if it sent the message at least one endpoint. Returns false if the message couldn't be sent to any endpoints
-            public static bool broadcastProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null, bool sendToSingleRandomNode = false)
+            public static bool broadcastProtocolMessage(char[] types, ProtocolMessageCode code, byte[] data, RemoteEndpoint skipEndpoint = null)
             {
                 if(data == null)
                 {
@@ -282,40 +302,11 @@ namespace DLT
                     return false;
                 }
 
-                if(sendToSingleRandomNode)
-                {
-                    int serverCount = NetworkClientManager.getConnectedClients().Count();
-                    int clientCount = NetworkServer.getConnectedClients().Count();
+                bool c_result = NetworkClientManager.broadcastData(types, code, data, skipEndpoint);
+                bool s_result = NetworkServer.broadcastData(types, code, data, skipEndpoint);
 
-                    Random r = new Random();
-                    int rIdx = r.Next(serverCount + clientCount);
-
-                    RemoteEndpoint re = null;
-
-                    if (rIdx < serverCount)
-                    {
-                        re = NetworkClientManager.getClient(rIdx);
-                    }else
-                    {
-                        re = NetworkServer.getClient(rIdx - serverCount);
-                    }
-                    if (re != null && re.isConnected())
-                    {
-                        re.sendData(code, data);
-                        return true;
-                    }
+                if (!c_result && !s_result)
                     return false;
-                }
-                else
-                {
-                    bool c_result = NetworkClientManager.broadcastData(code, data, skipEndpoint);
-                    bool s_result = NetworkServer.broadcastData(code, data, skipEndpoint);
-
-                    if (!c_result && !s_result)
-                        return false;
-                }
-
-
 
                 return true;
             }
@@ -1309,7 +1300,7 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    broadcastProtocolMessage(ProtocolMessageCode.keepAlivePresence, data, endpoint);
+                                    broadcastProtocolMessage(new char[] { 'M', 'R', 'H' }, ProtocolMessageCode.keepAlivePresence, data, endpoint);
                                 }
                                 
                             }

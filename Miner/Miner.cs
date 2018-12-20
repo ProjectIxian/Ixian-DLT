@@ -297,10 +297,6 @@ namespace DLT
             {
                 if (block.powField == null)
                 {
-                    if(block.version == 0 && block.difficulty > 128)
-                    {
-                        continue;
-                    }
                     ulong solved = 0;
                     lock(solvedBlocks)
                     {

@@ -986,7 +986,6 @@ namespace DLT
                                 Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
                                 lastBlockStartTime = DateTime.UtcNow;
                                 localNewBlock.logBlockDetails();
-                                localNewBlock = null;
 
                                 // Reset transaction limits
                                 //TransactionPool.resetSocketTransactionLimits();
@@ -998,6 +997,9 @@ namespace DLT
                                 {
                                     highestNetworkBlockNum = 0;
                                 }
+
+                                ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes());
+                                localNewBlock = null;
 
                                 cleanupBlockBlacklist();
                                 if (Node.blockChain.getLastBlockNum() % 1000 == 0)

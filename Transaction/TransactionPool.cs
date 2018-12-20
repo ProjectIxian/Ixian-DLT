@@ -368,7 +368,7 @@ namespace DLT
 
                     if (t.from.SequenceEqual(Node.walletStorage.address) || t.toList.ContainsKey(Node.walletStorage.address))
                     {
-                        ActivityStorage.updateStatus(t.getBytes(), ActivityStatus.Final, t.applied);
+                        ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
                     }
 
                     if (t.applied == 0)
@@ -518,7 +518,7 @@ namespace DLT
                 {
                     status = (int)ActivityStatus.Final;
                 }
-                activity = new Activity(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Base58Check.Base58CheckEncoding.EncodePlain(transaction.from), transaction.toList, type, transaction.getBytes(), value.ToString(), transaction.timeStamp, status, 0);
+                activity = new Activity(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Base58Check.Base58CheckEncoding.EncodePlain(transaction.from), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, 0);
                 ActivityStorage.insertActivity(activity);
             }
         }
@@ -570,7 +570,7 @@ namespace DLT
 
             // Broadcast this transaction to the network
             if (no_broadcast == false)
-                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, transaction.getBytes(), skipEndpoint);
+                ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), skipEndpoint);
 
 
             return true;
@@ -1541,7 +1541,7 @@ namespace DLT
 
                     if (miner_wallet.id.SequenceEqual(Node.walletStorage.address))
                     {
-                        ActivityStorage.updateValue(((Transaction)entry[2]).getBytes(), powRewardPart);
+                        ActivityStorage.updateValue(Encoding.UTF8.GetBytes(((Transaction)entry[2]).id), powRewardPart);
                     }
 
                     checksum_source.AddRange(miner_wallet.id);
@@ -1737,7 +1737,7 @@ namespace DLT
 
                     if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                     {
-                        ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.newTransaction, ((Transaction)entry[0]).getBytes());
+                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, ((Transaction)entry[0]).getBytes());
                         pendingTransactions[idx][1] = cur_time;
                     }
                     idx++;

@@ -629,7 +629,7 @@ namespace DLT
 
             if (!Config.recoverFromFile)
             {
-                ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.getUnappliedTransactions, new byte[1], null, true);
+                ProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], Node.getHighestKnownNetworkBlockHeight());
 
                 Node.miner.start();
             }
