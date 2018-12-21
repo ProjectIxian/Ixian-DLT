@@ -50,7 +50,6 @@ namespace DLT
                     return;
 
                 int num_chunks = tx_count / CoreConfig.maximumTransactionsPerChunk + 1;
-
                 // Go through each chunk
                 for (int i = 0; i < num_chunks; i++)
                 {
@@ -221,7 +220,7 @@ namespace DLT
             }
 
             // Broadcasts protocol message to a single random node with block height higher than the one specified with parameter block_num
-            public static bool broadcastProtocolMessageToSingleRandomNode(char[] types, ProtocolMessageCode code, byte[] data, ulong block_num, RemoteEndpoint endpoint = null)
+            public static bool broadcastProtocolMessageToSingleRandomNode(char[] types, ProtocolMessageCode code, byte[] data, ulong block_num, RemoteEndpoint skipEndpoint = null)
             {
                 if (data == null)
                 {
@@ -282,6 +281,22 @@ namespace DLT
                         {
                             re = clients[rIdx - serverCount];
                         }
+
+                        if (re == skipEndpoint && serverCount + clientCount > 1)
+                        {
+                            if (rIdx + 1 < serverCount)
+                            {
+                                re = servers[rIdx + 1];
+                            }
+                            else if(rIdx + 1 < serverCount + clientCount)
+                            {
+                                re = clients[rIdx - serverCount];
+                            }else
+                            {
+                                re = servers[0];
+                            }
+                        }
+
                         if (re != null && re.isConnected())
                         {
                             re.sendData(code, data);
@@ -864,7 +879,7 @@ namespace DLT
                                     {
                                         ulong block_number = reader.ReadUInt64();
                                         byte include_transactions = 0;
-                                        if (m.Position < m.Length - 1)
+                                        if (reader.PeekChar() != -1)
                                         {
                                             include_transactions = reader.ReadByte();
                                         }
@@ -956,7 +971,7 @@ namespace DLT
                                         string txid = reader.ReadString();
                                         ulong block_num = 0;
 
-                                        if (m.Position < m.Length - 1)
+                                        if (reader.PeekChar() != -1)
                                         {
                                             // TODO TODO TODO TODO this parameter is now optional, when most nodes upgrades if will be removed and it will be mandatory
                                             block_num = reader.ReadUInt64();
