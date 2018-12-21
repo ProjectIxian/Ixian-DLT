@@ -485,10 +485,13 @@ namespace DLT
                             highestNetworkBlockNum = b.blockNum;
                         }
                     }
-                    ProtocolMessage.broadcastGetBlock(lastBlockNum + 1);
                 }
                 if (b.blockNum > lastBlockNum + 1)
                 {
+                    if (!Node.blockSync.synchronizing)
+                    {
+                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1);
+                    }
                     return BlockVerifyStatus.IndeterminateFutureBlock;
                 }else if(b.blockNum <= lastBlockNum - CoreConfig.redactedWindowSize)
                 {
@@ -656,10 +659,12 @@ namespace DLT
                         }
                         ProtocolMessage.broadcastGetBlock(b.blockNum, null, includeTransactions);
                         Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
-
                     }
-                    fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
-                    fetchingTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
+                    else
+                    {
+                        fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
+                        fetchingTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
+                    }
                 }
                 return BlockVerifyStatus.Indeterminate;
             }
