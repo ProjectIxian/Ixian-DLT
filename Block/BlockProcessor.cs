@@ -380,8 +380,14 @@ namespace DLT
                         ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(Node.getLastBlockHeight()), null, endpoint);
                     }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
-                        // the block is different than our own, we should disconnect the node as it is likely on a forked network
-                        CoreProtocolMessage.sendBye(endpoint, 100, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
+                        if (b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
+                        {
+                            ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(b.blockNum), null, endpoint);
+                        }else
+                        {
+                            // the block is different than our own, we should disconnect the node as it is likely on a forked network
+                            // CoreProtocolMessage.sendBye(endpoint, 100, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
+                        }
                     }
                     else
                     {
