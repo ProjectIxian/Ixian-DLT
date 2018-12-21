@@ -887,10 +887,16 @@ namespace DLT
                                     {
                                         ulong block_number = reader.ReadUInt64();
                                         byte include_transactions = 0;
-                                        if (reader.PeekChar() != -1)
+
+                                        try
                                         {
                                             include_transactions = reader.ReadByte();
                                         }
+                                        catch (Exception)
+                                        {
+
+                                        }
+
                                         //Logging.info(String.Format("Block #{0} has been requested.", block_number));
 
                                         if (block_number > Node.getLastBlockHeight())
@@ -979,10 +985,14 @@ namespace DLT
                                         string txid = reader.ReadString();
                                         ulong block_num = 0;
 
-                                        if (reader.PeekChar() != -1)
+                                        try
                                         {
                                             // TODO TODO TODO TODO this parameter is now optional, when most nodes upgrades if will be removed and it will be mandatory
                                             block_num = reader.ReadUInt64();
+                                        }
+                                        catch (Exception)
+                                        {
+
                                         }
 
                                         Transaction transaction = null;

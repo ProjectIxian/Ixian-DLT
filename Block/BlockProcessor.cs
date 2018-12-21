@@ -320,7 +320,8 @@ namespace DLT
                     Block localBlock = Node.blockChain.getBlock(b.blockNum);
                     lock (localBlock)
                     {
-                        if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && verifyBlockBasic(b) == BlockVerifyStatus.Valid)
+                        BlockVerifyStatus block_status = verifyBlockBasic(b);
+                        if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
                             if (handleSigFreezedBlock(b, endpoint))
                             {
@@ -343,7 +344,7 @@ namespace DLT
                                 }
                             }
                         }
-                        else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum))
+                        else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
                             // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
                             if(b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
@@ -355,7 +356,7 @@ namespace DLT
                                 CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                             }
                         }
-                        else
+                        else if(block_status == BlockVerifyStatus.Invalid || block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                         {
                             // the block is invalid, we should disconnect the node as it is likely on a forked network
                             CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
@@ -410,7 +411,7 @@ namespace DLT
                 return;
             }else if (b_status != BlockVerifyStatus.Valid)
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which was invalid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                Logging.warn(String.Format("Received block #{0} ({1}) which was not valid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
                 return;
             }
@@ -448,6 +449,20 @@ namespace DLT
             {
                 Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
                 return BlockVerifyStatus.Invalid;
+            }
+
+            if (Node.blockChain.Count > 0 && b.blockNum + 5 <= Node.blockChain.getLastBlockNum())
+            {
+                Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
+                if (tmpBlock == null)
+                {
+                    return BlockVerifyStatus.IndeterminatePastBlock;
+                }
+                else if (tmpBlock.blockChecksum.SequenceEqual(b.blockChecksum))
+                {
+                    return BlockVerifyStatus.AlreadyProcessed;
+                }
+                return BlockVerifyStatus.PotentiallyForkedBlock;
             }
 
             // Verify checksums
@@ -505,6 +520,7 @@ namespace DLT
                     return BlockVerifyStatus.IndeterminatePastBlock;
                 }
             }
+
             // Verify sigfreeze
             if (b.blockNum <= lastBlockNum)
             {
@@ -714,12 +730,12 @@ namespace DLT
 
             if (Node.blockChain.Count > 0 && b.blockNum <= Node.blockChain.getLastBlockNum())
             {
-
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
                 if (tmpBlock == null)
                 {
                     return BlockVerifyStatus.IndeterminatePastBlock;
-                }else if(tmpBlock.blockChecksum.SequenceEqual(b.blockChecksum))
+                }
+                else if (tmpBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                 {
                     return BlockVerifyStatus.AlreadyProcessed;
                 }
