@@ -268,6 +268,11 @@ namespace DLT
                         serverCount = servers.Count();
                         clientCount = clients.Count();
 
+                        if(serverCount == 0 && clientCount == 0)
+                        {
+                            return false;
+                        }
+
                         Random r = new Random();
                         int rIdx = r.Next(serverCount + clientCount);
 
@@ -290,10 +295,13 @@ namespace DLT
                             }
                             else if(rIdx + 1 < serverCount + clientCount)
                             {
-                                re = clients[rIdx - serverCount];
-                            }else
+                                re = clients[rIdx + 1 - serverCount];
+                            }else if(serverCount > 0)
                             {
                                 re = servers[0];
+                            }else if(clientCount > 0)
+                            {
+                                re = clients[0];
                             }
                         }
 
