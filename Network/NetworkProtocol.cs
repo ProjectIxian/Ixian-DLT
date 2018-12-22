@@ -1333,7 +1333,7 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    broadcastProtocolMessage(new char[] { 'M', 'R', 'H' }, ProtocolMessageCode.keepAlivePresence, data, endpoint);
+                                    broadcastProtocolMessage(new char[] { 'M', 'R', 'H', 'W' }, ProtocolMessageCode.keepAlivePresence, data, endpoint);
                                 }
                                 
                             }

@@ -232,6 +232,10 @@
                                 htmlEl.className += " received";
                                 htmlEl.getElementsByClassName("pamount")[0].innerHTML = data["result"][i]["value"];
                                 htmlEl.getElementsByClassName("pdesc")[0].innerHTML += "<br/>Staking Reward";
+                            } else if (type == 202) {
+                                htmlEl.className += " received";
+                                htmlEl.getElementsByClassName("pamount")[0].innerHTML = data["result"][i]["value"];
+                                htmlEl.getElementsByClassName("pdesc")[0].innerHTML += "<br/>Transaction fee Reward";
                             }
                             var date = new Date(data["result"][i]["timestamp"] * 1000);
                             htmlEl.getElementsByClassName("pamount")[0].innerHTML += "<br/><span class=\"pdate\">" + date.toLocaleString() + "</span>";
