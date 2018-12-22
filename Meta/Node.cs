@@ -715,7 +715,7 @@ namespace DLT.Meta
                         PresenceList.receiveKeepAlive(m.ToArray());
 
                         // Send this keepalive message to all connected clients
-                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'R', 'H' }, ProtocolMessageCode.keepAlivePresence, m.ToArray());
+                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'R', 'H', 'W' }, ProtocolMessageCode.keepAlivePresence, m.ToArray());
                     }
                 }
                 catch (Exception)

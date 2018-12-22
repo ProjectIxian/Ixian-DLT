@@ -300,14 +300,10 @@ namespace DLT
 
                 if (Node.blockSync.synchronizing == false)
                 {
-                    // TODO TODO TODO TODO not sure about this part here, discuss with the team
-
                     // Verify the transaction against the wallet state
-                    // If the balance after the transaction is negative, do not add it.
                     IxiNumber fromBalance = Node.walletState.getWalletBalance(transaction.from);
-                    IxiNumber finalFromBalance = fromBalance - transaction.amount - transaction.fee;
 
-                    if (finalFromBalance < (long)0)
+                    if (fromBalance < transaction.amount + transaction.fee)
                     {
                         // Prevent overspending
                         Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));

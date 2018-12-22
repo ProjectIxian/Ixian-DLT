@@ -287,8 +287,11 @@ namespace DLT
                         Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
                         // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
                         CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
+                        lock (localBlockLock)
+                        {
+                            localNewBlock = null;
+                        }
                     }
-
                     return false;
                 }
                 else
@@ -602,7 +605,7 @@ namespace DLT
                     continue;
                 }
                 
-                // TODO TODO TODO TODO plus balances should also be added to prevent overspending false alarms
+                // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(t.from))
                 {
                     minusBalances.Add(t.from, 0);
@@ -614,7 +617,7 @@ namespace DLT
                     if (t.type == (int)Transaction.Type.Normal)
                     {
                         txCount++;
-                        IxiNumber new_minus_balance = minusBalances[t.from] + t.amount;
+                        IxiNumber new_minus_balance = minusBalances[t.from] + t.amount + t.fee;
                         minusBalances[t.from] = new_minus_balance;
                     }
                     else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
@@ -1419,6 +1422,8 @@ namespace DLT
 
                 ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
 
+                Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
+
                 foreach (var transaction in pool_transactions)
                 {
                     // Check if we reached the transaction limit for this block
@@ -1451,7 +1456,26 @@ namespace DLT
                         }
                     }
 
-                    if(includeApplicableMultisig(transaction))
+                    // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
+                    if (!minusBalances.ContainsKey(transaction.from))
+                    {
+                        minusBalances.Add(transaction.from, 0);
+                    }
+
+                    // prevent overspending
+                    if (transaction.type == (int)Transaction.Type.Normal)
+                    {
+                        IxiNumber new_minus_balance = minusBalances[transaction.from] + transaction.amount + transaction.fee;
+                        IxiNumber from_balance = Node.walletState.getWalletBalance(transaction.from);
+
+                        if (from_balance < new_minus_balance)
+                        {
+                            continue;
+                        }
+                        minusBalances[transaction.from] = new_minus_balance;
+                    }
+
+                    if (includeApplicableMultisig(transaction))
                     {
                         // 'includeApplicableMultisg transactions' will return true if the transaction is not a multisig transaction
                         localNewBlock.addTransaction(transaction);
@@ -1505,11 +1529,17 @@ namespace DLT
 
         public static ulong calculateDifficulty(int version)
         {
-            if(version == 0)
+            if (version == 0)
             {
                 return calculateDifficulty_v0();
             }
-            return calculateDifficulty_v1();
+            else if (version == 1)
+            {
+                return calculateDifficulty_v1();
+            }else
+            {
+                return calculateDifficulty_v2();
+            }
         }
 
         // Calculate the current mining difficulty
@@ -1575,7 +1605,7 @@ namespace DLT
                 BigInteger target_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
                 BigInteger actual_hashes_per_block = target_hashes_per_block * solved_blocks / (window_size / 2);
                 ulong target_difficulty = 0;
-                if (actual_hashes_per_block != 0) // TODO TODO TODO TODO TODO Zagar?
+                if (actual_hashes_per_block != 0)
                 {
                     // find an appropriate difficulty for actual hashes:
                     target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
