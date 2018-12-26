@@ -36,8 +36,8 @@ namespace DLT
 
         private static string[] splitter = { "::" };
 
-        private SortedList<ulong, int> fetchingTxForBlocks = new SortedList<ulong, int>();
-        private SortedList<ulong, int> fetchingBulkTxForBlocks = new SortedList<ulong, int>();
+        private SortedList<ulong, long> fetchingTxForBlocks = new SortedList<ulong, long>();
+        private SortedList<ulong, long> fetchingBulkTxForBlocks = new SortedList<ulong, long>();
 
         private Thread block_thread = null;
 
@@ -459,12 +459,15 @@ namespace DLT
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
                 if (tmpBlock == null)
                 {
+                    Logging.info("Received an indeterminate past block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminatePastBlock;
                 }
                 else if (tmpBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                 {
+                    Logging.info("Already processed block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.AlreadyProcessed;
                 }
+                Logging.warn("Received a potentially forked block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                 return BlockVerifyStatus.PotentiallyForkedBlock;
             }
 
@@ -517,9 +520,11 @@ namespace DLT
                     {
                         ProtocolMessage.broadcastGetBlock(lastBlockNum + 1);
                     }
+                    Logging.info("Received an indeterminate future block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminateFutureBlock;
                 }else if(b.blockNum <= lastBlockNum - CoreConfig.redactedWindowSize)
                 {
+                    Logging.info("Received an indeterminate past block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminatePastBlock;
                 }
             }
@@ -559,19 +564,19 @@ namespace DLT
             // Note: it is possible we don't have all the required TXs in our TXpool - in this case, request the missing ones and return Indeterminate
             bool hasAllTransactions = true;
             bool fetchTransactions = false;
-            int txTimeout = 0;
             lock (fetchingTxForBlocks)
             {
                 if (fetchingTxForBlocks.ContainsKey(b.blockNum))
                 {
-                    txTimeout = fetchingTxForBlocks[b.blockNum];
+                    long tx_timeout = fetchingTxForBlocks[b.blockNum];
+                    long cur_time = Clock.getTimestamp();
+                    if (cur_time - tx_timeout > 10)
+                    {
+                        fetchingTxForBlocks[b.blockNum] = cur_time;
+                        Logging.info("fetchingTxTimeout EXPIRED");
+                        fetchTransactions = true;
+                    }
                 }
-            }
-            if (txTimeout > 20) // TODO TODO TODO change this 100 to 20 for extra network buffer fun
-            {
-                Logging.info("fetchingTxTimeout EXPIRED");
-                txTimeout = 0;
-                fetchTransactions = true;
             }
             int txCount = 0;
             int missing = 0;
@@ -658,7 +663,7 @@ namespace DLT
                 {
                     // someone is doing something bad with this transaction, so we invalidate the block
                     // TODO: Blacklisting for the transaction originator node
-                    Logging.warn(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}",
+                    Logging.error(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}",
                         t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(t.from)));
                     return BlockVerifyStatus.Invalid;
                 }
@@ -676,8 +681,9 @@ namespace DLT
                 {
                     if (!fetchingBulkTxForBlocks.ContainsKey(b.blockNum))
                     {
-                        fetchingBulkTxForBlocks.Add(b.blockNum, 0);
-                        fetchingTxForBlocks.Add(b.blockNum, 0);
+                        long cur_time = Clock.getTimestamp();
+                        fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
+                        fetchingTxForBlocks.Add(b.blockNum, cur_time);
                         byte includeTransactions = 2;
                         if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && Config.storeFullHistory))
                         {
@@ -686,12 +692,8 @@ namespace DLT
                         ProtocolMessage.broadcastGetBlock(b.blockNum, null, includeTransactions);
                         Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
                     }
-                    else
-                    {
-                        fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
-                        fetchingTxForBlocks.AddOrReplace(b.blockNum, txTimeout + 1);
-                    }
                 }
+                Logging.info("Waiting for missing transactions for Block #{0}.", b.blockNum);
                 return BlockVerifyStatus.Indeterminate;
             }
             lock (fetchingTxForBlocks)
@@ -708,7 +710,7 @@ namespace DLT
                     IxiNumber initial_balance = Node.walletState.getWalletBalance(addr);
                     if (initial_balance < minusBalances[addr])
                     {
-                        Logging.warn(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
+                        Logging.error(String.Format("Address {0} is attempting to overspend: Balance: {1}, Total Outgoing: {2}.",
                             Base58Check.Base58CheckEncoding.EncodePlain(addr), initial_balance, minusBalances[addr]));
                         return BlockVerifyStatus.Invalid;
                     }
@@ -736,12 +738,15 @@ namespace DLT
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
                 if (tmpBlock == null)
                 {
+                    Logging.info("Received an indeterminate past block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminatePastBlock;
                 }
                 else if (tmpBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                 {
+                    Logging.info("Already processed block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.AlreadyProcessed;
                 }
+                Logging.warn("Received a potentially forked block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                 return BlockVerifyStatus.PotentiallyForkedBlock;
             }
 
@@ -787,7 +792,7 @@ namespace DLT
                         Node.walletState.revert();
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {
-                            Logging.warn(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
+                            Logging.error(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
                             return BlockVerifyStatus.Invalid;
                         }
                     }

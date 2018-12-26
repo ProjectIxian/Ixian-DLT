@@ -886,16 +886,7 @@ namespace DLT
                                     using (BinaryReader reader = new BinaryReader(m))
                                     {
                                         ulong block_number = reader.ReadUInt64();
-                                        byte include_transactions = 0;
-
-                                        try
-                                        {
-                                            include_transactions = reader.ReadByte();
-                                        }
-                                        catch (Exception)
-                                        {
-
-                                        }
+                                        byte include_transactions = reader.ReadByte();
 
                                         //Logging.info(String.Format("Block #{0} has been requested.", block_number));
 
@@ -983,30 +974,19 @@ namespace DLT
                                     {
                                         // Retrieve the transaction id
                                         string txid = reader.ReadString();
-                                        ulong block_num = 0;
-
-                                        try
-                                        {
-                                            // TODO TODO TODO TODO this parameter is now optional, when most nodes upgrades if will be removed and it will be mandatory
-                                            block_num = reader.ReadUInt64();
-                                        }
-                                        catch (Exception)
-                                        {
-
-                                        }
+                                        ulong block_num = reader.ReadUInt64();
 
                                         Transaction transaction = null;
 
-                                        // TODO TODO TODO TODO uncomment this if, once the top if is removed and most nodes upgrade to the latest version
                                         // Check for a transaction corresponding to this id
-                                        /*if(block_num == 0)
+                                        if(block_num == 0)
                                         {
                                             transaction = TransactionPool.getTransaction(txid, 0, false);
                                         }
                                         else
-                                        {*/
+                                        {
                                             transaction = TransactionPool.getTransaction(txid, block_num, true);
-                                        //}
+                                        }
 
                                         if (transaction == null)
                                         {
@@ -1430,18 +1410,6 @@ namespace DLT
                                         Logging.info(string.Format("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds));
                                     }
                                 }
-                            }
-                            break;
-
-                        case ProtocolMessageCode.ping:
-                            {
-                                endpoint.sendData(ProtocolMessageCode.pong, new byte[1]);
-                            }
-                            break;
-
-                        case ProtocolMessageCode.pong:
-                            {
-                                // do nothing
                             }
                             break;
 
