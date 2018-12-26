@@ -58,6 +58,20 @@ namespace DLTNode
             }
         }
 
+        public void sendResponse(HttpListenerResponse responseObject, byte[] buffer)
+        {
+            try
+            {
+                responseObject.ContentLength64 = buffer.Length;
+                Stream output = responseObject.OutputStream;
+                output.Write(buffer, 0, buffer.Length);
+                output.Close();
+            }
+            catch (Exception e)
+            {
+                Logging.error(String.Format("APIServer: {0}", e));
+            }
+        }
         protected override void onUpdate(HttpListenerContext context)
         {
             try
@@ -122,10 +136,8 @@ namespace DLTNode
         private void parseRequest(HttpListenerContext context, string methodName)
         {
             HttpListenerRequest request = context.Request;
-            // Set the content type to plain to prevent xml parsing errors in various browsers
-            context.Response.ContentType = "application/json";
 
-            JsonResponse response = new JsonResponse();
+            JsonResponse response = null;
 
             if (methodName.Equals("shutdown", StringComparison.OrdinalIgnoreCase))
             {
@@ -287,7 +299,25 @@ namespace DLTNode
                 response = onActivity(request);
             }
 
-            sendResponse(context.Response, response);
+            bool resources = false;
+
+            if (methodName.Equals("resources", StringComparison.OrdinalIgnoreCase))
+            {
+                onResources(context);
+                resources = true;
+            }
+
+            if (!resources)
+            {
+                // Set the content type to plain to prevent xml parsing errors in various browsers
+                context.Response.ContentType = "application/json";
+
+                if (response == null)
+                {
+                    response = new JsonResponse() { error = new JsonError() { code = (int)RPCErrorCode.RPC_METHOD_NOT_FOUND, message = "Unknown API request '" + methodName + "'" } };
+                }
+                sendResponse(context.Response, response);
+            }
             context.Response.Close();
         }
 
@@ -1058,6 +1088,37 @@ namespace DLTNode
             List<Activity> res = ActivityStorage.getActivitiesByAddress(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Int32.Parse(fromIndex), Int32.Parse(count), true);
 
             return new JsonResponse { result = res, error = error };
+        }
+
+        public void onResources(HttpListenerContext context)
+        {
+            string name = "";
+            for (int i = 2; i < context.Request.Url.Segments.Count(); i++)
+            {
+                name += context.Request.Url.Segments[i];
+            }
+
+            if (name != null && name.Length > 1 && !name.EndsWith("/"))
+            {
+                if (File.Exists("html" + Path.DirectorySeparatorChar + name))
+                {
+                    if (name.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Response.ContentType = "text/css";
+                    }else if(name.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Response.ContentType = "text/javascript";
+                    }
+                    else
+                    {
+                        context.Response.ContentType = "application/octet-stream";
+                    }
+                    sendResponse(context.Response, File.ReadAllBytes("html" + Path.DirectorySeparatorChar + name));
+                    return;
+                }
+            }
+            // 404
+            context.Response.StatusCode = 404;
         }
     }
 }
