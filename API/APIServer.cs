@@ -101,6 +101,7 @@ namespace DLTNode
                 }
                 catch (Exception e)
                 {
+                    context.Response.ContentType = "application/json";
                     JsonError error = new JsonError { code = 404, message = "Unknown error occured, see log for details." };
                     sendResponse(context.Response, new JsonResponse { error = error });
                     Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e));
@@ -1100,6 +1101,7 @@ namespace DLTNode
 
             if (name != null && name.Length > 1 && !name.EndsWith("/"))
             {
+                name = name.Replace('/', Path.DirectorySeparatorChar);
                 if (File.Exists("html" + Path.DirectorySeparatorChar + name))
                 {
                     if (name.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
@@ -1118,7 +1120,10 @@ namespace DLTNode
                 }
             }
             // 404
+            context.Response.ContentType = "text/plain";
             context.Response.StatusCode = 404;
+            context.Response.StatusDescription = "404 File not found";
+            sendResponse(context.Response, "404 File not found");
         }
     }
 }
