@@ -330,15 +330,7 @@ namespace DLT
             return;
         }
 
-        // Generate a random nonce with a specified length
-        private static string randomNonce_v1(int length)
-        {
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            return new string(Enumerable.Repeat(chars, length)
-              .Select(s => s[random.Next(s.Length)]).ToArray());
-        }
-
-        private static string randomNonce_v2(int length)
+        private byte[] randomNonce(int length)
         {
             // possibly add some kind of warning. Length should never be odd. (it should usually be 32)
             if(length % 2 != 0)
@@ -347,7 +339,7 @@ namespace DLT
             }
             byte[] nonce = new byte[length / 2];
             random.NextBytes(nonce);
-            return BitConverter.ToString(nonce).Replace("-","");
+            return nonce;
         }
 
         private void calculatePow_v0()
@@ -360,7 +352,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
 
 
-            string nonce = randomNonce_v1(128);
+            byte[] nonce = randomNonce(128);
             string hash = findHash_v0(p1, nonce);
             if (hash.Length < 1)
             {
@@ -405,7 +397,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
 
 
-            string nonce = randomNonce_v1(128);
+            byte[] nonce = randomNonce(128);
             byte[] hash = findHash_v1(p1, nonce);
             if(hash.Length < 1)
             {
@@ -539,7 +531,9 @@ namespace DLT
             Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
-            string hash = Miner.findHash_v0(p1, nonce);
+
+            byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce);
+            string hash = Miner.findHash_v0(p1, nonce_bytes);
 
             if (Miner.validateHash_v0(hash, difficulty) == true)
             {
@@ -562,7 +556,9 @@ namespace DLT
             Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
-            byte[] hash = Miner.findHash_v1(p1, nonce);
+
+            byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce);
+            byte[] hash = Miner.findHash_v1(p1, nonce_bytes);
 
             if (Miner.validateHash_v1(hash, difficulty) == true)
             {
@@ -574,7 +570,7 @@ namespace DLT
         }
 
         // Broadcasts the solution to the network
-        public void sendSolution(string nonce)
+        public void sendSolution(byte[] nonce)
         {
             byte[] pubkey = Node.walletStorage.publicKey;
             // Check if this wallet's public key is already in the WalletState
@@ -592,7 +588,8 @@ namespace DLT
                 using (BinaryWriter writerw = new BinaryWriter(mw))
                 {
                     writerw.Write(activeBlock.blockNum);
-                    writerw.Write(nonce);
+                    string nonce_hex = BitConverter.ToString(nonce).Replace("-", "");
+                    writerw.Write(nonce_hex);
                     data = mw.ToArray();
                 }
             }
@@ -609,19 +606,17 @@ namespace DLT
             }
         }
 
-        private static string findHash_v0(byte[] p1, string p2)
+        private static string findHash_v0(byte[] data, byte[] salt)
         {
             string ret = "";
             try
             {
                 byte[] hash = new byte[32];
-                byte[] sdata = p1;
-                byte[] salt = ASCIIEncoding.ASCII.GetBytes(p2);
-                IntPtr data_ptr = Marshal.AllocHGlobal(sdata.Length);
+                IntPtr data_ptr = Marshal.AllocHGlobal(data.Length);
                 IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
-                Marshal.Copy(sdata, 0, data_ptr, sdata.Length);
+                Marshal.Copy(data, 0, data_ptr, data.Length);
                 Marshal.Copy(salt, 0, salt_ptr, salt.Length);
-                UIntPtr data_len = (UIntPtr)sdata.Length;
+                UIntPtr data_len = (UIntPtr)data.Length;
                 UIntPtr salt_len = (UIntPtr)salt.Length;
                 IntPtr result_ptr = Marshal.AllocHGlobal(32);
                 int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)4, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
@@ -638,18 +633,16 @@ namespace DLT
             return ret;
         }
 
-        private static byte[] findHash_v1(byte[] p1, string p2)
+        private static byte[] findHash_v1(byte[] data, byte[] salt)
         {
             try
             {
                 byte[] hash = new byte[32];
-                byte[] sdata = p1;
-                byte[] salt = ASCIIEncoding.ASCII.GetBytes(p2);
-                IntPtr data_ptr = Marshal.AllocHGlobal(sdata.Length);
+                IntPtr data_ptr = Marshal.AllocHGlobal(data.Length);
                 IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
-                Marshal.Copy(sdata, 0, data_ptr, sdata.Length);
+                Marshal.Copy(data, 0, data_ptr, data.Length);
                 Marshal.Copy(salt, 0, salt_ptr, salt.Length);
-                UIntPtr data_len = (UIntPtr)sdata.Length;
+                UIntPtr data_len = (UIntPtr)data.Length;
                 UIntPtr salt_len = (UIntPtr)salt.Length;
                 IntPtr result_ptr = Marshal.AllocHGlobal(32);
                 int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)2, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
