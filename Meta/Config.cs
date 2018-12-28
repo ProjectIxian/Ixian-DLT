@@ -23,7 +23,7 @@ namespace DLT
 
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
-            public static bool disableMiner = true; // Flag to disable miner
+            public static bool disableMiner = false; // Flag to disable miner
             public static bool workerOnly = false; // Flag to disable masternode capability
 
             public static bool verboseConsoleOutput = false; // Flag for verbose console output
@@ -74,41 +74,41 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-m] [-x] [-c] [-p port] [-a port] [-i ip] [-g] [-w ixian.wal] [-n seed1.ixian.io:10234] [--threads 4] [--config ixian.cfg] [--netdump dumpfile] [--recover] [--forceTimeOffset 0]");
+                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234] [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234] [--disableWebStart] [--disableMiner] [--genesis] [--netdump dumpfile] [--recover] [--forceTimeOffset 0]");
                 Console.WriteLine("");
-                Console.WriteLine("    -h\t\t Displays this help");
-                Console.WriteLine("    -v\t\t Displays version");
-                Console.WriteLine("    -t\t\t Starts node in testnet mode");
-                Console.WriteLine("    -s\t\t Saves full history");
-                Console.WriteLine("    -m\t\t Enables mining");
-                Console.WriteLine("    -x\t\t Change password of an existing wallet");
-                Console.WriteLine("    -c\t\t Removes blockchain cache, walletstate cache, peers.dat and ixian.log files before starting");
-                Console.WriteLine("    -p\t\t Port to listen on");
-                Console.WriteLine("    -a\t\t HTTP/API port to listen on");
-                Console.WriteLine("    -i\t\t External IP Address to use");
-                Console.WriteLine("    -g\t\t Start node in genesis mode");
-                Console.WriteLine("    -w\t\t Specify location of the ixian.wal file");
-                Console.WriteLine("    -n\t\t Specify which seed node to use");
-                Console.WriteLine("    --worker\t Enables mining and disables masternode functionality");
-                Console.WriteLine("    --threads\t Specify number of threads to use for mining (default 1)");
-                Console.WriteLine("    --config\t Specify config filename (default ixian.cfg)");
+                Console.WriteLine("    -h\t\t\t Displays this help");
+                Console.WriteLine("    -v\t\t\t Displays version");
+                Console.WriteLine("    -t\t\t\t Starts node in testnet mode");
+                Console.WriteLine("    -s\t\t\t Saves full history");
+                Console.WriteLine("    -x\t\t\t Change password of an existing wallet");
+                Console.WriteLine("    -c\t\t\t Removes blockchain cache, walletstate cache, peers.dat and ixian.log files before starting");
+                Console.WriteLine("    -p\t\t\t Port to listen on");
+                Console.WriteLine("    -a\t\t\t HTTP/API port to listen on");
+                Console.WriteLine("    -i\t\t\t External IP Address to use");
+                Console.WriteLine("    -w\t\t\t Specify location of the ixian.wal file");
+                Console.WriteLine("    -n\t\t\t Specify which seed node to use");
+                Console.WriteLine("    --worker\t\t Enables mining and disables masternode functionality");
+                Console.WriteLine("    --threads\t\t Specify number of threads to use for mining (default 1)");
+                Console.WriteLine("    --config\t\t Specify config filename (default ixian.cfg)");
                 Console.WriteLine("    --maxLogSize\t Specify maximum log file size in MB");
                 Console.WriteLine("    --maxLogCount\t Specify maximum number of log files");
                 Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
+                Console.WriteLine("    --disableMiner\t Disable miner");
                 Console.WriteLine("");
-                Console.WriteLine("----------- developer CLI flags -----------");
-                Console.WriteLine("    --netdump\t Enable netdump for debugging purposes");
-                Console.WriteLine("    --recover\t Recovers from file (to be used only by developers when cold-starting the network)");
+                Console.WriteLine("----------- Developer CLI flags -----------");
+                Console.WriteLine("    --genesis\t\t Start node in genesis mode");
+                Console.WriteLine("    --netdump\t\t Enable netdump for debugging purposes");
+                Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
                 Console.WriteLine("");
-                Console.WriteLine("----------- config file options -----------");
+                Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue semantics.");
                 Console.WriteLine(" Each option should be specified in its own line. Example:");
                 Console.WriteLine("    dltPort = 10234");
                 Console.WriteLine("    apiPort = 8081");
                 Console.WriteLine("");
-                Console.WriteLine(" Available options");
+                Console.WriteLine(" Available options:");
                 Console.WriteLine("    dltPort\t\t Port to listen on (same as -p CLI)");
                 Console.WriteLine("    testnetDltPort\t Port to listen on in testnet mode (same as -p CLI)");
                 Console.WriteLine("    apiPort\t\t HTTP/API port to listen on (same as -a CLI)");
@@ -117,6 +117,8 @@ namespace DLT
                 Console.WriteLine("    externalIp\t\t External IP Address to use (same as -i CLI)");
                 Console.WriteLine("    addPeer\t\t Specify which seed node to use (same as -n CLI) (can be used multiple times)");
                 Console.WriteLine("    addTestnetPeer\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
+                Console.WriteLine("    maxLogSize\t\t Specify maximum log file size in MB (same as --maxLogSize CLI)");
+                Console.WriteLine("    maxLogCount\t\t Specify maximum number of log files (same as --maxLogCount CLI)");
 
                 return "";
             }
@@ -251,9 +253,6 @@ namespace DLT
                 // Toggle between full history node and no history
                 cmd_parser.Setup<bool>('s', "save-history").Callback(value => storeFullHistory = value).Required();
 
-                // Toggle between mining and no mining mode
-                cmd_parser.Setup<bool>('m', "miner").Callback(value => disableMiner = false).Required();
-
                 // Toggle worker-only mode
                 cmd_parser.Setup<bool>("worker").Callback(value => workerOnly = true).Required();
 
@@ -273,8 +272,7 @@ namespace DLT
 
                 cmd_parser.Setup<string>('i', "ip").Callback(value => externalIp = value).SetDefault("");
 
-                // Convert the genesis block funds to ulong, as only long is accepted with FCLP
-                cmd_parser.Setup<string>('g', "genesis").Callback(value => genesisFunds = value).Required();
+                cmd_parser.Setup<string>("genesis").Callback(value => genesisFunds = value).Required();
 
                 cmd_parser.Setup<string>("genesis2").Callback(value => genesis2Address = value).Required();
 
@@ -293,6 +291,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("disableWebStart").Callback(value => disableWebStart = true).Required();
 
                 cmd_parser.Setup<string>("dataFolderPath").Callback(value => dataFolderPath = value).Required();
+
+                cmd_parser.Setup<bool>("disableMiner").Callback(value => disableMiner = true).Required();
 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
