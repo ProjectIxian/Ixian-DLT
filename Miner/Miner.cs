@@ -37,9 +37,6 @@ namespace DLT
         private DateTime lastStatTime; // Last statistics output time
         private bool shouldStop = false; // flag to signal shutdown of threads
 
-        private static int currentDificulty_v0 = 14;
-        private static byte[] hashStartDifficulty_v0 = { 0xff, 0xfc };
-
 
         Block activeBlock = null;
         bool blockFound = false;
@@ -205,14 +202,7 @@ namespace DLT
                 }
                 else
                 {
-                    if (currentBlockVersion == 0)
-                    {
-                        calculatePow_v0();
-                    }
-                    else
-                    {
-                        calculatePow_v1(currentHashCeil);
-                    }
+                    calculatePow(currentHashCeil);
                 }
 
                 // Output mining stats
@@ -260,14 +250,7 @@ namespace DLT
                     continue;
                 }
 
-                if (currentBlockVersion == 0)
-                {
-                    calculatePow_v0();
-                }
-                else
-                {
-                    calculatePow_v1(currentHashCeil);
-                }
+                calculatePow(currentHashCeil);
             }
         }
 
@@ -313,7 +296,6 @@ namespace DLT
                         // Block is not solved, select it
                         currentBlockNum = block.blockNum;
                         currentBlockDifficulty = block.difficulty;
-                        currentDificulty_v0 = (int)block.difficulty;
                         currentBlockVersion = block.version;
                         currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
 
@@ -342,52 +324,7 @@ namespace DLT
             return nonce;
         }
 
-        private void calculatePow_v0()
-        {
-            // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
-            byte[] block_checksum = activeBlock.blockChecksum;
-            byte[] solver_address = Node.walletStorage.address;
-            Byte[] p1 = new Byte[block_checksum.Length + solver_address.Length];
-            System.Buffer.BlockCopy(block_checksum, 0, p1, 0, block_checksum.Length);
-            System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
-
-
-            byte[] nonce = randomNonce(128);
-            string hash = findHash_v0(p1, nonce);
-            if (hash.Length < 1)
-            {
-                Logging.error("Stopping miner due to invalid hash.");
-                stop();
-                return;
-            }
-
-            hashesPerSecond++;
-
-            // We have a valid hash, update the corresponding block
-            if (Miner.validateHash_v0(hash) == true)
-            {
-                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}: {1}", activeBlock.blockNum, hash));
-
-                // Broadcast the nonce to the network
-                sendSolution(nonce);
-
-                // Add this block number to the list of solved blocks
-                lock (solvedBlocks)
-                {
-                    solvedBlocks.Add(activeBlock.blockNum);
-                    solvedBlockCount++;
-                }
-
-                lastSolvedBlockNum = activeBlock.blockNum;
-                lastSolvedTime = DateTime.UtcNow;
-
-                // Reset the block found flag so we can search for another block
-                blockFound = false;
-            }
-        }
-
-
-        private void calculatePow_v1(byte[] hash_ceil)
+        private void calculatePow(byte[] hash_ceil)
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] block_checksum = activeBlock.blockChecksum;
@@ -432,7 +369,7 @@ namespace DLT
         }
 
         // difficulty is number of consecutive starting bits which must be 0 in the calculated hash
-        public static void setDifficulty_v0(int difficulty)
+        public static byte[] setDifficulty_v0(int difficulty)
         {
             if (difficulty < 14)
             {
@@ -442,7 +379,6 @@ namespace DLT
             {
                 difficulty = 256;
             }
-            currentDificulty_v0 = difficulty;
             List<byte> diff_temp = new List<byte>();
             while (difficulty >= 8)
             {
@@ -454,48 +390,28 @@ namespace DLT
                 byte lastbyte = (byte)(0xff << (8 - difficulty));
                 diff_temp.Add(lastbyte);
             }
-            hashStartDifficulty_v0 = diff_temp.ToArray();
+            return diff_temp.ToArray();
         }
 
         // Check if a hash is valid based on the current difficulty
         public static bool validateHash_v0(string hash, ulong difficulty = 0)
         {
-            int c_difficulty = currentDificulty_v0;
+            byte[] hashStartDifficulty = null;
             // Set the difficulty for verification purposes
-            if (difficulty > 0)
-            {
-                setDifficulty_v0((int)difficulty);
-            }
+            hashStartDifficulty = setDifficulty_v0((int)difficulty);
 
-            if (hash.Length < hashStartDifficulty_v0.Length)
+            if (hash.Length < hashStartDifficulty.Length)
             {
-                // Reset the difficulty
-                if (difficulty > 0)
-                {
-                    setDifficulty_v0(c_difficulty);
-                }
                 return false;
             }
 
-            for (int i = 0; i < hashStartDifficulty_v0.Length; i++)
+            for (int i = 0; i < hashStartDifficulty.Length; i++)
             {
                 byte hash_byte = byte.Parse(hash.Substring(2 * i, 2), System.Globalization.NumberStyles.HexNumber);
-                if ((hash_byte & hashStartDifficulty_v0[i]) != 0)
+                if ((hash_byte & hashStartDifficulty[i]) != 0)
                 {
-                    // Reset the difficulty
-                    if (difficulty > 0)
-                    {
-                        setDifficulty_v0(c_difficulty);
-                    }
-
                     return false;
                 }
-            }
-
-            // Reset the difficulty
-            if (difficulty > 0)
-            {
-                setDifficulty_v0(c_difficulty);
             }
 
             return true;
