@@ -41,6 +41,8 @@ namespace DLT
         Block activeBlock = null;
         bool blockFound = false;
 
+        byte[] activeBlockChallenge = null;
+
         private static Random random = new Random(); // Used for random nonce
 
         private static List<ulong> solvedBlocks = new List<ulong>(); // Maintain a list of solved blocks to prevent duplicate work
@@ -275,7 +277,7 @@ namespace DLT
                 }
             }
             Random rnd = new Random();
-            List<Block> blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).OrderBy(x => rnd.Next()).ToList();
+            List<Block> blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
             foreach (Block block in blockList)
             {
                 if (block.powField == null)
@@ -300,6 +302,12 @@ namespace DLT
                         currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
 
                         activeBlock = block;
+                        byte[] block_checksum = activeBlock.blockChecksum;
+                        byte[] solver_address = Node.walletStorage.address;
+                        activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
+                        System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
+                        System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
+
                         blockFound = true;
                         return;
                     }
@@ -314,12 +322,7 @@ namespace DLT
 
         private byte[] randomNonce(int length)
         {
-            // possibly add some kind of warning. Length should never be odd. (it should usually be 32)
-            if(length % 2 != 0)
-            {
-                length++;
-            }
-            byte[] nonce = new byte[length / 2];
+            byte[] nonce = new byte[length];
             random.NextBytes(nonce);
             return nonce;
         }
@@ -327,15 +330,8 @@ namespace DLT
         private void calculatePow(byte[] hash_ceil)
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
-            byte[] block_checksum = activeBlock.blockChecksum;
-            byte[] solver_address = Node.walletStorage.address;
-            Byte[] p1 = new Byte[block_checksum.Length + solver_address.Length];
-            System.Buffer.BlockCopy(block_checksum, 0, p1, 0, block_checksum.Length);
-            System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
-
-
-            byte[] nonce = randomNonce(128);
-            byte[] hash = findHash_v1(p1, nonce);
+            byte[] nonce = randomNonce(64);
+            byte[] hash = findHash_v1(activeBlockChallenge, nonce);
             if(hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
