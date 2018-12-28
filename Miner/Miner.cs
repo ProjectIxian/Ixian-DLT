@@ -331,11 +331,23 @@ namespace DLT
         }
 
         // Generate a random nonce with a specified length
-        private static string randomNonce(int length)
+        private static string randomNonce_v1(int length)
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             return new string(Enumerable.Repeat(chars, length)
               .Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+
+        private static string randomNonce_v2(int length)
+        {
+            // possibly add some kind of warning. Length should never be odd. (it should usually be 32)
+            if(length % 2 != 0)
+            {
+                length++;
+            }
+            byte[] nonce = new byte[length / 2];
+            random.NextBytes(nonce);
+            return BitConverter.ToString(nonce).Replace("-","");
         }
 
         private void calculatePow_v0()
@@ -348,7 +360,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
 
 
-            string nonce = randomNonce(128);
+            string nonce = randomNonce_v1(128);
             string hash = findHash_v0(p1, nonce);
             if (hash.Length < 1)
             {
@@ -393,7 +405,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block_checksum.Length, solver_address.Length);
 
 
-            string nonce = randomNonce(128);
+            string nonce = randomNonce_v1(128);
             byte[] hash = findHash_v1(p1, nonce);
             if(hash.Length < 1)
             {
