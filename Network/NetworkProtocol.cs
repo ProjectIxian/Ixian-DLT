@@ -135,6 +135,50 @@ namespace DLT
                 }
             }
 
+            // Adds event subscriptions for the provided endpoint
+            private static void handleAttachEvent(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (data == null)
+                {
+                    Logging.warn(string.Format("Invalid protocol message event data"));
+                    return;
+                }
+
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int type = reader.ReadInt32();
+                        int addrLen = reader.ReadInt32();
+                        byte[] addresses = reader.ReadBytes(addrLen);
+
+                        endpoint.attachEvent(type, addresses);
+                    }
+                }
+            }
+
+            // Removes event subscriptions for the provided endpoint
+            private static void handleDetachEvent(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (data == null)
+                {
+                    Logging.warn(string.Format("Invalid protocol message event data"));
+                    return;
+                }
+
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int type = reader.ReadInt32();
+                        int addrLen = reader.ReadInt32();
+                        byte[] addresses = reader.ReadBytes(addrLen);
+
+                        endpoint.detachEvent(type, addresses);
+                    }
+                }
+            }
+
             // Requests block with specified block height from the network, include_transactions value can be 0 - don't include transactions, 1 - include all but staking transactions or 2 - include all, including staking transactions
             public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, byte include_transactions = 0)
             {
@@ -1309,7 +1353,9 @@ namespace DLT
 
                         case ProtocolMessageCode.keepAlivePresence:
                             {
-                                bool updated = PresenceList.receiveKeepAlive(data);
+                                byte[] address = null;
+                                bool updated = PresenceList.receiveKeepAlive(data, out address);
+
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
@@ -1410,6 +1456,18 @@ namespace DLT
                                         Logging.info(string.Format("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds));
                                     }
                                 }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.attachEvent:
+                            {
+                                handleAttachEvent(data, endpoint);
+                            }
+                            break;
+
+                        case ProtocolMessageCode.detachEvent:
+                            {
+                                handleDetachEvent(data, endpoint);
                             }
                             break;
 
