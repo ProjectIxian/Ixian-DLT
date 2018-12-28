@@ -232,6 +232,46 @@ namespace DLT
                 return result;
             }
 
+            // Sends event data to all subscribed clients
+            public static bool broadcastEventData(ProtocolMessageCode code, byte[] data, byte[] address, RemoteEndpoint skipEndpoint = null)
+            {
+                bool result = false;
+                lock (connectedClients)
+                {
+                    foreach (RemoteEndpoint endpoint in connectedClients)
+                    {
+                        if (skipEndpoint != null)
+                        {
+                            if (endpoint == skipEndpoint)
+                                continue;
+                        }
+
+                        if (!endpoint.isConnected())
+                        {
+                            continue;
+                        }
+
+                        if (endpoint.helloReceived == false)
+                        {
+                            continue;
+                        }
+
+                        if (endpoint.presenceAddress == null ||  endpoint.presenceAddress.type != 'C')
+                        {
+                            continue;                           
+                        }
+
+                        // Finally, check if the endpoint is subscribed to this event and address
+                        if (endpoint.isSubscribedToEvent((int)code, address))
+                        {
+                            endpoint.sendData(code, data);
+                            result = true;
+                        }
+                    }
+                }
+                return result;
+            }
+
             public static bool sendToClient(string neighbor, ProtocolMessageCode code, byte[] data)
             {
                 RemoteEndpoint client = null;
