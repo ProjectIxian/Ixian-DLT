@@ -1353,7 +1353,9 @@ namespace DLT
 
                         case ProtocolMessageCode.keepAlivePresence:
                             {
-                                bool updated = PresenceList.receiveKeepAlive(data);
+                                byte[] address = null;
+                                bool updated = PresenceList.receiveKeepAlive(data, out address);
+
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
