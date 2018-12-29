@@ -204,7 +204,14 @@ namespace DLT
                 }
                 else
                 {
-                    calculatePow(currentHashCeil);
+                    if (activeBlock.version == 1)
+                    {
+                        calculatePow_v1(currentHashCeil);
+                    }
+                    else
+                    {
+                        calculatePow_v2(currentHashCeil);
+                    }
                 }
 
                 // Output mining stats
@@ -252,7 +259,14 @@ namespace DLT
                     continue;
                 }
 
-                calculatePow(currentHashCeil);
+                if (activeBlock.version == 1)
+                {
+                    calculatePow_v1(currentHashCeil);
+                }
+                else
+                {
+                    calculatePow_v2(currentHashCeil);
+                }
             }
         }
 
@@ -320,19 +334,56 @@ namespace DLT
             return;
         }
 
-        private byte[] randomNonce(int length)
+        private static byte[] randomNonce(int length)
         {
             byte[] nonce = new byte[length];
             random.NextBytes(nonce);
             return nonce;
         }
 
-        private void calculatePow(byte[] hash_ceil)
+        private void calculatePow_v1(byte[] hash_ceil)
+        {
+            // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
+            byte[] nonce = ASCIIEncoding.ASCII.GetBytes(ASCIIEncoding.ASCII.GetString(randomNonce(64)));
+            byte[] hash = findHash_v1(activeBlockChallenge, nonce);
+            if (hash.Length < 1)
+            {
+                Logging.error("Stopping miner due to invalid hash.");
+                stop();
+                return;
+            }
+
+            hashesPerSecond++;
+
+            // We have a valid hash, update the corresponding block
+            if (Miner.validateHashInternal(hash, hash_ceil) == true)
+            {
+                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
+
+                // Broadcast the nonce to the network
+                sendSolution(nonce);
+
+                // Add this block number to the list of solved blocks
+                lock (solvedBlocks)
+                {
+                    solvedBlocks.Add(activeBlock.blockNum);
+                    solvedBlockCount++;
+                }
+
+                lastSolvedBlockNum = activeBlock.blockNum;
+                lastSolvedTime = DateTime.UtcNow;
+
+                // Reset the block found flag so we can search for another block
+                blockFound = false;
+            }
+        }
+
+        private void calculatePow_v2(byte[] hash_ceil)
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] nonce = randomNonce(64);
             byte[] hash = findHash_v1(activeBlockChallenge, nonce);
-            if(hash.Length < 1)
+            if (hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
                 stop();
@@ -465,11 +516,36 @@ namespace DLT
 
             // TODO checksum the solver_address just in case it's not valid
             // also protect against spamming with invalid nonce/block_num
-            Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
+            byte[] p1 = new byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
             byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce);
+            byte[] hash = Miner.findHash_v1(p1, nonce_bytes);
+
+            if (Miner.validateHash_v1(hash, difficulty) == true)
+            {
+                // Hash is valid
+                return true;
+            }
+
+            return false;
+        }
+
+        // Verify nonce
+        public static bool verifyNonce_v2(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
+        {
+            Block block = Node.blockChain.getBlock(block_num);
+            if (block == null)
+                return false;
+
+            // TODO checksum the solver_address just in case it's not valid
+            // also protect against spamming with invalid nonce/block_num
+            byte[] p1 = new byte[block.blockChecksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
+
+            byte[] nonce_bytes = Crypto.stringToHash(nonce);
             byte[] hash = Miner.findHash_v1(p1, nonce_bytes);
 
             if (Miner.validateHash_v1(hash, difficulty) == true)
@@ -500,8 +576,14 @@ namespace DLT
                 using (BinaryWriter writerw = new BinaryWriter(mw))
                 {
                     writerw.Write(activeBlock.blockNum);
-                    string nonce_hex = BitConverter.ToString(nonce).Replace("-", "");
-                    writerw.Write(nonce_hex);
+                    if (activeBlock.version == 1)
+                    {
+                        string nonce_hex = ASCIIEncoding.ASCII.GetString(nonce);
+                        writerw.Write(nonce_hex);
+                    }else
+                    {
+                        writerw.Write(Crypto.hashToString(nonce));
+                    }
                     data = mw.ToArray();
                 }
             }
@@ -659,6 +741,55 @@ namespace DLT
 
             pow_reward = (pow_reward/2 + 10000) * 100000; // Divide by 2 (assuming 50% block coverage) + add inital 10 IXI block reward + add the full amount of 0s to cover IxiNumber decimals
             return new IxiNumber(new BigInteger(pow_reward)); // Generate the corresponding IxiNumber, including decimals
+        }
+
+        static public void test()
+        {
+            while (1 == 1)
+            {
+                byte[] nonce = ASCIIEncoding.ASCII.GetBytes(ASCIIEncoding.ASCII.GetString(randomNonce(64)));
+                byte[] hash = findHash_v1(new byte[3]{ 1, 2, 3 }, nonce);
+
+                // We have a valid hash, update the corresponding block
+                if (Miner.validateHashInternal(hash, BitConverter.GetBytes(80)) == true)
+                {
+                    byte[] data = null;
+
+                    using (MemoryStream mw = new MemoryStream())
+                    {
+                        using (BinaryWriter writerw = new BinaryWriter(mw))
+                        {
+                            string nonce_hex = ASCIIEncoding.ASCII.GetString(nonce);
+                            writerw.Write(nonce_hex);
+                            data = mw.ToArray();
+                        }
+                    }
+
+                    string nonce_str = "";
+
+                    // Extract the block number and nonce
+                    using (MemoryStream m = new MemoryStream(data))
+                    {
+                        using (BinaryReader reader = new BinaryReader(m))
+                        {
+                            nonce_str = reader.ReadString();
+                        }
+                    }
+
+                    byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce_str);
+                    byte[] hash_to_test = Miner.findHash_v1(new byte[3] { 1, 2, 3 }, nonce_bytes);
+
+                    if (Miner.validateHashInternal(hash_to_test, BitConverter.GetBytes(80)) == true)
+                    {
+                        // Hash is valid
+                        Logging.error("Found correct PoW");
+                        //break;
+                    }else
+                    {
+                        Logging.error("PoW solution incorrect");
+                    }
+                }
+            }
         }
     }
 }

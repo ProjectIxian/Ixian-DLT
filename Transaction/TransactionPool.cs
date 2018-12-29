@@ -744,10 +744,19 @@ namespace DLT
                     {
                         return true;
                     }
-                }else
+                }
+                else if (block.version == 1)
                 {
                     // Verify the nonce
                     if (Miner.verifyNonce_v1(nonce, blocknum, tx.from, block.difficulty))
+                    {
+                        return true;
+                    }
+                }
+                else
+                {
+                    // Verify the nonce
+                    if (Miner.verifyNonce_v2(nonce, blocknum, tx.from, block.difficulty))
                     {
                         return true;
                     }
