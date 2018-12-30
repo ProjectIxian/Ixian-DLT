@@ -360,10 +360,16 @@ namespace DLTNode.API
 
         public JsonResponse getnewaddress()
         {
-
-            byte[] address = Node.walletStorage.generateNewAddress();
-
-            return new JsonResponse { result = Base58Check.Base58CheckEncoding.EncodePlain(address), error = null };
+            IxianKeyPair kp = Node.walletStorage.generateNewKeyPair();
+            if (kp != null)
+            {
+                Address address = new Address(kp.publicKeyBytes);
+                return new JsonResponse { result = address.ToString(), error = null };
+            }
+            else
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error occured while generating a new address" } };
+            }
         }
 
         public JsonResponse gettransaction(string txid)

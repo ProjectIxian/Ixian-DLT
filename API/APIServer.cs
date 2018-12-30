@@ -300,6 +300,11 @@ namespace DLTNode
                 response = onActivity(request);
             }
 
+            if (methodName.Equals("generatenewaddress", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGenerateNewAddress();
+            }
+
             bool resources = false;
 
             if (methodName.Equals("resources", StringComparison.OrdinalIgnoreCase))
@@ -1124,6 +1129,20 @@ namespace DLTNode
             context.Response.StatusCode = 404;
             context.Response.StatusDescription = "404 File not found";
             sendResponse(context.Response, "404 File not found");
+        }
+
+        public JsonResponse onGenerateNewAddress()
+        {
+            IxianKeyPair kp = Node.walletStorage.generateNewKeyPair();
+            if (kp != null)
+            {
+                Address address = new Address(kp.publicKeyBytes);
+                return new JsonResponse { result = address.ToString(), error = null };
+            }
+            else
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error occured while generating a new address" } };
+            }
         }
     }
 }
