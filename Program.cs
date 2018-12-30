@@ -391,25 +391,25 @@ namespace DLTNode
 
             // Create a crypto lib
             CryptoLib crypto_lib = new CryptoLib(new CryptoLibs.BouncyCastle());
-            crypto_lib.generateKeys(CoreConfig.defaultRsaKeySize);
+            IxianKeyPair kp = crypto_lib.generateKeys(CoreConfig.defaultRsaKeySize);
 
-            Logging.log(LogSeverity.info, String.Format("Public Key base64: {0}", crypto_lib.getPublicKey()));
-            Logging.log(LogSeverity.info, String.Format("Private Key base64: {0}", crypto_lib.getPrivateKey()));
+            Logging.log(LogSeverity.info, String.Format("Public Key base64: {0}", kp.publicKeyBytes));
+            Logging.log(LogSeverity.info, String.Format("Private Key base64: {0}", kp.privateKeyBytes));
 
 
             /// ECDSA Signature test
             // Generate a new signature
-            byte[] signature = crypto_lib.getSignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPrivateKey());
+            byte[] signature = crypto_lib.getSignature(Encoding.UTF8.GetBytes("Hello There!"), kp.publicKeyBytes);
             Logging.log(LogSeverity.info, String.Format("Signature: {0}", signature));
 
             // Verify the signature
-            if(crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPublicKey(), signature))
+            if(crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello There!"), kp.publicKeyBytes, signature))
             {
                 Logging.log(LogSeverity.info, "SIGNATURE IS VALID");
             }
 
             // Try a tamper test
-            if (crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello Tamper!"), crypto_lib.getPublicKey(), signature))
+            if (crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello Tamper!"), kp.publicKeyBytes, signature))
             {
                 Logging.log(LogSeverity.info, "SIGNATURE IS VALID AND MATCHES ORIGINAL TEXT");
             }
@@ -419,11 +419,11 @@ namespace DLTNode
             }
 
             // Generate a new signature for the same text
-            byte[] signature2 = crypto_lib.getSignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPrivateKey());
+            byte[] signature2 = crypto_lib.getSignature(Encoding.UTF8.GetBytes("Hello There!"), kp.privateKeyBytes);
             Logging.log(LogSeverity.info, String.Format("Signature Again: {0}", signature2));
 
             // Verify the signature again
-            if (crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello There!"), crypto_lib.getPublicKey(), signature2))
+            if (crypto_lib.verifySignature(Encoding.UTF8.GetBytes("Hello There!"), kp.publicKeyBytes, signature2))
             {
                 Logging.log(LogSeverity.info, "SIGNATURE IS VALID");
             }
@@ -439,7 +439,7 @@ namespace DLTNode
 
 
             // Create an address from the public key
-            Address addr = new Address(crypto_lib.getPublicKey());
+            Address addr = new Address(kp.publicKeyBytes);
             Logging.log(LogSeverity.info, String.Format("Address generated from public key above: {0}", addr));
             Logging.log(LogSeverity.info, "-------------------------");
 

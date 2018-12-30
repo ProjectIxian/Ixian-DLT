@@ -1516,7 +1516,13 @@ namespace DLT
 
                 // Simulate applying a block to see what the walletstate would look like
                 Node.walletState.snapshot();
-                applyAcceptedBlock(localNewBlock, true);
+                if(!applyAcceptedBlock(localNewBlock, true))
+                {
+                    Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
+                    localNewBlock = null;
+                    Node.walletState.revert();
+                    return;
+                }
                 localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
                 Node.walletState.revert();
 
