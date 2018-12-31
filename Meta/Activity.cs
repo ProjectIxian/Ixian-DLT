@@ -63,6 +63,7 @@ namespace DLT.Meta
 
         public Activity(byte[] seed_hash, string wallet, string from, SortedDictionary<byte[], IxiNumber> to_list, int type, byte[] data, string value, long timestamp, int status, ulong block_height)
         {
+            this.seedHash = seed_hash;
             this.wallet = wallet;
             this.from = from;
             setToListArray(to_list);
@@ -188,6 +189,19 @@ namespace DLT.Meta
                 executeSQL(sql);
                 sql = "CREATE INDEX `blockHeight` ON `activity` (`blockHeight`);";
                 executeSQL(sql);
+            }else
+            {
+                // database exists, check if it needs upgrading
+                if (tableInfo.Exists(x => x.Name == "seedHash"))
+                {
+                    string sql = "ALTER TABLE `activity` ADD COLUMN `seedHash` BLOB;";
+                    executeSQL(sql);
+                    sql = "UPDATE `activity` SET `seedHash` = ?;";
+                    executeSQL(sql, new byte[1] { 0 });
+                    sql = "CREATE INDEX `seedHash` ON `activity` (`seedHash`);";
+                    executeSQL(sql);
+
+                }
             }
 
             return true;
@@ -236,15 +250,15 @@ namespace DLT.Meta
 
         public static List<Activity> getActivitiesBySeedHash(byte[] seed_hash, int fromIndex, int count, bool descending)
         {
-            if (seed_hash.Length < 1)
-            {
-                return null;
-            }
-
             string orderBy = " ORDER BY `timestamp` ASC";
             if (descending)
             {
                 orderBy = " ORDER BY `timestamp` DESC";
+            }
+
+            if(seed_hash == null)
+            {
+                seed_hash = new byte[1] { 0 };
             }
 
             string sql = "select * from `activity` where `seedHash` = ?" + orderBy + " LIMIT " + fromIndex + ", " + count;
@@ -302,18 +316,25 @@ namespace DLT.Meta
             {
                 return false;
             }
+
+            byte[] seed_hash = activity.seedHash;
+            if (seed_hash == null)
+            {
+                seed_hash = new byte[1] { 0 };
+            }
+
             bool result = false;
             lock (storageLock)
             {
                 if (getActivityById(activity.id) == null)
                 {
                     string sql = "INSERT INTO `activity` (`id`, `seedHash`, `wallet`, `from`, `toList`, `type`, `data`, `value`, `timestamp`, `status`, `blockHeight`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, activity.id, activity.seedHash, activity.wallet, activity.from, activity.toList, activity.type, activity.data, activity.value, activity.timestamp, activity.status, activity.blockHeight);
+                    result = executeSQL(sql, activity.id, seed_hash, activity.wallet, activity.from, activity.toList, activity.type, activity.data, activity.value, activity.timestamp, activity.status, activity.blockHeight);
                 }
                 else
                 {
                     string sql = "UPDATE `activity` SET `seedHash` = ?, `wallet` = ?, `from` = ?, `toList` = ?, `type` = ?, `data` = ?, `value` = ?, `timestamp` = ?, `status` = ?, `blockHeight` = ? WHERE `id` = ?";
-                    result = executeSQL(sql, activity.seedHash, activity.wallet, activity.from, activity.toList, activity.type, activity.data, activity.value, activity.timestamp, activity.status, activity.blockHeight, activity.id);
+                    result = executeSQL(sql, seed_hash, activity.wallet, activity.from, activity.toList, activity.type, activity.data, activity.value, activity.timestamp, activity.status, activity.blockHeight, activity.id);
                 }
             }
 

@@ -362,8 +362,7 @@ namespace DLT
                     t = transactions[txid];
                     t.applied = blockNum;
 
-                    // TODO TODO TODO TODO TODO TODO include all addresses
-                    if (t.from.SequenceEqual(Node.walletStorage.getPrimaryAddress()) || t.toList.ContainsKey(Node.walletStorage.getPrimaryAddress()))
+                    if (Node.walletStorage.isMyAddress(t.from) || Node.walletStorage.isMyAddress(t.toList) != null)
                     {
                         ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
                     }

@@ -381,7 +381,17 @@ namespace DLTNode
             // Add a new transaction. This test allows sending and receiving from arbitrary addresses
             object res = "Incorrect transaction parameters.";
 
-            byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
+            string from_string = request.QueryString["from"];
+            byte[] from = null;
+            if (from_string != null)
+            {
+                from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
+            }
+            else
+            {
+                from = Node.walletStorage.getPrimaryAddress();
+            }
+
 
             IxiNumber amount = 0;
             IxiNumber fee = CoreConfig.transactionPrice;
