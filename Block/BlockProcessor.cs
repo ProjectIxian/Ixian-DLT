@@ -30,6 +30,8 @@ namespace DLT
         public readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
+        long lastUpgradeTry = 0;
+
         int blockGenerationInterval = 30; // in seconds
 
         public bool firstBlockAfterSync;
@@ -96,6 +98,14 @@ namespace DLT
 
                 int block_version = Block.maxBlockVersion;
 
+                if(lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
+                {
+                    block_version = Node.blockChain.getLastBlockVersion();
+                }else
+                {
+                    lastUpgradeTry = 0;
+                }
+
                 bool forceNextBlock = Node.forceNextBlock;
                 Random rnd = new Random();
                 if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
@@ -126,6 +136,10 @@ namespace DLT
                 }
                 else
                 {
+                    if (localNewBlock != null && localNewBlock.version > Node.blockChain.getLastBlockVersion())
+                    {
+                        lastUpgradeTry = Clock.getTimestamp();
+                    }
                     verifyBlockAcceptance();
                 }
 
