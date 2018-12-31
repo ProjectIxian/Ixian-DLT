@@ -317,7 +317,7 @@ namespace DLT
 
                         activeBlock = block;
                         byte[] block_checksum = activeBlock.blockChecksum;
-                        byte[] solver_address = Node.walletStorage.address;
+                        byte[] solver_address = Node.walletStorage.getPrimaryAddress();
                         activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
                         System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
                         System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
@@ -334,7 +334,7 @@ namespace DLT
             return;
         }
 
-        private static byte[] randomNonce(int length)
+        private byte[] randomNonce(int length)
         {
             byte[] nonce = new byte[length];
             random.NextBytes(nonce);
@@ -560,9 +560,9 @@ namespace DLT
         // Broadcasts the solution to the network
         public void sendSolution(byte[] nonce)
         {
-            byte[] pubkey = Node.walletStorage.publicKey;
+            byte[] pubkey = Node.walletStorage.getPrimaryPublicKey();
             // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getWalletAddress(), true);
+            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getPrimaryAddress(), true);
             if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
@@ -588,7 +588,7 @@ namespace DLT
                 }
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getWalletAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {
@@ -743,7 +743,7 @@ namespace DLT
             return new IxiNumber(new BigInteger(pow_reward)); // Generate the corresponding IxiNumber, including decimals
         }
 
-        static public void test()
+        public void test()
         {
             while (1 == 1)
             {

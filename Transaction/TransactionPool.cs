@@ -362,7 +362,8 @@ namespace DLT
                     t = transactions[txid];
                     t.applied = blockNum;
 
-                    if (t.from.SequenceEqual(Node.walletStorage.address) || t.toList.ContainsKey(Node.walletStorage.address))
+                    // TODO TODO TODO TODO TODO TODO include all addresses
+                    if (t.from.SequenceEqual(Node.walletStorage.getPrimaryAddress()) || t.toList.ContainsKey(Node.walletStorage.getPrimaryAddress()))
                     {
                         ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
                     }
@@ -487,10 +488,11 @@ namespace DLT
 
         private static void addTransactionToActivityStorage(Transaction transaction)
         {
+            // TODO TODO TODO TODO TODO TODO include all addresses
             Activity activity = null;
             int type = -1;
             IxiNumber value = transaction.amount;
-            if (transaction.from.SequenceEqual(Node.walletStorage.address))
+            if (transaction.from.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
             {
                 type = (int)ActivityType.TransactionSent;
                 if (transaction.type == (int)Transaction.Type.PoWSolution)
@@ -499,7 +501,7 @@ namespace DLT
                     value = Miner.calculateRewardForBlock(BitConverter.ToUInt64(transaction.data, 0));
                 }
             }
-            if (transaction.toList.ContainsKey(Node.walletStorage.address))
+            if (transaction.toList.ContainsKey(Node.walletStorage.getPrimaryAddress()))
             {
                 type = (int)ActivityType.TransactionReceived;
                 if (transaction.type == (int)Transaction.Type.StakingReward)
@@ -514,7 +516,7 @@ namespace DLT
                 {
                     status = (int)ActivityStatus.Final;
                 }
-                activity = new Activity(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Base58Check.Base58CheckEncoding.EncodePlain(transaction.from), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, 0);
+                activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.getPrimaryAddress()), Base58Check.Base58CheckEncoding.EncodePlain(transaction.from), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, 0);
                 ActivityStorage.insertActivity(activity);
             }
         }
@@ -1544,7 +1546,7 @@ namespace DLT
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
                     Node.walletState.setWalletBalance(miner_wallet.id, miner_balance_after, ws_snapshot);
 
-                    if (miner_wallet.id.SequenceEqual(Node.walletStorage.address))
+                    if (miner_wallet.id.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
                     {
                         ActivityStorage.updateValue(Encoding.UTF8.GetBytes(((Transaction)entry[2]).id), powRewardPart);
                     }

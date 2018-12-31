@@ -158,7 +158,7 @@ namespace DLTNode
                            writer.Write(publicHostname);
 
                            // Send the public node address
-                           byte[] address = Node.walletStorage.address;
+                           byte[] address = Node.walletStorage.getPrimaryAddress();
                            writer.Write(address);
 
                            // Send the testnet designator
@@ -172,13 +172,13 @@ namespace DLTNode
                            writer.Write(Config.device_id);
 
                            // Send the wallet public key
-                           writer.Write(Node.walletStorage.publicKey);
+                           writer.Write(Node.walletStorage.getPrimaryPublicKey());
 
                            sendData(ProtocolMessageCode.hello, m.ToArray());
                        }
                    }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", CoreConfig.foundationAddress, Node.walletStorage.getWalletAddress(), null, null, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", CoreConfig.foundationAddress, Node.walletStorage.getPrimaryAddress(), null, null, Node.blockChain.getLastBlockNum());
 
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
@@ -203,9 +203,9 @@ namespace DLTNode
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = CoreConfig.transactionPrice;
                 byte[] to = CoreConfig.foundationAddress;
-                byte[] from = Node.walletStorage.getWalletAddress();
+                byte[] from = Node.walletStorage.getPrimaryAddress();
 
-                byte[] pubKey = Node.walletStorage.publicKey;
+                byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from, true);
                 if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
@@ -246,9 +246,9 @@ namespace DLTNode
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = CoreConfig.transactionPrice;
                 byte[] to = CoreConfig.foundationAddress;
-                byte[] from = Node.walletStorage.getWalletAddress();
+                byte[] from = Node.walletStorage.getPrimaryAddress();
 
-                byte[] pubKey = Node.walletStorage.publicKey;
+                byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from, true);
                 if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))

@@ -381,6 +381,8 @@ namespace DLTNode
             // Add a new transaction. This test allows sending and receiving from arbitrary addresses
             object res = "Incorrect transaction parameters.";
 
+            byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
+
             IxiNumber amount = 0;
             IxiNumber fee = CoreConfig.transactionPrice;
             SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
@@ -415,37 +417,35 @@ namespace DLTNode
             }
 
             // Only create a transaction if there is a valid amount
-            if (amount > 0)
+            if (amount < 0 || amount == 0)
             {
-                byte[] from = Node.walletStorage.address;
-                byte[] pubKey = Node.walletStorage.publicKey;
+                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid amount was specified" } };
+            }
 
-                // Check if this wallet's public key is already in the WalletState
-                Wallet mywallet = Node.walletState.getWallet(from, true);
-                if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(Node.walletStorage.publicKey))
-                {
-                    // Walletstate public key matches, we don't need to send the public key in the transaction
-                    pubKey = null;
-                }
+            byte[] pubKey = Node.walletStorage.getKeyPair(from).publicKeyBytes;
+
+            // Check if this wallet's public key is already in the WalletState
+            Wallet mywallet = Node.walletState.getWallet(from, true);
+            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+            {
+                // Walletstate public key matches, we don't need to send the public key in the transaction
+                pubKey = null;
+            }
 
 
-                Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, from, null, pubKey, Node.getHighestKnownNetworkBlockHeight());
-                if (mywallet.balance < transaction.amount + transaction.fee)
-                {
-                    res = "Your account's balance is less than the sending amount + fee.";
-                }
-                else
-                {
-                    if (TransactionPool.addTransaction(transaction))
-                    {
-                        TransactionPool.addPendingLocalTransaction(transaction);
-                        res = transaction.toDictionary();
-                    }
-                    else
-                    {
-                        res = "There was an error adding the transaction.";
-                    }
-                }
+            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, from, null, pubKey, Node.getHighestKnownNetworkBlockHeight());
+            if (amount + transaction.fee < mywallet.balance)
+            {
+                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
+            }
+            if (TransactionPool.addTransaction(transaction))
+            {
+                TransactionPool.addPendingLocalTransaction(transaction);
+                res = transaction.toDictionary();
+            }
+            else
+            {
+                res = "There was an error adding the transaction.";
             }
 
             return new JsonResponse { result = res, error = error };
@@ -786,8 +786,8 @@ namespace DLTNode
             JsonError error = null;
 
             // Show own address, balance and blockchain synchronization status
-            byte[] address = Node.walletStorage.getWalletAddress();
-            IxiNumber balance = Node.walletState.getWalletBalance(address);
+            byte[] address = Node.walletStorage.getLastAddress();
+            IxiNumber balance = Node.walletStorage.getMyTotalBalance();
             string sync_status = "ready";
 
             // If blockSync is null or it's currently synchronizing, show the sync status
@@ -807,10 +807,10 @@ namespace DLTNode
             JsonError error = null;
 
             // Show own address, balance and blockchain synchronization status
-            byte[] pubkey = Node.walletStorage.publicKey;
+            byte[] pubkey = Node.walletStorage.getPrimaryPublicKey();
 
             string[] statArray = new String[1];
-            statArray[0] = Crypto.hashToString(pubkey);
+            statArray[0] = Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.getPrimaryAddress());
 
             return new JsonResponse { result = statArray, error = error };
         }
@@ -1091,7 +1091,7 @@ namespace DLTNode
                 count = "50";
             }
 
-            List<Activity> res = ActivityStorage.getActivitiesByAddress(Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address), Int32.Parse(fromIndex), Int32.Parse(count), true);
+            List<Activity> res = ActivityStorage.getActivitiesBySeedHash(Node.walletStorage.getSeedHash(), Int32.Parse(fromIndex), Int32.Parse(count), true);
 
             return new JsonResponse { result = res, error = error };
         }

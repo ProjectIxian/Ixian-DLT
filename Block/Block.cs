@@ -330,16 +330,16 @@ namespace DLT
             }
 
             // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-            byte[] myAddress = Node.walletStorage.getWalletAddress();
+            byte[] myAddress = Node.walletStorage.getPrimaryAddress();
             if (containsSignature(myAddress))
             {
                 return false;
             }
 
-            byte[] myPubKey = Node.walletStorage.publicKey;
+            byte[] myPubKey = Node.walletStorage.getPrimaryPublicKey();
 
             // TODO: optimize this in case our signature is already in the block, without locking signatures for too long
-            byte[] private_key = Node.walletStorage.privateKey;
+            byte[] private_key = Node.walletStorage.getPrimaryPrivateKey();
             byte[] signature = CryptoManager.lib.getSignature(blockChecksum, private_key);
 
             Wallet w = Node.walletState.getWallet(myAddress);
@@ -515,10 +515,10 @@ namespace DLT
         // Goes through all signatures and verifies if the block is already signed with this node's pubkey
         public bool hasNodeSignature(byte[] public_key = null)
         {
-            byte[] node_address = Node.walletStorage.address;
+            byte[] node_address = Node.walletStorage.getPrimaryAddress();
             if (public_key == null)
             {
-                public_key = Node.walletStorage.publicKey;
+                public_key = Node.walletStorage.getPrimaryPublicKey();
             }
             else
             {

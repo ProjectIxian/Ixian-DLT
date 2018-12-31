@@ -58,7 +58,7 @@ namespace DLT.Meta
 
             // Load or Generate the wallet
             walletStorage = new WalletStorage(Config.walletFile);
-            if (walletStorage.publicKey == null)
+            if (walletStorage.getPrimaryPublicKey() == null)
             {
                 running = false;
                 DLTNode.Program.noStart = true;
@@ -246,7 +246,7 @@ namespace DLT.Meta
 
                 int tx_type = (int)Transaction.Type.Genesis;
 
-                Transaction tx = new Transaction(tx_type, genesisFunds, new IxiNumber(0), walletStorage.address, from, null, null, 1);
+                Transaction tx = new Transaction(tx_type, genesisFunds, new IxiNumber(0), walletStorage.getPrimaryAddress(), from, null, null, 1);
                 TransactionPool.addTransaction(tx);
 
                 if(Config.genesis2Address != "")
@@ -568,7 +568,7 @@ namespace DLT.Meta
             {
                 if (Node.blockChain.getLastBlockNum() > 2)
                 {
-                    IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.address);
+                    IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.getPrimaryAddress());
                     if(isWorkerNode())
                     {
                         if (nodeBalance > CoreConfig.minimumMasterNodeFunds)
@@ -581,7 +581,7 @@ namespace DLT.Meta
                     if (nodeBalance < CoreConfig.minimumMasterNodeFunds)
                     {
                         Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", 
-                            CoreConfig.minimumMasterNodeFunds, Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.address)));
+                            CoreConfig.minimumMasterNodeFunds, Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress())));
                         //Node.stop();
                         //running = false;
                         return false;
@@ -635,7 +635,7 @@ namespace DLT.Meta
         public static bool isElectedToGenerateNextBlock(int offset = 0)
         {
             byte[] pubKey = blockChain.getLastElectedNodePubKey(offset);
-            if(pubKey == null || pubKey.SequenceEqual(walletStorage.publicKey))
+            if(pubKey == null || pubKey.SequenceEqual(walletStorage.getPrimaryPublicKey()))
             {
                 return true;
             }
@@ -687,7 +687,7 @@ namespace DLT.Meta
                         {
                             writer.Write(keepAliveVersion);
 
-                            byte[] wallet = walletStorage.address;
+                            byte[] wallet = walletStorage.getPrimaryAddress();
                             writer.Write(wallet.Length);
                             writer.Write(wallet);
 
@@ -701,7 +701,7 @@ namespace DLT.Meta
                             writer.Write(hostname);
 
                             // Add a verifiable signature
-                            byte[] private_key = walletStorage.privateKey;
+                            byte[] private_key = walletStorage.getPrimaryPrivateKey();
                             byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
                             writer.Write(signature.Length);
                             writer.Write(signature);

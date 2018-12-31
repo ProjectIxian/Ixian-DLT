@@ -217,13 +217,15 @@ namespace DLTNode.API
                 toList.Add(Base58Check.Base58CheckEncoding.DecodePlain(walletAmount.Key), amount);
             }
 
+            // TODO needs to be modified to include multiple addresses
+
             byte[] pubKey = null;
-            if (Node.walletState.getWallet(Node.walletStorage.address).publicKey == null)
+            if (Node.walletState.getWallet(Node.walletStorage.getPrimaryAddress()).publicKey == null)
             {
-                pubKey = Node.walletStorage.publicKey;
+                pubKey = Node.walletStorage.getPrimaryPublicKey();
             }
 
-            Transaction t = new Transaction((int)Transaction.Type.Normal, CoreConfig.transactionPrice, toList, Node.walletStorage.address, null, pubKey, Node.blockChain.getLastBlockNum());
+            Transaction t = new Transaction((int)Transaction.Type.Normal, CoreConfig.transactionPrice, toList, Node.walletStorage.getPrimaryAddress(), null, pubKey, Node.blockChain.getLastBlockNum());
             t.signature = null;
 
             return new JsonResponse { result = Crypto.hashToString(t.getBytes()), error = null };
@@ -264,7 +266,7 @@ namespace DLTNode.API
 
         public JsonResponse getbalance()
         {
-            return new JsonResponse { result = Node.walletState.getWalletBalance(Node.walletStorage.address).ToString(), error = null };
+            return new JsonResponse { result = Node.walletStorage.getMyTotalBalance().ToString(), error = null };
         }
 
         public JsonResponse getbestblockhash()
@@ -325,7 +327,7 @@ namespace DLTNode.API
             iDic.Add("version", Config.version);
             iDic.Add("protocolversion", CoreConfig.protocolVersion);
             iDic.Add("walletversion", Node.walletState.version);
-            iDic.Add("balance", Node.walletState.getWalletBalance(Node.walletStorage.address).ToString());
+            iDic.Add("balance", Node.walletStorage.getMyTotalBalance().ToString());
             iDic.Add("blocks", Node.blockChain.getLastBlockNum());
             iDic.Add("timeoffset", Core.networkTimeDifference);
             iDic.Add("connections", NetworkClientManager.getConnectedClients().Count() + NetworkServer.getConnectedClients().Count());
