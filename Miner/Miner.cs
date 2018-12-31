@@ -466,6 +466,10 @@ namespace DLT
 
         private static bool validateHashInternal(byte[] hash, byte[] hash_ceil)
         {
+            if(hash.Length != hash_ceil.Length)
+            {
+                return false;
+            }
             for (int i = 0; i < hash.Length; i++)
             {
                 byte cb = i < hash_ceil.Length ? hash_ceil[i] : (byte)0xff;

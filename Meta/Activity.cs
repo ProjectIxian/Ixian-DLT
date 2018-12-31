@@ -192,7 +192,7 @@ namespace DLT.Meta
             }else
             {
                 // database exists, check if it needs upgrading
-                if (tableInfo.Exists(x => x.Name == "seedHash"))
+                if (!tableInfo.Exists(x => x.Name == "seedHash"))
                 {
                     string sql = "ALTER TABLE `activity` ADD COLUMN `seedHash` BLOB;";
                     executeSQL(sql);
