@@ -138,7 +138,7 @@ namespace DLT
                     if (currentTime - requestedBlockTimes[blockNum] > 10)
                     {
                         // Re-request block
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 0) == false)
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 1) == false)
                         {
                             if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {

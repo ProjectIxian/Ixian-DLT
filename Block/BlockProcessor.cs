@@ -98,14 +98,6 @@ namespace DLT
 
                 int block_version = Block.maxBlockVersion;
 
-                if(lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
-                {
-                    block_version = Node.blockChain.getLastBlockVersion();
-                }else
-                {
-                    lastUpgradeTry = 0;
-                }
-
                 bool forceNextBlock = Node.forceNextBlock;
                 Random rnd = new Random();
                 if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
@@ -127,11 +119,21 @@ namespace DLT
                 //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
                 if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)) || forceNextBlock)
                 {
+                    if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
+                    {
+                        block_version = Node.blockChain.getLastBlockVersion();
+                    }
+                    else
+                    {
+                        lastUpgradeTry = 0;
+                    }
+
                     if (Node.forceNextBlock)
                     {
                         Logging.info("Forcing new block generation");
                         Node.forceNextBlock = false;
                     }
+
                     generateNewBlock(block_version);
                 }
                 else
@@ -628,7 +630,14 @@ namespace DLT
                     }
                     continue;
                 }
-                
+
+                // lock transaction v1 with block v2
+                if (t.version < 1 && b.version >= 2)
+                {
+                    Logging.error("Block includes a tx version {{ {0} }} but expected tx version was at least 1!", t.version);
+                    return BlockVerifyStatus.Invalid;
+                }
+
                 // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(t.from))
                 {
@@ -1429,7 +1438,6 @@ namespace DLT
                 IxiNumber total_amount = 0;
 
                 // Apply staking transactions to block. 
-                // Generate the staking transactions with the blockgen flag, as we are the current block generator
                 List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version);
                 foreach (Transaction transaction in staking_transactions)
                 {
@@ -1440,11 +1448,13 @@ namespace DLT
                 staking_transactions.Clear();
 
                 List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
-                pool_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee
+                pool_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
 
                 ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
 
                 Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
+
+                Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
 
                 foreach (var transaction in pool_transactions)
                 {
@@ -1455,6 +1465,16 @@ namespace DLT
                         break;
                     }
 
+                    // lock transaction v1 with block v2
+                    if (block_version >= 2 && transaction.version < 1)
+                    {
+                        if(Node.blockChain.getLastBlockVersion() >= 2)
+                        {
+                            TransactionPool.removeTransaction(transaction.id);
+                        }
+                        continue;
+                    }
+
                     // Verify that the transaction is actually valid at this point
                     // no need as the tx is already in the pool and was verified when received
                     //if (TransactionPool.verifyTransaction(transaction) == false)
@@ -1463,6 +1483,7 @@ namespace DLT
                     // Skip adding staking rewards
                     if (transaction.type == (int)Transaction.Type.StakingReward)
                     {
+                        TransactionPool.removeTransaction(transaction.id);
                         continue;
                     }
 
@@ -1470,11 +1491,32 @@ namespace DLT
                     if (transaction.type == (int)Transaction.Type.PoWSolution)
                     {
                         // TODO: pre-validate the transaction in such a way it doesn't affect performance
-                        ulong tmp = 0;
-                        string tmp2 = "";
-                        if (!TransactionPool.verifyPoWTransaction(transaction, out tmp, out tmp2))
+                        ulong powBlockNum = 0;
+                        string nonce = "";
+                        if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce))
                         {
+                            TransactionPool.removeTransaction(transaction.id);
                             continue;
+                        }else
+                        {
+                            // Check if we already have a key matching the block number
+                            if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
+                            {
+                                blockSolutionsDictionary[powBlockNum] = new List<object[]>();
+                            }
+                            if (block_version >= 2)
+                            {
+                                if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(transaction.from) && (string)x[1] == nonce))
+                                {
+                                    // Add the miner to the block number dictionary reward list
+                                    blockSolutionsDictionary[powBlockNum].Add(new object[3] { transaction.from, nonce, transaction });
+                                }
+                                else
+                                {
+                                    TransactionPool.removeTransaction(transaction.id);
+                                    continue;
+                                }
+                            }
                         }
                     }
 

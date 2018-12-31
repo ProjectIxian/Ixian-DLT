@@ -167,6 +167,13 @@ namespace DLT
                 return false;
             }
 
+            // lock transaction v1 with block v2
+            if(transaction.version < 1 && Node.blockChain.getLastBlockVersion() >= 2)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v1 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
             // Check the block height
             ulong minBh = 0;
             if (blocknum > CoreConfig.redactedWindowSize)
@@ -1782,6 +1789,14 @@ namespace DLT
                 {
                     transactions[entry] = null;
                 }
+            }
+        }
+
+        public static bool removeTransaction(string txid)
+        {
+            lock(transactions)
+            {
+                return transactions.Remove(txid);
             }
         }
     }
