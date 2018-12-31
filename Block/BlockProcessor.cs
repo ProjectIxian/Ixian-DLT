@@ -94,11 +94,14 @@ namespace DLT
                     blockGenerationInterval = 30;
                 }
 
+                int block_version = Block.maxBlockVersion;
+
                 bool forceNextBlock = Node.forceNextBlock;
                 Random rnd = new Random();
                 if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
                 {
                     forceNextBlock = true;
+                    block_version = Node.blockChain.getLastBlockVersion();
                 }
 
                 // if the node is stuck on the same block for too long, discard the block
@@ -107,7 +110,9 @@ namespace DLT
                     blacklistBlock(localNewBlock);
                     localNewBlock = null;
                     lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
+                    block_version = Node.blockChain.getLastBlockVersion();
                 }
+
 
                 //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
                 if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)) || forceNextBlock)
@@ -117,7 +122,7 @@ namespace DLT
                         Logging.info("Forcing new block generation");
                         Node.forceNextBlock = false;
                     }
-                    generateNewBlock();
+                    generateNewBlock(block_version);
                 }
                 else
                 {
@@ -1385,7 +1390,7 @@ namespace DLT
         }
 
         // Generate a new block
-        public void generateNewBlock()
+        public void generateNewBlock(int block_version)
         {
             if (Node.isWorkerNode())
                 return;
@@ -1399,9 +1404,7 @@ namespace DLT
                 localNewBlock.timestamp = Core.getCurrentTimestamp();
                 localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
 
-                int blockVersion = 1;
-
-                localNewBlock.version = blockVersion;
+                localNewBlock.version = block_version;
 
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
 
@@ -1413,7 +1416,7 @@ namespace DLT
 
                 // Apply staking transactions to block. 
                 // Generate the staking transactions with the blockgen flag, as we are the current block generator
-                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, blockVersion);
+                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version);
                 foreach (Transaction transaction in staking_transactions)
                 {
                     localNewBlock.addTransaction(transaction);
@@ -1512,7 +1515,7 @@ namespace DLT
 
 
                 // Calculate mining difficulty
-                localNewBlock.difficulty = calculateDifficulty(blockVersion);
+                localNewBlock.difficulty = calculateDifficulty(block_version);
 
                 // Simulate applying a block to see what the walletstate would look like
                 Node.walletState.snapshot();

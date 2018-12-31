@@ -466,7 +466,7 @@ namespace DLT
 
         private static bool validateHashInternal(byte[] hash, byte[] hash_ceil)
         {
-            if(hash.Length != hash_ceil.Length)
+            if(hash == null || hash.Length < 1)
             {
                 return false;
             }

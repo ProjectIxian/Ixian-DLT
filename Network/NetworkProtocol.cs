@@ -1190,9 +1190,12 @@ namespace DLT
                                     endpoint.blockHeight = block.blockNum;
                                 }
 
-                                //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
-                                Node.blockSync.onBlockReceived(block, endpoint);
-                                Node.blockProcessor.onBlockReceived(block, endpoint);
+                                if(block.version < Block.maxBlockVersion)
+                                {
+                                    //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
+                                    Node.blockSync.onBlockReceived(block, endpoint);
+                                    Node.blockProcessor.onBlockReceived(block, endpoint);
+                                }// else do nothing
                             }
                             break;
 

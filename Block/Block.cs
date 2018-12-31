@@ -12,6 +12,8 @@ namespace DLT
 {
     public class Block
     {
+        public static int maxBlockVersion = 2;
+
         // TODO: Refactor all of these as readonly get-params
         [PrimaryKey, AutoIncrement]
         public ulong blockNum { get; set; }
@@ -290,10 +292,6 @@ namespace DLT
                 rawData.AddRange(signatureFreezeChecksum);
             }
             rawData.AddRange(BitConverter.GetBytes(difficulty));
-            if(version > 1)
-            {
-                rawData.Add(1); // for this versions future incompatibility with higher version blocks
-            }
             return Crypto.sha512sqTrunc(rawData.ToArray());
         }
 
