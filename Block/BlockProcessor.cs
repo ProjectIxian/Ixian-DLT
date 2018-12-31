@@ -1319,12 +1319,12 @@ namespace DLT
                 Node.walletState.setWalletBalance(addressBytes, balance_after, ws_snapshot);
                 if(!ws_snapshot)
                 {
-                    if (signer_wallet.id.SequenceEqual(Node.walletStorage.address))
+                    if (signer_wallet.id.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
                     {
                         SortedDictionary<byte[], IxiNumber> to_list = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
                         to_list.Add(addressBytes, balance_after);
-                        string address = Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.address);
-                        Activity activity = new Activity(address, Base58Check.Base58CheckEncoding.EncodePlain(CoreConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum);
+                        string address = Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.getPrimaryAddress());
+                        Activity activity = new Activity(Node.walletStorage.getSeedHash(), address, Base58Check.Base58CheckEncoding.EncodePlain(CoreConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum);
                         ActivityStorage.insertActivity(activity);
                     }
                 }

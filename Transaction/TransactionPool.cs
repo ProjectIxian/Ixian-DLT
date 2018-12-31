@@ -488,25 +488,29 @@ namespace DLT
 
         private static void addTransactionToActivityStorage(Transaction transaction)
         {
-            // TODO TODO TODO TODO TODO TODO include all addresses
             Activity activity = null;
             int type = -1;
             IxiNumber value = transaction.amount;
-            if (transaction.from.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
+            byte[] wallet = null;
+            if (Node.walletStorage.isMyAddress(transaction.from))
             {
+                wallet = transaction.from;
                 type = (int)ActivityType.TransactionSent;
                 if (transaction.type == (int)Transaction.Type.PoWSolution)
                 {
                     type = (int)ActivityType.MiningReward;
                     value = Miner.calculateRewardForBlock(BitConverter.ToUInt64(transaction.data, 0));
                 }
-            }
-            if (transaction.toList.ContainsKey(Node.walletStorage.getPrimaryAddress()))
+            }else
             {
-                type = (int)ActivityType.TransactionReceived;
-                if (transaction.type == (int)Transaction.Type.StakingReward)
+                wallet = Node.walletStorage.isMyAddress(transaction.toList);
+                if (wallet != null)
                 {
-                    type = (int)ActivityType.StakingReward;
+                    type = (int)ActivityType.TransactionReceived;
+                    if (transaction.type == (int)Transaction.Type.StakingReward)
+                    {
+                        type = (int)ActivityType.StakingReward;
+                    }
                 }
             }
             if (type != -1)
@@ -516,7 +520,7 @@ namespace DLT
                 {
                     status = (int)ActivityStatus.Final;
                 }
-                activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.getPrimaryAddress()), Base58Check.Base58CheckEncoding.EncodePlain(transaction.from), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, 0);
+                activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(transaction.from), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, 0);
                 ActivityStorage.insertActivity(activity);
             }
         }
