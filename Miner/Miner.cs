@@ -552,7 +552,7 @@ namespace DLT
         public static bool verifyNonce_v2(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
             // TODO TODO TODO TODO TODO TODO TODO investigate the null case
-            if (nonce == null || nonce.Length < 1)
+            if (nonce == null || nonce.Length != 128)
             {
                 return false;
             }
