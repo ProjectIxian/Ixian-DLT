@@ -912,14 +912,6 @@ namespace DLT
                         Logging.warn(String.Format("Incoming block #{0} doesn't have elected node's sig, waiting for a new block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                     }
                 }
-
-                if (Node.isWorkerNode())
-                    return;
-
-                if (localNewBlock != null && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
-                {
-                    ProtocolMessage.broadcastNewBlock(localNewBlock);
-                }
             }
         }
 
@@ -999,23 +991,29 @@ namespace DLT
                 if (localNewBlock == null) return;
                 if (verifyBlock(localNewBlock) == BlockVerifyStatus.Valid)
                 {
+                    if (!verifySignatureFreezeChecksum(localNewBlock))
+                    {
+                        Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
+                        TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+                        Random rnd = new Random();
+                        if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
+                        {
+                            blacklistBlock(localNewBlock);
+                            localNewBlock = null;
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
+                        }
+                        return;
+                    }else
+                    {
+                        if (!Node.isWorkerNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                        {
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                        }
+                    }
                     // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
                     // can no longer be reached according to this number - I don't have a clean answer yet - MZ
                     if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
                     {
-                        if(!verifySignatureFreezeChecksum(localNewBlock))
-                        {
-                            Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
-                            TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-                            Random rnd = new Random();
-                            if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
-                            {
-                                blacklistBlock(localNewBlock);
-                                localNewBlock = null;
-                                lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
-                            }
-                            return;
-                        }
                         if (localNewBlock.blockNum != Node.blockChain.getLastBlockNum() + 1)
                         {
                             Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, Node.blockChain.getLastBlockNum() + 1, Environment.StackTrace));
