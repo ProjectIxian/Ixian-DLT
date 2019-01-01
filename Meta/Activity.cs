@@ -194,13 +194,9 @@ namespace DLT.Meta
                 // database exists, check if it needs upgrading
                 if (!tableInfo.Exists(x => x.Name == "seedHash"))
                 {
-                    string sql = "ALTER TABLE `activity` ADD COLUMN `seedHash` BLOB;";
-                    executeSQL(sql);
-                    sql = "UPDATE `activity` SET `seedHash` = ?;";
-                    executeSQL(sql, new byte[1] { 0 });
-                    sql = "CREATE INDEX `seedHash` ON `activity` (`seedHash`);";
-                    executeSQL(sql);
-
+                    sqlConnection.Close();
+                    File.Delete(filename);
+                    prepareStorage();
                 }
             }
 
@@ -256,7 +252,7 @@ namespace DLT.Meta
                 orderBy = " ORDER BY `timestamp` DESC";
             }
 
-            if(seed_hash == null)
+            if (seed_hash == null)
             {
                 seed_hash = new byte[1] { 0 };
             }
@@ -269,6 +265,61 @@ namespace DLT.Meta
                 try
                 {
                     activity_list = sqlConnection.Query<Activity>(sql, seed_hash);
+                }
+                catch (Exception e)
+                {
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    return null;
+                }
+            }
+
+            return activity_list;
+        }
+
+        public static List<Activity> getActivitiesByStatus(ActivityStatus status, int fromIndex, int count, bool descending)
+        {
+            string orderBy = " ORDER BY `timestamp` ASC";
+            if (descending)
+            {
+                orderBy = " ORDER BY `timestamp` DESC";
+            }
+
+            string sql = "select * from `activity` where `status` = ?" + orderBy + " LIMIT " + fromIndex + ", " + count;
+            List<Activity> activity_list = null;
+
+            lock (storageLock)
+            {
+                try
+                {
+                    activity_list = sqlConnection.Query<Activity>(sql, (int)status);
+                }
+                catch (Exception e)
+                {
+                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                    return null;
+                }
+            }
+
+            return activity_list;
+        }
+
+
+        public static List<Activity> getActivitiesByType(ActivityType type, int fromIndex, int count, bool descending)
+        {
+            string orderBy = " ORDER BY `timestamp` ASC";
+            if (descending)
+            {
+                orderBy = " ORDER BY `timestamp` DESC";
+            }
+
+            string sql = "select * from `activity` where `type` = ?" + orderBy + " LIMIT " + fromIndex + ", " + count;
+            List<Activity> activity_list = null;
+
+            lock (storageLock)
+            {
+                try
+                {
+                    activity_list = sqlConnection.Query<Activity>(sql, (int)type);
                 }
                 catch (Exception e)
                 {

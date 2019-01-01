@@ -1687,6 +1687,10 @@ namespace DLT
 
                         if (block == null || block.powField != null)
                         {
+                            if(Node.walletStorage.isMyAddress(entry.from))
+                            {
+                                ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(entry.id), ActivityStatus.Error, 0);
+                            }
                             transactions.Remove(entry.id);
                         }
                     }
