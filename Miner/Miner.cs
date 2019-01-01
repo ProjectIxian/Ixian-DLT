@@ -489,6 +489,12 @@ namespace DLT
         // Verify nonce
         public static bool verifyNonce_v0(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
+            // TODO TODO TODO TODO TODO TODO TODO investigate the null case
+            if (nonce == null || nonce.Length < 1)
+            {
+                return false;
+            }
+
             Block block = Node.blockChain.getBlock(block_num);
             if (block == null)
                 return false;
@@ -514,6 +520,12 @@ namespace DLT
         // Verify nonce
         public static bool verifyNonce_v1(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
+            // TODO TODO TODO TODO TODO TODO TODO investigate the null case
+            if(nonce == null || nonce.Length < 1)
+            {
+                return false;
+            }
+
             Block block = Node.blockChain.getBlock(block_num);
             if (block == null)
                 return false;
@@ -539,6 +551,12 @@ namespace DLT
         // Verify nonce
         public static bool verifyNonce_v2(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
+            // TODO TODO TODO TODO TODO TODO TODO investigate the null case
+            if (nonce == null || nonce.Length < 1)
+            {
+                return false;
+            }
+
             Block block = Node.blockChain.getBlock(block_num);
             if (block == null)
                 return false;

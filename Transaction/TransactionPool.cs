@@ -819,16 +819,8 @@ namespace DLT
                     if (block == null)
                         continue;
 
-                    List<object[]> miners_to_reward = blockSolutionsDictionary[blockNum];
-
-                    List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes(string.Format("MINERS-{0}-", blockNum)));
-                    foreach (var entry in miners_to_reward)
-                    {
-                        checksum_source.AddRange((byte[])entry[0]);
-                    }
-
                     // Set the powField as a checksum of all miners for this block
-                    block.powField = Crypto.sha512sqTrunc(checksum_source.ToArray());
+                    block.powField = BitConverter.GetBytes(b.blockNum);
                 }
             }
             return true;
@@ -1048,7 +1040,7 @@ namespace DLT
                 // Finally, Check if we have any miners to reward
                 if (blockSolutionsDictionary.Count > 0)
                 {
-                    rewardMiners(blockSolutionsDictionary, ws_snapshot);
+                    rewardMiners(block.blockNum, blockSolutionsDictionary, ws_snapshot);
                 }
 
                 // Clear the solutions dictionary
@@ -1520,7 +1512,7 @@ namespace DLT
         }
 
         // Go through a dictionary of block numbers and respective miners and reward them
-        public static void rewardMiners(IDictionary<ulong, List<object[]>> blockSolutionsDictionary, bool ws_snapshot = false)
+        public static void rewardMiners(ulong sent_block_num, IDictionary<ulong, List<object[]>> blockSolutionsDictionary, bool ws_snapshot = false)
         {
             for (int i = 0; i < blockSolutionsDictionary.Count; i++)
             {
@@ -1546,7 +1538,6 @@ namespace DLT
 
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
 
-                List<byte> checksum_source = new List<byte>(Encoding.UTF8.GetBytes(string.Format("MINERS-{0}-",blockNum)));
                 foreach (var entry in miners_to_reward)
                 {
                     // TODO add another address checksum here, just in case
@@ -1561,14 +1552,13 @@ namespace DLT
                         ActivityStorage.updateValue(Encoding.UTF8.GetBytes(((Transaction)entry[2]).id), powRewardPart);
                     }
 
-                    checksum_source.AddRange(miner_wallet.id);
                 }
 
                 // Ignore during snapshot
                 if (ws_snapshot == false)
                 {
                     // Set the powField as a checksum of all miners for this block
-                    block.powField = Crypto.sha512sqTrunc(checksum_source.ToArray());
+                    block.powField = BitConverter.GetBytes(sent_block_num);
                     Meta.Storage.insertBlock(block);
                 }
 
