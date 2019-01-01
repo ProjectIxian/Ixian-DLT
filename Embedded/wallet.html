@@ -189,13 +189,16 @@
                     });
             }
 
-            function statusToString(status) {
+            function statusToString(status, type) {
                 switch (status) {
                     case 1:
                         return "Pending";
                     case 2:
                         return "Final";
                     case 3:
+                        if (type == 200) {
+                            return "Discarded";
+                        }
                         return "Error";
                     default:
                         return "Unknown - " + status;
@@ -239,7 +242,7 @@
                             }
                             var date = new Date(data["result"][i]["timestamp"] * 1000);
                             htmlEl.getElementsByClassName("pamount")[0].innerHTML += "<br/><span class=\"pdate\">" + date.toLocaleString() + "</span>";
-                            var status = statusToString(data["result"][i]["status"]);
+                            var status = statusToString(data["result"][i]["status"], type);
                             htmlEl.getElementsByClassName("pdesc")[0].innerHTML += " - " + status;
                         }
                     });

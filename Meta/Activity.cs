@@ -82,6 +82,10 @@ namespace DLT.Meta
                 if (_id == null)
                 {
                     List<byte> raw_data = new List<byte>();
+                    if (seedHash != null)
+                    {
+                        raw_data.AddRange(seedHash);
+                    }
                     raw_data.AddRange(Encoding.UTF8.GetBytes(wallet));
                     raw_data.AddRange(Encoding.UTF8.GetBytes(from));
                     SortedDictionary<byte[], IxiNumber> tmp_to_list = getToListAsArray();

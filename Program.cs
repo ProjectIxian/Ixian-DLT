@@ -44,13 +44,14 @@ namespace DLTNode
                 "SQLitePCLRaw.core.dll",
                 "SQLitePCLRaw.provider.e_sqlite3.dll",
                 "System.Console.dll",
-                "System.Reflection.TypeExtensions.dll"
+                "System.Reflection.TypeExtensions.dll",
+                "x64" + Path.DirectorySeparatorChar + "e_sqlite3.dll"
             };
             foreach(string critical_dll in critical_dlls)
             {
                 if(!File.Exists(critical_dll))
                 {
-                    Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download from http://www.ixian.io!", critical_dll));
+                    Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download the archive from https://www.ixian.io!", critical_dll));
                     Logging.info("Press ENTER to exit.");
                     Console.ReadLine();
                     Environment.Exit(-1);
@@ -60,7 +61,7 @@ namespace DLTNode
             // Special case for argon
             if (!File.Exists("libargon2.dll") && !File.Exists("libargon2.so") && !File.Exists("libargon2.dylib"))
             {
-                Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download from http://www.ixian.io!", "libargon2"));
+                Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download the archive from https://www.ixian.io!", "libargon2"));
                 Logging.info("Press ENTER to exit.");
                 Console.ReadLine();
                 Environment.Exit(-1);
@@ -234,6 +235,9 @@ namespace DLTNode
 
             Console.WriteLine(string.Format("IXIAN DLT {0}", Config.version));
 
+            // Check for critical files in the exe dir
+            CheckRequiredFiles();
+
             // Read configuration from command line
             Config.readFromCommandLine(args);
 
@@ -247,9 +251,6 @@ namespace DLTNode
             Logging.setOptions(Config.maxLogSize, Config.maxLogCount);
 
             Logging.info(string.Format("Starting IXIAN DLT {0}", Config.version));
-
-            // Check for critical files in the exe dir
-            CheckRequiredFiles();
 
             // Check for the right vc++ redist for the argon miner
             // Ignore if we're on Mono
