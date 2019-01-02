@@ -160,8 +160,14 @@ namespace DLT
                 return false;
             }
 
+            if(transaction.data.Length > 1024)
+            {
+                Logging.warn(String.Format("Transaction's data length is bigger than 1024 bytes. TXid: {0}.", transaction.id));
+                return false;
+            }
+
             // reject any transaction with block height 0
-            if(transaction.blockHeight == 0)
+            if (transaction.blockHeight == 0)
             {
                 Logging.warn(String.Format("Transaction without block height specified on block #{0} skipped. TXid: {1}.", blocknum, transaction.id));
                 return false;
