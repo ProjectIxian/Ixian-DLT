@@ -148,7 +148,7 @@ namespace DLTNode.API
                     break;
 
                 case "getnewaddress":
-                    response = getnewaddress();
+                    response = getnewaddress((string)requestObject.@params);
                     break;
 
                     
@@ -360,13 +360,18 @@ namespace DLTNode.API
             return new JsonResponse { result = iDic, error = null };
         }
 
-        public JsonResponse getnewaddress()
+        public JsonResponse getnewaddress(string base_address_str)
         {
-            IxianKeyPair kp = Node.walletStorage.generateNewKeyPair();
-            if (kp != null)
+            byte[] base_address = null;
+            if (base_address_str == null)
             {
-                Address address = new Address(kp.publicKeyBytes);
-                return new JsonResponse { result = address.ToString(), error = null };
+                base_address = Node.walletStorage.getPrimaryAddress();
+            }
+
+            Address new_address = Node.walletStorage.generateNewAddress(new Address(base_address));
+            if (new_address != null)
+            {
+                return new JsonResponse { result = new_address.ToString(), error = null };
             }
             else
             {

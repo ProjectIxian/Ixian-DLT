@@ -302,7 +302,7 @@ namespace DLTNode
 
             if (methodName.Equals("generatenewaddress", StringComparison.OrdinalIgnoreCase))
             {
-                response = onGenerateNewAddress();
+                response = onGenerateNewAddress(request);
             }
 
             bool resources = false;
@@ -1141,13 +1141,19 @@ namespace DLTNode
             sendResponse(context.Response, "404 File not found");
         }
 
-        public JsonResponse onGenerateNewAddress()
+        public JsonResponse onGenerateNewAddress(HttpListenerRequest request)
         {
-            IxianKeyPair kp = Node.walletStorage.generateNewKeyPair();
-            if (kp != null)
+            string base_address_str = request.QueryString["address"];
+            byte[] base_address = null;
+            if (base_address_str == null)
             {
-                Address address = new Address(kp.publicKeyBytes);
-                return new JsonResponse { result = address.ToString(), error = null };
+                base_address = Node.walletStorage.getPrimaryAddress();
+            }
+
+            Address new_address = Node.walletStorage.generateNewAddress(new Address(base_address));
+            if (new_address != null)
+            {
+                return new JsonResponse { result = new_address.ToString(), error = null };
             }
             else
             {
