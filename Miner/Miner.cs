@@ -43,10 +43,12 @@ namespace DLT
 
         byte[] activeBlockChallenge = null;
 
-        private static Random random = new Random(); // Used for random nonce
+        [ThreadStatic] private static Random random = null; // Used for random nonce
+        [ThreadStatic] private static long randomCounter = 0;
 
         private static List<ulong> solvedBlocks = new List<ulong>(); // Maintain a list of solved blocks to prevent duplicate work
         private static long solvedBlockCount = 0;
+
 
         public Miner()
         {
@@ -216,7 +218,7 @@ namespace DLT
 
                 // Output mining stats
                 TimeSpan timeSinceLastStat = DateTime.UtcNow - lastStatTime;
-                if (timeSinceLastStat.TotalSeconds > 1)
+                if (timeSinceLastStat.TotalSeconds > 2)
                 {
                     printMinerStatus();
                     Block tmpBlock = Node.blockChain.getBlock(currentBlockNum);
@@ -291,7 +293,7 @@ namespace DLT
                 }
             }
             Random rnd = new Random();
-            List<Block> blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
+            List<Block> blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
             foreach (Block block in blockList)
             {
                 if (block.powField == null)
@@ -336,6 +338,12 @@ namespace DLT
 
         private byte[] randomNonce(int length)
         {
+            if(random == null || randomCounter > 50000)
+            {
+                random = new Random();
+                randomCounter = 0;
+            }
+            randomCounter++;
             byte[] nonce = new byte[length];
             random.NextBytes(nonce);
             return nonce;
@@ -680,7 +688,7 @@ namespace DLT
         {
             // Console.WriteLine("Miner: Block #{0} | Hashes per second: {1}", currentBlockNum, hashesPerSecond);
             lastStatTime = DateTime.UtcNow;
-            lastHashRate = hashesPerSecond;
+            lastHashRate = hashesPerSecond / 2;
             hashesPerSecond = 0;
         }
 
