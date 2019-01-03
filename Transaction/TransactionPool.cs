@@ -245,9 +245,9 @@ namespace DLT
                 }
 
                 totalAmount += entry.Value;
-                if (transaction.type == (int)Transaction.Type.Normal
-                    || transaction.type == (int)Transaction.Type.ChangeMultisigWallet
-                    || transaction.type == (int)Transaction.Type.MultisigTX)
+                if (transaction.type != (int)Transaction.Type.PoWSolution
+                    && transaction.type != (int)Transaction.Type.StakingReward
+                    && transaction.type != (int)Transaction.Type.Genesis)
                 {
                     if (Node.blockSync.synchronizing == false)
                     {
