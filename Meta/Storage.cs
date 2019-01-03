@@ -72,6 +72,7 @@ namespace DLT
                 public string amount { get; set; }
                 public string fee { get; set; }
                 public string toList { get; set; }
+                public string fromList { get; set; }
                 public byte[] from { get; set; }
                 public byte[] data { get; set; }
                 public long blockHeight { get; set; }
@@ -97,9 +98,6 @@ namespace DLT
                 running = true;
                 thread = new Thread(new ThreadStart(threadLoop));
                 thread.Start();
-
-                // Check for an older database and upgrade if found
-                checkForOlderDatabase();
 
                 return true;
             }
@@ -161,15 +159,21 @@ namespace DLT
                         string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, PRIMARY KEY(`blockNum`));";
                         executeSQL(connection, sql);
 
-                        sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `from` BLOB,  `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
+                        sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
                         executeSQL(connection, sql);
                         sql = "CREATE INDEX `type` ON `transactions` (`type`);";
                         executeSQL(connection, sql);
-                        sql = "CREATE INDEX `from` ON `transactions` (`from`);";
-                        executeSQL(connection, sql);
                         sql = "CREATE INDEX `toList` ON `transactions` (`toList`);";
                         executeSQL(connection, sql);
+                        sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
+                        executeSQL(connection, sql);
                         sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
+                        executeSQL(connection, sql);
+                    } else if (!tableInfo.Exists(x => x.Name == "fromList"))
+                    {
+                        string sql = "ALTER TABLE `transactions` ADD COLUMN `fromList` TEXT;";
+                        executeSQL(connection, sql);
+                        sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
                         executeSQL(connection, sql);
                     }
 
@@ -314,6 +318,12 @@ namespace DLT
                     toList = string.Format("{0}||{1}:{2}", toList, Base58Check.Base58CheckEncoding.EncodePlain(to.Key), Convert.ToBase64String(to.Value.getAmount().ToByteArray()));
                 }
 
+                string fromList = "";
+                foreach (var from in transaction.fromList)
+                {
+                    fromList = string.Format("{0}||{1}:{2}", fromList, Base58Check.Base58CheckEncoding.EncodePlain(from.Key), Convert.ToBase64String(from.Value.getAmount().ToByteArray()));
+                }
+
                 bool result = false;
                 lock (storageLock)
                 {
@@ -325,8 +335,8 @@ namespace DLT
                         // Transaction was not found in any existing database, seek to the proper database
                         seekDatabase(transaction.applied, true);
 
-                        string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`from`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                        result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, transaction.from, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
+                        string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                        result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                     }
                     else
                     {
@@ -334,8 +344,8 @@ namespace DLT
                         seekDatabase(transaction.applied, true);
 
                         // Likely already have the tx stored, update the old entry
-                        string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `from` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
-                        result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, transaction.from, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
+                        string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `fromList` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
+                        result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
                     }
                 }
 
@@ -648,7 +658,6 @@ namespace DLT
                 transaction.id = tx.id;
                 transaction.amount = new IxiNumber(tx.amount);
                 transaction.fee = new IxiNumber(tx.fee);
-                transaction.from = tx.from;
                 transaction.data = unshuffleStorageBytes(tx.data);
                 transaction.blockHeight = (ulong)tx.blockHeight;
                 transaction.nonce = tx.nonce;
@@ -669,13 +678,43 @@ namespace DLT
                         continue;
 
                     string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                    if(split_to.Length < 2)
+                    if (split_to.Length < 2)
                     {
                         continue;
                     }
                     byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
                     IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
                     transaction.toList.AddOrReplace(address, amount);
+                }
+
+                if (tx.from != null)
+                {
+                    if (tx.pubKey == null)
+                    {
+                        transaction.pubKey = tx.from;
+                    }
+                    transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
+                }
+                else
+                {
+                    // Add fromList
+                    split_str = tx.fromList.Split(new string[] { "||" }, StringSplitOptions.None);
+                    sigcounter = 0;
+                    foreach (string s1 in split_str)
+                    {
+                        sigcounter++;
+                        if (sigcounter == 1)
+                            continue;
+
+                        string[] split_from = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                        if (split_from.Length < 2)
+                        {
+                            continue;
+                        }
+                        byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_from[0]);
+                        IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_from[1])));
+                        transaction.fromList.AddOrReplace(address, amount);
+                    }
                 }
 
                 transaction.fromLocalStorage = true;
@@ -931,189 +970,6 @@ namespace DLT
                     return null;
 
                 return bytes.Reverse().ToArray();
-            }
-
-
-            // Checks and upgrades an older database if found
-            public static bool checkForOlderDatabase()
-            {
-                if (File.Exists("blockchain.dat") == false)
-                    return false;
-
-                upgrading = true;
-
-                // Bind the connection
-                SQLiteConnection sqlConnectionOld = new SQLiteConnection("blockchain.dat");
-
-                // Check if the database is a very old, incompatible version
-                var tableInfo = sqlConnectionOld.GetTableInfo("transactions");
-                if (tableInfo.Exists(x => x.Name == "to"))
-                {
-                    sqlConnectionOld.Close();
-                    File.Delete("blockchain.dat");
-                    return false;
-                }
-
-                Logging.info("Upgrading old blockchain file...");
-                Logging.info("This operation will only happen once.");
-
-                // Get the highest blocknum
-                string sql = string.Format("SELECT * FROM `blocks` ORDER BY `blockNum` DESC LIMIT 1");
-                var _seek_block = sqlConnectionOld.Query<_storage_Block>(sql).ToArray();
-                if (_seek_block == null)
-                    return false;
-                if (_seek_block.Length < 1)
-                    return false;
-                _storage_Block sblk = _seek_block[0];
-
-                upgradeMaxBlockNum = (ulong)sblk.blockNum;
-
-                for (long i = 0; i < sblk.blockNum; i++)
-                {
-                    if (i % (long)Config.maxBlocksPerDatabase == 0)
-                        Logging.info(String.Format("Upgrade progress: {0} / {1}", i, sblk.blockNum));
-
-                    Block block = null;
-                    sql = "select * from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
-                    _storage_Block[] _storage_block = null;
-                    try
-                    {
-                        _storage_block = sqlConnectionOld.Query<_storage_Block>(sql, (long)i).ToArray();
-                    }
-                    catch (Exception e)
-                    {
-                        Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
-                        continue;
-                    }
-
-                    if (_storage_block == null)
-                        continue;
-
-                    if (_storage_block.Length < 1)
-                        continue;
-
-                    _storage_Block blk = _storage_block[0];
-
-                    block = new Block
-                    {
-                        blockNum = (ulong)blk.blockNum,
-                        blockChecksum = blk.blockChecksum,
-                        lastBlockChecksum = blk.lastBlockChecksum,
-                        walletStateChecksum = blk.walletStateChecksum,
-                        signatureFreezeChecksum = blk.sigFreezeChecksum,
-                        difficulty = (ulong)blk.difficulty,
-                        powField = blk.powField,
-                        transactions = new List<string>(),
-                        signatures = new List<byte[][]>(),
-                        timestamp = blk.timestamp,
-                        version = blk.version
-                    };
-
-                    upgradeProgress = block.blockNum;
-
-                    // Add signatures
-                    string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
-                    int sigcounter = 0;
-                    foreach (string s1 in split_str)
-                    {
-                        sigcounter++;
-                        if (sigcounter == 1)
-                            continue;
-
-                        string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                        byte[][] newSig = new byte[2][];
-                        newSig[0] = Convert.FromBase64String(split_sig[0]);
-                        newSig[1] = Convert.FromBase64String(split_sig[1]);
-                        if (!block.containsSignature(newSig[1]))
-                        {
-                            block.signatures.Add(newSig);
-                        }
-                    }
-
-                    // Add transaction
-                    string[] split_str2 = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
-                    int txcounter = 0;
-                    foreach (string s1 in split_str2)
-                    {
-                        txcounter++;
-                        if (txcounter == 1)
-                            continue;
-
-                        block.transactions.Add(s1);
-
-                        // Look and add transactions for this block
-                        Transaction transaction = importOldTransaction(s1, sqlConnectionOld);
-                        insertTransactionInternal(transaction);
-                    }
-                    insertBlockInternal(block);
-                }
-
-                // Close the database and remove the file
-                sqlConnectionOld.Close();
-                Logging.info("Upgrading complete, removing old blockchain file...");
-                File.Delete("blockchain.dat");
-
-                upgrading = false;
-
-                return true;
-            }
-
-            // Imports an old transaction
-            private static Transaction importOldTransaction(string txid, SQLiteConnection sqlConnectionOld)
-            {
-                Transaction transaction = null;
-
-                string sql = "select * from transactions where `id` = ? LIMIT 1";
-                List<_storage_Transaction> _storage_tx = null;
-                try
-                {
-                    _storage_tx = sqlConnectionOld.Query<_storage_Transaction>(sql, txid);
-                }
-                catch (Exception e)
-                {
-                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
-                    return null;
-                }
-
-                if (_storage_tx == null)
-                    return transaction;
-
-                if (_storage_tx.Count < 1)
-                    return transaction;
-
-                _storage_Transaction tx = _storage_tx[0];
-
-                transaction = new Transaction(tx.type);
-                transaction.id = tx.id;
-                transaction.amount = new IxiNumber(tx.amount);
-                transaction.fee = new IxiNumber(tx.fee);
-                transaction.from = tx.from;
-                transaction.data = tx.data;
-                transaction.blockHeight = (ulong)tx.blockHeight;
-                transaction.nonce = tx.nonce;
-                transaction.timeStamp = tx.timestamp;
-                transaction.checksum = tx.checksum;
-                transaction.signature = tx.signature;
-                transaction.version = tx.version;
-                transaction.pubKey = tx.pubKey;
-                transaction.applied = (ulong)tx.applied;
-
-                // Add toList
-                string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
-                int sigcounter = 0;
-                foreach (string s1 in split_str)
-                {
-                    sigcounter++;
-                    if (sigcounter == 1)
-                        continue;
-
-                    string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                    byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
-                    IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                    transaction.toList.AddOrReplace(address, amount);
-                }
-
-                return transaction;
             }
 
             public static void deleteCache()

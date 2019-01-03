@@ -231,6 +231,7 @@ namespace DLT
                         }
                         else
                         {
+                            // TODO TODO TODO TODO TODO determine if historic transaction and send to 'H' instead of 'M'
                             return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
                         }
                     }

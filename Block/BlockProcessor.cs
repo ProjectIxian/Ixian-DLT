@@ -147,6 +147,13 @@ namespace DLT
 
                 // Sleep until next iteration
                 Thread.Sleep(1000);
+                if (Node.isWorkerNode())
+                {
+                    // TODO TODO TODO TODO TODO this won't be needed in the future, analyze after modifications and network upgrade is done
+                    Thread.Sleep(5000);
+                    ProtocolMessage.broadcastGetBlock(Node.getLastBlockHeight() + 1);
+                    // end of TODO
+                }
             }
             Thread.Yield();
             return;
@@ -638,62 +645,66 @@ namespace DLT
                     return BlockVerifyStatus.Invalid;
                 }
 
-                // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
-                if (!minusBalances.ContainsKey(t.from))
+                foreach (var entry in t.fromList)
                 {
-                    minusBalances.Add(t.from, 0);
-                }
+                    byte[] address = (new Address(t.pubKey, entry.Key)).address;
+                    // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
+                    if (!minusBalances.ContainsKey(address))
+                    {
+                        minusBalances.Add(address, 0);
+                    }
 
-                try
-                {
-                    // TODO: check to see if other transaction types need additional verification
-                    if (t.type == (int)Transaction.Type.Normal)
+                    try
                     {
-                        txCount++;
-                        IxiNumber new_minus_balance = minusBalances[t.from] + t.amount + t.fee;
-                        minusBalances[t.from] = new_minus_balance;
+                        // TODO: check to see if other transaction types need additional verification
+                        if (t.type == (int)Transaction.Type.Normal)
+                        {
+                            txCount++;
+                            IxiNumber new_minus_balance = minusBalances[address] + entry.Value;
+                            minusBalances[address] = new_minus_balance;
+                        }
+                        else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
+                        {
+                            object multisig_data = t.GetMultisigData();
+                            string orig_txid = "";
+                            if (multisig_data is string)
+                            {
+                                orig_txid = (string)multisig_data;
+                            }
+                            else if (multisig_data is Transaction.MultisigAddrAdd)
+                            {
+                                orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
+                            }
+                            else if (multisig_data is Transaction.MultisigAddrDel)
+                            {
+                                orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
+                            }
+                            else if (multisig_data is Transaction.MultisigChSig)
+                            {
+                                orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
+                            }
+                            if (orig_txid == "")
+                            {
+                                orig_txid = t.id;
+                            }
+                            Wallet from_w = Node.walletState.getWallet(address);
+                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type) + 1;
+                            if (num_valid_multisigs < from_w.requiredSigs)
+                            {
+                                Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
+                                    t.id, num_valid_multisigs, from_w.requiredSigs));
+                                return BlockVerifyStatus.Invalid;
+                            }
+                        }
                     }
-                    else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    catch (OverflowException)
                     {
-                        object multisig_data = t.GetMultisigData();
-                        string orig_txid = "";
-                        if (multisig_data is string)
-                        {
-                            orig_txid = (string)multisig_data;
-                        }
-                        else if (multisig_data is Transaction.MultisigAddrAdd)
-                        {
-                            orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
-                        }
-                        else if (multisig_data is Transaction.MultisigAddrDel)
-                        {
-                            orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
-                        }
-                        else if (multisig_data is Transaction.MultisigChSig)
-                        {
-                            orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
-                        }
-                        if (orig_txid == "")
-                        {
-                            orig_txid = t.id;
-                        }
-                        Wallet from_w = Node.walletState.getWallet(t.from);
-                        int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type) + 1;
-                        if (num_valid_multisigs < from_w.requiredSigs)
-                        {
-                            Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
-                                t.id, num_valid_multisigs, from_w.requiredSigs));
-                            return BlockVerifyStatus.Invalid;
-                        }
+                        // someone is doing something bad with this transaction, so we invalidate the block
+                        // TODO: Blacklisting for the transaction originator node
+                        Logging.error(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}",
+                            t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(address)));
+                        return BlockVerifyStatus.Invalid;
                     }
-                }
-                catch (OverflowException)
-                {
-                    // someone is doing something bad with this transaction, so we invalidate the block
-                    // TODO: Blacklisting for the transaction originator node
-                    Logging.error(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}",
-                        t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(t.from)));
-                    return BlockVerifyStatus.Invalid;
                 }
             }
 
@@ -1365,7 +1376,7 @@ namespace DLT
 
         // returns false if this is a multisig transaction and not enough signatures - in this case, it should not be added to the block
         // returns true for all other transaction types
-        private bool includeApplicableMultisig(Transaction transaction)
+        private bool includeApplicableMultisig(Transaction transaction, byte[] address)
         {
             // NOTE: this function is called exclusively from generateNewBlock(), so we do not need to lock anything - 'localNewBlock' is alredy locked.
             // If this is called from anywhere else, add a lock here!
@@ -1394,7 +1405,7 @@ namespace DLT
                 {
                     orig_txid = transaction.id;
                 }
-                Wallet from_w = Node.walletState.getWallet(transaction.from);
+                Wallet from_w = Node.walletState.getWallet(address);
                 int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type) + 1;
                 if (num_valid_multisigs >= from_w.requiredSigs)
                 {
@@ -1414,7 +1425,9 @@ namespace DLT
         public void generateNewBlock(int block_version)
         {
             if (Node.isWorkerNode())
+            {
                 return;
+            }
 
             lock (localBlockLock)
             {
@@ -1504,10 +1517,11 @@ namespace DLT
                             }
                             if (block_version >= 2)
                             {
-                                if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(transaction.from) && (string)x[1] == nonce))
+                                byte[] tmp_address = (new Address(transaction.pubKey)).address;
+                                if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && (string)x[1] == nonce))
                                 {
                                     // Add the miner to the block number dictionary reward list
-                                    blockSolutionsDictionary[powBlockNum].Add(new object[3] { transaction.from, nonce, transaction });
+                                    blockSolutionsDictionary[powBlockNum].Add(new object[3] { tmp_address, nonce, transaction });
                                 }
                                 else
                                 {
@@ -1518,29 +1532,33 @@ namespace DLT
                         }
                     }
 
-                    // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
-                    if (!minusBalances.ContainsKey(transaction.from))
+                    foreach (var entry in transaction.fromList)
                     {
-                        minusBalances.Add(transaction.from, 0);
-                    }
-
-                    // prevent overspending
-                    if (transaction.type == (int)Transaction.Type.Normal)
-                    {
-                        IxiNumber new_minus_balance = minusBalances[transaction.from] + transaction.amount + transaction.fee;
-                        IxiNumber from_balance = Node.walletState.getWalletBalance(transaction.from);
-
-                        if (from_balance < new_minus_balance)
+                        byte[] address = (new Address(transaction.pubKey, entry.Key)).address;
+                        // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
+                        if (!minusBalances.ContainsKey(address))
                         {
-                            continue;
+                            minusBalances.Add(address, 0);
                         }
-                        minusBalances[transaction.from] = new_minus_balance;
-                    }
 
-                    if (includeApplicableMultisig(transaction))
-                    {
-                        // 'includeApplicableMultisg transactions' will return true if the transaction is not a multisig transaction
-                        localNewBlock.addTransaction(transaction);
+                        // prevent overspending
+                        if (transaction.type == (int)Transaction.Type.Normal)
+                        {
+                            IxiNumber new_minus_balance = minusBalances[address] + entry.Value;
+                            IxiNumber from_balance = Node.walletState.getWalletBalance(address);
+
+                            if (from_balance < new_minus_balance)
+                            {
+                                continue;
+                            }
+                            minusBalances[address] = new_minus_balance;
+                        }
+
+                        if (includeApplicableMultisig(transaction, address))
+                        {
+                            // 'includeApplicableMultisg transactions' will return true if the transaction is not a multisig transaction
+                            localNewBlock.addTransaction(transaction);
+                        }
                     }
 
                     // amount is counted only for originating multisig transaction.

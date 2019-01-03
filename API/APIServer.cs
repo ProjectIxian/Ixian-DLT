@@ -305,6 +305,11 @@ namespace DLTNode
                 response = onGenerateNewAddress(request);
             }
 
+            if (methodName.Equals("myaddresses", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onMyAddresses();
+            }
+
             bool resources = false;
 
             if (methodName.Equals("resources", StringComparison.OrdinalIgnoreCase))
@@ -1160,5 +1165,15 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error occured while generating a new address" } };
             }
         }
+
+        public JsonResponse onMyAddresses()
+        {
+            JsonError error = null;
+
+            List<Address> res = Node.walletStorage.getMyAddresses();
+
+            return new JsonResponse { result = res, error = error };
+        }
+
     }
 }

@@ -242,7 +242,18 @@ namespace DLTNode.API
             tDic.Add("size", t.getBytes().Length);
             tDic.Add("vsize", t.getBytes().Length);
             tDic.Add("version", t.version);
-            tDic.Add("vin", t.from);
+            Dictionary<string, object> vin = new Dictionary<string, object>();
+
+            Dictionary<string, string> vin_addresses = new Dictionary<string, string>();
+
+            foreach (var to in t.toList)
+            {
+                vin_addresses.Add(Base58Check.Base58CheckEncoding.EncodePlain(to.Key), to.Value.ToString());
+            }
+
+            vin.Add("addresses", vin_addresses);
+
+            tDic.Add("vin", vin);
 
             Dictionary<string, object> vout = new Dictionary<string, object>();
 
@@ -397,7 +408,16 @@ namespace DLTNode.API
             iDic.Add("time", t.timeStamp);
             iDic.Add("timereceived", t.timeStamp);
             iDic.Add("comment", t.data);
-            iDic.Add("from", t.from);
+
+            Dictionary<string, string> fromList = new Dictionary<string, string>();
+
+            foreach (var entry in t.fromList)
+            {
+                fromList.Add(Base58Check.Base58CheckEncoding.EncodePlain(entry.Key), entry.Value.ToString());
+            }
+
+            iDic.Add("from", fromList);
+
 
             Dictionary<string, string> toList = new Dictionary<string, string>();
 
@@ -405,7 +425,6 @@ namespace DLTNode.API
             {
                 toList.Add(Base58Check.Base58CheckEncoding.EncodePlain(entry.Key), entry.Value.ToString());
             }
-
 
             iDic.Add("to", toList);
 
