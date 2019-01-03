@@ -241,6 +241,20 @@ namespace DLTNode
             // Read configuration from command line
             Config.readFromCommandLine(args);
 
+            // Benchmark keys is a special case, because it will not start any part of the node.
+            if (Config.benchmarkKeys > 0)
+            {
+                if (Config.benchmarkKeys != 1024 && Config.benchmarkKeys != 2048 && Config.benchmarkKeys != 4096)
+                {
+                    Logging.error(String.Format("Invalid key bit length: {0}. Allowed values are 1024, 2048 or 4096!", Config.benchmarkKeys));
+                }
+                else
+                {
+                    IXICore.CryptoKey.KeyDerivation.BenchmarkKeyGeneration(10000, Config.benchmarkKeys, "bench_keys.out");
+                }
+                noStart = true;
+            }
+
             if (noStart)
             {
                 Thread.Sleep(1000);

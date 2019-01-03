@@ -57,6 +57,7 @@ namespace DLT
 
             // Debugging values
             public static string networkDumpFile = "";
+            public static int benchmarkKeys = 0;
 
             public static int forceTimeOffset = int.MaxValue;
 
@@ -99,6 +100,7 @@ namespace DLT
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode");
                 Console.WriteLine("    --netdump\t\t Enable netdump for debugging purposes");
+                Console.WriteLine("    --benchmarkKeys [key size]\t\t Perform a key-generation benchmark, then exit");
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
                 Console.WriteLine("");
@@ -298,6 +300,8 @@ namespace DLT
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
                 cmd_parser.Setup<int>("forceTimeOffset").Callback(value => forceTimeOffset = value).SetDefault(int.MaxValue);
+
+                cmd_parser.Setup<int>("benchmarkKeys").Callback(value => benchmarkKeys = value).SetDefault(0);
 
                 cmd_parser.Parse(args);
 
