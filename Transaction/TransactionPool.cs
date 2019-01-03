@@ -233,12 +233,12 @@ namespace DLT
             IxiNumber totalAmount = new IxiNumber(0);
             foreach (var entry in transaction.fromList)
             {
-                if(entry.Key.Length == 1 && entry.Key.First() != '0')
+                if(entry.Key.Length == 1 && entry.Key.First() != 0)
                 {
                     Logging.warn(String.Format("Input nonce is 1 byte long but has an incorrect value for tx {{ {0} }}.", transaction.id));
                     return false;
                 }
-                else if(entry.Key.Length != 16)
+                else if(entry.Key.Length != 1 && entry.Key.Length != 16)
                 {
                     Logging.warn(String.Format("Input nonce is not 1 or 16 bytes long for tx {{ {0} }}.", transaction.id));
                     return false;
