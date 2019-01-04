@@ -361,6 +361,19 @@ namespace DLTNode
                     if (Node.miner != null)
                         Node.miner.forceSearchForBlock();
                 }
+                else if (key.Key == ConsoleKey.B)
+                {
+                    if (Node.miner != null)
+                    {
+                        // Adjust the search mode
+                        Node.miner.searchMode++;
+                        if (Node.miner.searchMode > BlockSearchMode.random)
+                            Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
+
+                        // Force a new block search using the newly chosen method
+                        Node.miner.forceSearchForBlock();
+                    }
+                }
 
             }
             if (Node.update() == false)

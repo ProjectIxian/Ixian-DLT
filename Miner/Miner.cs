@@ -14,6 +14,14 @@ using System.Numerics;
 
 namespace DLT
 {
+    public enum BlockSearchMode
+    {
+        lowestDifficulty,
+        randomLowestDifficulty,
+        latestBlock,
+        random
+    }
+
     class Miner
     {
         // Import the libargon2 shared library
@@ -32,6 +40,7 @@ namespace DLT
         public byte[] currentHashCeil { get; private set; }
         public ulong lastSolvedBlockNum = 0; // Last solved block number
         private DateTime lastSolvedTime = DateTime.MinValue; // Last locally solved block time
+        public BlockSearchMode searchMode = BlockSearchMode.randomLowestDifficulty;
 
         private long hashesPerSecond = 0; // Total number of hashes per second
         private DateTime lastStatTime; // Last statistics output time
@@ -292,8 +301,37 @@ namespace DLT
                     }
                 }
             }
-            Random rnd = new Random();
-            List<Block> blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
+
+            Block candidate_block = null;
+
+            Random rnd = new Random();           
+            List<Block> blockList = null;
+
+            if (searchMode == BlockSearchMode.lowestDifficulty)
+            {
+                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
+            }
+            else if (searchMode == BlockSearchMode.randomLowestDifficulty)
+            {
+                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(25)).ToList();
+            }
+            else if (searchMode == BlockSearchMode.latestBlock)
+            {
+                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderByDescending(x => x.blockNum).ToList();
+            }
+            else if (searchMode == BlockSearchMode.random)
+            {
+                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
+            }
+
+            // Check if the block list exists
+            if (blockList == null)
+            {
+                Logging.error("No block list found while searching. Likely an incorrect miner block search mode.");
+                return;
+            }
+
+            // Go through each block in the list
             foreach (Block block in blockList)
             {
                 if (block.powField == null)
@@ -312,27 +350,34 @@ namespace DLT
                     else
                     {
                         // Block is not solved, select it
-                        currentBlockNum = block.blockNum;
-                        currentBlockDifficulty = block.difficulty;
-                        currentBlockVersion = block.version;
-                        currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
-
-                        activeBlock = block;
-                        byte[] block_checksum = activeBlock.blockChecksum;
-                        byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-                        activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
-                        System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
-                        System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
-
-                        blockFound = true;
-                        return;
+                        candidate_block = block;
+                        break;
                     }
                 }
 
             }
-            
-            // No blocks with empty PoW field found, wait a bit
-            Thread.Sleep(1000);
+
+            if (candidate_block == null)
+            {
+                // No blocks with empty PoW field found, wait a bit
+                Thread.Sleep(1000);
+                return;
+            }
+
+            currentBlockNum = candidate_block.blockNum;
+            currentBlockDifficulty = candidate_block.difficulty;
+            currentBlockVersion = candidate_block.version;
+            currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
+
+            activeBlock = candidate_block;
+            byte[] block_checksum = activeBlock.blockChecksum;
+            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
+
+            blockFound = true;
+
             return;
         }
 

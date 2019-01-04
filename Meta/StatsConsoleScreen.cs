@@ -134,6 +134,7 @@ namespace DLT.Meta
             writeLine("");
             writeLine("\tMining:\t\t\t{0}", mineStatus);
             writeLine("\tHashrate:\t\t{0}", Node.miner.lastHashRate);
+            writeLine("\tSearch Mode:\t\t{0}", Node.miner.searchMode);
             writeLine("\tSolved Blocks:\t\t{0}", Node.miner.getSolvedBlocksCount());
             writeLine("____________________________________________");
 
