@@ -43,6 +43,8 @@ namespace DLT
             public static ulong lastGoodBlock = 0;
             public static bool disableWebStart = false;
 
+            public static bool fullStorageDataVerification = false;
+
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
@@ -96,6 +98,7 @@ namespace DLT
                 Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
                 Console.WriteLine("    --disableMiner\t Disable miner");
+                Console.WriteLine("    --fullStorageDataVerification\t Verify blocks and transactions fully even if read from local storage");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode");
@@ -295,6 +298,9 @@ namespace DLT
                 cmd_parser.Setup<string>("dataFolderPath").Callback(value => dataFolderPath = value).Required();
 
                 cmd_parser.Setup<bool>("disableMiner").Callback(value => disableMiner = true).Required();
+
+                cmd_parser.Setup<bool>("fullStorageDataVerification").Callback(value => fullStorageDataVerification = true).Required();
+                
 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");

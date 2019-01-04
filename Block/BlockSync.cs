@@ -295,6 +295,11 @@ namespace DLT
         {
             ulong lowestBlockNum = 1;
 
+            if(Config.fullStorageDataVerification)
+            {
+                return lowestBlockNum;
+            }
+
             ulong syncToBlock = wsSyncConfirmedBlockNum;
 
             if (syncToBlock > CoreConfig.redactedWindowSize)
@@ -431,7 +436,7 @@ namespace DLT
                                 Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
                                 if (t != null)
                                 {
-                                    if(!TransactionPool.addTransaction(t, true, null, false))
+                                    if(!TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification))
                                     {
                                         Logging.error("Error adding a transaction {0} from storage", txid);
                                     }
@@ -448,7 +453,7 @@ namespace DLT
                             }
                         }
 
-                        if (b.blockNum > wsSyncConfirmedBlockNum || b.fromLocalStorage == false)
+                        if (b.blockNum > wsSyncConfirmedBlockNum || b.fromLocalStorage == false || Config.fullStorageDataVerification)
                         {
                             b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
                         }else
