@@ -440,7 +440,7 @@ namespace DLTNode
             byte[] pubKey = Node.walletStorage.getKeyPair(from).publicKeyBytes;
 
             // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(from, true);
+            Wallet mywallet = Node.walletState.getWallet(from);
             if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
@@ -449,7 +449,7 @@ namespace DLTNode
 
 
             Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, from, null, pubKey, Node.getHighestKnownNetworkBlockHeight());
-            if (amount + transaction.fee < mywallet.balance)
+            if (amount + transaction.fee > mywallet.balance)
             {
                 return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
             }
@@ -515,7 +515,7 @@ namespace DLTNode
             {
                 // TODO TODO TODO TODO Z, this needs to be properly taken care of to get the relevant pubkey
                 // Check if this wallet's public key is already in the WalletState
-                Wallet mywallet = Node.walletState.getWallet(from, true);
+                Wallet mywallet = Node.walletState.getWallet(from);
                 if (mywallet.publicKey == null)
                 {
                     error = new JsonError { code = 404, message = "Multisig wallet does not have a pubkey in the WS." };

@@ -592,7 +592,7 @@ namespace DLT
         {
             byte[] pubkey = Node.walletStorage.getPrimaryPublicKey();
             // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getPrimaryAddress(), true);
+            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getPrimaryAddress());
             if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction

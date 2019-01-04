@@ -262,7 +262,7 @@
                 var amount = document.getElementById("amount").value;
 
                 console.log("Amount " + amount);
-                if (amount < 1) //  || amount > balance)
+                if (amount <= 0) //  || amount > balance)
                 {
                     alert("Incorrect amount. Make sure you have enough IXI available.");
                     return;
