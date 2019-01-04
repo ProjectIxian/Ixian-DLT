@@ -417,7 +417,7 @@ namespace DLT
 
                         bool ignoreWalletState = true;
 
-                        if (b.blockNum > wsSyncConfirmedBlockNum)
+                        if (b.blockNum > wsSyncConfirmedBlockNum || Config.fullStorageDataVerification)
                         {
                             ignoreWalletState = false;
                         }
@@ -905,13 +905,20 @@ namespace DLT
                         Node.blockProcessor.highestNetworkBlockNum = block_height;
                         syncTargetBlockNum = block_height;
                     }
-                    if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                    if (Config.fullStorageDataVerification)
                     {
-                        wsSyncConfirmedBlockNum = block_height;
+                        Node.walletState.clear();
                         wsSynced = true;
-                        wsSyncConfirmedVersion = Node.walletState.version;
                     }
-
+                    else
+                    {
+                        if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                        {
+                            wsSyncConfirmedBlockNum = block_height;
+                            wsSynced = true;
+                            wsSyncConfirmedVersion = Node.walletState.version;
+                        }
+                    }
                     startSync();
 
 
