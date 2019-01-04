@@ -12,7 +12,7 @@ namespace DLT
 {
     public class Block
     {
-        public static int maxBlockVersion = 2;
+        public static int maxBlockVersion = 1;
 
         // TODO: Refactor all of these as readonly get-params
         [PrimaryKey, AutoIncrement]
@@ -96,11 +96,20 @@ namespace DLT
         {
             try
             {
+                if (bytes.Length > 1024000)
+                {
+                    throw new Exception("Block size is bigger then 1MB.");
+                }
                 using (MemoryStream m = new MemoryStream(bytes))
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         version = reader.ReadInt32();
+
+                        if(version > maxBlockVersion)
+                        {
+                            throw new Exception("Received a block with unsupported version.");
+                        }
 
                         blockNum = reader.ReadUInt64();
 
@@ -438,16 +447,16 @@ namespace DLT
                     {
                         // Extract the public key from the walletstate
                         Wallet signerWallet = Node.walletState.getWallet(address);
-                        if (signerWallet.publicKey != null)
-                        {
-                            signerPubKey = signerWallet.publicKey;
-                        }
-                        else
-                        {
-                            // No public key in wallet state            
-                            continue;
-                        }
+                        signerPubKey = signerWallet.publicKey;
                     }
+
+                    if (signerPubKey == null || signerPubKey.Length != 523)
+                    {
+                        // invalid public key
+                        signatures.Remove(sig);
+                        continue;
+                    }
+
 
                     if (sigAddresses.Find(x => x.SequenceEqual(signerPubKey)) == null)
                     {
