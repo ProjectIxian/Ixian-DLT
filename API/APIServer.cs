@@ -386,20 +386,43 @@ namespace DLTNode
             // Add a new transaction. This test allows sending and receiving from arbitrary addresses
             object res = "Incorrect transaction parameters.";
 
-            string from_string = request.QueryString["from"];
-            byte[] from = null;
-            if (from_string != null)
-            {
-                from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
-            }
-            else
-            {
-                from = Node.walletStorage.getPrimaryAddress();
-            }
-
-
-            IxiNumber amount = 0;
+            IxiNumber from_amount = 0;
             IxiNumber fee = CoreConfig.transactionPrice;
+
+            string primary_address = request.QueryString["primaryAddress"];
+            byte[] primary_address_bytes = null;
+            if (primary_address == null)
+            {
+                primary_address_bytes = Node.walletStorage.getPrimaryAddress();
+            }else
+            {
+                primary_address_bytes = Base58Check.Base58CheckEncoding.DecodePlain(primary_address);
+            }
+
+            SortedDictionary<byte[], IxiNumber> fromList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+            if (request.QueryString["from"] != null)
+            {
+                string[] from_split = request.QueryString["from"].Split('-');
+                if (from_split.Length > 0)
+                {
+                    foreach (string single_from in from_split)
+                    {
+                        string[] single_from_split = single_from.Split('_');
+                        byte[] single_from_address = Base58Check.Base58CheckEncoding.DecodePlain(single_from_split[0]);
+                        IxiNumber singleFromAmount = new IxiNumber(single_from_split[1]);
+                        if (singleFromAmount < 0 || singleFromAmount == 0)
+                        {
+                            res = "Incorrect amount.";
+                            from_amount = 0;
+                            break;
+                        }
+                        from_amount += singleFromAmount;
+                        fromList.Add(single_from_address, singleFromAmount);
+                    }
+                }
+            }
+
+            IxiNumber to_amount = 0;
             SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
             string[] to_split = request.QueryString["to"].Split('-');
             if (to_split.Length > 0)
@@ -411,20 +434,21 @@ namespace DLTNode
                     if (!Address.validateChecksum(single_to_address))
                     {
                         res = "Incorrect to address.";
-                        amount = 0;
+                        to_amount = 0;
                         break;
                     }
                     IxiNumber singleToAmount = new IxiNumber(single_to_split[1]);
                     if (singleToAmount < 0 || singleToAmount == 0)
                     {
                         res = "Incorrect amount.";
-                        amount = 0;
+                        to_amount = 0;
                         break;
                     }
-                    amount += singleToAmount;
+                    to_amount += singleToAmount;
                     toList.Add(single_to_address, singleToAmount);
                 }
             }
+
             string fee_string = request.QueryString["fee"];
             if (fee_string != null && fee_string.Length > 0)
             {
@@ -432,27 +456,52 @@ namespace DLTNode
             }
 
             // Only create a transaction if there is a valid amount
-            if (amount < 0 || amount == 0)
+            if (to_amount < 0 || to_amount == 0)
             {
                 return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid amount was specified" } };
             }
 
-            byte[] pubKey = Node.walletStorage.getKeyPair(from).publicKeyBytes;
+            byte[] pubKey = Node.walletStorage.getKeyPair(primary_address_bytes).publicKeyBytes;
 
             // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(from);
+            Wallet mywallet = Node.walletState.getWallet(primary_address_bytes);
             if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
-                pubKey = null;
+                pubKey = primary_address_bytes;
             }
 
+            bool adjust_amount = false;
+            if(fromList.Count == 0)
+            {
+                fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
+                adjust_amount = true;
+            }
 
-            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, from, null, pubKey, Node.getHighestKnownNetworkBlockHeight());
-            if (amount + transaction.fee > mywallet.balance)
+            if(fromList == null || fromList.Count == 0)
+            {
+                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
+            }
+
+            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight());
+            if(adjust_amount)
+            {
+                for(int i = 0; i < 2 && transaction.fee != fee; i++)
+                {
+                    fee = transaction.fee;
+                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
+                    if (fromList == null || fromList.Count == 0)
+                    {
+                        return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
+                    }
+                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight());
+                }
+            }
+            if (to_amount + transaction.fee > Node.walletStorage.getMyTotalBalance(primary_address_bytes))
             {
                 return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
             }
+
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -802,7 +851,7 @@ namespace DLTNode
 
             // Show own address, balance and blockchain synchronization status
             byte[] address = Node.walletStorage.getLastAddress();
-            IxiNumber balance = Node.walletStorage.getMyTotalBalance();
+            IxiNumber balance = Node.walletStorage.getMyTotalBalance(null);
             string sync_status = "ready";
 
             // If blockSync is null or it's currently synchronizing, show the sync status
@@ -991,6 +1040,7 @@ namespace DLTNode
             networkArray.Add("Block Processor Status", bpStatus);
 
             networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
+            networkArray.Add("Block Version", Node.blockChain.getLastBlockVersion());
             networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
             networkArray.Add("Wallets", Node.walletState.numWallets);
             networkArray.Add("Presences", PresenceList.getTotalPresences());
@@ -1170,7 +1220,7 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            List<Address> res = Node.walletStorage.getMyAddresses();
+            List<string> res = Node.walletStorage.getMyAddressesBase58();
 
             return new JsonResponse { result = res, error = error };
         }

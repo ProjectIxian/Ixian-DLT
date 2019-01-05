@@ -277,7 +277,7 @@ namespace DLTNode.API
 
         public JsonResponse getbalance()
         {
-            return new JsonResponse { result = Node.walletStorage.getMyTotalBalance().ToString(), error = null };
+            return new JsonResponse { result = Node.walletStorage.getMyTotalBalance(null).ToString(), error = null };
         }
 
         public JsonResponse getbestblockhash()
@@ -338,7 +338,7 @@ namespace DLTNode.API
             iDic.Add("version", Config.version);
             iDic.Add("protocolversion", CoreConfig.protocolVersion);
             iDic.Add("walletversion", Node.walletState.version);
-            iDic.Add("balance", Node.walletStorage.getMyTotalBalance().ToString());
+            iDic.Add("balance", Node.walletStorage.getMyTotalBalance(null).ToString());
             iDic.Add("blocks", Node.blockChain.getLastBlockNum());
             iDic.Add("timeoffset", Core.networkTimeDifference);
             iDic.Add("connections", NetworkClientManager.getConnectedClients().Count() + NetworkServer.getConnectedClients().Count());

@@ -615,7 +615,10 @@ namespace DLT
                 // Skip fetching staking txids if we're not synchronizing
                 if (txid.StartsWith("stk"))
                 {
-                    if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && b.blockNum > Node.blockSync.wsSyncConfirmedBlockNum))
+                    if (Node.blockSync.synchronizing == false
+                        || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
+                        || (Node.blockSync.synchronizing == true && b.blockNum > Node.blockSync.wsSyncConfirmedBlockNum)
+                        || (Node.blockSync.synchronizing == true && Config.fullStorageDataVerification == true))
                         continue;
                 }
 
@@ -724,7 +727,10 @@ namespace DLT
                         fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
                         fetchingTxForBlocks.Add(b.blockNum, cur_time);
                         byte includeTransactions = 2;
-                        if (Node.blockSync.synchronizing == false || (Node.blockSync.synchronizing == true && Config.recoverFromFile) || (Node.blockSync.synchronizing == true && Config.storeFullHistory))
+                        if (Node.blockSync.synchronizing == false
+                            || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
+                            || (Node.blockSync.synchronizing == true && Config.storeFullHistory)
+                            || (Node.blockSync.synchronizing == true && Config.fullStorageDataVerification == true))
                         {
                             includeTransactions = 1;
                         }

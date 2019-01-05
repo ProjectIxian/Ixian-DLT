@@ -948,11 +948,14 @@ namespace DLT
             if (forceWsUpdate || (DateTime.UtcNow - watchDogTime).TotalSeconds > 240) // stuck on the same block for 240 seconds
             {
                 wsSyncConfirmedBlockNum = 0;
-                ulong lastBlockHeight = Node.getLastBlockHeight();
-                if (lastBlockHeight > 100)
+                if (Config.fullStorageDataVerification == false)
                 {
-                    Logging.info("Restoring WS to " + (lastBlockHeight - 100));
-                    wsSyncConfirmedBlockNum = WalletStateStorage.restoreWalletState(lastBlockHeight - 100);
+                    ulong lastBlockHeight = Node.getLastBlockHeight();
+                    if (lastBlockHeight > 100)
+                    {
+                        Logging.info("Restoring WS to " + (lastBlockHeight - 100));
+                        wsSyncConfirmedBlockNum = WalletStateStorage.restoreWalletState(lastBlockHeight - 100);
+                    }
                 }
 
                 if (wsSyncConfirmedBlockNum == 0)

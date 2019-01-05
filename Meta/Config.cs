@@ -55,7 +55,7 @@ namespace DLT
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
-            public static readonly ulong compileTimeBlockNumber = 86400;
+            public static readonly ulong compileTimeBlockNumber = 129600;
 
             // Debugging values
             public static string networkDumpFile = "";

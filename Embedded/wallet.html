@@ -83,8 +83,10 @@
                         0
                     </div>
 
-                    <div class="generate_address">
-                        Generate new address
+                    <div class="send_button_wrap">
+                        <div class="generate_address btn sendbtn" onclick="generateNewAddress();">
+                            Generate new address
+                        </div>
                     </div>
 
                 </div>
@@ -274,6 +276,15 @@
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
                         getMyWallet();
+                    });
+
+            }
+
+            function generateNewAddress() {
+                var dltAPI = "#IXIAN#NODE#URL#" + "generatenewaddress";
+                $.getJSON(dltAPI, { format: "json" })
+                    .done(function (data) {
+                        document.getElementById("receive_own_address").innerHTML = data["result"];
                     });
 
             }
