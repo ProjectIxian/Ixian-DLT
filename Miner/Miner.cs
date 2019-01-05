@@ -307,21 +307,27 @@ namespace DLT
             Random rnd = new Random();           
             List<Block> blockList = null;
 
+            int block_offset = 1;
+            if(Node.getLastBlockHeight() > CoreConfig.minimumRedactedWindowSize - 1000)
+            {
+                block_offset = 1000;
+            }
+
             if (searchMode == BlockSearchMode.lowestDifficulty)
             {
-                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
             }
             else if (searchMode == BlockSearchMode.randomLowestDifficulty)
             {
-                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(25)).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(25)).ToList();
             }
             else if (searchMode == BlockSearchMode.latestBlock)
             {
-                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderByDescending(x => x.blockNum).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderByDescending(x => x.blockNum).ToList();
             }
             else if (searchMode == BlockSearchMode.random)
             {
-                blockList = Node.blockChain.getBlocks(1000, (int)Node.blockChain.Count - 1001).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
             }
 
             // Check if the block list exists
