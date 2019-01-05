@@ -422,6 +422,12 @@ namespace DLTNode
                 }
             }
 
+            // Only create a transaction if there is a valid amount
+            if (from_amount < 0 || from_amount == 0)
+            {
+                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid from amount was specified" } };
+            }
+
             IxiNumber to_amount = 0;
             SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
             string[] to_split = request.QueryString["to"].Split('-');
@@ -458,7 +464,7 @@ namespace DLTNode
             // Only create a transaction if there is a valid amount
             if (to_amount < 0 || to_amount == 0)
             {
-                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid amount was specified" } };
+                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid to amount was specified" } };
             }
 
             byte[] pubKey = Node.walletStorage.getKeyPair(primary_address_bytes).publicKeyBytes;
@@ -478,7 +484,7 @@ namespace DLTNode
                 adjust_amount = true;
             }
 
-            if(fromList == null || fromList.Count == 0)
+            if (fromList == null || fromList.Count == 0)
             {
                 return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
             }

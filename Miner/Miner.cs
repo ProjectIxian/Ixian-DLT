@@ -304,11 +304,10 @@ namespace DLT
 
             Block candidate_block = null;
 
-            Random rnd = new Random();           
             List<Block> blockList = null;
 
             int block_offset = 1;
-            if(Node.getLastBlockHeight() > CoreConfig.minimumRedactedWindowSize - 1000)
+            if(Node.blockChain.Count > 1001)
             {
                 block_offset = 1000;
             }
@@ -319,6 +318,7 @@ namespace DLT
             }
             else if (searchMode == BlockSearchMode.randomLowestDifficulty)
             {
+                Random rnd = new Random();
                 blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(25)).ToList();
             }
             else if (searchMode == BlockSearchMode.latestBlock)
@@ -327,6 +327,7 @@ namespace DLT
             }
             else if (searchMode == BlockSearchMode.random)
             {
+                Random rnd = new Random();
                 blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
             }
 

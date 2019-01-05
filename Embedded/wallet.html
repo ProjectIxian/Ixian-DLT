@@ -30,6 +30,7 @@
             <div class="row">
                 <div class="col-xs-10"><img src="resources/img/logofull.png" /></div>
                 <div class="col-xs-2 navbar-version" id="version"></div>
+                <div id="MinerSection"></div>
             </div>
         </nav>
 
@@ -289,6 +290,28 @@
 
             }
 
+            function getMinerStats() {
+                var dltAPI = "#IXIAN#NODE#URL#" + "minerstats";
+                $.getJSON(dltAPI, { format: "json" })
+                    .done(function (data) {
+                        if (data["result"]) {
+                            var status = "Disabled";
+                            if (data["result"]["Hashrate"] > 0) {
+                                status = "Mining"
+                            } else {
+                                status = "Paused"
+                            }
+                            var minerEl = document.getElementById("MinerSection");
+                            minerEl.style.display = "block";
+                            minerEl.innerHTML = "Miner:" + status + "<br/>";
+                            minerEl.innerHTML += "Rate:" + data["result"]["Hashrate"] + "<br/>";
+                            minerEl.innerHTML += "Algorithm: ";
+                        } else {
+                            document.getElementById("MinerSection").style.display = "none";
+                        }
+                    });
+
+            }
 
             function readQR() {
                 console.log("Starting QR code reader");
@@ -327,6 +350,7 @@
                 getMyWallet();
                 setInterval(getMyWallet, 5000);
                 setInterval(getActivity, 5000);
+                setInterval(getMinerStats, 5000);
             });
 
             $('#sendForm').submit(function () {
