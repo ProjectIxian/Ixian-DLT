@@ -1086,6 +1086,9 @@ namespace DLTNode
             // Last hashrate
             minerArray.Add("Hashrate", Node.miner.lastHashRate);
 
+            // Last hashrate
+            minerArray.Add("Search Mode", Node.miner.searchMode.ToString());
+
             // Current block
             minerArray.Add("Current Block", Node.miner.currentBlockNum);
 

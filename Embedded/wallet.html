@@ -305,7 +305,7 @@
                             minerEl.style.display = "block";
                             minerEl.innerHTML = "Miner:" + status + "<br/>";
                             minerEl.innerHTML += "Rate:" + data["result"]["Hashrate"] + "<br/>";
-                            minerEl.innerHTML += "Algorithm: ";
+                            minerEl.innerHTML += "Algorithm: " + data["result"]["Search Mode"];
                         } else {
                             document.getElementById("MinerSection").style.display = "none";
                         }

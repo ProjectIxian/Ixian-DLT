@@ -305,7 +305,7 @@ namespace DLT
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
-                cmd_parser.Setup<int>("forceTimeOffset").Callback(value => forceTimeOffset = value).SetDefault(int.MaxValue);
+                cmd_parser.Setup<int>("forceTimeOffset").Callback(value => forceTimeOffset = value).Required();
 
                 cmd_parser.Setup<int>("benchmarkKeys").Callback(value => benchmarkKeys = value).SetDefault(0);
 

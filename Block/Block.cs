@@ -482,7 +482,7 @@ namespace DLT
                         continue;
                     }
 
-                    if (verifySignature(signer_pub_key, signature) == false)
+                    if (verifySignature(signature, signer_pub_key) == false)
                     {
                         signatures.Remove(sig);
                         continue;

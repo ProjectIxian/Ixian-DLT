@@ -138,7 +138,7 @@ namespace DLT
                     if (currentTime - requestedBlockTimes[blockNum] > 10)
                     {
                         // Re-request block
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 1) == false)
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1) == false)
                         {
                             if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {
@@ -224,7 +224,7 @@ namespace DLT
                     else
                     {
                         // Didn't find the block in storage, request it from the network
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, 1) == false)
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1) == false)
                         {
                             if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {
@@ -483,7 +483,7 @@ namespace DLT
                             return;
                         }
 
-                        bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b);
+                        bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b, null);
 
                         // Apply transactions when rolling forward from a recover file without a synced WS
                         if (b.blockNum > wsSyncConfirmedBlockNum)

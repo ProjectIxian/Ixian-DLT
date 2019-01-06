@@ -281,7 +281,7 @@ namespace DLT
             }
 
             // Requests block with specified block height from the network, include_transactions value can be 0 - don't include transactions, 1 - include all but staking transactions or 2 - include all, including staking transactions
-            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, byte include_transactions = 0)
+            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -290,7 +290,15 @@ namespace DLT
                         writerw.Write(block_num);
                         writerw.Write(include_transactions);
 
-                        return broadcastProtocolMessageToSingleRandomNode(new char[]{ 'M' },  ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
+                        if (endpoint != null)
+                        {
+                            if (endpoint.isConnected())
+                            {
+                                endpoint.sendData(ProtocolMessageCode.getBlock, mw.ToArray());
+                                return true;
+                            }
+                        }
+                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
                     }
                 }
             }
@@ -328,13 +336,9 @@ namespace DLT
                                 endpoint.sendData(ProtocolMessageCode.getTransaction, mw.ToArray());
                                 return true;
                             }
-                            return false;
                         }
-                        else
-                        {
-                            // TODO TODO TODO TODO TODO determine if historic transaction and send to 'H' instead of 'M'
-                            return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
-                        }
+                        // TODO TODO TODO TODO TODO determine if historic transaction and send to 'H' instead of 'M'
+                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
                     }
                 }
             }
@@ -355,12 +359,8 @@ namespace DLT
                                 endpoint.sendData(ProtocolMessageCode.getBlockTransactions, mw.ToArray());
                                 return true;
                             }
-                            return false;
                         }
-                        else
-                        {
-                            return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
-                        }
+                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
                     }
                 }
             }

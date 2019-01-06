@@ -352,7 +352,7 @@ namespace DLT
                     Block localBlock = Node.blockChain.getBlock(b.blockNum);
                     lock (localBlock)
                     {
-                        BlockVerifyStatus block_status = verifyBlockBasic(b);
+                        BlockVerifyStatus block_status = verifyBlockBasic(b, true, endpoint);
                         if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
                             if (handleSigFreezedBlock(b, endpoint))
@@ -472,7 +472,7 @@ namespace DLT
             }
         }
 
-        public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true)
+        public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true, RemoteEndpoint endpoint = null)
         {
             if(b.version > Block.maxVersion)
             {
@@ -567,7 +567,7 @@ namespace DLT
             // Verify sigfreeze
             if (b.blockNum <= lastBlockNum)
             {
-                if (!verifySignatureFreezeChecksum(b))
+                if (!verifySignatureFreezeChecksum(b, endpoint))
                 {
                     return BlockVerifyStatus.Indeterminate;
                 }
@@ -752,7 +752,7 @@ namespace DLT
                         {
                             includeTransactions = 1;
                         }
-                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, includeTransactions);
+                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
                         Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
                     }
                 }
@@ -789,7 +789,7 @@ namespace DLT
             var sw = new System.Diagnostics.Stopwatch();
             sw.Start();
 
-            BlockVerifyStatus basicVerification = verifyBlockBasic(b);
+            BlockVerifyStatus basicVerification = verifyBlockBasic(b, true, endpoint);
 
             if (basicVerification != BlockVerifyStatus.Valid)
             {
@@ -1026,7 +1026,7 @@ namespace DLT
                 if (localNewBlock == null) return;
                 if (verifyBlock(localNewBlock) == BlockVerifyStatus.Valid)
                 {
-                    if (!verifySignatureFreezeChecksum(localNewBlock))
+                    if (!verifySignatureFreezeChecksum(localNewBlock, null))
                     {
                         Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
                         TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
@@ -1164,7 +1164,7 @@ namespace DLT
 
         }
 
-        public bool verifySignatureFreezeChecksum(Block b)
+        public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint)
         {
             if(Node.blockChain.Count < 5)
             {
@@ -1176,7 +1176,7 @@ namespace DLT
                 if (targetBlock == null)
                 {
                     // this shouldn't be possible
-                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
                     return false;
                 }
@@ -1185,7 +1185,7 @@ namespace DLT
                 {
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
                         b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
-                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     return false;
                 }
             }
@@ -1194,7 +1194,7 @@ namespace DLT
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
                     b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5));
-                ProtocolMessage.broadcastGetBlock(b.blockNum - 5);
+                ProtocolMessage.broadcastGetBlock(b.blockNum, endpoint);
                 return false;
             }
 
