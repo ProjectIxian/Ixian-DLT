@@ -164,10 +164,7 @@ body, html {
 
 .pdesc {
     width: 100%;
-    padding-top: 15px;
-    padding-bottom: 0px;
-    padding-left: 120px;
-    padding-right: 250px;
+    padding: 15px 250px 0px 120px;
     font-size: 24px;
     text-align: left;
     overflow: hidden;

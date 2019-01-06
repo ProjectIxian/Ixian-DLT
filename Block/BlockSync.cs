@@ -302,9 +302,9 @@ namespace DLT
 
             ulong syncToBlock = wsSyncConfirmedBlockNum;
 
-            if (syncToBlock > CoreConfig.redactedWindowSize)
+            if (syncToBlock > CoreConfig.getRedactedWindowSize())
             {
-                lowestBlockNum = syncToBlock - CoreConfig.redactedWindowSize;
+                lowestBlockNum = syncToBlock - CoreConfig.getRedactedWindowSize();
             }
             return lowestBlockNum;
         }

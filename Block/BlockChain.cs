@@ -10,7 +10,7 @@ namespace DLT
 {
     class BlockChain
     {
-        List<Block> blocks = new List<Block>((int)CoreConfig.redactedWindowSize);
+        List<Block> blocks = new List<Block>((int)CoreConfig.getRedactedWindowSize());
 
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
 
@@ -105,11 +105,9 @@ namespace DLT
                 Storage.insertBlock(b);
             }
 
-            if (b.version == 2)
-            {
-                CoreConfig.redactedWindowSize = 20000;
-                CoreConfig.minimumRedactedWindowSize = 20000;
-            }
+            CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
+            CoreConfig.minRedactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
+
             redactChain();
             lock (blocks)
             {
@@ -377,14 +375,14 @@ namespace DLT
         }
 
         // Get the number of PoW solved blocks
-        public ulong getSolvedBlocksCount()
+        public ulong getSolvedBlocksCount(ulong redacted_window_size)
         {
             ulong solved_blocks = 0;
 
             ulong firstBlockNum = 1;
-            if (Node.blockChain.getLastBlockNum() > CoreConfig.redactedWindowSize)
+            if (Node.blockChain.getLastBlockNum() > redacted_window_size)
             {
-                firstBlockNum = Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize;
+                firstBlockNum = Node.blockChain.getLastBlockNum() - redacted_window_size;
             }
             lock (blocksDictionary)
             {

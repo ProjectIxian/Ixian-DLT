@@ -307,7 +307,7 @@ namespace DLT
             List<Block> blockList = null;
 
             int block_offset = 1;
-            if(Node.blockChain.Count > 1001)
+            if(Node.blockChain.Count > (long)CoreConfig.getRedactedWindowSize())
             {
                 block_offset = 1000;
             }
@@ -761,8 +761,8 @@ namespace DLT
 
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
             ulong oldestRedactedBlock = 0;
-            if (lastBlockNum > CoreConfig.redactedWindowSize)
-                oldestRedactedBlock = lastBlockNum - CoreConfig.redactedWindowSize;
+            if (lastBlockNum > CoreConfig.getRedactedWindowSize())
+                oldestRedactedBlock = lastBlockNum - CoreConfig.getRedactedWindowSize();
 
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {

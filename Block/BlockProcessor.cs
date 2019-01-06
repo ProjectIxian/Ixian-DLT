@@ -19,7 +19,8 @@ namespace DLT
         IndeterminateFutureBlock,
         IndeterminatePastBlock,
         AlreadyProcessed,
-        PotentiallyForkedBlock
+        PotentiallyForkedBlock,
+        IndeterminateVersionUpgradeBlock
     }
     class BlockProcessor
     {
@@ -473,6 +474,12 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true)
         {
+            if(b.version > Block.maxBlockVersion)
+            {
+                Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
+                return BlockVerifyStatus.IndeterminateVersionUpgradeBlock;
+            }
+
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
 
@@ -550,7 +557,7 @@ namespace DLT
                     }
                     Logging.info("Received an indeterminate future block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminateFutureBlock;
-                }else if(b.blockNum <= lastBlockNum - CoreConfig.redactedWindowSize)
+                }else if(b.blockNum <= lastBlockNum - CoreConfig.getRedactedWindowSize())
                 {
                     Logging.info("Received an indeterminate past block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminatePastBlock;
@@ -569,7 +576,7 @@ namespace DLT
             // verify difficulty
             if (lastBlockNum + 1 == b.blockNum)
             {
-                if(Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0 || Node.blockChain.Count >= (long)CoreConfig.redactedWindowSize)
+                if(Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0 || Node.blockChain.Count >= (long)CoreConfig.getRedactedWindowSize())
                 {
                     //Logging.info("Verifying difficulty for #" + b.blockNum);
                     ulong expectedDifficulty = calculateDifficulty(b.version);
@@ -642,10 +649,21 @@ namespace DLT
                 }
 
                 // lock transaction v1 with block v2
-                if (t.version < 1 && b.version >= 2)
+                if (b.version < 2)
                 {
-                    Logging.error("Block includes a tx version {{ {0} }} but expected tx version was at least 1!", t.version);
-                    return BlockVerifyStatus.Invalid;
+                    if (t.version > 1)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version was at most 1!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }
+                else if (b.version == 2)
+                {
+                    if (t.version < 1 || t.version > 2)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 1 or 2!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
                 }
 
                 foreach (var entry in t.fromList)
@@ -1492,6 +1510,11 @@ namespace DLT
                         continue;
                     }
 
+                    if(block_version == 1 && transaction.version >= 2)
+                    {
+                        continue;
+                    }
+
                     // Verify that the transaction is actually valid at this point
                     // no need as the tx is already in the pool and was verified when received
                     //if (TransactionPool.verifyTransaction(transaction) == false)
@@ -1504,13 +1527,25 @@ namespace DLT
                         continue;
                     }
 
+                    ulong minBh = 0;
+                    if (localNewBlock.blockNum > CoreConfig.getRedactedWindowSize(localNewBlock.version))
+                    {
+                        minBh = localNewBlock.blockNum - CoreConfig.getRedactedWindowSize(localNewBlock.version);
+                    }
+                    // Check the block height
+                    if (minBh > transaction.blockHeight || transaction.blockHeight > localNewBlock.blockNum)
+                    {
+                        TransactionPool.removeTransaction(transaction.id);
+                        continue;
+                    }
+
                     // Special case for PoWSolution transactions
                     if (transaction.type == (int)Transaction.Type.PoWSolution)
                     {
                         // TODO: pre-validate the transaction in such a way it doesn't affect performance
                         ulong powBlockNum = 0;
                         string nonce = "";
-                        if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce))
+                        if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce, block_version))
                         {
                             TransactionPool.removeTransaction(transaction.id);
                             continue;
@@ -1645,8 +1680,8 @@ namespace DLT
                     current_difficulty = previous_block.difficulty;
 
                 // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
-                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
-                ulong window_size = CoreConfig.redactedWindowSize;
+                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount(CoreConfig.getRedactedWindowSize(0));
+                ulong window_size = CoreConfig.getRedactedWindowSize(0);
 
                 // Special consideration for early blocks
                 if (Node.blockChain.getLastBlockNum() < window_size)
@@ -1685,8 +1720,8 @@ namespace DLT
                     current_difficulty = previous_block.difficulty;
 
                 // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
-                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
-                ulong window_size = CoreConfig.redactedWindowSize;
+                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount(CoreConfig.getRedactedWindowSize(1));
+                ulong window_size = CoreConfig.getRedactedWindowSize(1);
 
                 // Special consideration for early blocks
                 if (Node.blockChain.getLastBlockNum() < window_size)
@@ -1738,8 +1773,8 @@ namespace DLT
                     current_difficulty = previous_block.difficulty;
 
                 // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
-                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount();
-                ulong window_size = CoreConfig.redactedWindowSize;
+                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount(CoreConfig.getRedactedWindowSize(2));
+                ulong window_size = CoreConfig.getRedactedWindowSize(2);
 
                 // Special consideration for early blocks
                 if (Node.blockChain.getLastBlockNum() < window_size)

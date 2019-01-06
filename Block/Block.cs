@@ -106,60 +106,57 @@ namespace DLT
                     {
                         version = reader.ReadInt32();
 
-                        if(version > maxBlockVersion)
-                        {
-                            throw new Exception("Received a block with unsupported version.");
-                        }
-
                         blockNum = reader.ReadUInt64();
-
-                        // Get the transaction ids
-                        int num_transactions = reader.ReadInt32();
-                        for (int i = 0; i < num_transactions; i++)
+                        if (version <= maxBlockVersion)
                         {
-                            string txid = reader.ReadString();
-                            transactions.Add(txid);
-                        }
-
-                        // Get the signatures
-                        int num_signatures = reader.ReadInt32();
-                        for (int i = 0; i < num_signatures; i++)
-                        {
-                            int sigLen = reader.ReadInt32();
-                            byte[] sig = reader.ReadBytes(sigLen);
-                            int sigAddresLen = reader.ReadInt32();
-                            byte[] sigAddress = reader.ReadBytes(sigAddresLen);
-                            if (!containsSignature(sigAddress))
+                            // Get the transaction ids
+                            int num_transactions = reader.ReadInt32();
+                            for (int i = 0; i < num_transactions; i++)
                             {
-                                byte[][] newSig = new byte[2][];
-                                newSig[0] = sig;
-                                newSig[1] = sigAddress;
-                                signatures.Add(newSig);
+                                string txid = reader.ReadString();
+                                transactions.Add(txid);
                             }
-                        }
-                        int dataLen = reader.ReadInt32();
-                        blockChecksum = reader.ReadBytes(dataLen);
 
-                        dataLen = reader.ReadInt32();
-                        if (dataLen > 0)
-                        {
-                            lastBlockChecksum = reader.ReadBytes(dataLen);
-                        }
+                            // Get the signatures
+                            int num_signatures = reader.ReadInt32();
+                            for (int i = 0; i < num_signatures; i++)
+                            {
+                                int sigLen = reader.ReadInt32();
+                                byte[] sig = reader.ReadBytes(sigLen);
+                                int sigAddresLen = reader.ReadInt32();
+                                byte[] sigAddress = reader.ReadBytes(sigAddresLen);
+                                if (!containsSignature(sigAddress))
+                                {
+                                    byte[][] newSig = new byte[2][];
+                                    newSig[0] = sig;
+                                    newSig[1] = sigAddress;
+                                    signatures.Add(newSig);
+                                }
+                            }
+                            int dataLen = reader.ReadInt32();
+                            blockChecksum = reader.ReadBytes(dataLen);
 
-                        dataLen = reader.ReadInt32();
-                        if (dataLen > 0)
-                        {
-                            walletStateChecksum = reader.ReadBytes(dataLen);
-                        }
+                            dataLen = reader.ReadInt32();
+                            if (dataLen > 0)
+                            {
+                                lastBlockChecksum = reader.ReadBytes(dataLen);
+                            }
 
-                        dataLen = reader.ReadInt32();
-                        if (dataLen > 0)
-                        {
-                            signatureFreezeChecksum = reader.ReadBytes(dataLen);
-                        }
+                            dataLen = reader.ReadInt32();
+                            if (dataLen > 0)
+                            {
+                                walletStateChecksum = reader.ReadBytes(dataLen);
+                            }
 
-                        difficulty = reader.ReadUInt64();
-                        timestamp = reader.ReadInt64();
+                            dataLen = reader.ReadInt32();
+                            if (dataLen > 0)
+                            {
+                                signatureFreezeChecksum = reader.ReadBytes(dataLen);
+                            }
+
+                            difficulty = reader.ReadUInt64();
+                            timestamp = reader.ReadInt64();
+                        }
                     }
                 }
             }

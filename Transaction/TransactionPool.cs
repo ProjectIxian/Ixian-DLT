@@ -112,7 +112,7 @@ namespace DLT
                 foreach (var entry in transaction.fromList)
                 {
                     byte[] tmp_address = (new Address(transaction.pubKey)).address;
-                    Wallet w = Node.walletState.getWallet(tmp_address, false);
+                    Wallet w = Node.walletState.getWallet(tmp_address);
                     if (w.type == WalletType.Multisig && transaction.type != (int)Transaction.Type.MultisigTX)
                     {
                         Logging.error(String.Format("Attempted to execute a regular transaction {{ {0} }} on a multisig wallet {1}!",
@@ -152,9 +152,9 @@ namespace DLT
                 return false;
             }
 
-            if(transaction.data != null && transaction.data.Length > 1024)
+            if(transaction.version > Transaction.maxVersion)
             {
-                Logging.warn(String.Format("Transaction's data length is bigger than 1024 bytes. TXid: {0}.", transaction.id));
+                Logging.error("Received transaction {0} with a version higher than this node can handle, discarding the transaction.", transaction.id);
                 return false;
             }
 
@@ -174,9 +174,9 @@ namespace DLT
 
             // Check the block height
             ulong minBh = 0;
-            if (blocknum > CoreConfig.redactedWindowSize)
+            if (blocknum > CoreConfig.getRedactedWindowSize())
             {
-                minBh = blocknum - CoreConfig.redactedWindowSize;
+                minBh = blocknum - CoreConfig.getRedactedWindowSize();
             }
             if (minBh > transaction.blockHeight || (transaction.blockHeight > blocknum + 5 && transaction.blockHeight > Node.blockProcessor.highestNetworkBlockNum + 5))
             {
@@ -189,6 +189,13 @@ namespace DLT
             if(transaction.type != (int)Transaction.Type.PoWSolution)
             if (transaction.amount == (long)0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
             {
+                    Logging.warn("Transaction amount was zero for txid {0}.", transaction.id);
+                    return false;
+            }
+
+            if(transaction.amount < 0)
+            {
+                Logging.warn("Transaction amount was negative for txid {0}.", transaction.id);
                 return false;
             }
 
@@ -244,6 +251,12 @@ namespace DLT
                     return false;
                 }
 
+                if (entry.Value < 0)
+                {
+                    Logging.warn("Transaction amount was invalid for txid {0}.", transaction.id);
+                    return false;
+                }
+
                 totalAmount += entry.Value;
                 if (transaction.type != (int)Transaction.Type.PoWSolution
                     && transaction.type != (int)Transaction.Type.StakingReward
@@ -251,10 +264,17 @@ namespace DLT
                 {
                     if (Node.blockSync.synchronizing == false)
                     {
+                        byte[] tmp_from_address = (new Address(transaction.pubKey, entry.Key)).address;
+                        if(transaction.toList.ContainsKey(tmp_from_address))
+                        {
+                            // Prevent sending to the same address
+                            Logging.warn(String.Format("To and from addresses are the same in transaction {{ {0} }}.", transaction.id));
+                            return false;
+                        }
                         // Verify the transaction against the wallet state
-                        IxiNumber fromBalance = Node.walletState.getWalletBalance((new Address(transaction.pubKey, entry.Key)).address);
+                        IxiNumber fromBalance = Node.walletState.getWalletBalance(tmp_from_address);
 
-                        if (fromBalance < transaction.amount + transaction.fee)
+                        if (fromBalance < entry.Value)
                         {
                             // Prevent overspending
                             Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));
@@ -276,6 +296,11 @@ namespace DLT
                 if (!Address.validateChecksum(entry.Key))
                 {
                     Logging.warn(String.Format("Adding transaction {{ {0} }}, but to address is incorrect!", transaction.id));
+                    return false;
+                }
+                if (entry.Value < 0)
+                {
+                    Logging.warn("Transaction amount was invalid for txid {0}.", transaction.id);
                     return false;
                 }
                 totalAmount += entry.Value;
@@ -354,6 +379,12 @@ namespace DLT
                     // There is no supplied public key, extract it from the data section
                     pubkey = transaction.pubKey;
                 }
+            }
+
+            if(pubkey == null || pubkey.Length != 523)
+            {
+                Logging.warn(string.Format("Invalid pubkey for transaction id: {0}", transaction.id));
+                return false;
             }
 
             // Finally, verify the signature
@@ -713,7 +744,7 @@ namespace DLT
         }*/
 
         // Verify if a PoW transaction is valid
-        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, out string nonce, bool verify_pow = true)
+        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, out string nonce, int block_version = -1, bool verify_pow = true)
         {
             blocknum = 0;
             nonce = "";
@@ -731,12 +762,13 @@ namespace DLT
                 }
             }
 
-            if(blocknum >= Node.getLastBlockHeight())
+            if(blocknum > Node.getLastBlockHeight())
             {
-                if(blocknum < Node.blockProcessor.highestNetworkBlockNum)
-                {
-                    return true;
-                }
+                return false;
+            }
+
+            if(blocknum + CoreConfig.getRedactedWindowSize(block_version) < Node.getLastBlockHeight())
+            {
                 return false;
             }
 
@@ -891,7 +923,7 @@ namespace DLT
                 // Special case for Staking Reward transaction
                 // Do not apply them if we are synchronizing
                 // TODO: note that this can backfire when recovering completely from a file
-                if (Node.blockSync.synchronizing && Config.recoverFromFile == false && Config.storeFullHistory == false)
+                if (Node.blockSync.synchronizing && Config.recoverFromFile == false && Config.storeFullHistory == false && Config.fullStorageDataVerification == false)
                     continue;
                
                 if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
@@ -1112,6 +1144,19 @@ namespace DLT
                 return false;
             }
 
+            ulong minBh = 0;
+            if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+            {
+                minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+            }
+            // Check the block height
+            if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
+            {
+                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                failedTransactions.Add(tx);
+                return false;
+            }
+
             // Update the block's applied field
             if (!ws_snapshot)
             {
@@ -1119,7 +1164,7 @@ namespace DLT
             }
 
             // Verify if the solution is correct
-            if (verifyPoWTransaction(tx, out ulong powBlockNum, out string nonce, verify_pow) == true)
+            if (verifyPoWTransaction(tx, out ulong powBlockNum, out string nonce, block.version, verify_pow) == true)
             {
                 // Check if we already have a key matching the block number
                 if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
@@ -1298,6 +1343,19 @@ namespace DLT
         {
             if(tx.type == (int)Transaction.Type.MultisigTX)
             {
+                ulong minBh = 0;
+                if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+                {
+                    minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                }
+                // Check the block height
+                if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
+                {
+                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+
                 object multisig_type = tx.GetMultisigData();
                 foreach (var entry in tx.fromList)
                 {
@@ -1339,6 +1397,19 @@ namespace DLT
         {
             if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
+                ulong minBh = 0;
+                if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+                {
+                    minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                }
+                // Check the block height
+                if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
+                {
+                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+
                 foreach (var entry in tx.fromList)
                 {
                     Wallet orig = Node.walletState.getWallet((new Address(tx.pubKey, entry.Key)).address, ws_snapshot);
@@ -1473,12 +1544,12 @@ namespace DLT
         public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
             ulong minBh = 0;
-            if (block.blockNum > CoreConfig.redactedWindowSize)
+            if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
             {
-                minBh = block.blockNum - CoreConfig.redactedWindowSize;
+                minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
             }
             // Check the block height
-            if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum + 5)
+            if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
             {
                 Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
                 failed_transactions.Add(tx);
@@ -1710,9 +1781,9 @@ namespace DLT
             }
 
             ulong minBlockHeight = 1;
-            if (Node.blockChain.getLastBlockNum() > CoreConfig.redactedWindowSize)
+            if (Node.blockChain.getLastBlockNum() > CoreConfig.getRedactedWindowSize())
             {
-                minBlockHeight = Node.blockChain.getLastBlockNum() - CoreConfig.redactedWindowSize;
+                minBlockHeight = Node.blockChain.getLastBlockNum() - CoreConfig.getRedactedWindowSize();
             }
 
             lock (transactions)
@@ -1783,7 +1854,7 @@ namespace DLT
                     long tx_time = (long)entry[1];
 
                     // if transaction expired, remove it from pending transactions
-                    if(t.blockHeight < Node.getLastBlockHeight() - CoreConfig.redactedWindowSize)
+                    if(t.blockHeight < Node.getLastBlockHeight() - CoreConfig.getRedactedWindowSize())
                     {
                         pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                         continue;
