@@ -97,7 +97,7 @@ namespace DLT
                     blockGenerationInterval = 30;
                 }
 
-                int block_version = Block.maxBlockVersion;
+                int block_version = Block.maxVersion;
 
                 bool forceNextBlock = Node.forceNextBlock;
                 Random rnd = new Random();
@@ -474,7 +474,7 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true)
         {
-            if(b.version > Block.maxBlockVersion)
+            if(b.version > Block.maxVersion)
             {
                 Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
                 return BlockVerifyStatus.IndeterminateVersionUpgradeBlock;
@@ -2028,6 +2028,20 @@ namespace DLT
         public Block getLocalBlock()
         {
             return localNewBlock;
+        }
+
+        public bool addSignatureToBlock(ulong block_num, byte[] signature, byte[] address_or_pub_key)
+        {
+            ulong last_block_num = Node.blockChain.getLastBlockNum();
+            if (block_num > last_block_num - 5 && block_num <= last_block_num)
+            {
+                Block b = Node.blockChain.getBlock(block_num);
+                if (b != null)
+                {
+                    return b.addSignature(signature, address_or_pub_key);
+                }
+            }
+            return false;
         }
     }
 }

@@ -318,6 +318,8 @@ namespace DLT.Meta
                         Block b = blockChain.getBlock(blockNum, true);
                         if (b != null)
                         {
+                            CoreConfig.minRedactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
+                            CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
                             blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
                         }else
                         {

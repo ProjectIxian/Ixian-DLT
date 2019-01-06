@@ -111,9 +111,9 @@ namespace DLT
             redactChain();
             lock (blocks)
             {
-                if (blocks.Count > 100)
+                if (blocks.Count > 20)
                 {
-                    Block tmp_block = getBlock(b.blockNum - 100);
+                    Block tmp_block = getBlock(b.blockNum - 20);
                     if (tmp_block != null)
                     {
                         TransactionPool.compactTransactionsForBlock(tmp_block);
@@ -293,7 +293,6 @@ namespace DLT
 
         public bool refreshSignatures(Block b, bool forceRefresh = false)
         {
-            // TODO TODO TODO TODO verify consensus of the block on force refresh
             if (!forceRefresh)
             {
                 // we refuse to change sig numbers older than 4 blocks

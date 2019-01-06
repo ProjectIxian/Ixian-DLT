@@ -12,7 +12,7 @@ namespace DLT
 {
     public class Block
     {
-        public static int maxBlockVersion = 1;
+        public static int maxVersion = 1;
 
         // TODO: Refactor all of these as readonly get-params
         [PrimaryKey, AutoIncrement]
@@ -107,7 +107,7 @@ namespace DLT
                         version = reader.ReadInt32();
 
                         blockNum = reader.ReadUInt64();
-                        if (version <= maxBlockVersion)
+                        if (version <= maxVersion)
                         {
                             // Get the transaction ids
                             int num_transactions = reader.ReadInt32();
@@ -368,29 +368,19 @@ namespace DLT
             return true;
         }
 
-        public bool containsSignature(byte[] address)
+        public bool containsSignature(byte[] address_or_pub_key)
         {
-            byte[] cmp_address = address;
-            if(address.Length >= 70)
-            {
-                // Generate an address
-                Address p_address = new Address(address);
-                cmp_address = p_address.address;
-            }
-
+            // Generate an address in case we got the pub key
+            Address p_address = new Address(address_or_pub_key);
+            byte[] cmp_address = p_address.address;
 
             lock (signatures)
             {
                 foreach (byte[][] sig in signatures)
                 {
-                    byte[] sig_address = sig[1];
-
-                    if(sig_address.Length >= 70)
-                    {
-                        // Generate an address
-                        Address s_address = new Address(sig_address);
-                        sig_address = s_address.address;
-                    }
+                    // Generate an address in case we got the pub key
+                    Address s_address_or_pub_key = new Address(sig[1]);
+                    byte[] sig_address = s_address_or_pub_key.address;
 
                     if (cmp_address.SequenceEqual(sig_address))
                     {
@@ -409,7 +399,7 @@ namespace DLT
                 int count = 0;
                 foreach (byte[][] sig in other.signatures)
                 {
-                    if(!containsSignature(sig[1]))
+                    if (!containsSignature(sig[1]))
                     {
                         count++;
                         signatures.Add(sig);
@@ -422,6 +412,43 @@ namespace DLT
                 }
             }
             return false;
+        }
+
+        public bool verifySignature(byte[] signature, byte[] signer_pub_key)
+        {
+            return CryptoManager.lib.verifySignature(blockChecksum, signer_pub_key, signature);
+        }
+
+        public bool addSignature(byte[] signature, byte[] address_or_pub_key)
+        {
+            lock (signatures)
+            {
+                if (!containsSignature(address_or_pub_key))
+                {
+                    byte[] pub_key = getSignerPubKey(address_or_pub_key);
+                    if (pub_key != null && verifySignature(signature, pub_key))
+                    {
+                        signatures.Add(new byte[2][] { signature, address_or_pub_key});
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public byte[] getSignerPubKey(byte[] address_or_pub_key)
+        {
+            if(address_or_pub_key.Length == 523)
+            {
+                return address_or_pub_key;
+            }
+            if (address_or_pub_key.Length < 70)
+            {
+                // Extract the public key from the walletstate
+                Wallet signer_wallet = Node.walletState.getWallet(address_or_pub_key);
+               return signer_wallet.publicKey;
+            }
+            return null;
         }
 
         public bool verifySignatures()
@@ -437,34 +464,25 @@ namespace DLT
                     byte[] signature = sig[0];
                     byte[] address = sig[1];
 
-                    byte[] signerPubKey = sig[1];
+                    byte[] signer_pub_key = getSignerPubKey(sig[1]);
 
-
-                    if (signerPubKey.Length < 70)
-                    {
-                        // Extract the public key from the walletstate
-                        Wallet signerWallet = Node.walletState.getWallet(address);
-                        signerPubKey = signerWallet.publicKey;
-                    }
-
-                    if (signerPubKey == null || signerPubKey.Length != 523)
+                    if (signer_pub_key == null)
                     {
                         // invalid public key
                         signatures.Remove(sig);
                         continue;
                     }
 
-
-                    if (sigAddresses.Find(x => x.SequenceEqual(signerPubKey)) == null)
+                    if (sigAddresses.Find(x => x.SequenceEqual(signer_pub_key)) == null)
                     {
-                        sigAddresses.Add(signerPubKey);
+                        sigAddresses.Add(signer_pub_key);
                     }else
                     {
                         signatures.Remove(sig);
                         continue;
                     }
 
-                    if (CryptoManager.lib.verifySignature(blockChecksum, signerPubKey, signature) == false)
+                    if (verifySignature(signer_pub_key, signature) == false)
                     {
                         signatures.Remove(sig);
                         continue;
@@ -472,6 +490,12 @@ namespace DLT
 
 
                 }
+
+                if(signatures.Count == 0)
+                {
+                    return false;
+                }
+
                 return true;
             }
         }

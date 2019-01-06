@@ -91,10 +91,6 @@ namespace DLT
                         }
                     }
                 }
-
-                // Send the block
-                endpoint.sendData(ProtocolMessageCode.blockData, b.getBytes());
-
             }
 
             // Handle the getUnappliedTransactions message
@@ -175,6 +171,111 @@ namespace DLT
                         byte[] addresses = reader.ReadBytes(addrLen);
 
                         endpoint.detachEvent(type, addresses);
+                    }
+                }
+            }
+
+            public static bool broadcastNewBlockSignature(byte[] signature_data, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            {
+                if (endpoint != null)
+                {
+                    if (endpoint.isConnected())
+                    {
+                        endpoint.sendData(ProtocolMessageCode.newBlockSignature, signature_data);
+                        return true;
+                    }
+                    return false;
+                }
+                else
+                {
+                    return broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlockSignature, signature_data, skipEndpoint);
+                }
+            }
+
+
+            // Removes event subscriptions for the provided endpoint
+            private static void handleNewBlockSignature(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (data == null)
+                {
+                    Logging.warn(string.Format("Invalid protocol message signature data"));
+                    return;
+                }
+
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_num = reader.ReadUInt64();
+                        int sig_len = reader.ReadInt32();
+                        byte[] sig = reader.ReadBytes(sig_len);
+                        int sig_addr_len = reader.ReadInt32();
+                        byte[] sig_addr = reader.ReadBytes(sig_addr_len);
+
+                        if(Node.blockProcessor.addSignatureToBlock(block_num, sig, sig_addr))
+                        {
+                            broadcastNewBlockSignature(data, endpoint);
+                        }else
+                        {
+                            Logging.warn("Received an invalid signature for block {0}", block_num);
+                        }
+                    }
+                }
+            }
+
+            // Handle the getBlockTransactions message
+            // This is called from NetworkProtocol
+            private static void handleGetBlockSignatures(ulong blockNum, RemoteEndpoint endpoint)
+            {
+                //Logging.info(String.Format("Received request for signatures in block {0}.", blockNum));
+
+                // Get the requested block and corresponding signatures
+                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+
+                if(b == null)
+                {
+                    return;
+                }
+
+                int sig_count = b.signatures.Count();
+
+                int num_chunks = sig_count / CoreConfig.maximumTransactionsPerChunk + 1;
+                // Go through each chunk
+                for (int i = 0; i < num_chunks; i++)
+                {
+                    using (MemoryStream mOut = new MemoryStream())
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            int sigs_in_chunk = 0;
+                            // Generate a chunk of transactions
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk; j++)
+                            {
+                                int sig_index = i * CoreConfig.maximumTransactionsPerChunk + j;
+                                if (sig_index > sig_count - 1)
+                                    break;
+
+                                byte[][] sig = b.signatures[i];
+                                if (sig != null)
+                                {
+                                    // sig
+                                    writer.Write(sig[0].Length);
+                                    writer.Write(sig[0]);
+
+                                    // address/pubkey
+                                    writer.Write(sig[1].Length);
+                                    writer.Write(sig[1]);
+
+                                    sigs_in_chunk++;
+                                }
+                            }
+
+                            if (sigs_in_chunk > 0)
+                            {
+                                // Send a chunk
+                                endpoint.sendData(ProtocolMessageCode.blockSignatureChunk, mOut.ToArray());
+                            }
+                        }
                     }
                 }
             }
@@ -1485,6 +1586,26 @@ namespace DLT
                         case ProtocolMessageCode.detachEvent:
                             {
                                 handleDetachEvent(data, endpoint);
+                            }
+                            break;
+
+                        case ProtocolMessageCode.newBlockSignature:
+                            {
+                                handleNewBlockSignature(data, endpoint);
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getBlockSignatures:
+                            {
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        ulong block_num = reader.ReadUInt64();
+
+                                        handleGetBlockSignatures(block_num, endpoint);
+                                    }
+                                }
                             }
                             break;
 
