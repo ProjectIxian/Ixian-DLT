@@ -416,7 +416,7 @@ namespace DLT
             hashesPerSecond++;
 
             // We have a valid hash, update the corresponding block
-            if (Miner.validateHashInternal(hash, hash_ceil) == true)
+            if (Miner.validateHashInternal_v1(hash, hash_ceil) == true)
             {
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
 
@@ -453,7 +453,7 @@ namespace DLT
             hashesPerSecond++;
 
             // We have a valid hash, update the corresponding block
-            if (Miner.validateHashInternal(hash, hash_ceil) == true)
+            if (Miner.validateHashInternal_v2(hash, hash_ceil) == true)
             {
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
 
@@ -524,7 +524,7 @@ namespace DLT
             return true;
         }
 
-        private static bool validateHashInternal(byte[] hash, byte[] hash_ceil)
+        private static bool validateHashInternal_v1(byte[] hash, byte[] hash_ceil)
         {
             if(hash == null || hash.Length < 1)
             {
@@ -540,10 +540,31 @@ namespace DLT
             return true;
         }
 
+        private static bool validateHashInternal_v2(byte[] hash, byte[] hash_ceil)
+        {
+            if (hash == null || hash.Length < 32)
+            {
+                return false;
+            }
+            for (int i = 0; i < hash.Length; i++)
+            {
+                byte cb = i < hash_ceil.Length ? hash_ceil[i] : (byte)0xff;
+                if (cb > hash[i]) return true;
+                if (cb < hash[i]) return false;
+            }
+            // if we reach this point, the hash is exactly equal to the ceiling we consider this a 'passing hash'
+            return true;
+        }
+
         // Check if a hash is valid based on the current difficulty
         public static bool validateHash_v1(byte[] hash, ulong difficulty)
         {
-            return validateHashInternal(hash, getHashCeilFromDifficulty(difficulty));
+            return validateHashInternal_v1(hash, getHashCeilFromDifficulty(difficulty));
+        }
+
+        public static bool validateHash_v2(byte[] hash, ulong difficulty)
+        {
+            return validateHashInternal_v2(hash, getHashCeilFromDifficulty(difficulty));
         }
 
         // Verify nonce
@@ -630,7 +651,7 @@ namespace DLT
             byte[] nonce_bytes = Crypto.stringToHash(nonce);
             byte[] hash = Miner.findHash_v1(p1, nonce_bytes);
 
-            if (Miner.validateHash_v1(hash, difficulty) == true)
+            if (Miner.validateHash_v2(hash, difficulty) == true)
             {
                 // Hash is valid
                 return true;
@@ -833,7 +854,7 @@ namespace DLT
                 byte[] hash = findHash_v1(new byte[3]{ 1, 2, 3 }, nonce);
 
                 // We have a valid hash, update the corresponding block
-                if (Miner.validateHashInternal(hash, BitConverter.GetBytes(80)) == true)
+                if (Miner.validateHashInternal_v1(hash, BitConverter.GetBytes(80)) == true)
                 {
                     byte[] data = null;
 
@@ -861,7 +882,7 @@ namespace DLT
                     byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce_str);
                     byte[] hash_to_test = Miner.findHash_v1(new byte[3] { 1, 2, 3 }, nonce_bytes);
 
-                    if (Miner.validateHashInternal(hash_to_test, BitConverter.GetBytes(80)) == true)
+                    if (Miner.validateHashInternal_v1(hash_to_test, BitConverter.GetBytes(80)) == true)
                     {
                         // Hash is valid
                         Logging.error("Found correct PoW");
