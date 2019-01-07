@@ -399,6 +399,7 @@ namespace DLTNode
                 primary_address_bytes = Base58Check.Base58CheckEncoding.DecodePlain(primary_address);
             }
 
+
             SortedDictionary<byte[], IxiNumber> fromList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
             if (request.QueryString["from"] != null)
             {
@@ -420,12 +421,11 @@ namespace DLTNode
                         fromList.Add(single_from_address, singleFromAmount);
                     }
                 }
-            }
-
-            // Only create a transaction if there is a valid amount
-            if (from_amount < 0 || from_amount == 0)
-            {
-                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid from amount was specified" } };
+                // Only create a transaction if there is a valid amount
+                if (from_amount < 0 || from_amount == 0)
+                {
+                    return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid from amount was specified" } };
+                }
             }
 
             IxiNumber to_amount = 0;
@@ -478,7 +478,7 @@ namespace DLTNode
             }
 
             bool adjust_amount = false;
-            if(fromList.Count == 0)
+            if (fromList.Count == 0)
             {
                 fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
                 adjust_amount = true;
@@ -495,7 +495,7 @@ namespace DLTNode
                 version = 2;
             }
 
-            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), version);
+            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, version);
             if(adjust_amount)
             {
                 for(int i = 0; i < 2 && transaction.fee != fee; i++)
@@ -506,7 +506,7 @@ namespace DLTNode
                     {
                         return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
                     }
-                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), version);
+                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, version);
                 }
             }
             if (to_amount + transaction.fee > Node.walletStorage.getMyTotalBalance(primary_address_bytes))

@@ -498,7 +498,7 @@ namespace DLT
                                     handleWatchDog(true);
                                     return;
                                 }
-                                if (b.blockNum % 1000 == 0)
+                                if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
                                 {
                                     DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
                                 }

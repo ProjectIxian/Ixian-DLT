@@ -207,6 +207,7 @@ namespace DLT
 
             // Go through all database files until we discover the latest consecutive one
             // Doing it this way prevents skipping over inexistent databases
+            // returns 1 on failure
             public static ulong seekLatestDatabase()
             {
                 ulong db_blocknum = 0;
@@ -233,7 +234,7 @@ namespace DLT
                     // Seek the found database
                     return db_blocknum;
                 }
-                return 0;
+                return 1;
             }
 
             public static ulong getLastBlockNum()
@@ -245,7 +246,7 @@ namespace DLT
                         ulong db_block_num = seekLatestDatabase();
 
                         _storage_Block[] _storage_block = null;
-                        if (db_block_num > 0)
+                        if (db_block_num != 1)
                         {
                             string sql = string.Format("SELECT * FROM `blocks` ORDER BY `blockNum` DESC LIMIT 1");
                             _storage_block = sqlConnection.Query<_storage_Block>(sql).ToArray();

@@ -227,7 +227,7 @@ namespace DLT
 
                 // Output mining stats
                 TimeSpan timeSinceLastStat = DateTime.UtcNow - lastStatTime;
-                if (timeSinceLastStat.TotalSeconds > 2)
+                if (timeSinceLastStat.TotalSeconds > 5)
                 {
                     printMinerStatus();
                     Block tmpBlock = Node.blockChain.getBlock(currentBlockNum);
@@ -761,7 +761,7 @@ namespace DLT
         {
             // Console.WriteLine("Miner: Block #{0} | Hashes per second: {1}", currentBlockNum, hashesPerSecond);
             lastStatTime = DateTime.UtcNow;
-            lastHashRate = hashesPerSecond / 2;
+            lastHashRate = hashesPerSecond / 5;
             hashesPerSecond = 0;
         }
 

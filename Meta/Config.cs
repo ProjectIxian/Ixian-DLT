@@ -57,6 +57,8 @@ namespace DLT
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
             public static readonly ulong compileTimeBlockNumber = 129600;
 
+            public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
+
             // Debugging values
             public static string networkDumpFile = "";
             public static int benchmarkKeys = 0;

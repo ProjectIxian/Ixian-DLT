@@ -44,7 +44,7 @@ namespace DLT.Meta
                     return 0;
                 }
             }
-            blockNum = ((ulong)(blockNum / 1000)) * 1000;
+            blockNum = ((ulong)(blockNum / Config.saveWalletStateEveryBlock)) * Config.saveWalletStateEveryBlock;
             string db_path = "";
 
             FileStream fs = null;
@@ -56,11 +56,11 @@ namespace DLT.Meta
                     fs = File.Open(db_path, FileMode.Open, FileAccess.Read, FileShare.None);
                 }else
                 {
-                    if (blockNum < 1000)
+                    if (blockNum < Config.saveWalletStateEveryBlock)
                     {
                         return 0;
                     }
-                    blockNum = blockNum - 1000;
+                    blockNum = blockNum - Config.saveWalletStateEveryBlock;
                 }
             }
             try

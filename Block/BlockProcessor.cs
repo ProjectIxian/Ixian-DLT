@@ -1100,7 +1100,7 @@ namespace DLT
                                 localNewBlock = null;
 
                                 cleanupBlockBlacklist();
-                                if (Node.blockChain.getLastBlockNum() % 1000 == 0)
+                                if (Node.blockChain.getLastBlockNum() % Config.saveWalletStateEveryBlock == 0)
                                 {
                                     WalletStateStorage.saveWalletState(Node.blockChain.getLastBlockNum());
                                 }
@@ -1367,11 +1367,7 @@ namespace DLT
             foreach (byte[][] sig in targetBlock.signatures)
             {
                 // Generate the corresponding Ixian address
-                byte[] addressBytes = sig[1];
-                if (sig[1].Length > 70)
-                {
-                    addressBytes = (new Address(sig[1])).address;
-                }
+                byte[] addressBytes =  (new Address(sig[1])).address;
 
                 // Update the walletstate and deposit the award
                 Wallet signer_wallet = Node.walletState.getWallet(addressBytes, ws_snapshot);

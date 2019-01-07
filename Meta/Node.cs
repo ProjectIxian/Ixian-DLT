@@ -304,11 +304,21 @@ namespace DLT.Meta
                 {
                     lastLocalBlockNum = Config.lastGoodBlock;
                 }
+                if (lastLocalBlockNum > 0)
+                {
+                    Block b = blockChain.getBlock(lastLocalBlockNum, true);
+                    if (b != null)
+                    {
+                        CoreConfig.minRedactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
+                        CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
+                    }
+
+                }
+
                 if (Config.recoverFromFile)
                 {
-                    ulong blockNum = Meta.Storage.getLastBlockNum();
-                    Block b = Meta.Storage.getBlock(blockNum);
-                    blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
+                    Block b = Meta.Storage.getBlock(lastLocalBlockNum);
+                    blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
                 }
                 else
                 {
@@ -318,8 +328,6 @@ namespace DLT.Meta
                         Block b = blockChain.getBlock(blockNum, true);
                         if (b != null)
                         {
-                            CoreConfig.minRedactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
-                            CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
                             blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
                         }else
                         {
