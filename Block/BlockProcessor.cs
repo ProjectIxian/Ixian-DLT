@@ -2026,13 +2026,13 @@ namespace DLT
             return localNewBlock;
         }
 
-        public bool addSignatureToBlock(ulong block_num, byte[] signature, byte[] address_or_pub_key)
+        public bool addSignatureToBlock(ulong block_num, byte[] checksum, byte[] signature, byte[] address_or_pub_key)
         {
             ulong last_block_num = Node.blockChain.getLastBlockNum();
             if (block_num > last_block_num - 4 && block_num <= last_block_num)
             {
                 Block b = Node.blockChain.getBlock(block_num);
-                if (b != null)
+                if (b != null && b.blockChecksum.SequenceEqual(checksum))
                 {
                     return b.addSignature(signature, address_or_pub_key);
                 }
@@ -2042,7 +2042,7 @@ namespace DLT
                 lock (Node.blockProcessor.localBlockLock)
                 {
                     Block b = Node.blockProcessor.getLocalBlock();
-                    if (b != null)
+                    if (b != null && b.blockChecksum.SequenceEqual(checksum))
                     {
                         return b.addSignature(signature, address_or_pub_key);
                     }
