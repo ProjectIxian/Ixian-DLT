@@ -119,7 +119,7 @@ namespace DLT
                 // we can use fromList.First because:
                 //  a: verifyTransaction() checks that there is at least one fromAddress (if there isn't, totalAmount == 0 and transaction is failed before it gets here)
                 //  b: at the start of this function, fromList is checked for fromList.Count > 1 and failed if so
-                byte[] from_address = (new Address(transaction.pubKey, transaction.fromList.First().Key)).address;
+                byte[] from_address = (new Address(transaction.fromList.First().Key)).address;
                 Wallet w = Node.walletState.getWallet(from_address);
                 if (!w.isValidSigner(from_address))
                 {
@@ -1374,18 +1374,18 @@ namespace DLT
                     return false;
                 }
                 object multisig_type = tx.GetMultisigData();
-                byte[] tmp_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
-                Wallet orig = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                byte[] from_address = (new Address(tx.fromList.First().Key)).address;
+                Wallet orig = Node.walletState.getWallet(from_address, ws_snapshot);
                 if(orig is null)
                 {
-                    Logging.error(String.Format("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(tmp_address)));
+                    Logging.error(String.Format("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(from_address)));
                     failed_transactions.Add(tx);
                     return false;
                 }
                 if (orig.type != WalletType.Multisig)
                 {
                     Logging.error(String.Format("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
-                        Crypto.hashToString(tmp_address), tx.id));
+                        Crypto.hashToString(from_address), tx.id));
                     failed_transactions.Add(tx);
                     return false;
                 }
@@ -1437,11 +1437,11 @@ namespace DLT
                 }
 
                 object multisig_type = tx.GetMultisigData();
-                byte[] tmp_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
-                Wallet orig = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                byte[] target_wallet_address = (new Address(tx.fromList.First().Key)).address;
+                Wallet orig = Node.walletState.getWallet(target_wallet_address, ws_snapshot);
                 if (orig is null)
                 {
-                    Logging.error(String.Format("Multisig change transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(tmp_address)));
+                    Logging.error(String.Format("Multisig change transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(target_wallet_address)));
                     failed_transactions.Add(tx);
                     return false;
                 }
