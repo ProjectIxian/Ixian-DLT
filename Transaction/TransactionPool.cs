@@ -29,6 +29,12 @@ namespace DLT
             // multisig verification
             if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
+                // multiple "from" addresses are not supported
+                if (transaction.fromList.Count > 1)
+                {
+                    Logging.warn(String.Format("Multisig transaction {{ {0} }} has multiple 'from' addresses, which is not allowed!", transaction.id));
+                    return false;
+                }
                 object multisig_type = transaction.GetMultisigData();
                 if (multisig_type == null)
                 {
@@ -109,19 +115,24 @@ namespace DLT
                         }
                     }
                 }
-                foreach (var entry in transaction.fromList)
+                byte[] tx_signer_address = (new Address(transaction.pubKey)).address;
+                // we can use fromList.First because:
+                //  a: verifyTransaction() checks that there is at least one fromAddress (if there isn't, totalAmount == 0 and transaction is failed before it gets here)
+                //  b: at the start of this function, fromList is checked for fromList.Count > 1 and failed if so
+                byte[] from_address = (new Address(transaction.pubKey, transaction.fromList.First().Key)).address;
+                Wallet w = Node.walletState.getWallet(from_address);
+                if (!w.isValidSigner(from_address))
                 {
-                    byte[] tmp_address = (new Address(transaction.pubKey)).address;
-                    Wallet w = Node.walletState.getWallet(tmp_address);
-                    if (w.type == WalletType.Multisig && transaction.type != (int)Transaction.Type.MultisigTX)
+                    Logging.warn(String.Format("Multisig transaction {{ {0} }} does not have a valid signature for wallet {1}.", transaction.id, Crypto.hashToString(w.id)));
+                    return false;
+                }
+                // multisig tx can only be performed on multisig wallets
+                if(w.type != WalletType.Multisig)
+                {
+                    // only exception is the "add signer multisig"
+                    if(!(multisig_type is Transaction.MultisigAddrAdd))
                     {
-                        Logging.error(String.Format("Attempted to execute a regular transaction {{ {0} }} on a multisig wallet {1}!",
-                            transaction.id, Base58Check.Base58CheckEncoding.EncodePlain(w.id)));
-                        return false;
-                    }
-                    if (!w.isValidSigner(tmp_address))
-                    {
-                        Logging.warn(String.Format("Multisig transaction {{ {0} }} does not have a valid signature for wallet {1}.", transaction.id, Crypto.hashToString(w.id)));
+                        Logging.warn(String.Format("Multisig transaction {{ {0} }} attempts to operate on a non-multisig wallet {1}.", transaction.id, Crypto.hashToString(w.id)));
                         return false;
                     }
                 }
@@ -1356,37 +1367,52 @@ namespace DLT
                     return false;
                 }
 
-                object multisig_type = tx.GetMultisigData();
-                foreach (var entry in tx.fromList)
+                if(tx.fromList.Count > 1)
                 {
-                    byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
-                    Wallet orig = Node.walletState.getWallet(tmp_address, ws_snapshot);
-                    if (orig.type != WalletType.Multisig)
-                    {
-                        Logging.error(String.Format("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
-                            Crypto.hashToString(tmp_address), tx.id));
-                        failed_transactions.Add(tx);
-                        return false;
-                    }
-                    if (multisig_type is string && (string)multisig_type == "")
-                    {
-                        // +1, because the search will not find the current transaction, only the ones related to it
-                        int num_multisig_txs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
-                        if (num_multisig_txs < orig.requiredSigs)
-                        {
-                            Logging.error(String.Format("Multisig transaction {{ {0} }} doesn't have enough signatures!", tx.id));
-                            failed_transactions.Add(tx);
-                            return false;
-                        }
-                    }
-                    else if (!(multisig_type is string))
-                    {
-                        Logging.error(String.Format("Multisig transaction {{ {0} }} has invalid multisig data!", tx.id));
-                        failed_transactions.Add(tx);
-                        return false;
-                    }
-                    // ignore if it doesn't have enough sigs - it will either accumulate more sigs, or be pruned after a timeout period
+                    Logging.error(String.Format("Multisig transaction {{ {0} }} has more than one 'from' address!", tx.id));
+                    failed_transactions.Add(tx);
+                    return false;
                 }
+                object multisig_type = tx.GetMultisigData();
+                byte[] tmp_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
+                Wallet orig = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                if(orig is null)
+                {
+                    Logging.error(String.Format("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(tmp_address)));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                if (orig.type != WalletType.Multisig)
+                {
+                    Logging.error(String.Format("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
+                        Crypto.hashToString(tmp_address), tx.id));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                // we only attempt to execute the original transaction, if there are enough signatures
+                if (multisig_type is string && (string)multisig_type == "")
+                {
+                    // +1, because the search will not find the current transaction, only the ones related to it
+                    int num_multisig_txs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                    if (num_multisig_txs < orig.requiredSigs)
+                    {
+                        Logging.error(String.Format("Multisig transaction {{ {0} }} doesn't have enough signatures!", tx.id));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+                }
+                else if(multisig_type is string && (string)multisig_type != "")
+                {
+                    // this is a related transaction, which we ignore, because all processing is done on the origin transaction
+                    return false;
+                }
+                else
+                {
+                    Logging.error(String.Format("Multisig transaction {{ {0} }} has invalid multisig data!", tx.id));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                // ignore if it doesn't have enough sigs - it will either accumulate more sigs, or be pruned after a timeout period
                 // it processes as normal
                 return applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
             }
@@ -1410,126 +1436,129 @@ namespace DLT
                     return false;
                 }
 
-                foreach (var entry in tx.fromList)
+                object multisig_type = tx.GetMultisigData();
+                byte[] tmp_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
+                Wallet orig = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                if (orig is null)
                 {
-                    Wallet orig = Node.walletState.getWallet((new Address(tx.pubKey, entry.Key)).address, ws_snapshot);
-                    ////////
-                    ///////
-                    object multisig_type = tx.GetMultisigData();
-                    if (multisig_type is Transaction.MultisigAddrAdd)
-                    {
-                        var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
-                        if (orig.isValidSigner(multisig_obj.addrToAdd))
-                        {
-                            Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
-                            failed_transactions.Add(tx);
-                            return false;
-                        }
-                        if (multisig_obj.origTXId != "")
-                        {
-                            // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
-                            return false;
-                        }
-                        else
-                        {
-                            // +1 because this current transaction will not be found by the search
-                            int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
-                            if (num_valid_sigs < orig.requiredSigs)
-                            {
-                                Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
-                                return true;
-                            }
-                        }
-                        Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
-                        orig.addValidSigner(multisig_obj.addrToAdd);
-                        orig.type = WalletType.Multisig;
-                        Node.walletState.setWallet(orig, ws_snapshot);
-                    }
-                    else if (multisig_type is Transaction.MultisigAddrDel)
-                    {
-                        if (orig.type != WalletType.Multisig)
-                        {
-                            Logging.error(String.Format("Attempted to execute a multisig change transaction {{ {0} }} on a non-multisig wallet {1}!",
-                                tx.id, Crypto.hashToString(orig.id)));
-                            failed_transactions.Add(tx);
-                            return false;
-                        }
-                        var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
-                        if (multisig_obj.addrToDel.SequenceEqual(orig.id))
-                        {
-                            Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel)));
-                            failed_transactions.Add(tx);
-                            return false;
-                        }
-                        if (multisig_obj.origTXId != "")
-                        {
-                            // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
-                            return false;
-                        }
-                        else
-                        {
-                            // +1 because this current transaction will not be found by the search
-                            int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
-                            if (num_valid_sigs < orig.requiredSigs)
-                            {
-                                Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
-                                return true;
-                            }
-                        }
-                        if (orig.requiredSigs > orig.countAllowedSigners)
-                        {
-                            Logging.info(String.Format("Removing a signer would make using the wallet impossible. Adjusting required signatures: {0} -> {1}.",
-                                orig.requiredSigs, orig.allowedSigners.Length));
-                            orig.requiredSigs = (byte)orig.allowedSigners.Length;
-                        }
-                        Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Crypto.hashToString(orig.id)));
-                        orig.delValidSigner(multisig_obj.addrToDel);
-                        Node.walletState.setWallet(orig, ws_snapshot);
-                    }
-                    else if (multisig_type is Transaction.MultisigChSig)
-                    {
-                        var multisig_obj = (Transaction.MultisigChSig)multisig_type;
-                        if (orig.type != WalletType.Multisig)
-                        {
-                            Logging.error(String.Format("Attempted to execute a multisig change transaction {{ {0} }} on a non-multisig wallet {1}!",
-                                tx.id, Crypto.hashToString(orig.id)));
-                            failed_transactions.Add(tx);
-                            return false;
-                        }
-                        if (multisig_obj.origTXId != "")
-                        {
-                            // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
-                            return false;
-                        }
-                        else
-                        {
-                            // +1 because this current transaction will not be found by the search
-                            int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
-                            if (num_valid_sigs < orig.requiredSigs)
-                            {
-                                Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
-                                return true;
-                            }
-                        }
-                        // +1 because "allowedSigners" will contain addresses distinct from the wallet owner, but wallet owner is also one of the permitted signers
-                        if (multisig_obj.reqSigs > orig.allowedSigners.Length + 1)
-                        {
-                            Logging.error(String.Format("Attempted to set required sigs for a multisig wallet to a larger value than the number of allowed pubkeys! Pubkeys = {0}, reqSigs = {1}.",
-                                orig.allowedSigners.Length, multisig_obj.reqSigs));
-                            failed_transactions.Add(tx);
-                            return false;
-                        }
-                        Logging.info(String.Format("Changing multisig wallet {0} required sigs {1} -> {2}.", Crypto.hashToString(orig.id), orig.requiredSigs, multisig_obj.reqSigs));
-                        orig.requiredSigs = multisig_obj.reqSigs;
-                        if (orig.requiredSigs == 1)
-                        {
-                            Logging.info(String.Format("Wallet {0} changes back to a single-sig wallet.", Crypto.hashToString(orig.id)));
-                            orig.type = WalletType.Normal;
-                            orig.allowedSigners = null;
-                        }
-                        Node.walletState.setWallet(orig, ws_snapshot);
-                    }
+                    Logging.error(String.Format("Multisig change transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(tmp_address)));
+                    failed_transactions.Add(tx);
+                    return false;
                 }
+                if (multisig_type is Transaction.MultisigAddrAdd)
+                {
+                    var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
+                    if (orig.isValidSigner(multisig_obj.addrToAdd))
+                    {
+                        Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+
+                    if (multisig_obj.origTXId != "")
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        // +1 because this current transaction will not be found by the search
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        if (num_valid_sigs < orig.requiredSigs)
+                        {
+                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                            return true;
+                        }
+                    }
+                    Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Crypto.hashToString(orig.id)));
+                    orig.addValidSigner(multisig_obj.addrToAdd);
+                    orig.type = WalletType.Multisig;
+                    Node.walletState.setWallet(orig, ws_snapshot);
+                }
+                else if (multisig_type is Transaction.MultisigAddrDel)
+                {
+                    if (orig.type != WalletType.Multisig)
+                    {
+                        Logging.error(String.Format("Attempted to execute a multisig change transaction {{ {0} }} on a non-multisig wallet {1}!",
+                            tx.id, Crypto.hashToString(orig.id)));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+                    var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
+                    if (multisig_obj.addrToDel.SequenceEqual(orig.id))
+                    {
+                        Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel)));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+                    if (multisig_obj.origTXId != "")
+                    {
+                        // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
+                        return false;
+                    }
+                    else
+                    {
+                        // +1 because this current transaction will not be found by the search
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        if (num_valid_sigs < orig.requiredSigs)
+                        {
+                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                            return true;
+                        }
+                    }
+                    if (orig.requiredSigs > orig.countAllowedSigners)
+                    {
+                        Logging.info(String.Format("Removing a signer would make using the wallet impossible. Adjusting required signatures: {0} -> {1}.",
+                            orig.requiredSigs, orig.allowedSigners.Length));
+                        orig.requiredSigs = (byte)orig.allowedSigners.Length;
+                    }
+                    Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Crypto.hashToString(orig.id)));
+                    orig.delValidSigner(multisig_obj.addrToDel);
+                    Node.walletState.setWallet(orig, ws_snapshot);
+                }
+                else if (multisig_type is Transaction.MultisigChSig)
+                {
+                    var multisig_obj = (Transaction.MultisigChSig)multisig_type;
+                    if (orig.type != WalletType.Multisig)
+                    {
+                        Logging.error(String.Format("Attempted to execute a multisig change transaction {{ {0} }} on a non-multisig wallet {1}!",
+                            tx.id, Crypto.hashToString(orig.id)));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+                    if (multisig_obj.origTXId != "")
+                    {
+                        // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
+                        return false;
+                    }
+                    else
+                    {
+                        // +1 because this current transaction will not be found by the search
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        if (num_valid_sigs < orig.requiredSigs)
+                        {
+                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                            return true;
+                        }
+                    }
+                    // +1 because "allowedSigners" will contain addresses distinct from the wallet owner, but wallet owner is also one of the permitted signers
+                    if (multisig_obj.reqSigs > orig.allowedSigners.Length + 1)
+                    {
+                        Logging.error(String.Format("Attempted to set required sigs for a multisig wallet to a larger value than the number of allowed pubkeys! Pubkeys = {0}, reqSigs = {1}.",
+                            orig.allowedSigners.Length, multisig_obj.reqSigs));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+                    Logging.info(String.Format("Changing multisig wallet {0} required sigs {1} -> {2}.", Crypto.hashToString(orig.id), orig.requiredSigs, multisig_obj.reqSigs));
+                    orig.requiredSigs = multisig_obj.reqSigs;
+                    if (orig.requiredSigs == 1)
+                    {
+                        Logging.info(String.Format("Wallet {0} changes back to a single-sig wallet.", Crypto.hashToString(orig.id)));
+                        orig.type = WalletType.Normal;
+                        orig.allowedSigners = null;
+                    }
+                    Node.walletState.setWallet(orig, ws_snapshot);
+                }
+
                 if (!ws_snapshot)
                 {
                     setAppliedFlag(tx.id, block.blockNum);
