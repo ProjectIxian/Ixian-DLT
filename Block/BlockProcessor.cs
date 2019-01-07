@@ -2029,12 +2029,23 @@ namespace DLT
         public bool addSignatureToBlock(ulong block_num, byte[] signature, byte[] address_or_pub_key)
         {
             ulong last_block_num = Node.blockChain.getLastBlockNum();
-            if (block_num > last_block_num - 5 && block_num <= last_block_num)
+            if (block_num > last_block_num - 4 && block_num <= last_block_num)
             {
                 Block b = Node.blockChain.getBlock(block_num);
                 if (b != null)
                 {
                     return b.addSignature(signature, address_or_pub_key);
+                }
+            }
+            else if (block_num == last_block_num + 1)
+            {
+                lock (Node.blockProcessor.localBlockLock)
+                {
+                    Block b = Node.blockProcessor.getLocalBlock();
+                    if (b != null)
+                    {
+                        return b.addSignature(signature, address_or_pub_key);
+                    }
                 }
             }
             return false;

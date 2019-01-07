@@ -212,6 +212,18 @@ namespace DLT
                         int sig_addr_len = reader.ReadInt32();
                         byte[] sig_addr = reader.ReadBytes(sig_addr_len);
 
+                        ulong last_bh = Node.getLastBlockHeight();
+
+                        lock (Node.blockProcessor.localBlockLock)
+                        {
+                            if (last_bh < block_num || (last_bh + 1 == block_num && Node.blockProcessor.getLocalBlock() == null))
+                            {
+                                // future block, request the next block
+                                broadcastGetBlock(last_bh + 1, null, endpoint);
+                                return;
+                            }
+                        }
+
                         if(Node.blockProcessor.addSignatureToBlock(block_num, sig, sig_addr))
                         {
                             broadcastNewBlockSignature(data, endpoint);
@@ -936,8 +948,11 @@ namespace DLT
 
                             writer.Write(Node.blockChain.getRequiredConsensus());
 
+                            writer.Write(block.version);
+
                             // Write the legacy level
                             writer.Write(Legacy.getLegacyLevel());
+
 
                             endpoint.sendData(ProtocolMessageCode.helloData, m.ToArray());
 
@@ -1007,6 +1022,16 @@ namespace DLT
                                                 }
                                             }
                                             return;
+                                        }
+
+                                        int block_version = 1;
+                                        try
+                                        {
+                                            block_version = reader.ReadInt32();
+                                        }
+                                        catch (Exception)
+                                        {
+                                            block_version = 1;
                                         }
 
                                         // Check for legacy level
