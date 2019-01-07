@@ -207,8 +207,13 @@ namespace DLT
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         ulong block_num = reader.ReadUInt64();
+
+                        int checksum_len = reader.ReadInt32();
+                        byte[] checksum = reader.ReadBytes(checksum_len);
+
                         int sig_len = reader.ReadInt32();
                         byte[] sig = reader.ReadBytes(sig_len);
+
                         int sig_addr_len = reader.ReadInt32();
                         byte[] sig_addr = reader.ReadBytes(sig_addr_len);
 
@@ -224,7 +229,7 @@ namespace DLT
                             }
                         }
 
-                        if(Node.blockProcessor.addSignatureToBlock(block_num, sig, sig_addr))
+                        if(Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr))
                         {
                             broadcastNewBlockSignature(data, endpoint);
                         }else
@@ -237,14 +242,14 @@ namespace DLT
 
             // Handle the getBlockTransactions message
             // This is called from NetworkProtocol
-            private static void handleGetBlockSignatures(ulong blockNum, RemoteEndpoint endpoint)
+            private static void handleGetBlockSignatures(ulong blockNum, byte[] checksum, RemoteEndpoint endpoint)
             {
                 //Logging.info(String.Format("Received request for signatures in block {0}.", blockNum));
 
                 // Get the requested block and corresponding signatures
                 Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
 
-                if(b == null)
+                if(b == null || !b.blockChecksum.SequenceEqual(checksum))
                 {
                     return;
                 }
@@ -1628,7 +1633,10 @@ namespace DLT
                                     {
                                         ulong block_num = reader.ReadUInt64();
 
-                                        handleGetBlockSignatures(block_num, endpoint);
+                                        int checksum_len = reader.ReadInt32();
+                                        byte[] checksum = reader.ReadBytes(checksum_len);
+
+                                        handleGetBlockSignatures(block_num, checksum, endpoint);
                                     }
                                 }
                             }
