@@ -688,9 +688,9 @@ namespace DLT
                         {
                             object multisig_data = t.GetMultisigData();
                             string orig_txid = "";
-                            if (multisig_data is string)
+                            if (multisig_data is Transaction.MultisigTxData)
                             {
-                                orig_txid = (string)multisig_data;
+                                orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
                             }
                             else if (multisig_data is Transaction.MultisigAddrAdd)
                             {
@@ -1405,9 +1405,9 @@ namespace DLT
             {
                 object multisig_data = transaction.GetMultisigData();
                 string orig_txid = "";
-                if (multisig_data is string)
+                if (multisig_data is Transaction.MultisigTxData)
                 {
-                    orig_txid = (string)multisig_data;
+                    orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
                 }
                 else if (multisig_data is Transaction.MultisigAddrAdd)
                 {
@@ -1602,13 +1602,10 @@ namespace DLT
                     // additionally, "ChangeMultisigWallet"-type transactions do not have amount
                     if (transaction.type == (int)Transaction.Type.MultisigTX)
                     {
-                        object ms_data = transaction.GetMultisigData();
-                        if (ms_data is string)
+                        Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData)transaction.GetMultisigData();
+                        if (ms_data.origTXId == "")
                         {
-                            if ((string)ms_data == "")
-                            {
-                                total_amount += transaction.amount;
-                            }
+                            total_amount += transaction.amount;
                         }
                     }
                     else if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet)

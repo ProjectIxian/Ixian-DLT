@@ -475,7 +475,7 @@ namespace DLT
                             return;
                         }
 
-                        if (b.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                        if (b.signatures.Count() < Node.blockChain.getRequiredConsensus() && Node.blockChain.Count > 16)
                         {
                             Logging.warn(String.Format("Block #{0} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
