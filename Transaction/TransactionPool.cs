@@ -1612,7 +1612,7 @@ namespace DLT
                     }
                     Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
                     orig.delValidSigner(multisig_obj.addrToDel);
-                    if (orig.countAllowedSigners <= 1)
+                    if (orig.countAllowedSigners <= 0)
                     {
                         Logging.info(String.Format("Wallet {0} changes back to a single-sig wallet.", Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
                         orig.type = WalletType.Normal;
