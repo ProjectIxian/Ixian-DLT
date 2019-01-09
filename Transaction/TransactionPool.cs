@@ -312,7 +312,15 @@ namespace DLT
 
                         Wallet tmp_wallet = Node.walletState.getWallet(tmp_from_address);
 
-                        if(tmp_wallet.type != WalletType.Normal)
+                        
+                        if(transaction.type == (int)Transaction.Type.MultisigTX)
+                        {
+                            if (tmp_wallet.type != WalletType.Multisig)
+                            {
+                                Logging.warn(String.Format("Attempted to use normal address with multisig transaction {{ {0} }}.", transaction.id));
+                                return false;
+                            }
+                        }else if(tmp_wallet.type != WalletType.Normal)
                         {
                             Logging.warn(String.Format("Attempted to use multisig address with normal transaction {{ {0} }}.", transaction.id));
                             return false;
@@ -406,6 +414,7 @@ namespace DLT
 
             // Extract the public key if found. Used for transaction verification.
             byte[] pubkey = null;
+            byte[] signer_nonce = null; // used for multi sig
 
             if (transaction.type == (int)Transaction.Type.Genesis ||
                 transaction.type == (int)Transaction.Type.StakingReward)
@@ -418,17 +427,22 @@ namespace DLT
                 if (ms_data is Transaction.MultisigAddrAdd)
                 {
                     pubkey = ((MultisigAddrAdd)ms_data).signerPubKey;
+                    signer_nonce = ((MultisigAddrAdd)ms_data).signerNonce;
                 }
                 else if (ms_data is Transaction.MultisigAddrDel)
                 {
                     pubkey = ((MultisigAddrDel)ms_data).signerPubKey;
-                }else if (ms_data is Transaction.MultisigChSig)
+                    signer_nonce = ((MultisigAddrDel)ms_data).signerNonce;
+                }
+                else if (ms_data is Transaction.MultisigChSig)
                 {
                     pubkey = ((MultisigChSig)ms_data).signerPubKey;
+                    signer_nonce = ((MultisigChSig)ms_data).signerNonce;
                 }
                 else if (ms_data is Transaction.MultisigTxData)
                 {
                     pubkey = ((MultisigTxData)ms_data).signerPubKey;
+                    signer_nonce = ((MultisigTxData)ms_data).signerNonce;
                 }
             }
             else
@@ -448,8 +462,14 @@ namespace DLT
                 return false;
             }
 
+            if (signer_nonce != null && signer_nonce.Length > 16)
+            {
+                Logging.warn(string.Format("Invalid nonce for transaction id: {0}", transaction.id));
+                return false;
+            }
+
             // Finally, verify the signature
-            if (transaction.verifySignature(pubkey) == false)
+            if (transaction.verifySignature(pubkey, signer_nonce) == false)
             {
                 // Transaction signature is invalid
                 Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
@@ -1592,6 +1612,12 @@ namespace DLT
                     }
                     Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
                     orig.delValidSigner(multisig_obj.addrToDel);
+                    if (orig.countAllowedSigners <= 1)
+                    {
+                        Logging.info(String.Format("Wallet {0} changes back to a single-sig wallet.", Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
+                        orig.type = WalletType.Normal;
+                        orig.allowedSigners = null;
+                    }
                     Node.walletState.setWallet(orig, ws_snapshot);
                 }
                 else if (multisig_type is Transaction.MultisigChSig)
@@ -1637,12 +1663,6 @@ namespace DLT
                     }
                     Logging.info(String.Format("Changing multisig wallet {0} required sigs {1} -> {2}.", Base58Check.Base58CheckEncoding.EncodePlain(orig.id), orig.requiredSigs, multisig_obj.reqSigs));
                     orig.requiredSigs = multisig_obj.reqSigs;
-                    if (orig.requiredSigs == 1)
-                    {
-                        Logging.info(String.Format("Wallet {0} changes back to a single-sig wallet.", Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
-                        orig.type = WalletType.Normal;
-                        orig.allowedSigners = null;
-                    }
                     Node.walletState.setWallet(orig, ws_snapshot);
                 }
 

@@ -600,11 +600,17 @@ namespace DLTNode
             // Only create a transaction if there is a valid amount
             if (amount > 0)
             {
-                Wallet wallet = Node.walletState.getWallet(from);
                 Transaction transaction = Transaction.multisigTransaction(orig_txid, fee, toList, from, Node.blockChain.getLastBlockNum(), tx_pub_key);
+                if(transaction == null)
+                {
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
+                    return new JsonResponse { result = res, error = error };
+                }
+                Wallet wallet = Node.walletState.getWallet(from);
                 if (wallet.balance < transaction.amount + transaction.fee)
                 {
-                    res = "Your account's balance is less than the sending amount + fee.";
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Your account's balance is less than the sending amount + fee." };
+                    return new JsonResponse { result = res, error = error };
                 }
                 else
                 {
@@ -615,7 +621,8 @@ namespace DLTNode
                     }
                     else
                     {
-                        res = "There was an error adding the transaction.";
+                        error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
+                        return new JsonResponse { result = res, error = error };
                     }
                 }
             }
@@ -660,7 +667,7 @@ namespace DLTNode
             }
 
             string signer = request.QueryString["signer"];
-            byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
+            byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
             IxiNumber fee = CoreConfig.transactionPrice;
 
             Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), tx_pub_key);
@@ -714,7 +721,7 @@ namespace DLTNode
             }
 
             string signer = request.QueryString["signer"];
-            byte[] signer_address = Node.walletState.getWallet(Base58Check.Base58CheckEncoding.DecodePlain(signer)).id;
+            byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
 
             IxiNumber fee = CoreConfig.transactionPrice;
 
