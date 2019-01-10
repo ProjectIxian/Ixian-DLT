@@ -124,14 +124,42 @@ namespace DLT
                 {
                     lock (transactions)
                     {
+                        bool to_list_equals = true;
+                        bool from_list_equals = true;
                         Transaction orig_transaction = getTransaction(orig_txid);
-                        if (orig_transaction.amount != transaction.amount ||
-                            orig_transaction.fee != transaction.fee ||
-                            !orig_transaction.fromList.Equals(transaction.fromList) ||
-                            !orig_transaction.toList.Equals(transaction.toList) ||
-                            orig_transaction.type != transaction.type)
+
+                        foreach (var entry in orig_transaction.toList)
                         {
-                            Logging.warn(String.Format("Multisig transaction {{ {0} }}, which points to its origin transaction {{ {1} }} has diferent content than origin!",
+                            if (!transaction.toList.ContainsKey(entry.Key))
+                            {
+                                to_list_equals = false;
+                                break;
+                            }
+                            if (transaction.toList[entry.Key] != orig_transaction.toList[entry.Key])
+                            {
+                                to_list_equals = false;
+                                break;
+                            }
+                        }
+
+                        foreach (var entry in orig_transaction.fromList)
+                        {
+                            if (!transaction.fromList.ContainsKey(entry.Key))
+                            {
+                                from_list_equals = false;
+                                break;
+                            }
+                            // don't verify amount as fee can be different and as a result amount as well
+                        }
+
+                        if (!to_list_equals
+                            || orig_transaction.toList.Count != transaction.toList.Count
+                            || !from_list_equals
+                            || orig_transaction.fromList.Count != transaction.fromList.Count
+                            || !orig_transaction.pubKey.SequenceEqual(transaction.pubKey)
+                            || orig_transaction.type != transaction.type)
+                        {
+                            Logging.warn(String.Format("Multisig transaction {{ {0} }}, which points to its origin transaction {{ {1} }} has different content than origin!",
                                 transaction.id, orig_txid));
                             return false;
                         }
@@ -567,13 +595,21 @@ namespace DLT
             return false;
         }
 
-        public static int getNumRelatedMultisigTransactions(string txid, Transaction.Type tx_type)
+        public static int getNumRelatedMultisigTransactions(string txid, Transaction.Type tx_type, Block block)
         {
             lock(transactions)
             {
                 int num_related = 0;
-                foreach(var tx in transactions.Values)
+                List<Transaction> failed_transactions = new List<Transaction>();
+                List<byte[]> signer_addresses = new List<byte[]>();
+                List<string> tmp_transactions = transactions.Keys.ToList();
+                if(block != null)
                 {
+                    tmp_transactions = block.transactions;
+                }
+                foreach(var tx_key in tmp_transactions)
+                {
+                    var tx = transactions[tx_key];
                     if (tx == null)
                     {
                         continue;
@@ -581,36 +617,79 @@ namespace DLT
                     if(tx.type == (int)tx_type)
                     {
                         object multisig_type = tx.GetMultisigData();
-                        if(multisig_type is Transaction.MultisigTxData)
+                        string orig_txid = "";
+                        byte[] signer_pub_key = null;
+                        byte[] signer_nonce = null;
+                        if (multisig_type is Transaction.MultisigTxData)
                         {
-                            if (((Transaction.MultisigTxData)multisig_type).origTXId == txid)
-                            {
-                                num_related += 1;
-                            }
+                            var multisig_obj = (Transaction.MultisigTxData)multisig_type;
+                            orig_txid = multisig_obj.origTXId;
+                            signer_pub_key = multisig_obj.signerPubKey;
+                            signer_nonce = multisig_obj.signerNonce;
                         }
-                        if(multisig_type is Transaction.MultisigAddrAdd)
+                        if (multisig_type is Transaction.MultisigAddrAdd)
                         {
-                            if(((Transaction.MultisigAddrAdd)multisig_type).origTXId == txid)
-                            {
-                                num_related += 1;
-                            }
+                            var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
+                            orig_txid = multisig_obj.origTXId;
+                            signer_pub_key = multisig_obj.signerPubKey;
+                            signer_nonce = multisig_obj.signerNonce;
                         }
-                        if(multisig_type is Transaction.MultisigAddrDel)
+                        if (multisig_type is Transaction.MultisigAddrDel)
                         {
-                            if(((Transaction.MultisigAddrDel)multisig_type).origTXId == txid)
-                            {
-                                num_related += 1;
-                            }
+                            var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
+                            orig_txid = multisig_obj.origTXId;
+                            signer_pub_key = multisig_obj.signerPubKey;
+                            signer_nonce = multisig_obj.signerNonce;
                         }
                         if (multisig_type is Transaction.MultisigChSig)
                         {
-                            if (((Transaction.MultisigChSig)multisig_type).origTXId == txid)
+                            var multisig_obj = (Transaction.MultisigChSig)multisig_type;
+                            orig_txid = multisig_obj.origTXId;
+                            signer_pub_key = multisig_obj.signerPubKey;
+                            signer_nonce = multisig_obj.signerNonce;
+                        }
+
+                        if (orig_txid == "")
+                        {
+                            continue;
+                        }
+
+                        if (signer_pub_key == null)
+                        {
+                            failed_transactions.Add(tx);
+                            continue;
+                        }
+
+                        if (orig_txid == txid)
+                        {
+                            byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
+                            if (signer_addresses.Contains(signer_address, new ByteArrayComparer()))
                             {
-                                num_related += 1;
+                                Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
+                                    txid, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                                failed_transactions.Add(tx);
+                                continue;
                             }
+
+                            Wallet orig = Node.walletState.getWallet(tx.fromList.First().Key);
+                            if (!orig.isValidSigner(signer_address))
+                            {
+                                Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
+                                    txid, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                                failed_transactions.Add(tx);
+                                continue;
+                            }
+
+                            num_related += 1;
                         }
                     }
                 }
+
+                foreach(var tx in failed_transactions)
+                {
+                    transactions.Remove(tx.id);
+                }
+
                 return num_related;
             }
         }
@@ -1462,18 +1541,28 @@ namespace DLT
                 // we only attempt to execute the original transaction, if there are enough signatures
                 if (multisig_type is Transaction.MultisigTxData)
                 {
-                    if (((Transaction.MultisigTxData)multisig_type).origTXId == "")
+                    var multisig_obj = (Transaction.MultisigTxData)multisig_type;
+                    if (multisig_obj.origTXId == "")
                     {
                         // +1, because the search will not find the current transaction, only the ones related to it
-                        int num_multisig_txs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        int num_multisig_txs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
                         if (num_multisig_txs < orig.requiredSigs)
                         {
                             Logging.error(String.Format("Multisig transaction {{ {0} }} doesn't have enough signatures!", tx.id));
                             failed_transactions.Add(tx);
                             return false;
                         }
+
+                        byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
+                        if (!orig.isValidSigner(signer_address))
+                        {
+                            Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
+                                orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                            failed_transactions.Add(tx);
+                            return false;
+                        }
                     }
-                    else if (((Transaction.MultisigTxData)multisig_type).origTXId != "")
+                    else if (multisig_obj.origTXId != "")
                     {
                         // this is a related transaction, which we ignore, because all processing is done on the origin transaction
                         return false;
@@ -1528,6 +1617,20 @@ namespace DLT
                 {
                     var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
 
+                    if (multisig_obj.origTXId != "")
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        // +1 because this current transaction will not be found by the search
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
+                        if (num_valid_sigs < orig.requiredSigs)
+                        {
+                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                            return true;
+                        }
+                    }
 
                     byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
                     if (!orig.isValidSigner(signer_address))
@@ -1538,7 +1641,6 @@ namespace DLT
                         return false;
                     }
 
-
                     if (orig.isValidSigner(multisig_obj.addrToAdd))
                     {
                         Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
@@ -1546,20 +1648,6 @@ namespace DLT
                         return false;
                     }
 
-                    if (multisig_obj.origTXId != "")
-                    {
-                        return false;
-                    }
-                    else
-                    {
-                        // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
-                        if (num_valid_sigs < orig.requiredSigs)
-                        {
-                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
-                            return true;
-                        }
-                    }
                     Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
                     orig.addValidSigner(multisig_obj.addrToAdd);
                     orig.type = WalletType.Multisig;
@@ -1576,19 +1664,6 @@ namespace DLT
                     }
                     var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
 
-                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey)).address);
-                    if (!orig.isValidSigner(signer_address))
-                    {
-                        Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                            orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
-                    }
-
-                    if (multisig_obj.addrToDel.SequenceEqual(orig.id))
-                    {
-                        Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel)));
-                        failed_transactions.Add(tx);
-                        return false;
-                    }
                     if (multisig_obj.origTXId != "")
                     {
                         // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
@@ -1597,13 +1672,30 @@ namespace DLT
                     else
                     {
                         // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
                         if (num_valid_sigs < orig.requiredSigs)
                         {
                             Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
                             return true;
                         }
                     }
+
+                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
+                    if (!orig.isValidSigner(signer_address))
+                    {
+                        Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
+                            orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+
+                    if (multisig_obj.addrToDel.SequenceEqual(orig.id))
+                    {
+                        Logging.error(String.Format("Attempted to remove wallet owner ({0}) from the multisig wallet!", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel)));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+
                     if (orig.requiredSigs > orig.countAllowedSigners)
                     {
                         Logging.info(String.Format("Removing a signer would make using the wallet impossible. Adjusting required signatures: {0} -> {1}.",
@@ -1631,14 +1723,7 @@ namespace DLT
                         return false;
                     }
 
-                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey)).address);
-                    if (!orig.isValidSigner(signer_address))
-                    {
-                        Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                            orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
-                    }
-
-                    if (multisig_obj.origTXId != "")
+                   if (multisig_obj.origTXId != "")
                     {
                         // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
                         return false;
@@ -1646,13 +1731,23 @@ namespace DLT
                     else
                     {
                         // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type) + 1;
+                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
                         if (num_valid_sigs < orig.requiredSigs)
                         {
                             Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
                             return true;
                         }
                     }
+
+                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
+                    if (!orig.isValidSigner(signer_address))
+                    {
+                        Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
+                            orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+
                     // +1 because "allowedSigners" will contain addresses distinct from the wallet owner, but wallet owner is also one of the permitted signers
                     if (multisig_obj.reqSigs > orig.allowedSigners.Length + 1)
                     {

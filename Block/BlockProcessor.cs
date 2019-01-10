@@ -709,7 +709,7 @@ namespace DLT
                                 orig_txid = t.id;
                             }
                             Wallet from_w = Node.walletState.getWallet(address);
-                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type) + 1;
+                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type, b) + 1;
                             if (num_valid_multisigs < from_w.requiredSigs)
                             {
                                 Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
@@ -1426,14 +1426,14 @@ namespace DLT
                     orig_txid = transaction.id;
                 }
                 Wallet from_w = Node.walletState.getWallet(address);
-                int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type) + 1;
+                int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type, null) + 1;
                 if (num_valid_multisigs >= from_w.requiredSigs)
                 {
                     // include the multisig transaction
                     return true;
                 } else
                 {
-                    // skip the multisih transaction
+                    // skip the multisig transaction
                     return false;
                 }
             }

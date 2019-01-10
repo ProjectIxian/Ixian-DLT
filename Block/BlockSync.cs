@@ -921,8 +921,13 @@ namespace DLT
                     }
                     startSync();
 
-
-                    noNetworkSynchronization = true;
+                    if (Config.recoverFromFile)
+                    {
+                        noNetworkSynchronization = false;
+                    }else
+                    {
+                        noNetworkSynchronization = true;
+                    }
                 }
             }
 

@@ -1034,6 +1034,14 @@ namespace DLTNode
             {
                 walletData.Add("extraData", "null");
             }
+            if (w.publicKey != null)
+            {
+                walletData.Add("publicKey", w.publicKey.ToString());
+            }
+            else
+            {
+                walletData.Add("publicKey", "null");
+            }
 
             return new JsonResponse { result = walletData, error = error };
         }
@@ -1044,19 +1052,48 @@ namespace DLTNode
 
             // Show a list of wallets - capped to 50
             Wallet[] wallets = Node.walletState.debugGetWallets();
-            string[][] walletStates = new string[wallets.Length][];
-            int count = 0;
+            List<Dictionary<string, string>> walletStates = new List<Dictionary<string, string>>();
             foreach (Wallet w in wallets)
             {
-                walletStates[count] = new string[4];
-                walletStates[count][0] = Base58Check.Base58CheckEncoding.EncodePlain(w.id);
-                walletStates[count][1] = w.balance.ToString();
-                walletStates[count][2] = w.type.ToString();
+                Dictionary<string, string> walletData = new Dictionary<string, string>();
+                walletData.Add("id", Base58Check.Base58CheckEncoding.EncodePlain(w.id));
+                walletData.Add("balance", w.balance.ToString());
+                walletData.Add("type", w.type.ToString());
+                walletData.Add("requiredSigs", w.requiredSigs.ToString());
+                if (w.allowedSigners != null)
+                {
+                    if (w.allowedSigners != null)
+                    {
+                        walletData.Add("allowedSigners", "(" + (w.allowedSigners.Length + 1) + " keys): " +
+                            w.allowedSigners.Aggregate(Base58Check.Base58CheckEncoding.EncodePlain(w.id), (aggr, n) => aggr += "," + Base58Check.Base58CheckEncoding.EncodePlain(n), aggr => aggr)
+                            );
+                    }
+                    else
+                    {
+                        walletData.Add("allowedSigners", "null");
+                    }
+                }
+                else
+                {
+                    walletData.Add("allowedSigners", "null");
+                }
+                if (w.data != null)
+                {
+                    walletData.Add("extraData", w.data.ToString());
+                }
+                else
+                {
+                    walletData.Add("extraData", "null");
+                }
                 if (w.publicKey != null)
                 {
-                    walletStates[count][3] = Base58Check.Base58CheckEncoding.EncodePlain(w.publicKey);
+                    walletData.Add("publicKey", w.publicKey.ToString());
                 }
-                count++;
+                else
+                {
+                    walletData.Add("publicKey", "null");
+                }
+                walletStates.Add(walletData);
             }
 
             return new JsonResponse { result = walletStates, error = error };
