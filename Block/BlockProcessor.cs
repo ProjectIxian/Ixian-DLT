@@ -148,13 +148,6 @@ namespace DLT
 
                 // Sleep until next iteration
                 Thread.Sleep(1000);
-                if (Node.isWorkerNode())
-                {
-                    // TODO TODO TODO TODO TODO this won't be needed in the future, analyze after modifications and network upgrade is done
-                    Thread.Sleep(5000);
-                    ProtocolMessage.broadcastGetBlock(Node.getLastBlockHeight() + 1);
-                    // end of TODO
-                }
             }
             Thread.Yield();
             return;
@@ -553,7 +546,7 @@ namespace DLT
                 {
                     if (!Node.blockSync.synchronizing)
                     {
-                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1);
+                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1, null, endpoint);
                     }
                     Logging.info("Received an indeterminate future block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminateFutureBlock;

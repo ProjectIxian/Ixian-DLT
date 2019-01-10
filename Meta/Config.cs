@@ -50,7 +50,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.1-dev"; // DLT Node version
+            public static readonly string version = "xdc-0.6.1"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
@@ -100,7 +100,6 @@ namespace DLT
                 Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
                 Console.WriteLine("    --disableMiner\t Disable miner");
-                Console.WriteLine("    --fullStorageDataVerification\t Verify blocks and transactions fully even if read from local storage");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode");
@@ -108,6 +107,7 @@ namespace DLT
                 Console.WriteLine("    --benchmarkKeys [key size]\t\t Perform a key-generation benchmark, then exit");
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
+                Console.WriteLine("    --fullStorageDataVerification\t Verify blocks and transactions fully even if read from local storage");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue semantics.");
@@ -277,7 +277,7 @@ namespace DLT
 
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
 
-                cmd_parser.Setup<string>('i', "ip").Callback(value => externalIp = value).SetDefault("");
+                cmd_parser.Setup<string>('i', "ip").Callback(value => externalIp = value).Required();
 
                 cmd_parser.Setup<string>("genesis").Callback(value => genesisFunds = value).Required();
 
@@ -318,6 +318,7 @@ namespace DLT
 
                 if (start_clean)
                 {
+                    Node.checkDataFolder();
                     Node.cleanCacheAndLogs();
                 }
 

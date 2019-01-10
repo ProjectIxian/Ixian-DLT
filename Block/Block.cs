@@ -12,7 +12,7 @@ namespace DLT
 {
     public class Block
     {
-        public static int maxVersion = 1;
+        public static int maxVersion = 2;
 
         // TODO: Refactor all of these as readonly get-params
         [PrimaryKey, AutoIncrement]
