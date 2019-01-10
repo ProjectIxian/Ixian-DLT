@@ -600,7 +600,7 @@ namespace DLTNode
             // Only create a transaction if there is a valid amount
             if (amount > 0)
             {
-                Transaction transaction = Transaction.multisigTransaction(orig_txid, fee, toList, from, Node.blockChain.getLastBlockNum(), tx_pub_key);
+                Transaction transaction = Transaction.multisigTransaction(orig_txid, fee, toList, from, Node.blockChain.getLastBlockNum());
                 if(transaction == null)
                 {
                     error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
@@ -670,7 +670,7 @@ namespace DLTNode
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
             IxiNumber fee = CoreConfig.transactionPrice;
 
-            Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), tx_pub_key);
+            Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -725,7 +725,7 @@ namespace DLTNode
 
             IxiNumber fee = CoreConfig.transactionPrice;
 
-            Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum(), tx_pub_key);
+            Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -780,7 +780,7 @@ namespace DLTNode
             if (byte.TryParse(sigs, out byte reqSigs))
             {
 
-                Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum(), tx_pub_key);
+                Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
                 {
                     TransactionPool.addPendingLocalTransaction(transaction);

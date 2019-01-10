@@ -51,7 +51,7 @@ namespace DLT
                     // regular multisig transaction
                     if (multisig_obj.origTXId != "")
                     {
-                        Logging.info(String.Format("Multisig transaction {{ {0} }} adds signature for origin multisig transaction {{ {1} }}.", transaction.id, (string)multisig_type));
+                        Logging.info(String.Format("Multisig transaction {{ {0} }} adds signature for origin multisig transaction {{ {1} }}.", transaction.id, multisig_obj.origTXId));
                     }
                     else
                     {
@@ -609,6 +609,10 @@ namespace DLT
                 }
                 foreach(var tx_key in tmp_transactions)
                 {
+                    if (!transactions.ContainsKey(tx_key))
+                    {
+                        continue;
+                    }
                     var tx = transactions[tx_key];
                     if (tx == null)
                     {
@@ -665,13 +669,13 @@ namespace DLT
                             byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
                             if (signer_addresses.Contains(signer_address, new ByteArrayComparer()))
                             {
-                                Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                                    txid, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                                Logging.warn(String.Format("Multisig transaction {{ {0} }} signs an already signed transaction {1} by this address {2}!",
+                                    tx.id, orig_txid, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
                                 failed_transactions.Add(tx);
                                 continue;
                             }
 
-                            Wallet orig = Node.walletState.getWallet(tx.fromList.First().Key);
+                            Wallet orig = Node.walletState.getWallet((new Address(tx.pubKey, tx.fromList.First().Key).address));
                             if (!orig.isValidSigner(signer_address))
                             {
                                 Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
