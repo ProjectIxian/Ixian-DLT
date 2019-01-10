@@ -63,6 +63,10 @@ namespace DLT
             public static string networkDumpFile = "";
             public static int benchmarkKeys = 0;
 
+            // Development/testing options
+            public static bool generateWalletOnly = false;
+            public static string dangerCommandlinePasswordCleartextUnsafe = "";
+
             public static int forceTimeOffset = int.MaxValue;
 
             // internal
@@ -108,6 +112,8 @@ namespace DLT
                 Console.WriteLine("    --benchmarkKeys [key size]\t\t Perform a key-generation benchmark, then exit");
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
+                Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
+                Console.WriteLine("    --walletPassword\t Speficies the password for the wallet. [TESTNET ONLY!]");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue semantics.");
@@ -310,6 +316,10 @@ namespace DLT
                 cmd_parser.Setup<int>("forceTimeOffset").Callback(value => forceTimeOffset = value).Required();
 
                 cmd_parser.Setup<int>("benchmarkKeys").Callback(value => benchmarkKeys = value).SetDefault(0);
+
+                cmd_parser.Setup<bool>("generateWallet").Callback(value => generateWalletOnly = value).SetDefault(false);
+
+                cmd_parser.Setup<string>("walletPassword").Callback(value => dangerCommandlinePasswordCleartextUnsafe = value).SetDefault("");
 
                 cmd_parser.Parse(args);
 
