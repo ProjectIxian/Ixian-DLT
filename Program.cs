@@ -255,36 +255,6 @@ namespace DLTNode
                 noStart = true;
             }
 
-            // Debugging option: generate wallet only and set password from commandline
-            if(Config.generateWalletOnly)
-            {
-                noStart = true;
-                if (Config.isTestNet)
-                {
-                    if (File.Exists(Config.walletFile))
-                    {
-                        Logging.error(String.Format("Wallet file {0} already exists. Cowardly refusing to overwrite!", Config.walletFile));
-                    }
-                    else
-                    {
-                        Logging.info("Generating a new wallet.");
-                        CryptoManager.initLib();
-                        WalletStorage wst = new WalletStorage(Config.walletFile);
-                        wst.writeWallet(Config.dangerCommandlinePasswordCleartextUnsafe);
-                    }
-                } else
-                {
-                    // the main reason we don't allow stuff like 'generateWallet' in mainnet, is because the resulting wallet will have to:
-                    //  a. Have an empty password (easy to steal via a misconfifured file sharing program)
-                    //  b. Have a predefined password (ditto)
-                    //  c. Require password on the command line, which usually leads to people making things like 'start.bat' with cleartext passwords, thus defeating
-                    //     wallet encryption
-                    // However, it is useful to be able to spin up a lot of nodes automatically and know their wallet addresses, therefore this sort of behavior is allowed
-                    //   for testnet.
-                    Logging.error("Due to security reasons, the 'generateWallet' option is only valid when starting a TestNet node!");
-                }
-            }
-
             if (noStart)
             {
                 Thread.Sleep(1000);
