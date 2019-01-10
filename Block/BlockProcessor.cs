@@ -1308,9 +1308,13 @@ namespace DLT
                 Transaction tx = TransactionPool.getTransaction(txid, b.blockNum);               
                 if (tx != null)
                 {
-                    if (tx.type == (int)Transaction.Type.Normal)
+                    if (tx.type == (int)Transaction.Type.Normal || tx.type == (int)Transaction.Type.MultisigTX)
                     {
                         tAmount += tx.amount;
+                        tFeeAmount += tx.fee;
+                        txcount++;
+                    }else if(tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    {
                         tFeeAmount += tx.fee;
                         txcount++;
                     }

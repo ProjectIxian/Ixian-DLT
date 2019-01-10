@@ -1765,6 +1765,25 @@ namespace DLT
                     Node.walletState.setWallet(orig, ws_snapshot);
                 }
 
+                foreach (var entry in tx.fromList)
+                {
+                    byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
+
+                    Wallet source_wallet = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                    IxiNumber source_balance_before = source_wallet.balance;
+                    // Withdraw the full amount, including fee
+                    IxiNumber source_balance_after = source_balance_before - entry.Value;
+                    if (source_balance_after < (long)0)
+                    {
+                        Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
+                            tx.id, block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+
+                    Node.walletState.setWalletBalance(tmp_address, source_balance_after, ws_snapshot);
+                }
+
                 if (!ws_snapshot)
                 {
                     setAppliedFlag(tx.id, block.blockNum);
