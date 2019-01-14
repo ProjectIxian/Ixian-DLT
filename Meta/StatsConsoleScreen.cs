@@ -63,17 +63,18 @@ namespace DLT.Meta
 
             Console.SetCursorPosition(0, 0);
 
-            writeLine(" d888888b db    db d888888b  .d8b.  d8b   db");
-            writeLine("   `88'   `8b  d8'   `88'   d8' `8b 888o  88");
-            writeLine("    88     `8bd8'     88    88ooo88 88V8o 88");
-            writeLine("    88     .dPYb.     88    88~~~88 88 V8o88");
-            writeLine("   .88.   .8P  Y8.   .88.   88   88 88  V888");
-            writeLine(" Y888888P YP    YP Y888888P YP   YP VP   V8P");
-            writeLine("\n                              {0}", Config.version);
-            writeLine("____________________________________________\n");
-
-            writeLine(" Thank you for running an Ixian DLT node.\n For help please visit www.ixian.io");
-            writeLine("____________________________________________\n");
+            writeLine(" d888888b  db    db  d888888b   .d8b.   d8b   db ");
+            writeLine("   `88'    `8b  d8'    `88'    d8' `8b  888o  88 ");
+            writeLine("    88      `8bd8'      88     88ooo88  88V8o 88 ");
+            writeLine("    88      .dPYb.      88     88~~~88  88 V8o88 ");
+            writeLine("   .88.    .8P  Y8.    .88.    88   88  88  V888 ");
+            writeLine(" Y888888P  YP    YP  Y888888P  YP   YP  VP   V8P ");
+            writeLine("                                       {0} ", Config.version);
+            writeLine(" http://localhost:{0}/                       ", Config.apiPort);
+            writeLine("─────────────────────────────────────────────────");
+            writeLine(" Thank you for running an Ixian DLT node.        ");
+            writeLine(" For help please visit https://www.ixian.io      ");
+            writeLine("─────────────────────────────────────────────────");
 
             if (Storage.upgrading)
             {
@@ -106,7 +107,8 @@ namespace DLT.Meta
                 dltStatus =     "connecting   ";
 
 
-            writeLine("\tStatus:\t\t{0}\n", dltStatus);
+            writeLine("\tStatus:\t\t{0}                       ", dltStatus);
+            writeLine("                                             ");
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
             int sigCount = 0;
             if(lastBlockNum > 0)
@@ -117,10 +119,10 @@ namespace DLT.Meta
                     sigCount = b.signatures.Count();
                 }
             }
-            writeLine("\tBlock Height:\t\t{0} ({1} sigs)", lastBlockNum, sigCount);
-            writeLine("\tConnections (I/O):\t{0}", connectionsInStr + "/" + connectionsOut);
-            writeLine("\tPresences:\t\t{0}", PresenceList.getTotalPresences());
-            writeLine("\tTransaction Pool:\t{0}", TransactionPool.getUnappliedTransactions().Count());
+            writeLine("\tBlock Height:\t\t{0} ({1} sigs)      ", lastBlockNum, sigCount);
+            writeLine("\tConnections (I/O):\t{0}              ", connectionsInStr + "/" + connectionsOut);
+            writeLine("\tPresences:\t\t{0}                    ", PresenceList.getTotalPresences());
+            writeLine("\tTransaction Pool:\t{0}               ", TransactionPool.getUnappliedTransactions().Count());
 
             // Mining status
             string mineStatus = "disabled";
@@ -131,18 +133,18 @@ namespace DLT.Meta
             if (Node.miner.pause)
                 mineStatus =    "paused ";
 
-            writeLine("");
-            writeLine("\tMining:\t\t\t{0}", mineStatus);
-            writeLine("\tHashrate:\t\t{0}", Node.miner.lastHashRate);
-            writeLine("\tSearch Mode:\t\t{0}", Node.miner.searchMode);
-            writeLine("\tSolved Blocks:\t\t{0}", Node.miner.getSolvedBlocksCount());
-            writeLine("____________________________________________");
+            writeLine("                                                 ");
+            writeLine("\tMining:\t\t\t{0}                     ", mineStatus);
+            writeLine("\tHashrate:\t\t{0}                     ", Node.miner.lastHashRate);
+            writeLine("\tSearch Mode:\t\t{0}                  ", Node.miner.searchMode);
+            writeLine("\tSolved Blocks:\t\t{0}                ", Node.miner.getSolvedBlocksCount());
+            writeLine("─────────────────────────────────────────────────");
 
             TimeSpan elapsed = DateTime.UtcNow - startTime;
 
-            writeLine(" Running for {0} days {1}h {2}m {3}s", elapsed.Days, elapsed.Hours, elapsed.Minutes, elapsed.Seconds);
-            writeLine("");
-            writeLine(" Press V to toggle stats. Ctrl-C to exit.");
+            writeLine(" Running for {0} days {1}h {2}m {3}s             ", elapsed.Days, elapsed.Hours, elapsed.Minutes, elapsed.Seconds);
+            writeLine("                                                 ");
+            writeLine(" Press V to toggle stats. Ctrl-C to exit.        ");
 
         }
 

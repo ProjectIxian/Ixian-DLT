@@ -197,7 +197,7 @@ namespace DLT
                     }
 
                     bool readFromStorage = false;
-                    if (blockNum < lastBlockToReadFromStorage)
+                    if (blockNum <= lastBlockToReadFromStorage)
                     {
                         readFromStorage = true;
                     }
