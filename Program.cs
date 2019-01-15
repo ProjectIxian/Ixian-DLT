@@ -93,8 +93,8 @@ namespace DLTNode
                     Console.WriteLine();
                     Console.WriteLine();
                     Console.WriteLine();
-                    Console.WriteLine("NOTICE: In order to run this IXIAN node, Visual Studio 2017 Redistributable (v141) must be installed. This can be done automatically by IXIAN,");
-                    Console.Write("or, you can install it manually from this URL:");
+                    Console.WriteLine("NOTICE: In order to run this IXIAN node, Visual Studio 2017 Redistributable (v141) must be installed.");
+                    Console.WriteLine("This can be done automatically by IXIAN, or, you can install it manually from this URL:");
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("https://visualstudio.microsoft.com/downloads/");
                     Console.ForegroundColor = ConsoleColor.Magenta;
@@ -265,6 +265,7 @@ namespace DLTNode
             Logging.setOptions(Config.maxLogSize, Config.maxLogCount);
 
             Logging.info(string.Format("Starting IXIAN DLT {0}", Config.version));
+            Logging.flush();
 
             // Check for the right vc++ redist for the argon miner
             // Ignore if we're on Mono
