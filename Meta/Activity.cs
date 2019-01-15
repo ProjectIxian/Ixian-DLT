@@ -174,7 +174,7 @@ namespace DLT.Meta
             if (!tableInfo.Any())
             {
                 // Create the activity table
-                string sql = "CREATE TABLE `activity` (`id` TEXT, `seedHash` BLOB, `wallet` TEXT, `from` TEXT, `toList` TEXT, `type` INTEGER, `data` BLOB UNIQUE, `value` TEXT, `timestamp` INTEGER, `status` INTEGER, `blockHeight` INTEGER, PRIMARY KEY(`id`));";
+                string sql = "CREATE TABLE `activity` (`id` TEXT, `seedHash` BLOB, `wallet` TEXT, `from` TEXT, `toList` TEXT, `type` INTEGER, `data` BLOB, `value` TEXT, `timestamp` INTEGER, `status` INTEGER, `blockHeight` INTEGER, PRIMARY KEY(`id`));";
                 executeSQL(sql);
 
                 sql = "CREATE INDEX `seedHash` ON `activity` (`seedHash`);";

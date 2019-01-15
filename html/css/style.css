@@ -169,6 +169,7 @@ body, html {
     overflow: hidden;
     text-overflow: ellipsis;
     position: absolute;
+    word-break: keep-all;
 }
 
 .pamount {
