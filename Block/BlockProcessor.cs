@@ -650,7 +650,7 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version == 2)
+                else if (b.version >= 2)
                 {
                     if (t.version < 1 || t.version > 2)
                     {

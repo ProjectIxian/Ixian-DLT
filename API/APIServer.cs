@@ -488,14 +488,8 @@ namespace DLTNode
             {
                 return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
             }
-            // TODO TODO TODO TODO this is here temporarily, will be removed after v2 upgrade
-            int version = 1;
-            if (Node.blockChain.getLastBlockVersion() == 2)
-            {
-                version = 2;
-            }
 
-            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, version);
+            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
             if(adjust_amount)
             {
                 for(int i = 0; i < 2 && transaction.fee != fee; i++)
@@ -506,7 +500,7 @@ namespace DLTNode
                     {
                         return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
                     }
-                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, version);
+                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
                 }
             }
             if (to_amount + transaction.fee > Node.walletStorage.getMyTotalBalance(primary_address_bytes))
