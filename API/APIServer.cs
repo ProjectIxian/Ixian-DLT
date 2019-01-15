@@ -907,6 +907,7 @@ namespace DLTNode
                 blockData = new Dictionary<string, string>();
 
                 blockData.Add("Block Number", block.blockNum.ToString());
+                blockData.Add("Version", block.version.ToString());
                 blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
                 blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
                 blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
