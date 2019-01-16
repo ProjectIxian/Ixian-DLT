@@ -163,26 +163,25 @@
             function getMyWallet() {
 
                 var dltAPI = "#IXIAN#NODE#URL#";
+                $.getJSON(dltAPI + "gettotalbalance", {})
+                    .done(function (data) {
+                        data = data["result"];
+
+                        // Assign relevant wallet information
+                        document.getElementById("activity_balance_number").innerHTML = data;
+                        document.getElementById("send_balance_number").innerHTML = balance;
+
+                    });
+
+                var dltAPI = "#IXIAN#NODE#URL#";
                 $.getJSON(dltAPI + "mywallet", {})
                     .done(function (data) {
                         data = data["result"];
-                        var sync_status = data[2];
-                        balance = data[1];
-                        var address = data[0];
+                        var keyList = Object.keys(data);
+                        var address = keyList[keyList.length - 1];
 
                         // Assign relevant wallet information
-                        document.getElementById("activity_balance_number").innerHTML = balance;
-                        document.getElementById("send_balance_number").innerHTML = balance;
                         document.getElementById("receive_own_address").innerHTML = address;
-
-                        if (sync_status == "sync") {
-                            // Show the syncbar
-                            document.getElementById("sync_bar").style.display = "block";
-                        }
-                        else {
-                            // Hide the syncbar
-                            document.getElementById("sync_bar").style.display = "none";
-                        }
 
                         // Create the QR code
                         qrcode.clear();
@@ -286,11 +285,29 @@
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
                         document.getElementById("receive_own_address").innerHTML = data["result"];
+                        // Create the QR code
+                        qrcode.clear();
+                        qrcode.makeCode(address);
                     });
 
             }
 
-            function getMinerStats() {
+            function getStatus() {
+
+                var dltAPI = "#IXIAN#NODE#URL#" + "status";
+                $.getJSON(dltAPI, { format: "json" })
+                    .done(function (data) {
+                        sync_status = data["result"]["DLT Status"];
+                        if (sync_status == "Synchronizing") {
+                            // Show the syncbar
+                            document.getElementById("sync_bar").style.display = "block";
+                        }
+                        else {
+                            // Hide the syncbar
+                            document.getElementById("sync_bar").style.display = "none";
+                        }
+                    });
+
                 var dltAPI = "#IXIAN#NODE#URL#" + "minerstats";
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
@@ -350,7 +367,7 @@
                 getMyWallet();
                 setInterval(getMyWallet, 5000);
                 setInterval(getActivity, 5000);
-                setInterval(getMinerStats, 5000);
+                setInterval(getStatus, 5000);
             });
 
             $('#sendForm').submit(function () {
