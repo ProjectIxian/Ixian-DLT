@@ -90,7 +90,7 @@ namespace DLTNode
 
                 if (methodName == null)
                 {
-                    JsonError error = new JsonError { code = 404, message = "Unknown action." };                    
+                    JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_REQUEST, message = "Unknown action." };                    
                     sendResponse(context.Response, new JsonResponse { error = error });
                     return;
                 }
@@ -102,7 +102,7 @@ namespace DLTNode
                 catch (Exception e)
                 {
                     context.Response.ContentType = "application/json";
-                    JsonError error = new JsonError { code = 404, message = "Unknown error occured, see log for details." };
+                    JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Unknown error occured, see log for details." };
                     sendResponse(context.Response, new JsonResponse { error = error });
                     Logging.error(string.Format("Exception occured in API server while processing '{0}'. {1}", methodName, e));
 
@@ -210,6 +210,16 @@ namespace DLTNode
                 response = onGetFullBlock(request);
             }
 
+            if (methodName.Equals("gettransaction", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetTransaction(request);
+            }
+
+            if (methodName.Equals("gettotalbalance", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetTotalBalance();
+            }
+
             if (methodName.Equals("stress", StringComparison.OrdinalIgnoreCase))
             {
                 response = onStress(request);
@@ -280,11 +290,6 @@ namespace DLTNode
                 response = onSupply();
             }
 
-            if (methodName.Equals("jsonrpc", StringComparison.OrdinalIgnoreCase))
-            {
-                response = jsonRpc.processRequest(context);
-            }
-
             if (methodName.Equals("debugsave", StringComparison.OrdinalIgnoreCase))
             {
                 response = onDebugSave();
@@ -303,11 +308,6 @@ namespace DLTNode
             if (methodName.Equals("generatenewaddress", StringComparison.OrdinalIgnoreCase))
             {
                 response = onGenerateNewAddress(request);
-            }
-
-            if (methodName.Equals("myaddresses", StringComparison.OrdinalIgnoreCase))
-            {
-                response = onMyAddresses();
             }
 
             bool resources = false;
@@ -381,11 +381,7 @@ namespace DLTNode
 
         public JsonResponse onAddTransaction(HttpListenerRequest request)
         {
-            JsonError error = null;
-
             // Add a new transaction. This test allows sending and receiving from arbitrary addresses
-            object res = "Incorrect transaction parameters.";
-
             IxiNumber from_amount = 0;
             IxiNumber fee = CoreConfig.transactionPrice;
 
@@ -413,7 +409,6 @@ namespace DLTNode
                         IxiNumber singleFromAmount = new IxiNumber(single_from_split[1]);
                         if (singleFromAmount < 0 || singleFromAmount == 0)
                         {
-                            res = "Incorrect amount.";
                             from_amount = 0;
                             break;
                         }
@@ -424,7 +419,7 @@ namespace DLTNode
                 // Only create a transaction if there is a valid amount
                 if (from_amount < 0 || from_amount == 0)
                 {
-                    return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid from amount was specified" } };
+                    return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from amount was specified" } };
                 }
             }
 
@@ -439,16 +434,12 @@ namespace DLTNode
                     byte[] single_to_address = Base58Check.Base58CheckEncoding.DecodePlain(single_to_split[0]);
                     if (!Address.validateChecksum(single_to_address))
                     {
-                        res = "Incorrect to address.";
-                        to_amount = 0;
-                        break;
+                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to address was specified" } };
                     }
                     IxiNumber singleToAmount = new IxiNumber(single_to_split[1]);
                     if (singleToAmount < 0 || singleToAmount == 0)
                     {
-                        res = "Incorrect amount.";
-                        to_amount = 0;
-                        break;
+                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to amount was specified" } };
                     }
                     to_amount += singleToAmount;
                     toList.Add(single_to_address, singleToAmount);
@@ -464,7 +455,7 @@ namespace DLTNode
             // Only create a transaction if there is a valid amount
             if (to_amount < 0 || to_amount == 0)
             {
-                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Invalid to amount was specified" } };
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to amount was specified" } };
             }
 
             byte[] pubKey = Node.walletStorage.getKeyPair(primary_address_bytes).publicKeyBytes;
@@ -486,16 +477,10 @@ namespace DLTNode
 
             if (fromList == null || fromList.Count == 0)
             {
-                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
-            }
-            // TODO TODO TODO TODO this is here temporarily, will be removed after v2 upgrade
-            int version = 1;
-            if (Node.blockChain.getLastBlockVersion() == 2)
-            {
-                version = 2;
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
             }
 
-            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, version);
+            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
             if(adjust_amount)
             {
                 for(int i = 0; i < 2 && transaction.fee != fee; i++)
@@ -504,27 +489,23 @@ namespace DLTNode
                     fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
                     if (fromList == null || fromList.Count == 0)
                     {
-                        return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "From list is empty" } };
+                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
                     }
-                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, version);
+                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
                 }
             }
             if (to_amount + transaction.fee > Node.walletStorage.getMyTotalBalance(primary_address_bytes))
             {
-                return new JsonResponse { result = res, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
             }
 
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
-                res = transaction.toDictionary();
-            }
-            else
-            {
-                res = "There was an error adding the transaction.";
+                return new JsonResponse { result = transaction.toDictionary(), error = null };
             }
 
-            return new JsonResponse { result = res, error = error };
+            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "An unknown error occured while adding the transaction" } };
         }
 
         public JsonResponse onAddMultiSigTransaction(HttpListenerRequest request)
@@ -591,8 +572,8 @@ namespace DLTNode
                 Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
                 if (orig_tx == null)
                 {
-                    error = new JsonError { code = 404, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = res, error = error };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
+                    return new JsonResponse { result = null, error = error };
                 }
                 tx_pub_key = orig_tx.pubKey;
             }
@@ -604,13 +585,13 @@ namespace DLTNode
                 if(transaction == null)
                 {
                     error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
-                    return new JsonResponse { result = res, error = error };
+                    return new JsonResponse { result = null, error = error };
                 }
                 Wallet wallet = Node.walletState.getWallet(from);
                 if (wallet.balance < transaction.amount + transaction.fee)
                 {
                     error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Your account's balance is less than the sending amount + fee." };
-                    return new JsonResponse { result = res, error = error };
+                    return new JsonResponse { result = null, error = error };
                 }
                 else
                 {
@@ -622,7 +603,7 @@ namespace DLTNode
                     else
                     {
                         error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
-                        return new JsonResponse { result = res, error = error };
+                        return new JsonResponse { result = null, error = error };
                     }
                 }
             }
@@ -660,8 +641,8 @@ namespace DLTNode
                 Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
                 if(orig_tx == null)
                 {
-                    error = new JsonError { code = 404, message = "Original tx "+ orig_txid +" not found" };
-                    return new JsonResponse { result = res, error = error };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx "+ orig_txid +" not found" };
+                    return new JsonResponse { result = null, error = error };
                 }
                 tx_pub_key = orig_tx.pubKey;
             }
@@ -714,8 +695,8 @@ namespace DLTNode
                 Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
                 if (orig_tx == null)
                 {
-                    error = new JsonError { code = 404, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = res, error = error };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
+                    return new JsonResponse { result = null, error = error };
                 }
                 tx_pub_key = orig_tx.pubKey;
             }
@@ -769,8 +750,8 @@ namespace DLTNode
                 Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
                 if (orig_tx == null)
                 {
-                    error = new JsonError { code = 404, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = res, error = error };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
+                    return new JsonResponse { result = null, error = error };
                 }
                 tx_pub_key = orig_tx.pubKey;
             }
@@ -825,12 +806,13 @@ namespace DLTNode
             Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
             if (block == null)
             {
-                error = new JsonError { code = 404, message = "Block not found." };
+                return new JsonResponse { result = null, error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Block not found." } };
             }else
             {
                 blockData = new Dictionary<string, string>();
 
                 blockData.Add("Block Number", block.blockNum.ToString());
+                blockData.Add("Version", block.version.ToString());
                 blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
                 blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
                 blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
@@ -860,14 +842,14 @@ namespace DLTNode
                 Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
                 if (block == null)
                 {
-                    error = new JsonError { code = 404, message = "An unknown error occured, while getting one of the last 10 blocks." };
-                    blocks = null;
-                    break;
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "An unknown error occured, while getting one of the last 10 blocks." };
+                    return new JsonResponse { result = null, error = error };
                 }
 
                 Dictionary<string, string> blockData = new Dictionary<string, string>();
 
                 blockData.Add("Block Number", block.blockNum.ToString());
+                blockData.Add("Version", block.version.ToString());
                 blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
                 blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
                 blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
@@ -905,7 +887,7 @@ namespace DLTNode
             Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
             if (block == null)
             {
-                error = new JsonError { code = 404, message = "Block not found." };
+                return new JsonResponse { result = null, error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Block not found." } };
             }
             else
             {
@@ -913,6 +895,7 @@ namespace DLTNode
                 blockData = new Dictionary<string, string>();
 
                 blockData.Add("Block Number", block.blockNum.ToString());
+                blockData.Add("Version", block.version.ToString());
                 blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
                 blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
                 blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
@@ -929,6 +912,23 @@ namespace DLTNode
             }
 
             return new JsonResponse { result = blockData, error = error };
+        }
+
+        public JsonResponse onGetTransaction(HttpListenerRequest request)
+        {
+            string txid_string = request.QueryString["id"];
+            Transaction t = TransactionPool.getTransaction(txid_string, 0, Config.storeFullHistory);
+            if (t == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Transaction not found." } };
+            }
+
+            return new JsonResponse { result = t.toDictionary(), error = null };
+        }
+
+        public JsonResponse onGetTotalBalance()
+        {
+            return new JsonResponse { result = Node.walletStorage.getMyTotalBalance(Node.walletStorage.getPrimaryAddress()).ToString(), error = null };
         }
 
         public JsonResponse onStress(HttpListenerRequest request)
@@ -967,33 +967,23 @@ namespace DLTNode
             JsonError error = null;
 
             // Show own address, balance and blockchain synchronization status
-            byte[] address = Node.walletStorage.getLastAddress();
-            IxiNumber balance = Node.walletStorage.getMyTotalBalance(null);
-            string sync_status = "ready";
+            List<Address> address_list = Node.walletStorage.getMyAddresses();
 
-            // If blockSync is null or it's currently synchronizing, show the sync status
-            if (Node.blockSync == null || Node.blockSync.synchronizing)
-                sync_status = "sync";
+            Dictionary<string, string> address_balance_list = new Dictionary<string, string>();
 
-            string[] statArray = new String[3];
-            statArray[0] = Base58Check.Base58CheckEncoding.EncodePlain(address);
-            statArray[1] = balance.ToString();
-            statArray[2] = sync_status;
+            foreach (Address addr in address_list)
+            {
+                address_balance_list.Add(addr.ToString(), Node.walletState.getWalletBalance(addr.address).ToString());
+            }
 
-            return new JsonResponse { result = statArray, error = error };
+            return new JsonResponse { result = address_balance_list, error = error };
         }
 
         public JsonResponse onMyPubKey()
         {
             JsonError error = null;
 
-            // Show own address, balance and blockchain synchronization status
-            byte[] pubkey = Node.walletStorage.getPrimaryPublicKey();
-
-            string[] statArray = new String[1];
-            statArray[0] = Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.getPrimaryAddress());
-
-            return new JsonResponse { result = statArray, error = error };
+            return new JsonResponse { result = Crypto.hashToString(Node.walletStorage.getPrimaryPublicKey()), error = error };
         }
 
         public JsonResponse onGetWallet(HttpListenerRequest request)
@@ -1028,7 +1018,7 @@ namespace DLTNode
             }
             if (w.data != null)
             {
-                walletData.Add("extraData", w.data.ToString());
+                walletData.Add("extraData", Crypto.hashToString(w.data));
             }
             else
             {
@@ -1036,7 +1026,7 @@ namespace DLTNode
             }
             if (w.publicKey != null)
             {
-                walletData.Add("publicKey", w.publicKey.ToString());
+                walletData.Add("publicKey", Crypto.hashToString(w.publicKey));
             }
             else
             {
@@ -1372,15 +1362,5 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error occured while generating a new address" } };
             }
         }
-
-        public JsonResponse onMyAddresses()
-        {
-            JsonError error = null;
-
-            List<string> res = Node.walletStorage.getMyAddressesBase58();
-
-            return new JsonResponse { result = res, error = error };
-        }
-
     }
 }

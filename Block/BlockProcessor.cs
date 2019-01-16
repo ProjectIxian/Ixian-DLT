@@ -650,7 +650,7 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version == 2)
+                else if (b.version >= 2)
                 {
                     if (t.version < 1 || t.version > 2)
                     {
@@ -1301,12 +1301,22 @@ namespace DLT
                 Transaction tx = TransactionPool.getTransaction(txid, b.blockNum);               
                 if (tx != null)
                 {
-                    if (tx.type == (int)Transaction.Type.Normal || tx.type == (int)Transaction.Type.MultisigTX)
+                    if (tx.type == (int)Transaction.Type.Normal)
                     {
                         tAmount += tx.amount;
                         tFeeAmount += tx.fee;
                         txcount++;
-                    }else if(tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    } else if (tx.type == (int)Transaction.Type.MultisigTX)
+                    {
+                        Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData)tx.GetMultisigData();
+                        if (ms_data.origTXId == "")
+                        {
+                            tAmount += tx.amount;
+                        }
+                        tFeeAmount += tx.fee;
+                        txcount++;
+                    }
+                    else if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         tFeeAmount += tx.fee;
                         txcount++;
