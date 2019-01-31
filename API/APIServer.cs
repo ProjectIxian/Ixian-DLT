@@ -406,6 +406,12 @@ namespace DLTNode
                     {
                         string[] single_from_split = single_from.Split('_');
                         byte[] single_from_address = Base58Check.Base58CheckEncoding.DecodePlain(single_from_split[0]);
+                        // the user provides a normal address, but it has to be converted to the nonce value for internal use
+                        byte[] nonce = Node.walletStorage.getNonceFromAddress(single_from_address);
+                        if(nonce == null)
+                        {
+                            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY, message = "The From address does not belong to this node." } };
+                        }
                         IxiNumber singleFromAmount = new IxiNumber(single_from_split[1]);
                         if (singleFromAmount < 0 || singleFromAmount == 0)
                         {
@@ -413,7 +419,7 @@ namespace DLTNode
                             break;
                         }
                         from_amount += singleFromAmount;
-                        fromList.Add(single_from_address, singleFromAmount);
+                        fromList.Add(nonce, singleFromAmount);
                     }
                 }
                 // Only create a transaction if there is a valid amount
@@ -842,7 +848,7 @@ namespace DLTNode
                 Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
                 if (block == null)
                 {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "An unknown error occured, while getting one of the last 10 blocks." };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "An unknown error occured, while getting one of the last 10 blocks." };
                     return new JsonResponse { result = null, error = error };
                 }
 
