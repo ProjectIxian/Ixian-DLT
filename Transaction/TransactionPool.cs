@@ -313,6 +313,7 @@ namespace DLT
                 else if (entry.Key.Length != 1 && entry.Key.Length != 16)
                 {
                     Logging.warn(String.Format("Input nonce is not 1 or 16 bytes long for tx {{ {0} }}.", transaction.id));
+                    return false;
                 }
 
                 if (entry.Value < 0)
