@@ -1350,6 +1350,9 @@ namespace DLTNode
             if (base_address_str == null)
             {
                 base_address = Node.walletStorage.getPrimaryAddress();
+            }else
+            {
+                base_address = Base58Check.Base58CheckEncoding.DecodePlain(base_address_str);
             }
 
             Address new_address = Node.walletStorage.generateNewAddress(new Address(base_address));

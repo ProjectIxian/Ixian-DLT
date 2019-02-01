@@ -305,15 +305,14 @@ namespace DLT
             IxiNumber totalAmount = new IxiNumber(0);
             foreach (var entry in transaction.fromList)
             {
-                if(entry.Key.Length == 1 && entry.Key.First() != 0)
+                if (entry.Key.Length == 1 && entry.Key.First() != 0)
                 {
                     Logging.warn(String.Format("Input nonce is 1 byte long but has an incorrect value for tx {{ {0} }}.", transaction.id));
                     return false;
                 }
-                else if(entry.Key.Length != 1 && entry.Key.Length != 16)
+                else if (entry.Key.Length != 1 && entry.Key.Length != 16)
                 {
                     Logging.warn(String.Format("Input nonce is not 1 or 16 bytes long for tx {{ {0} }}.", transaction.id));
-                    return false;
                 }
 
                 if (entry.Value < 0)
@@ -987,7 +986,7 @@ namespace DLT
                         return true;
                     }
                 }
-                else
+                else // >= 2
                 {
                     // Verify the nonce
                     if (Miner.verifyNonce_v2(nonce, blocknum, primary_address, block.difficulty))
@@ -1200,12 +1199,36 @@ namespace DLT
                         continue;
                     }
 
-                    // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
                     if (tx.applied > 0 && tx.applied != block.blockNum)
                     {
                         // remove transaction from block as it has already been applied on a different block
                         already_applied_transactions.Add(tx);
                         continue;
+                    }
+
+                    // Special case for Genesis transactions
+                    if (applyGenesisTransaction(tx, block, failed_transactions, ws_snapshot))
+                    {
+                        continue;
+                    }
+
+
+                    if(block.version >= 3)
+                    {
+                        byte[] tmp_address = (new Address(tx.pubKey)).address;
+                        // Update the walletstate public key
+                        byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
+                        // Generate an address from the public key and compare it with the sender
+                        if (pubkey == null)
+                        {
+                            // There is no supplied public key, extract it from transaction
+                            pubkey = tx.pubKey;
+                            if (pubkey != null)
+                            {
+                                // Update the walletstate public key
+                                Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                            }
+                        }
                     }
 
                     // Special case for PoWSolution transactions
@@ -1221,27 +1244,23 @@ namespace DLT
                         continue;
                     }
 
-                    // Special case for Genesis transactions
-                    if (applyGenesisTransaction(tx, block, failed_transactions, ws_snapshot))
+                    if (block.version < 3)
                     {
-                        continue;
-                    }
-
-                    byte[] tmp_address = (new Address(tx.pubKey)).address;
-                    // Update the walletstate public key
-                    byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
-                    // Generate an address from the public key and compare it with the sender
-                    if (pubkey == null)
-                    {
-                        // There is no supplied public key, extract it from transaction
-                        pubkey = tx.pubKey;
-                        if (pubkey != null)
+                        byte[] tmp_address = (new Address(tx.pubKey)).address;
+                        // Update the walletstate public key
+                        byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
+                        // Generate an address from the public key and compare it with the sender
+                        if (pubkey == null)
                         {
-                            // Update the walletstate public key
-                            Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                            // There is no supplied public key, extract it from transaction
+                            pubkey = tx.pubKey;
+                            if (pubkey != null)
+                            {
+                                // Update the walletstate public key
+                                Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                            }
                         }
                     }
-
 
                     // Special case for Multisig
                     if (tx.type == (int)Transaction.Type.MultisigTX)
@@ -2126,6 +2145,19 @@ namespace DLT
                         continue;
                     }
 
+                    // check if PoW and if already solved
+                    if(t.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        ulong pow_block_num = BitConverter.ToUInt64(t.data, 0);
+
+                        Block tmpBlock = Node.blockChain.getBlock(pow_block_num);
+                        if (tmpBlock == null || tmpBlock.powField != null)
+                        {
+                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            continue;
+                        }
+                    }
+
                     if (cur_time - tx_time > 10 && cur_time - tx_time < 20) // if the transaction is pending for over 15 seconds, send inquiry
                     {
                         ProtocolMessage.broadcastGetTransaction(t.id, 0);
@@ -2134,7 +2166,7 @@ namespace DLT
 
                     if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                     {
-                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, ((Transaction)entry[0]).getBytes());
+                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes());
                         pendingTransactions[idx][1] = cur_time;
                     }
                     idx++;

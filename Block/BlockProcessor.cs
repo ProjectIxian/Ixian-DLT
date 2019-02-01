@@ -546,7 +546,7 @@ namespace DLT
                 {
                     if (!Node.blockSync.synchronizing)
                     {
-                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1, null, endpoint);
+                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1, null, null);
                     }
                     Logging.info("Received an indeterminate future block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminateFutureBlock;
@@ -635,8 +635,7 @@ namespace DLT
                     else
                     {
                         hasAllTransactions = false;
-                        missing = b.transactions.Count;
-                        break;
+                        missing++;
                     }
                     continue;
                 }
@@ -735,18 +734,33 @@ namespace DLT
                     if (!fetchingBulkTxForBlocks.ContainsKey(b.blockNum))
                     {
                         long cur_time = Clock.getTimestamp();
-                        fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
-                        fetchingTxForBlocks.Add(b.blockNum, cur_time);
-                        byte includeTransactions = 2;
-                        if (Node.blockSync.synchronizing == false
-                            || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
-                            || (Node.blockSync.synchronizing == true && Config.storeFullHistory)
-                            || (Node.blockSync.synchronizing == true && Config.fullStorageDataVerification == true))
+                        if (missing > b.transactions.Count / 2)
                         {
-                            includeTransactions = 1;
+                            cur_time = cur_time - 30;
+                            fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
+                            fetchingTxForBlocks.Add(b.blockNum, cur_time);
+                            BlockVerifyStatus status = verifyBlockTransactions(b, ignore_walletstate, endpoint);
+                            return status;
                         }
-                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
+                        else
+                        {
+                            fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
+                            fetchingTxForBlocks.Add(b.blockNum, cur_time);
+                            byte includeTransactions = 2;
+                            if (Node.blockSync.synchronizing == false
+                                || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
+                                || (Node.blockSync.synchronizing == true && Config.storeFullHistory)
+                                || (Node.blockSync.synchronizing == true && Config.fullStorageDataVerification == true))
+                            {
+                                includeTransactions = 1;
+                            }
+                            ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
+                        }
                         Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
+                    }
+                    if(fetchTransactions)
+                    {
+                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, 0);
                     }
                 }
                 Logging.info("Waiting for missing transactions for Block #{0}.", b.blockNum);
@@ -1033,9 +1047,12 @@ namespace DLT
                         return;
                     }else
                     {
-                        if (!Node.isWorkerNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                        if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                         {
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            if (!Node.isWorkerNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                            {
+                                ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            }
                         }
                     }
                     // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
@@ -1055,7 +1072,7 @@ namespace DLT
                             byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                             if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
                             {
-                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum, 
+                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
                                     Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                                 rollBackAcceptedBlock(localNewBlock);
                                 if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
@@ -1074,6 +1091,12 @@ namespace DLT
                             else
                             {
                                 Node.blockChain.appendBlock(localNewBlock);
+
+                                if (Node.miner.searchMode == BlockSearchMode.latestBlock)
+                                {
+                                    Node.miner.forceSearchForBlock();
+                                }
+
                                 Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
                                 lastBlockStartTime = DateTime.UtcNow;
                                 localNewBlock.logBlockDetails();
@@ -1091,6 +1114,11 @@ namespace DLT
 
                                 ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes());
                                 localNewBlock = null;
+
+                                if (Node.miner.searchMode != BlockSearchMode.latestBlock)
+                                {
+                                    Node.miner.checkActiveBlockSolved();
+                                }
 
                                 cleanupBlockBlacklist();
                                 if (Node.blockChain.getLastBlockNum() % Config.saveWalletStateEveryBlock == 0)
@@ -1663,9 +1691,13 @@ namespace DLT
             else if (version == 1)
             {
                 return calculateDifficulty_v1();
-            }else
+            }else if(version == 2)
             {
                 return calculateDifficulty_v2();
+            }
+            else // >= 3
+            {
+                return calculateDifficulty_v3();
             }
         }
 
@@ -1832,13 +1864,88 @@ namespace DLT
                     (actual_hashes_per_block / 60).ToString(),
                     (target_hashes_per_block / 60).ToString(),
                     current_difficulty, next_difficulty,
-                    target_difficulty > current_difficulty?"+":"-",delta));
+                    target_difficulty > current_difficulty ? "+" : "-", delta));
                 current_difficulty = next_difficulty;
             }
 
             return current_difficulty;
         }
 
+        public static ulong calculateDifficulty_v3()
+        {
+            ulong current_difficulty = 0xA2CB1211629F6141; // starting difficulty (requires approx 180 Khashes to find a solution)
+            /*if (Node.blockChain.getLastBlockNum() > 1)
+            {
+                Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
+                if (previous_block != null)
+                    current_difficulty = previous_block.difficulty;
+
+                // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
+                ulong solved_blocks = Node.blockChain.getSolvedBlocksCount(CoreConfig.getRedactedWindowSize(2));
+                ulong window_size = CoreConfig.getRedactedWindowSize(2);
+
+                // Special consideration for early blocks
+                if (Node.blockChain.getLastBlockNum() < window_size)
+                {
+                    window_size = Node.blockChain.getLastBlockNum();
+                }
+                // 
+                BigInteger target_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
+                BigInteger actual_hashes_per_block = target_hashes_per_block * solved_blocks / (window_size / 2);
+                ulong target_difficulty = 0;
+                if (actual_hashes_per_block != 0)
+                {
+                    // find an appropriate difficulty for actual hashes:
+                    target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
+                }
+                else
+                {
+                    // set our minimum difficulty
+                    target_difficulty = 0xA2CB1211629F6141;
+                }
+                // we amortize the change by 32th of the redacted window
+                // The reason behind this is:
+                //   Whenever difficulty changes, old blocks in the redacted window retain their assigned difficulty from when they were accepted into the chain.
+                //   Therefore, it is possible there are still window_size-1 *easier* blocks in the redacted window, ready to be solved. The new difficulty will only
+                //   be valid for the currently-accepting-block.
+                //   This means, that the number of solved blocks vs unsolved will keep rising for a while, even if we ramp up the difficulty significantly. This causes
+                //   "spikes" and drops in the difficulty curve and we don't want that.
+                ulong next_difficulty = 0;
+                ulong amortization = window_size / 32;
+                if (amortization == 0) amortization = 1;
+                ulong delta = 0;
+                if (target_difficulty > current_difficulty)
+                {
+                    delta = (target_difficulty - current_difficulty) / amortization;
+                    next_difficulty = current_difficulty + delta;
+                }
+                else if (target_difficulty < current_difficulty)
+                {
+                    delta = (current_difficulty - target_difficulty) / amortization;
+                    next_difficulty = current_difficulty - delta;
+                }
+                else
+                {
+                    //difficulties are equal
+                    next_difficulty = current_difficulty;
+                }
+                // clamp to minimum
+                if (next_difficulty < 0xA2CB1211629F6141)
+                {
+                    delta = 0;
+                    next_difficulty = 0xA2CB1211629F6141;
+                }
+                // TODO: maybe pretty-fy the hashrate (ie: 15 MH/s, rather than 15000000 H/s) also could prettify the difficulty number
+                Logging.info(String.Format("Estimated network hash rate is {0} H/s (previous was: {1} H/s). Difficulty adjusts from {2} -> {3}. (Delta: {4}{5})",
+                    (actual_hashes_per_block / 60).ToString(),
+                    (target_hashes_per_block / 60).ToString(),
+                    current_difficulty, next_difficulty,
+                    target_difficulty > current_difficulty ? "+" : "-", delta));
+                current_difficulty = next_difficulty;
+            }
+            */
+            return current_difficulty;
+        }
         // Retrieve the signature freeze of the 5th last block
         public byte[] getSignatureFreeze()
         {

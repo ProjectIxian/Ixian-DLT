@@ -151,6 +151,11 @@ namespace DLT
             return max / ceil;
         }
 
+        /*public static ulong calculateEstimatedHashRate()
+        {
+
+        }*/
+
         public static ulong calculateTargetDifficulty(BigInteger current_hashes_per_block)
         {
             // Sorry :-)
@@ -230,12 +235,6 @@ namespace DLT
                 if (timeSinceLastStat.TotalSeconds > 5)
                 {
                     printMinerStatus();
-                    Block tmpBlock = Node.blockChain.getBlock(currentBlockNum);
-                    if (tmpBlock == null || tmpBlock.powField != null)
-                    {
-                        blockFound = false;
-                        continue;
-                    }
                 }
             }
         }
@@ -286,6 +285,18 @@ namespace DLT
             blockFound = false;
         }
 
+        public void checkActiveBlockSolved()
+        {
+            if (currentBlockNum > 0)
+            {
+                Block tmpBlock = Node.blockChain.getBlock(currentBlockNum);
+                if (tmpBlock == null || tmpBlock.powField != null)
+                {
+                    blockFound = false;
+                }
+            }
+        }
+
         // Returns the most recent block without a PoW flag in the redacted blockchain
         private void searchForBlock()
         {
@@ -314,21 +325,21 @@ namespace DLT
 
             if (searchMode == BlockSearchMode.lowestDifficulty)
             {
-                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
             }
             else if (searchMode == BlockSearchMode.randomLowestDifficulty)
             {
                 Random rnd = new Random();
-                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(25)).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(25)).ToList();
             }
             else if (searchMode == BlockSearchMode.latestBlock)
             {
-                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderByDescending(x => x.blockNum).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderByDescending(x => x.blockNum).ToList();
             }
             else if (searchMode == BlockSearchMode.random)
             {
                 Random rnd = new Random();
-                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset - 1).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
             }
 
             // Check if the block list exists
@@ -390,7 +401,7 @@ namespace DLT
 
         private byte[] randomNonce(int length)
         {
-            if(random == null || randomCounter > 50000)
+            if (random == null || randomCounter > 50000)
             {
                 random = new Random();
                 randomCounter = 0;
@@ -570,7 +581,6 @@ namespace DLT
         // Verify nonce
         public static bool verifyNonce_v0(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
-            // TODO TODO TODO TODO TODO TODO TODO investigate the null case
             if (nonce == null || nonce.Length < 1)
             {
                 return false;
@@ -601,7 +611,6 @@ namespace DLT
         // Verify nonce
         public static bool verifyNonce_v1(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
-            // TODO TODO TODO TODO TODO TODO TODO investigate the null case
             if(nonce == null || nonce.Length < 1)
             {
                 return false;
@@ -632,8 +641,7 @@ namespace DLT
         // Verify nonce
         public static bool verifyNonce_v2(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
-            // TODO TODO TODO TODO TODO TODO TODO investigate the null case
-            if (nonce == null || nonce.Length != 128)
+            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
             {
                 return false;
             }

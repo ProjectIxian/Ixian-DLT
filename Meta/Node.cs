@@ -805,7 +805,12 @@ namespace DLT.Meta
 
         public static ulong getLastBlockHeight()
         {
-            return Node.blockChain.getLastBlockNum();
+            return blockChain.getLastBlockNum();
+        }
+
+        public static int getLastBlockVersion()
+        {
+            return blockChain.getLastBlockVersion();
         }
 
         // Check if the data folder exists. Otherwise it creates it
