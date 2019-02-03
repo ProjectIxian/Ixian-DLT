@@ -483,10 +483,11 @@ namespace DLTNode
             Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
             if(adjust_amount)
             {
-                for(int i = 0; i < 2 && transaction.fee != fee; i++)
+                IxiNumber total_tx_fee = fee;
+                for (int i = 0; i < 2 && transaction.fee != total_tx_fee; i++)
                 {
-                    fee = transaction.fee;
-                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
+                    total_tx_fee = transaction.fee;
+                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList());
                     if (fromList == null || fromList.Count == 0)
                     {
                         return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
@@ -556,7 +557,7 @@ namespace DLTNode
             if (orig_txid == null)
             {
                 orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
+                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
                 Wallet tmp_wallet = Node.walletState.getWallet(from);
                 if (tmp_wallet != null && tmp_wallet.publicKey != null)
                 {
@@ -625,7 +626,7 @@ namespace DLTNode
             if(orig_txid == null)
             {
                 orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
+                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
                 Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
                 if (tmp_wallet != null && tmp_wallet.publicKey != null)
                 {
@@ -679,7 +680,7 @@ namespace DLTNode
             if (orig_txid == null)
             {
                 orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
+                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
                 Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
                 if (tmp_wallet != null && tmp_wallet.publicKey != null)
                 {
@@ -734,7 +735,7 @@ namespace DLTNode
             if (orig_txid == null)
             {
                 orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
+                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
                 Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
                 if (tmp_wallet != null && tmp_wallet.publicKey != null)
                 {
@@ -1170,7 +1171,7 @@ namespace DLTNode
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
             networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
                 + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount());
+                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount() + ", Pending Transactions: " + TransactionPool.pendingTransactionCount());
             networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
 
             string dltStatus = "Active";

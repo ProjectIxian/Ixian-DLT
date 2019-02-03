@@ -274,7 +274,12 @@
                 var dltAPI = "#IXIAN#NODE#URL#" + "addtransaction?to=" + address + "_" + amount;
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
-                        getMyWallet();
+                        if (data["result"] != null) {
+                            getMyWallet();
+                            alert("Transaction successfully sent");
+                        } else {
+                            alert("An error occured while trying to send a transaction: (" + data["error"]["code"] + ") " + data["error"]["message"]);
+                        }
                     });
 
             }

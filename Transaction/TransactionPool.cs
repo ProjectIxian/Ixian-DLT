@@ -2122,7 +2122,7 @@ namespace DLT
             {
                 if (!pendingTransactions.Exists(x => ((Transaction)x[0]).id.SequenceEqual(t.id)))
                 {
-                    pendingTransactions.Add(new object[3] { t, Clock.getTimestamp(), 0 });
+                    pendingTransactions.Add(new object[4] { t, Clock.getTimestamp(), 0, false });
                 }
             }
         }
@@ -2159,10 +2159,10 @@ namespace DLT
                         }
                     }
 
-                    if (cur_time - tx_time > 10 && cur_time - tx_time < 20) // if the transaction is pending for over 15 seconds, send inquiry
+                    if ((bool)pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
                     {
                         ProtocolMessage.broadcastGetTransaction(t.id, 0);
-                        pendingTransactions[idx][1] = tx_time + 10;
+                        pendingTransactions[idx][3] = true;
                     }
 
                     if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
@@ -2210,6 +2210,14 @@ namespace DLT
             lock(transactions)
             {
                 return transactions.Remove(txid);
+            }
+        }
+
+        public static long pendingTransactionCount()
+        {
+            lock(pendingTransactions)
+            {
+                return pendingTransactions.LongCount();
             }
         }
     }
