@@ -1871,7 +1871,7 @@ namespace DLT
             return current_difficulty;
         }
 
-        public static BigInteger calculateEstimatedHashRate()
+        private static BigInteger calculateEstimatedHashRate()
         {
             // to get the EHR, we'll take PoW solutions from last 10 block and calculate the total hashrate, in the event of ~45-55% of solved blocks, we should get a relatively accurate result
             ulong last_block_num = Node.getLastBlockHeight();
@@ -1888,6 +1888,20 @@ namespace DLT
                 }
             }
             return hash_rate / (i / 2); // i / 2 since every second block has to be full
+        }
+
+        // returns number of different solved blocks via PoW in last block
+        private static long countLastBlockPowSolutions()
+        {
+            Block b = Node.blockChain.getBlock(Node.getLastBlockHeight());
+            List<Transaction> b_txs = b.getFullTransactions().FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
+            Dictionary<ulong, ulong> solved_blocks = new Dictionary<ulong, ulong>();
+            foreach (Transaction tx in b_txs)
+            {
+                ulong pow_block_num = BitConverter.ToUInt64(tx.data, 0);
+                solved_blocks.Add(pow_block_num, pow_block_num);
+            }
+            return solved_blocks.LongCount();
         }
 
         public static ulong calculateDifficulty_v3()
@@ -1945,7 +1959,9 @@ namespace DLT
                     // otherwise there's between 55% and 75% solved blocks, use estimated hashrate * (10 + (n / 10)) for difficulty, where n is number of blocks solved over 55%
                     // to get estimated hashrate, use previous block's hashrate
                     ulong n = solved_blocks - (ulong)(window_size * 0.55f);
-                    next_difficulty = Miner.calculateTargetDifficulty(previous_hashes_per_block * (10 + (n / 10)));
+                    ulong solutions_in_previous_block = (ulong)countLastBlockPowSolutions();
+                    BigInteger estimated_hash_rate = previous_hashes_per_block / (10 + ((n - solutions_in_previous_block) / 10));
+                    next_difficulty = Miner.calculateTargetDifficulty(estimated_hash_rate * (10 + (n / 10)));
                 }
 
             }
