@@ -1887,7 +1887,12 @@ namespace DLT
                     hash_rate += Miner.getTargetHashcountPerBlock(pow_b.difficulty);
                 }
             }
-            return hash_rate / (i / 2); // i / 2 since every second block has to be full
+            hash_rate = hash_rate / (i / 2); // i / 2 since every second block has to be full
+            if(hash_rate == 0)
+            {
+                hash_rate = 1000;
+            }
+            return hash_rate;
         }
 
         // returns number of different solved blocks via PoW in last block
@@ -1899,7 +1904,7 @@ namespace DLT
             foreach (Transaction tx in b_txs)
             {
                 ulong pow_block_num = BitConverter.ToUInt64(tx.data, 0);
-                solved_blocks.Add(pow_block_num, pow_block_num);
+                solved_blocks.AddOrReplace(pow_block_num, pow_block_num);
             }
             return solved_blocks.LongCount();
         }
@@ -1960,7 +1965,15 @@ namespace DLT
                     // to get estimated hashrate, use previous block's hashrate
                     ulong n = solved_blocks - (ulong)(window_size * 0.55f);
                     ulong solutions_in_previous_block = (ulong)countLastBlockPowSolutions();
-                    BigInteger estimated_hash_rate = previous_hashes_per_block / (10 + ((n - solutions_in_previous_block) / 10));
+                    ulong previous_n = 0;
+                    if(window_size < CoreConfig.getRedactedWindowSize())
+                    {
+                        previous_n = solved_blocks - solutions_in_previous_block - (ulong)((window_size - 1) * 0.55f);
+                    }else
+                    {
+                        previous_n = solved_blocks - solutions_in_previous_block - (ulong)(window_size * 0.55f);
+                    }
+                    BigInteger estimated_hash_rate = previous_hashes_per_block / (10 + (previous_n / 10));
                     next_difficulty = Miner.calculateTargetDifficulty(estimated_hash_rate * (10 + (n / 10)));
                 }
 

@@ -168,6 +168,10 @@ namespace DLT
             // big endian: FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF YYYY YYYY YYYY YYYY 0000; Y represents the difficulty, but the bytes are reversed
             // the bytes being reversed is actually okay, because we are using BitConverter.ToUInt64, which takes a big-endian byte array to return a ulong number.
             BigInteger max = new IxiNumber("1157920892373161954235709850086879078532699846656405640394575840079131.29639935").getAmount();
+            if(current_hashes_per_block == 0)
+            {
+                current_hashes_per_block = 1000; // avoid divide by zero
+            }
             BigInteger target_ceil = max / current_hashes_per_block;
             byte[] temp = target_ceil.ToByteArray();
             // we get the bytes in the reverse order, so the padding should go at the end
