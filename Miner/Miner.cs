@@ -174,10 +174,15 @@ namespace DLT
             }
             BigInteger target_ceil = max / current_hashes_per_block;
             byte[] temp = target_ceil.ToByteArray();
+            int temp_len = temp.Length;
+            if(temp_len > 32)
+            {
+                temp_len = 32;
+            }
             // we get the bytes in the reverse order, so the padding should go at the end
             byte[] target_ceil_bytes = new byte[32];
-            Array.Copy(temp, target_ceil_bytes, temp.Length);
-            for (int i = temp.Length; i < 32; i++)
+            Array.Copy(temp, target_ceil_bytes, temp_len);
+            for (int i = temp_len; i < 32; i++)
             {
                 target_ceil_bytes[i] = 0;
             }

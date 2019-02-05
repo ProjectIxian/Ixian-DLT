@@ -30,7 +30,7 @@ namespace DLT
         {
         }
 
-        public void redactChain()
+        public int redactChain()
         {
 
             lock (blocks)
@@ -56,6 +56,7 @@ namespace DLT
                 {
                     Logging.info(String.Format("REDACTED {0} blocks to keep the chain length appropriate.", begin_size - blocks.Count()));
                 }
+                return begin_size - blocks.Count();
             }
         }
 

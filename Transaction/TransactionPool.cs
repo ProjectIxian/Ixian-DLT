@@ -13,7 +13,7 @@ namespace DLT
 {
     class TransactionPool
     {
-        static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
+        public static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
 
         static List<object[]> pendingTransactions = new List<object[]>();
 
@@ -943,7 +943,8 @@ namespace DLT
                 return false;
             }
 
-            if(blocknum + CoreConfig.getRedactedWindowSize(block_version) < Node.getLastBlockHeight())
+            // ignore PoW solutions for first 100 blocks in the redacted window
+            if(blocknum + CoreConfig.getRedactedWindowSize(block_version) - 100 < Node.getLastBlockHeight())
             {
                 return false;
             }
@@ -2219,6 +2220,24 @@ namespace DLT
             {
                 return pendingTransactions.LongCount();
             }
+        }
+
+        public static IxiNumber getPendingSendingTransactionsAmount(byte[] primary_address)
+        {
+            IxiNumber amount = 0;
+            lock (pendingTransactions)
+            {
+                List<object[]> txs = pendingTransactions.FindAll(x => ((Transaction)x[0]).type == (int)Transaction.Type.Normal);
+                foreach (var entry in txs)
+                {
+                    Transaction tx = (Transaction)entry[0];
+                    if ((new Address(tx.pubKey)).address.SequenceEqual(primary_address))
+                    {
+                        amount += tx.amount;
+                    }
+                }
+            }
+            return amount;
         }
     }
 }

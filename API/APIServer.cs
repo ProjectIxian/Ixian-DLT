@@ -783,8 +783,8 @@ namespace DLTNode
 
             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["address"]);
 
-            IxiNumber balance = Node.walletState.getWalletBalance(address);
-
+            IxiNumber balance = Node.walletStorage.getMyTotalBalance(address);
+            balance -= TransactionPool.getPendingSendingTransactionsAmount(address);
 
             return new JsonResponse { result = balance.ToString(), error = error };
         }

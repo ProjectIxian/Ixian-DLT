@@ -1884,6 +1884,10 @@ namespace DLT
                 foreach (Transaction tx in b_txs)
                 {
                     Block pow_b = Node.blockChain.getBlock(BitConverter.ToUInt64(tx.data, 0));
+                    if(pow_b == null)
+                    {
+                        continue;
+                    }
                     hash_rate += Miner.getTargetHashcountPerBlock(pow_b.difficulty);
                 }
             }
@@ -1947,31 +1951,31 @@ namespace DLT
                 next_difficulty = min_difficulty;
             }else
             {
-                if (solved_blocks < window_size * 0.45f)
+                if (solved_blocks < window_size * 0.48f)
                 {
-                    // if there are between 25% and 45% of solved blocks, ideally use estimated hashrate for difficulty
-                    current_hashes_per_block = calculateEstimatedHashRate();
+                    // if there are between 25% and 48% of solved blocks, ideally use estimated hashrate * 0.7 for difficulty
+                    current_hashes_per_block = calculateEstimatedHashRate() * 7 / 10; // * 0.7f
                     next_difficulty = Miner.calculateTargetDifficulty(current_hashes_per_block);
                 }
-                else if (solved_blocks < window_size * 0.55f)
+                else if (solved_blocks < window_size * 0.53f)
                 {
-                    // if there are between 45% and 55% of solved blocks, ideally use estimated hashrate * 2 for difficulty
-                    current_hashes_per_block = calculateEstimatedHashRate() * 2;
+                    // if there are between 48% and 53% of solved blocks, ideally use estimated hashrate * 1.5 for difficulty
+                    current_hashes_per_block = calculateEstimatedHashRate() * 15 / 10; // * 1.5f
                     next_difficulty = Miner.calculateTargetDifficulty(current_hashes_per_block);
                 }
                 else
                 {
-                    // otherwise there's between 55% and 75% solved blocks, use estimated hashrate * (10 + (n / 10)) for difficulty, where n is number of blocks solved over 55%
+                    // otherwise there's between 53% and 75% solved blocks, use estimated hashrate * (10 + (n / 10)) for difficulty, where n is number of blocks solved over 50%
                     // to get estimated hashrate, use previous block's hashrate
-                    ulong n = solved_blocks - (ulong)(window_size * 0.55f);
-                    ulong solutions_in_previous_block = (ulong)countLastBlockPowSolutions();
-                    ulong previous_n = 0;
+                    long n = (long)solved_blocks - (long)(window_size * 0.50f);
+                    long solutions_in_previous_block = countLastBlockPowSolutions();
+                    long previous_n = 0;
                     if(window_size < CoreConfig.getRedactedWindowSize())
                     {
-                        previous_n = solved_blocks - solutions_in_previous_block - (ulong)((window_size - 1) * 0.55f);
+                        previous_n = (long)solved_blocks - solutions_in_previous_block - (long)((window_size - 1) * 0.50f);
                     }else
                     {
-                        previous_n = solved_blocks - solutions_in_previous_block - (ulong)(window_size * 0.55f);
+                        previous_n = (long)solved_blocks - solutions_in_previous_block - (long)(window_size * 0.50f);
                     }
                     BigInteger estimated_hash_rate = previous_hashes_per_block / (10 + (previous_n / 10));
                     next_difficulty = Miner.calculateTargetDifficulty(estimated_hash_rate * (10 + (n / 10)));
