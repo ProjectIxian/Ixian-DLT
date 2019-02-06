@@ -521,8 +521,6 @@ namespace DLTNode
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
-            byte[] tx_pub_key = null;
-
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
             string orig_txid = request.QueryString["origtx"];
             if (orig_txid == null)
@@ -538,7 +536,6 @@ namespace DLTNode
                     error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
                     return new JsonResponse { result = null, error = error };
                 }
-                tx_pub_key = orig_tx.pubKey;
             }
 
             string signer = request.QueryString["signer"];
@@ -600,19 +597,7 @@ namespace DLTNode
                 fee = new IxiNumber(fee_string);
             }
 
-            byte[] tx_pub_key = null;
-
             byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
-            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-            Wallet tmp_wallet = Node.walletState.getWallet(from);
-            if (tmp_wallet != null && tmp_wallet.publicKey != null)
-            {
-                tx_pub_key = from;
-            }
-            else
-            {
-                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-            }
 
             // Only create a transaction if there is a valid amount
             if (amount > 0)
@@ -654,19 +639,7 @@ namespace DLTNode
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
-            byte[] tx_pub_key = null;
-
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-            Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-            if (tmp_wallet != null && tmp_wallet.publicKey != null)
-            {
-                tx_pub_key = destWallet;
-            }
-            else
-            {
-                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-            }
 
             string signer = request.QueryString["signer"];
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
@@ -696,16 +669,6 @@ namespace DLTNode
             byte[] tx_pub_key = null;
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-            Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-            if (tmp_wallet != null && tmp_wallet.publicKey != null)
-            {
-                tx_pub_key = destWallet;
-            }
-            else
-            {
-                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-            }
 
             string signer = request.QueryString["signer"];
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
@@ -733,19 +696,7 @@ namespace DLTNode
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
-            byte[] tx_pub_key = null;
-
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-            Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-            if (tmp_wallet != null && tmp_wallet.publicKey != null)
-            {
-                tx_pub_key = destWallet;
-            }
-            else
-            {
-                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-            }
 
             string sigs = request.QueryString["sigs"];
             IxiNumber fee = CoreConfig.transactionPrice;
