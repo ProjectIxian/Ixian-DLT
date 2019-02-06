@@ -783,15 +783,10 @@ namespace DLT
                     // if we're a client update the network time difference
                     if(endpoint.GetType() == typeof(NetworkClient))
                     {
-                        long curTime = Clock.getTimestamp();
+                        long timeDiff = endpoint.calculateTimeDifference();
 
-                        long timeDiff = 0;
-
-                        // amortize +- 5 seconds
-                        if (curTime - timestamp < -5 || curTime - timestamp > 5)
-                        {
-                            timeDiff = curTime - timestamp;
-                        }else
+                        // amortize +- 2 seconds
+                        if (timeDiff > -2 && timeDiff < 2)
                         {
                             timeDiff = 0;
                         }

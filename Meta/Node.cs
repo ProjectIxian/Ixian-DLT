@@ -861,7 +861,7 @@ namespace DLT.Meta
             return bh;
         }
 
-        static void runDiffTests()
+        /*static void runDiffTests()
         {
             Logging.info("Running difficulty tests");
             CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(2);
@@ -995,7 +995,7 @@ namespace DLT.Meta
             System.IO.File.WriteAllText(@"chart.json", text);
 
             Logging.info("Test done, you can open chart.html now");
-        }
+        }*/
     }
 
     class dataPoint
