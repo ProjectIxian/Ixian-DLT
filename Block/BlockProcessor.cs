@@ -1332,7 +1332,7 @@ namespace DLT
                         tFeeAmount += tx.fee;
                         txcount++;
                     }
-                    else if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    else if (tx.type == (int)Transaction.Type.ChangeMultisigWallet || tx.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         tFeeAmount += tx.fee;
                         txcount++;
@@ -1424,7 +1424,7 @@ namespace DLT
             // NOTE: this function is called exclusively from generateNewBlock(), so we do not need to lock anything - 'localNewBlock' is alredy locked.
             // If this is called from anywhere else, add a lock here!
             // multisig transactions must be complete before they are added
-            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
             {
                 object multisig_data = transaction.GetMultisigData();
                 string orig_txid = "";
@@ -1604,6 +1604,7 @@ namespace DLT
 
                         if (includeApplicableMultisig(transaction, address))
                         {
+                            // TODO TODO TODO TODO we should add other origTxId transactions here as well
                             // 'includeApplicableMultisg transactions' will return true if the transaction is not a multisig transaction
                             localNewBlock.addTransaction(transaction);
                         }
@@ -1614,12 +1615,9 @@ namespace DLT
                     if (transaction.type == (int)Transaction.Type.MultisigTX)
                     {
                         Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData)transaction.GetMultisigData();
-                        if (ms_data.origTXId == "")
-                        {
-                            total_amount += transaction.amount;
-                        }
+                        total_amount += transaction.amount;
                     }
-                    else if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
+                    else if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         total_amount += transaction.amount;
                     }

@@ -182,7 +182,7 @@ namespace DLT
             // Prevent transaction spamming
             // Note: transactions that change multisig wallet parameters may have amount zero, since it will be ignored anyway
             if(transaction.type != (int)Transaction.Type.PoWSolution)
-            if (transaction.amount == (long)0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
+            if (transaction.amount == (long)0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
             {
                     Logging.warn("Transaction amount was zero for txid {0}.", transaction.id);
                     return false;
@@ -256,7 +256,8 @@ namespace DLT
                 if (transaction.type != (int)Transaction.Type.PoWSolution
                     && transaction.type != (int)Transaction.Type.StakingReward
                     && transaction.type != (int)Transaction.Type.Genesis
-                    && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
+                    && transaction.type != (int)Transaction.Type.ChangeMultisigWallet
+                    && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
                 {
                     if (Node.blockSync.synchronizing == false)
                     {
@@ -379,7 +380,9 @@ namespace DLT
             {
                 return true;
             }
-            else if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            else if (transaction.type == (int)Transaction.Type.MultisigTX
+                || transaction.type == (int)Transaction.Type.ChangeMultisigWallet
+                || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
             {
                 object ms_data = transaction.GetMultisigData();
                 if (ms_data is Transaction.MultisigAddrAdd)
@@ -1123,7 +1126,10 @@ namespace DLT
                     }
 
                     // Check the transaction amount
-                    if (tx.amount == (long)0 && tx.type != (int)Transaction.Type.ChangeMultisigWallet)
+                    if (tx.amount == (long)0
+                        && tx.type != (int)Transaction.Type.ChangeMultisigWallet
+                        && tx.type != (int)Transaction.Type.MultisigAddTxSignature
+                        )
                     {
                         failed_transactions.Add(tx);
                         continue;
@@ -1153,9 +1159,13 @@ namespace DLT
                         applyMultisigTransaction(tx, block, failed_transactions, ws_snapshot);
                         continue;
                     }
-                    if(tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         applyMultisigChangeTransaction(tx, block, failed_transactions, ws_snapshot);
+                        continue;
+                    }
+                    if (tx.type == (int)Transaction.Type.MultisigAddTxSignature)
+                    {
                         continue;
                     }
 
