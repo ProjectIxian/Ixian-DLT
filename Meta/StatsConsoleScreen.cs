@@ -69,7 +69,7 @@ namespace DLT.Meta
             writeLine("    88      .dPYb.      88     88~~~88  88 V8o88 ");
             writeLine("   .88.    .8P  Y8.    .88.    88   88  88  V888 ");
             writeLine(" Y888888P  YP    YP  Y888888P  YP   YP  VP   V8P ");
-            writeLine("                                       {0} ", Config.version);
+            writeLine(" {0} ", ("" + Config.version).PadLeft(60 - Config.version.Length));
             writeLine(" http://localhost:{0}/                       ", Config.apiPort);
             writeLine("─────────────────────────────────────────────────");
             writeLine(" Thank you for running an Ixian DLT node.        ");
