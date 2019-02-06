@@ -175,6 +175,11 @@ namespace DLTNode
                 response = onAddMultiSigTransaction(request);
             }
 
+            if (methodName.Equals("addmultisigtxsignature", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onAddMultiSigTxSignature(request);
+            }
+
             if (methodName.Equals("addmultisigkey", StringComparison.OrdinalIgnoreCase))
             {
                 response = onAddMultiSigKey(request);
@@ -509,6 +514,51 @@ namespace DLTNode
             return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "An unknown error occured while adding the transaction" } };
         }
 
+        public JsonResponse onAddMultiSigTxSignature(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            byte[] tx_pub_key = null;
+
+            byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            string orig_txid = request.QueryString["origtx"];
+            if (orig_txid == null)
+            {
+                error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "origtx parameter is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+            else
+            {
+                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
+                if (orig_tx == null)
+                {
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
+                    return new JsonResponse { result = null, error = error };
+                }
+                tx_pub_key = orig_tx.pubKey;
+            }
+
+            string signer = request.QueryString["signer"];
+            byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
+            IxiNumber fee = CoreConfig.transactionPrice;
+
+            Transaction transaction = Transaction.multisigAddTxSignature(orig_txid, fee, destWallet, Node.blockChain.getLastBlockNum());
+            if (TransactionPool.addTransaction(transaction))
+            {
+                TransactionPool.addPendingLocalTransaction(transaction);
+                res = transaction.toDictionary();
+            }
+            else
+            {
+                res = "There was an error adding the transaction.";
+            }
+
+            return new JsonResponse { result = res, error = error };
+        }
+
         public JsonResponse onAddMultiSigTransaction(HttpListenerRequest request)
         {
             JsonError error = null;
@@ -553,36 +603,21 @@ namespace DLTNode
             byte[] tx_pub_key = null;
 
             byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
-            string orig_txid = request.QueryString["origtx"];
-            if (orig_txid == null)
+            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
+            Wallet tmp_wallet = Node.walletState.getWallet(from);
+            if (tmp_wallet != null && tmp_wallet.publicKey != null)
             {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-                Wallet tmp_wallet = Node.walletState.getWallet(from);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = from;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
+                tx_pub_key = from;
             }
             else
             {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if (orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
+                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
             }
 
             // Only create a transaction if there is a valid amount
             if (amount > 0)
             {
-                Transaction transaction = Transaction.multisigTransaction(orig_txid, fee, toList, from, Node.blockChain.getLastBlockNum());
+                Transaction transaction = Transaction.multisigTransaction(fee, toList, from, Node.blockChain.getLastBlockNum());
                 if(transaction == null)
                 {
                     error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
@@ -622,37 +657,22 @@ namespace DLTNode
             byte[] tx_pub_key = null;
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            string orig_txid = request.QueryString["origtx"];
-            if(orig_txid == null)
+            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
+            Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
+            if (tmp_wallet != null && tmp_wallet.publicKey != null)
             {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-                Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = destWallet;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
+                tx_pub_key = destWallet;
             }
             else
             {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if(orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx "+ orig_txid +" not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
+                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
             }
 
             string signer = request.QueryString["signer"];
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
             IxiNumber fee = CoreConfig.transactionPrice;
 
-            Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
+            Transaction transaction = Transaction.multisigAddKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -676,30 +696,15 @@ namespace DLTNode
             byte[] tx_pub_key = null;
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            string orig_txid = request.QueryString["origtx"];
-            if (orig_txid == null)
+            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
+            Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
+            if (tmp_wallet != null && tmp_wallet.publicKey != null)
             {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-                Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = destWallet;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
+                tx_pub_key = destWallet;
             }
             else
             {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if (orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
+                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
             }
 
             string signer = request.QueryString["signer"];
@@ -707,7 +712,7 @@ namespace DLTNode
 
             IxiNumber fee = CoreConfig.transactionPrice;
 
-            Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
+            Transaction transaction = Transaction.multisigDelKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -731,30 +736,15 @@ namespace DLTNode
             byte[] tx_pub_key = null;
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            string orig_txid = request.QueryString["origtx"];
-            if (orig_txid == null)
+            // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
+            Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
+            if (tmp_wallet != null && tmp_wallet.publicKey != null)
             {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v3
-                Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = destWallet;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
+                tx_pub_key = destWallet;
             }
             else
             {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if (orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
+                tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
             }
 
             string sigs = request.QueryString["sigs"];
@@ -762,7 +752,7 @@ namespace DLTNode
             if (byte.TryParse(sigs, out byte reqSigs))
             {
 
-                Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
+                Transaction transaction = Transaction.multisigChangeReqSigs(reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
                 {
                     TransactionPool.addPendingLocalTransaction(transaction);

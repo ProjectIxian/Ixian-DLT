@@ -676,7 +676,7 @@ namespace DLT
                             IxiNumber new_minus_balance = minusBalances[address] + entry.Value;
                             minusBalances[address] = new_minus_balance;
                         }
-                        else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
+                        else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet || t.type == (int)Transaction.Type.MultisigAddTxSignature)
                         {
                             object multisig_data = t.GetMultisigData();
                             string orig_txid = "";
@@ -684,24 +684,12 @@ namespace DLT
                             {
                                 orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
                             }
-                            else if (multisig_data is Transaction.MultisigAddrAdd)
-                            {
-                                orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
-                            }
-                            else if (multisig_data is Transaction.MultisigAddrDel)
-                            {
-                                orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
-                            }
-                            else if (multisig_data is Transaction.MultisigChSig)
-                            {
-                                orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
-                            }
                             if (orig_txid == "")
                             {
                                 orig_txid = t.id;
                             }
                             Wallet from_w = Node.walletState.getWallet(address);
-                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type, b) + 1;
+                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, b) + 1;
                             if (num_valid_multisigs < from_w.requiredSigs)
                             {
                                 Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
@@ -1444,24 +1432,12 @@ namespace DLT
                 {
                     orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
                 }
-                else if (multisig_data is Transaction.MultisigAddrAdd)
-                {
-                    orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
-                }
-                else if (multisig_data is Transaction.MultisigAddrDel)
-                {
-                    orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
-                }
-                else if (multisig_data is Transaction.MultisigChSig)
-                {
-                    orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
-                }
                 if (orig_txid == "")
                 {
                     orig_txid = transaction.id;
                 }
                 Wallet from_w = Node.walletState.getWallet(address);
-                int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type, null) + 1;
+                int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, null) + 1;
                 if (num_valid_multisigs >= from_w.requiredSigs)
                 {
                     // include the multisig transaction
