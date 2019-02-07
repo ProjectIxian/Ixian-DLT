@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.IO;
 using IXICore;
 using System.Runtime.InteropServices;
+using System.Security.Permissions;
 
 namespace DLTNode
 {
@@ -188,9 +189,22 @@ namespace DLTNode
             }
         }
 
+        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
+        static void installUnhandledExceptionHandler()
+        {
+            System.AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        }
+
+        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Logging.error(String.Format("Exception was triggered and not handled. Please send this log to the Ixian developers!"));
+            Logging.error(e.ExceptionObject.ToString());
+        }
+
         static void Main(string[] args)
         {
-            // Clear the console first
+            installUnhandledExceptionHandler();
+            
             Console.Clear();
 
             prepareConsole();
