@@ -400,7 +400,7 @@ namespace DLTNode
                 primary_address_bytes = Base58Check.Base58CheckEncoding.DecodePlain(primary_address);
             }
 
-
+            bool adjust_amount = false;
             SortedDictionary<byte[], IxiNumber> fromList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
             if (request.QueryString["from"] != null)
             {
@@ -432,6 +432,10 @@ namespace DLTNode
                 {
                     return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from amount was specified" } };
                 }
+            }
+            if(fromList.Count > 0)
+            {
+                adjust_amount = true;
             }
 
             IxiNumber to_amount = 0;
@@ -479,7 +483,6 @@ namespace DLTNode
                 pubKey = primary_address_bytes;
             }
 
-            bool adjust_amount = false;
             if (fromList.Count == 0)
             {
                 fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
