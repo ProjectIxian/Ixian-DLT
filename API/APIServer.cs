@@ -671,8 +671,6 @@ namespace DLTNode
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
-            byte[] tx_pub_key = null;
-
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
 
             string signer = request.QueryString["signer"];
