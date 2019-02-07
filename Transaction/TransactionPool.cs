@@ -830,7 +830,7 @@ namespace DLT
             }
 
             // ignore PoW solutions for first 100 blocks in the redacted window
-            if(blocknum + CoreConfig.getRedactedWindowSize(block_version) - 100 < Node.getLastBlockHeight())
+            if(block_version >= 3 && blocknum + CoreConfig.getRedactedWindowSize(block_version) - 100 < Node.getLastBlockHeight())
             {
                 return false;
             }
