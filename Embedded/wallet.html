@@ -158,8 +158,6 @@
                 height: 300
             });
 
-            var balance = 0;
-
             function getMyWallet() {
 
                 var dltAPI = "#IXIAN#NODE#URL#";
@@ -169,7 +167,7 @@
 
                         // Assign relevant wallet information
                         document.getElementById("activity_balance_number").innerHTML = data;
-                        document.getElementById("send_balance_number").innerHTML = balance;
+                        document.getElementById("send_balance_number").innerHTML = data;
 
                     });
 
@@ -236,6 +234,7 @@
                             } else if (type == 201) {
                                 htmlEl.className += " received";
                                 htmlEl.getElementsByClassName("pamount")[0].innerHTML = data["result"][i]["value"];
+                                htmlEl.getElementsByClassName("pdesc")[0].innerHTML = data["result"][i]["wallet"];
                                 htmlEl.getElementsByClassName("pdesc")[0].innerHTML += "<br/>Staking Reward";
                             } else if (type == 202) {
                                 htmlEl.className += " received";
@@ -275,7 +274,12 @@
                 var dltAPI = "#IXIAN#NODE#URL#" + "addtransaction?to=" + address + "_" + amount;
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
-                        getMyWallet();
+                        if (data["result"] != null) {
+                            getMyWallet();
+                            alert("Transaction successfully sent");
+                        } else {
+                            alert("An error occured while trying to send a transaction: (" + data["error"]["code"] + ") " + data["error"]["message"]);
+                        }
                     });
 
             }

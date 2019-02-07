@@ -50,7 +50,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.1a-dev"; // DLT Node version
+            public static readonly string version = "xdc-0.6.2-dev"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
@@ -213,10 +213,6 @@ namespace DLT
 
             public static void readFromCommandLine(string[] args)
             {
-                // for now force set forceTimeOffset to 0 (unless overridden by CLI), since the time sync implementation/solution is buggy
-                forceTimeOffset = 0;
-
-
                 //Logging.log(LogSeverity.info, "Reading config...");
 
                 // first pass

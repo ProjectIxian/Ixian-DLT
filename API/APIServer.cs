@@ -175,6 +175,11 @@ namespace DLTNode
                 response = onAddMultiSigTransaction(request);
             }
 
+            if (methodName.Equals("addmultisigtxsignature", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onAddMultiSigTxSignature(request);
+            }
+
             if (methodName.Equals("addmultisigkey", StringComparison.OrdinalIgnoreCase))
             {
                 response = onAddMultiSigKey(request);
@@ -489,10 +494,11 @@ namespace DLTNode
             Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
             if(adjust_amount)
             {
-                for(int i = 0; i < 2 && transaction.fee != fee; i++)
+                IxiNumber total_tx_fee = fee;
+                for (int i = 0; i < 2 && transaction.fee != total_tx_fee; i++)
                 {
-                    fee = transaction.fee;
-                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
+                    total_tx_fee = transaction.fee;
+                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList());
                     if (fromList == null || fromList.Count == 0)
                     {
                         return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
@@ -512,6 +518,48 @@ namespace DLTNode
             }
 
             return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "An unknown error occured while adding the transaction" } };
+        }
+
+        public JsonResponse onAddMultiSigTxSignature(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            string orig_txid = request.QueryString["origtx"];
+            if (orig_txid == null)
+            {
+                error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "origtx parameter is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+            else
+            {
+                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
+                if (orig_tx == null)
+                {
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
+                    return new JsonResponse { result = null, error = error };
+                }
+            }
+
+            string signer = request.QueryString["signer"];
+            byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
+            IxiNumber fee = CoreConfig.transactionPrice;
+
+            Transaction transaction = Transaction.multisigAddTxSignature(orig_txid, fee, destWallet, Node.blockChain.getLastBlockNum());
+            if (TransactionPool.addTransaction(transaction))
+            {
+                TransactionPool.addPendingLocalTransaction(transaction);
+                res = transaction.toDictionary();
+            }
+            else
+            {
+                res = "There was an error adding the transaction.";
+            }
+
+            return new JsonResponse { result = res, error = error };
         }
 
         public JsonResponse onAddMultiSigTransaction(HttpListenerRequest request)
@@ -555,39 +603,12 @@ namespace DLTNode
                 fee = new IxiNumber(fee_string);
             }
 
-            byte[] tx_pub_key = null;
-
             byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
-            string orig_txid = request.QueryString["origtx"];
-            if (orig_txid == null)
-            {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
-                Wallet tmp_wallet = Node.walletState.getWallet(from);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = from;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
-            }
-            else
-            {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if (orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
-            }
 
             // Only create a transaction if there is a valid amount
             if (amount > 0)
             {
-                Transaction transaction = Transaction.multisigTransaction(orig_txid, fee, toList, from, Node.blockChain.getLastBlockNum());
+                Transaction transaction = Transaction.multisigTransaction(fee, toList, from, Node.blockChain.getLastBlockNum());
                 if(transaction == null)
                 {
                     error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
@@ -624,40 +645,13 @@ namespace DLTNode
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
-            byte[] tx_pub_key = null;
-
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            string orig_txid = request.QueryString["origtx"];
-            if(orig_txid == null)
-            {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
-                Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = destWallet;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
-            }
-            else
-            {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if(orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx "+ orig_txid +" not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
-            }
 
             string signer = request.QueryString["signer"];
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
             IxiNumber fee = CoreConfig.transactionPrice;
 
-            Transaction transaction = Transaction.multisigAddKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
+            Transaction transaction = Transaction.multisigAddKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -681,38 +675,13 @@ namespace DLTNode
             byte[] tx_pub_key = null;
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            string orig_txid = request.QueryString["origtx"];
-            if (orig_txid == null)
-            {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
-                Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = destWallet;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
-            }
-            else
-            {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if (orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
-            }
 
             string signer = request.QueryString["signer"];
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
 
             IxiNumber fee = CoreConfig.transactionPrice;
 
-            Transaction transaction = Transaction.multisigDelKeyTransaction(orig_txid, signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
+            Transaction transaction = Transaction.multisigDelKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -733,41 +702,14 @@ namespace DLTNode
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
-            byte[] tx_pub_key = null;
-
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
-            string orig_txid = request.QueryString["origtx"];
-            if (orig_txid == null)
-            {
-                orig_txid = "";
-                // TODO TODO TODO TODO TODO TODO make this compatible with wallet v2
-                Wallet tmp_wallet = Node.walletState.getWallet(destWallet);
-                if (tmp_wallet != null && tmp_wallet.publicKey != null)
-                {
-                    tx_pub_key = destWallet;
-                }
-                else
-                {
-                    tx_pub_key = Node.walletStorage.getPrimaryPublicKey();
-                }
-            }
-            else
-            {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if (orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-                tx_pub_key = orig_tx.pubKey;
-            }
 
             string sigs = request.QueryString["sigs"];
             IxiNumber fee = CoreConfig.transactionPrice;
             if (byte.TryParse(sigs, out byte reqSigs))
             {
 
-                Transaction transaction = Transaction.multisigChangeReqSigs(orig_txid, reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
+                Transaction transaction = Transaction.multisigChangeReqSigs(reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
                 {
                     TransactionPool.addPendingLocalTransaction(transaction);
@@ -788,8 +730,8 @@ namespace DLTNode
 
             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["address"]);
 
-            IxiNumber balance = Node.walletState.getWalletBalance(address);
-
+            IxiNumber balance = Node.walletStorage.getMyTotalBalance(address);
+            balance -= TransactionPool.getPendingSendingTransactionsAmount(address);
 
             return new JsonResponse { result = balance.ToString(), error = error };
         }
@@ -1176,7 +1118,7 @@ namespace DLTNode
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
             networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
                 + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount());
+                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount() + ", Pending Transactions: " + TransactionPool.pendingTransactionCount());
             networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
 
             string dltStatus = "Active";
@@ -1356,6 +1298,9 @@ namespace DLTNode
             if (base_address_str == null)
             {
                 base_address = Node.walletStorage.getPrimaryAddress();
+            }else
+            {
+                base_address = Base58Check.Base58CheckEncoding.DecodePlain(base_address_str);
             }
 
             Address new_address = Node.walletStorage.generateNewAddress(new Address(base_address));

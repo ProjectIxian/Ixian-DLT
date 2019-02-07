@@ -643,13 +643,18 @@ namespace DLT
                                 return;
                             }
                             // Compute checksum of received data
-                            byte[] local_checksum = Crypto.sha512sqTrunc(data);
+                            byte[] local_checksum = Crypto.sha512sqTrunc(data, 0, 0, 16);
 
                             // Verify the checksum before proceeding
                             if (local_checksum.SequenceEqual(data_checksum) == false)
                             {
-                                Logging.error("Dropped message (invalid checksum)");
-                                continue;
+                                // TODO TODO TODO TODO TODO remove nested if after network upgrade
+                                local_checksum = Crypto.sha512quTrunc(data);
+                                if (local_checksum.SequenceEqual(data_checksum) == false)
+                                {
+                                    Logging.error("Dropped message (invalid checksum)");
+                                    continue;
+                                }
                             }
 
                             // For development purposes, output the proper protocol message
@@ -778,15 +783,10 @@ namespace DLT
                     // if we're a client update the network time difference
                     if(endpoint.GetType() == typeof(NetworkClient))
                     {
-                        long curTime = Clock.getTimestamp();
+                        long timeDiff = endpoint.calculateTimeDifference();
 
-                        long timeDiff = 0;
-
-                        // amortize +- 5 seconds
-                        if (curTime - timestamp < -5 || curTime - timestamp > 5)
-                        {
-                            timeDiff = curTime - timestamp;
-                        }else
+                        // amortize +- 2 seconds
+                        if (timeDiff > -2 && timeDiff < 2)
                         {
                             timeDiff = 0;
                         }

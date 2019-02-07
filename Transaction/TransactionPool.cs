@@ -13,7 +13,7 @@ namespace DLT
 {
     class TransactionPool
     {
-        static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
+        public static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
 
         static List<object[]> pendingTransactions = new List<object[]>();
 
@@ -28,7 +28,7 @@ namespace DLT
         public static bool verifyMultisigTransaction(Transaction transaction)
         {
             // multisig verification
-            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
             {
                 // multiple "from" addresses are not supported
                 if (transaction.fromList.Count != 1)
@@ -72,98 +72,28 @@ namespace DLT
                         return false;
                     }
 
-                    if (multisig_obj.origTXId != "")
-                    {
-                        Logging.info(String.Format("Multisig change(add) transaction {{ {0} }} adds signature for origin multisig change transaction {{ {1} }}.", transaction.id, multisig_obj.origTXId));
-                    }
-                    else
-                    {
-                        Logging.info(String.Format("Multisig change(add) transaction {{ {0} }} is an origin multisig change transaction.", transaction.id));
-                    }
-
                     Logging.info(String.Format("Multisig change(add) transaction adds allowed signer {0} to address {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey)));
 
-                    orig_txid = multisig_obj.origTXId;
                     signer_pub_key = multisig_obj.signerPubKey;
                     signer_nonce = multisig_obj.signerNonce;
                 }
                 if (multisig_type is Transaction.MultisigAddrDel)
                 {
                     var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
-                    if (multisig_obj.origTXId != "")
-                    {
-                        Logging.info(String.Format("Multisig change(del) transaction {{ {0} }} adds signature for origin multisig change transaction {{ {1} }}.", transaction.id, multisig_obj.origTXId));
-                    }
-                    else
-                    {
-                        Logging.info(String.Format("Multisig change(del) transaction {{ {0} }} is an origin multisig change transaction.", transaction.id));
-                    }
+
                     Logging.info(String.Format("Multisig change(del) transaction removes allowed signer {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey)));
-                    orig_txid = multisig_obj.origTXId;
+
                     signer_pub_key = multisig_obj.signerPubKey;
                     signer_nonce = multisig_obj.signerNonce;
                 }
                 if (multisig_type is Transaction.MultisigChSig)
                 {
                     var multisig_obj = (Transaction.MultisigChSig)multisig_type;
-                    if (multisig_obj.origTXId != "")
-                    {
-                        Logging.info(String.Format("Multisig change(sig) transaction {{ {0} }} adds signature for origin multisig change transaction {{ {1} }}.", transaction.id, multisig_obj.origTXId));
-                    }
-                    else
-                    {
-                        Logging.info(String.Format("Multisig change(sig) transaction {{ {0} }} is an origin multisig change transaction.", transaction.id));
-                    }
+
                     Logging.info(String.Format("Multisig change(sig) transaction changes required signatures for wallet {0} to {1}.", Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey), multisig_obj.reqSigs));
-                    orig_txid = multisig_obj.origTXId;
+
                     signer_pub_key = multisig_obj.signerPubKey;
                     signer_nonce = multisig_obj.signerNonce;
-                }
-                // check if additional signature transaction matches origin tx for multisig
-                if (orig_txid != "")
-                {
-                    lock (transactions)
-                    {
-                        bool to_list_equals = true;
-                        bool from_list_equals = true;
-                        Transaction orig_transaction = getTransaction(orig_txid);
-
-                        foreach (var entry in orig_transaction.toList)
-                        {
-                            if (!transaction.toList.ContainsKey(entry.Key))
-                            {
-                                to_list_equals = false;
-                                break;
-                            }
-                            if (transaction.toList[entry.Key] != orig_transaction.toList[entry.Key])
-                            {
-                                to_list_equals = false;
-                                break;
-                            }
-                        }
-
-                        foreach (var entry in orig_transaction.fromList)
-                        {
-                            if (!transaction.fromList.ContainsKey(entry.Key))
-                            {
-                                from_list_equals = false;
-                                break;
-                            }
-                            // don't verify amount as fee can be different and as a result amount as well
-                        }
-
-                        if (!to_list_equals
-                            || orig_transaction.toList.Count != transaction.toList.Count
-                            || !from_list_equals
-                            || orig_transaction.fromList.Count != transaction.fromList.Count
-                            || !orig_transaction.pubKey.SequenceEqual(transaction.pubKey)
-                            || orig_transaction.type != transaction.type)
-                        {
-                            Logging.warn(String.Format("Multisig transaction {{ {0} }}, which points to its origin transaction {{ {1} }} has different content than origin!",
-                                transaction.id, orig_txid));
-                            return false;
-                        }
-                    }
                 }
                 if(signer_pub_key == null)
                 {
@@ -252,7 +182,7 @@ namespace DLT
             // Prevent transaction spamming
             // Note: transactions that change multisig wallet parameters may have amount zero, since it will be ignored anyway
             if(transaction.type != (int)Transaction.Type.PoWSolution)
-            if (transaction.amount == (long)0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
+            if (transaction.amount == (long)0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
             {
                     Logging.warn("Transaction amount was zero for txid {0}.", transaction.id);
                     return false;
@@ -305,12 +235,12 @@ namespace DLT
             IxiNumber totalAmount = new IxiNumber(0);
             foreach (var entry in transaction.fromList)
             {
-                if(entry.Key.Length == 1 && entry.Key.First() != 0)
+                if (entry.Key.Length == 1 && entry.Key.First() != 0)
                 {
                     Logging.warn(String.Format("Input nonce is 1 byte long but has an incorrect value for tx {{ {0} }}.", transaction.id));
                     return false;
                 }
-                else if(entry.Key.Length != 1 && entry.Key.Length != 16)
+                else if (entry.Key.Length != 1 && entry.Key.Length != 16)
                 {
                     Logging.warn(String.Format("Input nonce is not 1 or 16 bytes long for tx {{ {0} }}.", transaction.id));
                     return false;
@@ -326,7 +256,8 @@ namespace DLT
                 if (transaction.type != (int)Transaction.Type.PoWSolution
                     && transaction.type != (int)Transaction.Type.StakingReward
                     && transaction.type != (int)Transaction.Type.Genesis
-                    && transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
+                    && transaction.type != (int)Transaction.Type.ChangeMultisigWallet
+                    && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
                 {
                     if (Node.blockSync.synchronizing == false)
                     {
@@ -449,7 +380,9 @@ namespace DLT
             {
                 return true;
             }
-            else if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            else if (transaction.type == (int)Transaction.Type.MultisigTX
+                || transaction.type == (int)Transaction.Type.ChangeMultisigWallet
+                || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
             {
                 object ms_data = transaction.GetMultisigData();
                 if (ms_data is Transaction.MultisigAddrAdd)
@@ -549,39 +482,13 @@ namespace DLT
                         }
                     }
 
-                    // TODO TODO TODO TODO talk with Z - these checks should perhaps be done in verify and before the tx is even added to the block, this function is strictly and simply to set the applied parameter
-                    if (t.type == (int)Transaction.Type.MultisigTX)
+                    if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         // set applied to all signers (related multisig transactions)
-                        foreach(var related_tx in transactions.Values.Where(x => x != null && x.applied == 0))
+                        foreach(var related_tx in transactions.Values.Where(x => x != null && x.type == (int)Transaction.Type.MultisigAddTxSignature && x.applied == 0))
                         {
                             Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData) related_tx.GetMultisigData();
                             if (ms_data.origTXId == txid)
-                            {
-                                related_tx.applied = blockNum;
-                                Meta.Storage.insertTransaction(related_tx);
-                            }
-                        }
-                    } else if(t.type == (int)Transaction.Type.ChangeMultisigWallet)
-                    {
-                        foreach(var related_tx in transactions.Values.Where( x=> x != null && x.applied == 0))
-                        {
-                            object multisig_type = related_tx.GetMultisigData();
-                            bool apply = false;
-                            if(multisig_type is Transaction.MultisigAddrAdd &&
-                                ((Transaction.MultisigAddrAdd)multisig_type).origTXId == txid)
-                            {
-                                apply = true;
-                            } else if(multisig_type is Transaction.MultisigAddrDel &&
-                                ((Transaction.MultisigAddrDel)multisig_type).origTXId == txid)
-                            {
-                                apply = true;
-                            } else if(multisig_type is Transaction.MultisigChSig &&
-                                ((Transaction.MultisigChSig)multisig_type).origTXId == txid)
-                            {
-                                apply = true;
-                            }
-                            if(apply)
                             {
                                 related_tx.applied = blockNum;
                                 Meta.Storage.insertTransaction(related_tx);
@@ -595,7 +502,7 @@ namespace DLT
             return false;
         }
 
-        public static int getNumRelatedMultisigTransactions(string txid, Transaction.Type tx_type, Block block)
+        public static int getNumRelatedMultisigTransactions(string txid, Block block)
         {
             lock(transactions)
             {
@@ -618,7 +525,7 @@ namespace DLT
                     {
                         continue;
                     }
-                    if(tx.type == (int)tx_type)
+                    if(tx.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         object multisig_type = tx.GetMultisigData();
                         string orig_txid = "";
@@ -627,27 +534,6 @@ namespace DLT
                         if (multisig_type is Transaction.MultisigTxData)
                         {
                             var multisig_obj = (Transaction.MultisigTxData)multisig_type;
-                            orig_txid = multisig_obj.origTXId;
-                            signer_pub_key = multisig_obj.signerPubKey;
-                            signer_nonce = multisig_obj.signerNonce;
-                        }
-                        if (multisig_type is Transaction.MultisigAddrAdd)
-                        {
-                            var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
-                            orig_txid = multisig_obj.origTXId;
-                            signer_pub_key = multisig_obj.signerPubKey;
-                            signer_nonce = multisig_obj.signerNonce;
-                        }
-                        if (multisig_type is Transaction.MultisigAddrDel)
-                        {
-                            var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
-                            orig_txid = multisig_obj.origTXId;
-                            signer_pub_key = multisig_obj.signerPubKey;
-                            signer_nonce = multisig_obj.signerNonce;
-                        }
-                        if (multisig_type is Transaction.MultisigChSig)
-                        {
-                            var multisig_obj = (Transaction.MultisigChSig)multisig_type;
                             orig_txid = multisig_obj.origTXId;
                             signer_pub_key = multisig_obj.signerPubKey;
                             signer_nonce = multisig_obj.signerNonce;
@@ -943,7 +829,8 @@ namespace DLT
                 return false;
             }
 
-            if(blocknum + CoreConfig.getRedactedWindowSize(block_version) < Node.getLastBlockHeight())
+            // ignore PoW solutions for first 100 blocks in the redacted window
+            if(block_version >= 3 && blocknum + CoreConfig.getRedactedWindowSize(block_version) - 100 < Node.getLastBlockHeight())
             {
                 return false;
             }
@@ -987,7 +874,7 @@ namespace DLT
                         return true;
                     }
                 }
-                else
+                else // >= 2
                 {
                     // Verify the nonce
                     if (Miner.verifyNonce_v2(nonce, blocknum, primary_address, block.difficulty))
@@ -1200,24 +1087,10 @@ namespace DLT
                         continue;
                     }
 
-                    // TODO TODO TODO needs additional checking if it's really applied in the block it says it is; this is a potential for exploit, where a malicious node would send valid transactions that would get rejected by other nodes
                     if (tx.applied > 0 && tx.applied != block.blockNum)
                     {
                         // remove transaction from block as it has already been applied on a different block
                         already_applied_transactions.Add(tx);
-                        continue;
-                    }
-
-                    // Special case for PoWSolution transactions
-                    if (applyPowTransaction(tx, block, blockSolutionsDictionary, failed_transactions, ws_snapshot))
-                    {
-                        continue;
-                    }
-
-                    // Check the transaction amount
-                    if (tx.amount == (long)0 && tx.type != (int)Transaction.Type.ChangeMultisigWallet)
-                    {
-                        failed_transactions.Add(tx);
                         continue;
                     }
 
@@ -1227,21 +1100,58 @@ namespace DLT
                         continue;
                     }
 
-                    byte[] tmp_address = (new Address(tx.pubKey)).address;
-                    // Update the walletstate public key
-                    byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
-                    // Generate an address from the public key and compare it with the sender
-                    if (pubkey == null)
+
+                    if(block.version >= 3)
                     {
-                        // There is no supplied public key, extract it from transaction
-                        pubkey = tx.pubKey;
-                        if (pubkey != null)
+                        byte[] tmp_address = (new Address(tx.pubKey)).address;
+                        // Update the walletstate public key
+                        byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
+                        // Generate an address from the public key and compare it with the sender
+                        if (pubkey == null)
                         {
-                            // Update the walletstate public key
-                            Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                            // There is no supplied public key, extract it from transaction
+                            pubkey = tx.pubKey;
+                            if (pubkey != null)
+                            {
+                                // Update the walletstate public key
+                                Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                            }
                         }
                     }
 
+                    // Special case for PoWSolution transactions
+                    if (applyPowTransaction(tx, block, blockSolutionsDictionary, failed_transactions, ws_snapshot))
+                    {
+                        continue;
+                    }
+
+                    // Check the transaction amount
+                    if (tx.amount == (long)0
+                        && tx.type != (int)Transaction.Type.ChangeMultisigWallet
+                        && tx.type != (int)Transaction.Type.MultisigAddTxSignature
+                        )
+                    {
+                        failed_transactions.Add(tx);
+                        continue;
+                    }
+
+                    if (block.version < 3)
+                    {
+                        byte[] tmp_address = (new Address(tx.pubKey)).address;
+                        // Update the walletstate public key
+                        byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
+                        // Generate an address from the public key and compare it with the sender
+                        if (pubkey == null)
+                        {
+                            // There is no supplied public key, extract it from transaction
+                            pubkey = tx.pubKey;
+                            if (pubkey != null)
+                            {
+                                // Update the walletstate public key
+                                Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                            }
+                        }
+                    }
 
                     // Special case for Multisig
                     if (tx.type == (int)Transaction.Type.MultisigTX)
@@ -1249,9 +1159,13 @@ namespace DLT
                         applyMultisigTransaction(tx, block, failed_transactions, ws_snapshot);
                         continue;
                     }
-                    if(tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
                         applyMultisigChangeTransaction(tx, block, failed_transactions, ws_snapshot);
+                        continue;
+                    }
+                    if (tx.type == (int)Transaction.Type.MultisigAddTxSignature)
+                    {
                         continue;
                     }
 
@@ -1561,7 +1475,7 @@ namespace DLT
                     if (multisig_obj.origTXId == "")
                     {
                         // +1, because the search will not find the current transaction, only the ones related to it
-                        int num_multisig_txs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
+                        int num_multisig_txs = getNumRelatedMultisigTransactions(tx.id, block) + 1;
                         if (num_multisig_txs < orig.requiredSigs)
                         {
                             Logging.error(String.Format("Multisig transaction {{ {0} }} doesn't have enough signatures!", tx.id));
@@ -1633,19 +1547,12 @@ namespace DLT
                 {
                     var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
 
-                    if (multisig_obj.origTXId != "")
+                    // +1 because this current transaction will not be found by the search
+                    int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, block) + 1;
+                    if (num_valid_sigs < orig.requiredSigs)
                     {
-                        return false;
-                    }
-                    else
-                    {
-                        // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
-                        if (num_valid_sigs < orig.requiredSigs)
-                        {
-                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
-                            return true;
-                        }
+                        Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                        return true;
                     }
 
                     byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
@@ -1680,20 +1587,12 @@ namespace DLT
                     }
                     var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
 
-                    if (multisig_obj.origTXId != "")
+                    // +1 because this current transaction will not be found by the search
+                    int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, block) + 1;
+                    if (num_valid_sigs < orig.requiredSigs)
                     {
-                        // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
-                        return false;
-                    }
-                    else
-                    {
-                        // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
-                        if (num_valid_sigs < orig.requiredSigs)
-                        {
-                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
-                            return true;
-                        }
+                        Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                        return true;
                     }
 
                     byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
@@ -1739,20 +1638,12 @@ namespace DLT
                         return false;
                     }
 
-                   if (multisig_obj.origTXId != "")
+                    // +1 because this current transaction will not be found by the search
+                    int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, block) + 1;
+                    if (num_valid_sigs < orig.requiredSigs)
                     {
-                        // this is a related multisig tx, which we ignore. We are only interested in the originating transaction
-                        return false;
-                    }
-                    else
-                    {
-                        // +1 because this current transaction will not be found by the search
-                        int num_valid_sigs = getNumRelatedMultisigTransactions(tx.id, (Transaction.Type)tx.type, block) + 1;
-                        if (num_valid_sigs < orig.requiredSigs)
-                        {
-                            Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
-                            return true;
-                        }
+                        Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                        return true;
                     }
 
                     byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
@@ -2102,7 +1993,7 @@ namespace DLT
             {
                 if (!pendingTransactions.Exists(x => ((Transaction)x[0]).id.SequenceEqual(t.id)))
                 {
-                    pendingTransactions.Add(new object[3] { t, Clock.getTimestamp(), 0 });
+                    pendingTransactions.Add(new object[4] { t, Clock.getTimestamp(), 0, false });
                 }
             }
         }
@@ -2126,15 +2017,28 @@ namespace DLT
                         continue;
                     }
 
-                    if (cur_time - tx_time > 10 && cur_time - tx_time < 20) // if the transaction is pending for over 15 seconds, send inquiry
+                    // check if PoW and if already solved
+                    if(t.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        ulong pow_block_num = BitConverter.ToUInt64(t.data, 0);
+
+                        Block tmpBlock = Node.blockChain.getBlock(pow_block_num);
+                        if (tmpBlock == null || tmpBlock.powField != null)
+                        {
+                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            continue;
+                        }
+                    }
+
+                    if ((bool)pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
                     {
                         ProtocolMessage.broadcastGetTransaction(t.id, 0);
-                        pendingTransactions[idx][1] = tx_time + 10;
+                        pendingTransactions[idx][3] = true;
                     }
 
                     if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                     {
-                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, ((Transaction)entry[0]).getBytes());
+                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes());
                         pendingTransactions[idx][1] = cur_time;
                     }
                     idx++;
@@ -2178,6 +2082,32 @@ namespace DLT
             {
                 return transactions.Remove(txid);
             }
+        }
+
+        public static long pendingTransactionCount()
+        {
+            lock(pendingTransactions)
+            {
+                return pendingTransactions.LongCount();
+            }
+        }
+
+        public static IxiNumber getPendingSendingTransactionsAmount(byte[] primary_address)
+        {
+            IxiNumber amount = 0;
+            lock (pendingTransactions)
+            {
+                List<object[]> txs = pendingTransactions.FindAll(x => ((Transaction)x[0]).type == (int)Transaction.Type.Normal);
+                foreach (var entry in txs)
+                {
+                    Transaction tx = (Transaction)entry[0];
+                    if ((new Address(tx.pubKey)).address.SequenceEqual(primary_address))
+                    {
+                        amount += tx.amount;
+                    }
+                }
+            }
+            return amount;
         }
     }
 }

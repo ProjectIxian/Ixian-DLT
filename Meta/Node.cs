@@ -1,11 +1,13 @@
 ﻿using DLT.Network;
 using DLTNode;
 using IXICore;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Numerics;
 using System.Text;
 using System.Threading;
 
@@ -198,6 +200,9 @@ namespace DLT.Meta
 
             // Initialize the block chain
             blockChain = new BlockChain();
+
+            //runDiffTests();
+            //return;
 
             // Create the block processor and sync
             blockProcessor = new BlockProcessor();
@@ -805,7 +810,12 @@ namespace DLT.Meta
 
         public static ulong getLastBlockHeight()
         {
-            return Node.blockChain.getLastBlockNum();
+            return blockChain.getLastBlockNum();
+        }
+
+        public static int getLastBlockVersion()
+        {
+            return blockChain.getLastBlockVersion();
         }
 
         // Check if the data folder exists. Otherwise it creates it
@@ -850,5 +860,150 @@ namespace DLT.Meta
 
             return bh;
         }
+
+        /*static void runDiffTests()
+        {
+            Logging.info("Running difficulty tests");
+            CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(2);
+            ulong redactedWindow = CoreConfig.getRedactedWindowSize(2);
+            ulong prevDiff = 0;
+
+            ulong block_step = 1;  // Number of blocks to increase in one step. The less, the more precise.
+            int cycle_count = 5;    // Number of cycles to run this test
+
+
+            List<dataPoint> diffs = new List<dataPoint>();
+
+            ulong block_num = 1;
+
+            Random rnd = new Random();
+
+            ulong hash_rate = 2000; // starting hashrate
+            BigInteger max_hash_rate = 0;
+
+            for (int c = 0; c < cycle_count; c++)
+            {
+                for (ulong i = 0; i < redactedWindow; i += block_step)
+                {
+                    prevDiff = BlockProcessor.calculateDifficulty_v3();
+                    Block b = new Block();
+                    b.version = 2;
+                    b.blockNum = block_num;
+                    block_num++;
+                    b.difficulty = prevDiff;
+
+                    if (i > 10)
+                    {
+                        if (i > 1000 && i < 2000)
+                        {
+                            // increase hashrate by 100
+                            hash_rate += 100;
+                        }
+                        else if (i > 2000 && i < 5000)
+                        {
+                            // spike the hashrate to 50k
+                            hash_rate = 50000;
+                        }
+                        else if (i > 5000 && i < 10000)
+                        {
+                            // drop hash rate to 4k
+                            hash_rate = 4000;
+                        }
+                        else if(i > 10000)
+                        {
+                            ulong next_rnd = (ulong)rnd.Next(1000);
+                            // randomize hash rate
+                            if (rnd.Next(2) == 1)
+                            {
+                                hash_rate += next_rnd;
+                                if (hash_rate > 100000)
+                                {
+                                    hash_rate = 5000;
+                                }
+                            }
+                            else
+                            {
+                                if (hash_rate < next_rnd)
+                                {
+                                    hash_rate = 5000;
+                                }
+                                else
+                                {
+                                    hash_rate -= next_rnd;
+                                }
+                                if(hash_rate < 5000)
+                                {
+                                    hash_rate = 5000;
+                                }
+                            }
+                        }
+                        ulong max_difficulty = Miner.calculateTargetDifficulty(max_hash_rate);
+                        List<Block> blocks = blockChain.getBlocks().ToList().FindAll(x => x.powField == null && x.difficulty < max_difficulty).OrderBy(x => x.difficulty).ToList();
+                        if (blocks.Count == 0)
+                        {
+                            max_hash_rate += hash_rate;
+                        }
+                        else
+                        {
+                            BigInteger hash_rate_used = 0;
+                            int tmp_nonce_counter = 0;
+                            foreach (Block pow_block in blocks)
+                            {
+                                hash_rate_used += Miner.getTargetHashcountPerBlock(pow_block.difficulty);
+                                Transaction t = new Transaction((int)Transaction.Type.PoWSolution);
+                                t.data = BitConverter.GetBytes(pow_block.blockNum);
+                                t.applied = b.blockNum;
+                                t.fromList.Add(new byte[1] { 0 }, 0);
+                                t.pubKey = Node.walletStorage.getPrimaryAddress();
+                                t.blockHeight = b.blockNum - 1;
+                                t.nonce += tmp_nonce_counter;
+                                tmp_nonce_counter++;
+                                t.generateChecksums();
+
+                                TransactionPool.transactions.Add(t.id, t);
+
+                                b.transactions.Add(t.id);
+                                blockChain.blocksDictionary[pow_block.blockNum].powField = new byte[8];
+
+                                if (hash_rate_used >= max_hash_rate)
+                                {
+                                    max_hash_rate = hash_rate;
+                                    break;
+                                }
+                            }
+                        }
+                    }else
+                    {
+
+                    }
+
+                    blockChain.blocks.Add(b);
+                    blockChain.blocksDictionary.Add(b.blockNum, b);
+                    blockChain.redactChain();
+
+                    Logging.info("[generated {0}\t/{1}] Diff: {2}", block_num, redactedWindow, prevDiff);
+
+                    dataPoint datap = new dataPoint();
+                    datap.diff = prevDiff;
+                    datap.solved = ((blockChain.getSolvedBlocksCount(redactedWindow) * 100) / (ulong)blockChain.blocks.Count()) + "% - " + block_num;
+                    diffs.Add(datap);
+                }
+            }
+
+
+            string text = JsonConvert.SerializeObject(diffs);
+            System.IO.File.WriteAllText(@"chart.json", text);
+
+            Logging.info("Test done, you can open chart.html now");
+        }*/
+    }
+
+    class dataPoint
+    {
+        [JsonProperty(PropertyName = "diff")]
+        public ulong diff { get; set; }
+
+        [JsonProperty(PropertyName = "solved")]
+        public string solved { get; set; }
     }
 }

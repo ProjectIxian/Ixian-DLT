@@ -546,7 +546,7 @@ namespace DLT
                 {
                     if (!Node.blockSync.synchronizing)
                     {
-                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1, null, endpoint);
+                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1, null, null);
                     }
                     Logging.info("Received an indeterminate future block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminateFutureBlock;
@@ -635,8 +635,7 @@ namespace DLT
                     else
                     {
                         hasAllTransactions = false;
-                        missing = b.transactions.Count;
-                        break;
+                        missing++;
                     }
                     continue;
                 }
@@ -677,7 +676,7 @@ namespace DLT
                             IxiNumber new_minus_balance = minusBalances[address] + entry.Value;
                             minusBalances[address] = new_minus_balance;
                         }
-                        else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
+                        else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet || t.type == (int)Transaction.Type.MultisigAddTxSignature)
                         {
                             object multisig_data = t.GetMultisigData();
                             string orig_txid = "";
@@ -685,24 +684,12 @@ namespace DLT
                             {
                                 orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
                             }
-                            else if (multisig_data is Transaction.MultisigAddrAdd)
-                            {
-                                orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
-                            }
-                            else if (multisig_data is Transaction.MultisigAddrDel)
-                            {
-                                orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
-                            }
-                            else if (multisig_data is Transaction.MultisigChSig)
-                            {
-                                orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
-                            }
                             if (orig_txid == "")
                             {
                                 orig_txid = t.id;
                             }
                             Wallet from_w = Node.walletState.getWallet(address);
-                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)t.type, b) + 1;
+                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, b) + 1;
                             if (num_valid_multisigs < from_w.requiredSigs)
                             {
                                 Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
@@ -735,18 +722,33 @@ namespace DLT
                     if (!fetchingBulkTxForBlocks.ContainsKey(b.blockNum))
                     {
                         long cur_time = Clock.getTimestamp();
-                        fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
-                        fetchingTxForBlocks.Add(b.blockNum, cur_time);
-                        byte includeTransactions = 2;
-                        if (Node.blockSync.synchronizing == false
-                            || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
-                            || (Node.blockSync.synchronizing == true && Config.storeFullHistory)
-                            || (Node.blockSync.synchronizing == true && Config.fullStorageDataVerification == true))
+                        if (missing > b.transactions.Count / 2)
                         {
-                            includeTransactions = 1;
+                            cur_time = cur_time - 30;
+                            fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
+                            fetchingTxForBlocks.Add(b.blockNum, cur_time);
+                            BlockVerifyStatus status = verifyBlockTransactions(b, ignore_walletstate, endpoint);
+                            return status;
                         }
-                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
+                        else
+                        {
+                            fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
+                            fetchingTxForBlocks.Add(b.blockNum, cur_time);
+                            byte includeTransactions = 2;
+                            if (Node.blockSync.synchronizing == false
+                                || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
+                                || (Node.blockSync.synchronizing == true && Config.storeFullHistory)
+                                || (Node.blockSync.synchronizing == true && Config.fullStorageDataVerification == true))
+                            {
+                                includeTransactions = 1;
+                            }
+                            ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
+                        }
                         Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
+                    }
+                    if(fetchTransactions)
+                    {
+                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, 0);
                     }
                 }
                 Logging.info("Waiting for missing transactions for Block #{0}.", b.blockNum);
@@ -1033,9 +1035,12 @@ namespace DLT
                         return;
                     }else
                     {
-                        if (!Node.isWorkerNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                        if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                         {
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            if (!Node.isWorkerNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                            {
+                                ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            }
                         }
                     }
                     // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
@@ -1055,7 +1060,7 @@ namespace DLT
                             byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                             if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
                             {
-                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum, 
+                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
                                     Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                                 rollBackAcceptedBlock(localNewBlock);
                                 if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
@@ -1074,6 +1079,12 @@ namespace DLT
                             else
                             {
                                 Node.blockChain.appendBlock(localNewBlock);
+
+                                if (Node.miner.searchMode == BlockSearchMode.latestBlock)
+                                {
+                                    Node.miner.forceSearchForBlock();
+                                }
+
                                 Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
                                 lastBlockStartTime = DateTime.UtcNow;
                                 localNewBlock.logBlockDetails();
@@ -1091,6 +1102,11 @@ namespace DLT
 
                                 ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes());
                                 localNewBlock = null;
+
+                                if (Node.miner.searchMode != BlockSearchMode.latestBlock)
+                                {
+                                    Node.miner.checkActiveBlockSolved();
+                                }
 
                                 cleanupBlockBlacklist();
                                 if (Node.blockChain.getLastBlockNum() % Config.saveWalletStateEveryBlock == 0)
@@ -1316,7 +1332,7 @@ namespace DLT
                         tFeeAmount += tx.fee;
                         txcount++;
                     }
-                    else if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
+                    else if (tx.type == (int)Transaction.Type.ChangeMultisigWallet || tx.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         tFeeAmount += tx.fee;
                         txcount++;
@@ -1408,7 +1424,7 @@ namespace DLT
             // NOTE: this function is called exclusively from generateNewBlock(), so we do not need to lock anything - 'localNewBlock' is alredy locked.
             // If this is called from anywhere else, add a lock here!
             // multisig transactions must be complete before they are added
-            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+            if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
             {
                 object multisig_data = transaction.GetMultisigData();
                 string orig_txid = "";
@@ -1416,24 +1432,12 @@ namespace DLT
                 {
                     orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
                 }
-                else if (multisig_data is Transaction.MultisigAddrAdd)
-                {
-                    orig_txid = ((Transaction.MultisigAddrAdd)multisig_data).origTXId;
-                }
-                else if (multisig_data is Transaction.MultisigAddrDel)
-                {
-                    orig_txid = ((Transaction.MultisigAddrDel)multisig_data).origTXId;
-                }
-                else if (multisig_data is Transaction.MultisigChSig)
-                {
-                    orig_txid = ((Transaction.MultisigChSig)multisig_data).origTXId;
-                }
                 if (orig_txid == "")
                 {
                     orig_txid = transaction.id;
                 }
                 Wallet from_w = Node.walletState.getWallet(address);
-                int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, (Transaction.Type)transaction.type, null) + 1;
+                int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, null) + 1;
                 if (num_valid_multisigs >= from_w.requiredSigs)
                 {
                     // include the multisig transaction
@@ -1600,6 +1604,7 @@ namespace DLT
 
                         if (includeApplicableMultisig(transaction, address))
                         {
+                            // TODO TODO TODO TODO we should add other origTxId transactions here as well
                             // 'includeApplicableMultisg transactions' will return true if the transaction is not a multisig transaction
                             localNewBlock.addTransaction(transaction);
                         }
@@ -1610,12 +1615,9 @@ namespace DLT
                     if (transaction.type == (int)Transaction.Type.MultisigTX)
                     {
                         Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData)transaction.GetMultisigData();
-                        if (ms_data.origTXId == "")
-                        {
-                            total_amount += transaction.amount;
-                        }
+                        total_amount += transaction.amount;
                     }
-                    else if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet)
+                    else if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         total_amount += transaction.amount;
                     }
@@ -1663,9 +1665,13 @@ namespace DLT
             else if (version == 1)
             {
                 return calculateDifficulty_v1();
-            }else
+            }else if(version == 2)
             {
                 return calculateDifficulty_v2();
+            }
+            else // >= 3
+            {
+                return calculateDifficulty_v3();
             }
         }
 
@@ -1832,9 +1838,138 @@ namespace DLT
                     (actual_hashes_per_block / 60).ToString(),
                     (target_hashes_per_block / 60).ToString(),
                     current_difficulty, next_difficulty,
-                    target_difficulty > current_difficulty?"+":"-",delta));
+                    target_difficulty > current_difficulty ? "+" : "-", delta));
                 current_difficulty = next_difficulty;
             }
+
+            return current_difficulty;
+        }
+
+        private static BigInteger calculateEstimatedHashRate()
+        {
+            // to get the EHR, we'll take PoW solutions from last 10 block and calculate the total hashrate, in the event of ~45-55% of solved blocks, we should get a relatively accurate result
+            ulong last_block_num = Node.getLastBlockHeight();
+            BigInteger hash_rate = 0;
+            uint i = 0;
+            for (i = 0; i < 10; i++)
+            {
+                Block b = Node.blockChain.getBlock(last_block_num - i);
+                List<Transaction> b_txs = b.getFullTransactions().FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
+                foreach (Transaction tx in b_txs)
+                {
+                    Block pow_b = Node.blockChain.getBlock(BitConverter.ToUInt64(tx.data, 0));
+                    if(pow_b == null)
+                    {
+                        continue;
+                    }
+                    hash_rate += Miner.getTargetHashcountPerBlock(pow_b.difficulty);
+                }
+            }
+            hash_rate = hash_rate / (i / 2); // i / 2 since every second block has to be full
+            if(hash_rate == 0)
+            {
+                hash_rate = 1000;
+            }
+            return hash_rate;
+        }
+
+        // returns number of different solved blocks via PoW in last block
+        private static long countLastBlockPowSolutions()
+        {
+            Block b = Node.blockChain.getBlock(Node.getLastBlockHeight());
+            List<Transaction> b_txs = b.getFullTransactions().FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
+            Dictionary<ulong, ulong> solved_blocks = new Dictionary<ulong, ulong>();
+            foreach (Transaction tx in b_txs)
+            {
+                ulong pow_block_num = BitConverter.ToUInt64(tx.data, 0);
+                solved_blocks.AddOrReplace(pow_block_num, pow_block_num);
+            }
+            return solved_blocks.LongCount();
+        }
+
+        public static ulong calculateDifficulty_v3()
+        {
+            ulong min_difficulty = 0xA2CB1211629F6141; // starting/min difficulty (requires approx 180 Khashes to find a solution)
+            ulong current_difficulty = min_difficulty;
+
+            if(Node.blockChain.getLastBlockNum() <= 10)
+            {
+                return current_difficulty;
+            }
+            Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
+            if (previous_block != null)
+                current_difficulty = previous_block.difficulty;
+
+            // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
+            ulong solved_blocks = Node.blockChain.getSolvedBlocksCount(CoreConfig.getRedactedWindowSize(2));
+            ulong window_size = CoreConfig.getRedactedWindowSize(2);
+
+            // Special consideration for early blocks
+            if (Node.blockChain.getLastBlockNum() < window_size)
+            {
+                window_size = Node.blockChain.getLastBlockNum();
+            }
+
+            ulong next_difficulty = min_difficulty;
+            BigInteger current_hashes_per_block = 0;
+            BigInteger previous_hashes_per_block = Miner.getTargetHashcountPerBlock(previous_block.difficulty);
+
+            // if there are more than 3/4 of solved blocks, max out the difficulty
+            if (solved_blocks > window_size * 0.75f)
+            {
+                next_difficulty = ulong.MaxValue;
+            }
+            else if (solved_blocks < window_size * 0.25f)
+            {
+                // if there are less than 25% of solved blocks, set min difficulty
+                next_difficulty = min_difficulty;
+            }else
+            {
+                if (solved_blocks < window_size * 0.48f)
+                {
+                    // if there are between 25% and 48% of solved blocks, ideally use estimated hashrate * 0.7 for difficulty
+                    current_hashes_per_block = calculateEstimatedHashRate() * 7 / 10; // * 0.7f
+                    next_difficulty = Miner.calculateTargetDifficulty(current_hashes_per_block);
+                }
+                else if (solved_blocks < window_size * 0.53f)
+                {
+                    // if there are between 48% and 53% of solved blocks, ideally use estimated hashrate * 1.5 for difficulty
+                    current_hashes_per_block = calculateEstimatedHashRate() * 15 / 10; // * 1.5f
+                    next_difficulty = Miner.calculateTargetDifficulty(current_hashes_per_block);
+                }
+                else
+                {
+                    // otherwise there's between 53% and 75% solved blocks, use estimated hashrate * (10 + (n / 10)) for difficulty, where n is number of blocks solved over 50%
+                    // to get estimated hashrate, use previous block's hashrate
+                    long n = (long)solved_blocks - (long)(window_size * 0.50f);
+                    long solutions_in_previous_block = countLastBlockPowSolutions();
+                    long previous_n = 0;
+                    if(window_size < CoreConfig.getRedactedWindowSize())
+                    {
+                        previous_n = (long)solved_blocks - solutions_in_previous_block - (long)((window_size - 1) * 0.50f);
+                    }else
+                    {
+                        previous_n = (long)solved_blocks - solutions_in_previous_block - (long)(window_size * 0.50f);
+                    }
+                    BigInteger estimated_hash_rate = previous_hashes_per_block / (10 + (previous_n / 10));
+                    next_difficulty = Miner.calculateTargetDifficulty(estimated_hash_rate * (10 + (n / 10)));
+                }
+
+            }
+            
+            // clamp to minimum
+            if (next_difficulty < min_difficulty)
+            {
+                next_difficulty = min_difficulty;
+            }
+
+            // TODO: maybe pretty-fy the hashrate (ie: 15 MH/s, rather than 15000000 H/s) also could prettify the difficulty number
+            Logging.info(String.Format("Estimated network hash rate is {0} H/s (previous was: {1} H/s). Difficulty adjusts from {2} -> {3}. (Delta: {4})",
+                (current_hashes_per_block / 60).ToString(),
+                (previous_hashes_per_block / 60).ToString(),
+                current_difficulty, next_difficulty,
+                current_difficulty - next_difficulty));
+            current_difficulty = next_difficulty;
 
             return current_difficulty;
         }
