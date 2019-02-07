@@ -411,6 +411,11 @@ namespace DLTNode
                     {
                         string[] single_from_split = single_from.Split('_');
                         byte[] single_from_address = Base58Check.Base58CheckEncoding.DecodePlain(single_from_split[0]);
+                        if(!Node.walletStorage.isMyAddress(single_from_address))
+                        {
+                            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from address was specified" } };
+                        }
+                        byte[] single_from_nonce = Node.walletStorage.getAddress(single_from_address).nonce;
                         IxiNumber singleFromAmount = new IxiNumber(single_from_split[1]);
                         if (singleFromAmount < 0 || singleFromAmount == 0)
                         {
