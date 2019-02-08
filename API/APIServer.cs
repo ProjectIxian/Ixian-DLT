@@ -170,6 +170,16 @@ namespace DLTNode
                 response = onAddTransaction(request);
             }
 
+            if(methodName.Equals("createtransaction", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onCreateTransaction(request);
+            }
+
+            if(methodName.Equals("calculatetransactionfee", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onCalculateTransactionFee(request);
+            }
+
             if (methodName.Equals("addmultisigtransaction", StringComparison.OrdinalIgnoreCase))
             {
                 response = onAddMultiSigTransaction(request);
@@ -386,153 +396,20 @@ namespace DLTNode
 
         public JsonResponse onAddTransaction(HttpListenerRequest request)
         {
-            // Add a new transaction. This test allows sending and receiving from arbitrary addresses
-            IxiNumber from_amount = 0;
-            IxiNumber fee = CoreConfig.transactionPrice;
-
-            string r_auto_fee = request.QueryString["autofee"];
-            bool auto_fee = false;
-            if(r_auto_fee != null && (r_auto_fee.ToLower() == "true" || r_auto_fee == "1"))
+            object r = createTransactionHelper(request);
+            Transaction transaction = null;
+            if(r is JsonResponse)
             {
-                auto_fee = true;
+                // there was an error
+                return (JsonResponse)r;
+            } else if (r is Transaction)
+            {
+                transaction = (Transaction)r;
+            } else
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR,
+                    message = String.Format("There was an error while creating the transaction: Unexpected object: {0}", r.GetType().Name) } };
             }
-
-            string primary_address = request.QueryString["primaryAddress"];
-            byte[] primary_address_bytes = null;
-            if (primary_address == null)
-            {
-                primary_address_bytes = Node.walletStorage.getPrimaryAddress();
-            }else
-            {
-                primary_address_bytes = Base58Check.Base58CheckEncoding.DecodePlain(primary_address);
-            }
-
-            SortedDictionary<byte[], IxiNumber> fromList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
-            if (request.QueryString["from"] != null)
-            {
-                string[] from_split = request.QueryString["from"].Split('-');
-                if (from_split.Length > 0)
-                {
-                    foreach (string single_from in from_split)
-                    {
-                        string[] single_from_split = single_from.Split('_');
-                        byte[] single_from_address = Base58Check.Base58CheckEncoding.DecodePlain(single_from_split[0]);
-                        if(!Node.walletStorage.isMyAddress(single_from_address))
-                        {
-                            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from address was specified" } };
-                        }
-                        byte[] single_from_nonce = Node.walletStorage.getAddress(single_from_address).nonce;
-                        IxiNumber singleFromAmount = new IxiNumber(single_from_split[1]);
-                        if (singleFromAmount < 0 || singleFromAmount == 0)
-                        {
-                            from_amount = 0;
-                            break;
-                        }
-                        from_amount += singleFromAmount;
-                        fromList.Add(single_from_nonce, singleFromAmount);
-                    }
-                }
-                // Only create a transaction if there is a valid amount
-                if (from_amount < 0 || from_amount == 0)
-                {
-                    return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from amount was specified" } };
-                }
-            }
-
-            IxiNumber to_amount = 0;
-            SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
-            string[] to_split = request.QueryString["to"].Split('-');
-            if (to_split.Length > 0)
-            {
-                foreach (string single_to in to_split)
-                {
-                    string[] single_to_split = single_to.Split('_');
-                    byte[] single_to_address = Base58Check.Base58CheckEncoding.DecodePlain(single_to_split[0]);
-                    if (!Address.validateChecksum(single_to_address))
-                    {
-                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to address was specified" } };
-                    }
-                    IxiNumber singleToAmount = new IxiNumber(single_to_split[1]);
-                    if (singleToAmount < 0 || singleToAmount == 0)
-                    {
-                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to amount was specified" } };
-                    }
-                    to_amount += singleToAmount;
-                    toList.Add(single_to_address, singleToAmount);
-                }
-            }
-
-            string fee_string = request.QueryString["fee"];
-            if (fee_string != null && fee_string.Length > 0)
-            {
-                fee = new IxiNumber(fee_string);
-            }
-
-            // Only create a transaction if there is a valid amount
-            if (to_amount < 0 || to_amount == 0)
-            {
-                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to amount was specified" } };
-            }
-
-            byte[] pubKey = Node.walletStorage.getKeyPair(primary_address_bytes).publicKeyBytes;
-
-            // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(primary_address_bytes);
-            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
-            {
-                // Walletstate public key matches, we don't need to send the public key in the transaction
-                pubKey = primary_address_bytes;
-            }
-
-            bool adjust_amount = false;
-            if (fromList.Count == 0)
-            {
-                fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
-                adjust_amount = true;
-            }
-
-            if (fromList == null || fromList.Count == 0)
-            {
-                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
-            }
-
-            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
-            //Logging.info(String.Format("Intial transaction size: {0}.", transaction.getBytes().Length));
-            //Logging.info(String.Format("Intial transaction set fee: {0}.", transaction.fee));
-            if(adjust_amount) //true only if automatically generating from address
-            {
-                IxiNumber total_tx_fee = fee;
-                for (int i = 0; i < 2 && transaction.fee != total_tx_fee; i++)
-                {
-                    total_tx_fee = transaction.fee;
-                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList());
-                    if (fromList == null || fromList.Count == 0)
-                    {
-                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
-                    }
-                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
-                }
-            } else if (auto_fee) // true if user specified both a valid from address and the parameter autofee=true
-            {
-                // fee is taken from the first specified address
-                byte[] first_address = fromList.Keys.First();
-                fromList[first_address] = fromList[first_address] + transaction.fee;
-                transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
-            }
-            //Logging.info(String.Format("Transaction size after automatic adjustments: {0}.", transaction.getBytes().Length));
-            //Logging.info(String.Format("Transaction fee after automatic adjustments: {0}.", transaction.fee));
-            // verify that all "from amounts" match all "to_amounts" and that the fee is included in "from_amounts"
-            // we need to recalculate "from_amount"
-            from_amount = fromList.Aggregate(new IxiNumber(), (sum, next) => sum + next.Value, sum => sum);
-            if(from_amount != (to_amount + transaction.fee))
-            {
-                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "From amounts (incl. fee) do not match to amounts. If you haven't accounted for the transaction fee in the from amounts, use the parameter 'autofee' to have the node do it automatically." } };
-            }
-            if (to_amount + transaction.fee > Node.walletStorage.getMyTotalBalance(primary_address_bytes))
-            {
-                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
-            }
-
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
@@ -541,6 +418,67 @@ namespace DLTNode
 
             return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "An unknown error occured while adding the transaction" } };
         }
+
+        public JsonResponse onCreateTransaction(HttpListenerRequest request)
+        {
+            // Create a transaction, but do not add it to the TX pool on the node. Useful for:
+            // - offline transactions
+            // - manually adjusting fee
+            object r = createTransactionHelper(request);
+            Transaction transaction = null;
+            if (r is JsonResponse)
+            {
+                // there was an error
+                return (JsonResponse)r;
+            }
+            else if (r is Transaction)
+            {
+                transaction = (Transaction)r;
+            }
+            else
+            {
+                return new JsonResponse
+                {
+                    result = null,
+                    error = new JsonError()
+                    {
+                        code = (int)RPCErrorCode.RPC_INTERNAL_ERROR,
+                        message = String.Format("There was an error while creating the transaction: Unexpected object: {0}", r.GetType().Name)
+                    }
+                };
+            }
+            return new JsonResponse { result = transaction.toDictionary(), error = null };
+        }
+
+        public JsonResponse onCalculateTransactionFee(HttpListenerRequest request)
+        {
+            // Create a dummy transaction, just so that we can calculate the appropriate fee required to process this (minimum fee)
+            object r = createTransactionHelper(request);
+            Transaction transaction = null;
+            if (r is JsonResponse)
+            {
+                // there was an error
+                return (JsonResponse)r;
+            }
+            else if (r is Transaction)
+            {
+                transaction = (Transaction)r;
+            }
+            else
+            {
+                return new JsonResponse
+                {
+                    result = null,
+                    error = new JsonError()
+                    {
+                        code = (int)RPCErrorCode.RPC_INTERNAL_ERROR,
+                        message = String.Format("There was an error while creating the transaction: Unexpected object: {0}", r.GetType().Name)
+                    }
+                };
+            }
+            return new JsonResponse { result = transaction.fee.ToString(), error = null };
+        }
+
 
         public JsonResponse onAddMultiSigTxSignature(HttpListenerRequest request)
         {
@@ -1333,6 +1271,162 @@ namespace DLTNode
             {
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error occured while generating a new address" } };
             }
+        }
+
+        // This is a bit hacky way to return useful error values
+        // returns either Transaction or JsonResponse
+        private object createTransactionHelper(HttpListenerRequest request)
+        {
+            IxiNumber from_amount = 0;
+            IxiNumber fee = CoreConfig.transactionPrice;
+
+            string r_auto_fee = request.QueryString["autofee"];
+            bool auto_fee = false;
+            if (r_auto_fee != null && (r_auto_fee.ToLower() == "true" || r_auto_fee == "1"))
+            {
+                auto_fee = true;
+            }
+
+            string primary_address = request.QueryString["primaryAddress"];
+            byte[] primary_address_bytes = null;
+            if (primary_address == null)
+            {
+                primary_address_bytes = Node.walletStorage.getPrimaryAddress();
+            }
+            else
+            {
+                primary_address_bytes = Base58Check.Base58CheckEncoding.DecodePlain(primary_address);
+            }
+
+            SortedDictionary<byte[], IxiNumber> fromList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+            if (request.QueryString["from"] != null)
+            {
+                string[] from_split = request.QueryString["from"].Split('-');
+                if (from_split.Length > 0)
+                {
+                    foreach (string single_from in from_split)
+                    {
+                        string[] single_from_split = single_from.Split('_');
+                        byte[] single_from_address = Base58Check.Base58CheckEncoding.DecodePlain(single_from_split[0]);
+                        if (!Node.walletStorage.isMyAddress(single_from_address))
+                        {
+                            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from address was specified" } };
+                        }
+                        byte[] single_from_nonce = Node.walletStorage.getAddress(single_from_address).nonce;
+                        IxiNumber singleFromAmount = new IxiNumber(single_from_split[1]);
+                        if (singleFromAmount < 0 || singleFromAmount == 0)
+                        {
+                            from_amount = 0;
+                            break;
+                        }
+                        from_amount += singleFromAmount;
+                        fromList.Add(single_from_nonce, singleFromAmount);
+                    }
+                }
+                // Only create a transaction if there is a valid amount
+                if (from_amount < 0 || from_amount == 0)
+                {
+                    return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from amount was specified" } };
+                }
+            }
+
+            IxiNumber to_amount = 0;
+            SortedDictionary<byte[], IxiNumber> toList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+            string[] to_split = request.QueryString["to"].Split('-');
+            if (to_split.Length > 0)
+            {
+                foreach (string single_to in to_split)
+                {
+                    string[] single_to_split = single_to.Split('_');
+                    byte[] single_to_address = Base58Check.Base58CheckEncoding.DecodePlain(single_to_split[0]);
+                    if (!Address.validateChecksum(single_to_address))
+                    {
+                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to address was specified" } };
+                    }
+                    IxiNumber singleToAmount = new IxiNumber(single_to_split[1]);
+                    if (singleToAmount < 0 || singleToAmount == 0)
+                    {
+                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to amount was specified" } };
+                    }
+                    to_amount += singleToAmount;
+                    toList.Add(single_to_address, singleToAmount);
+                }
+            }
+
+            string fee_string = request.QueryString["fee"];
+            if (fee_string != null && fee_string.Length > 0)
+            {
+                fee = new IxiNumber(fee_string);
+            }
+
+            // Only create a transaction if there is a valid amount
+            if (to_amount < 0 || to_amount == 0)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid to amount was specified" } };
+            }
+
+            byte[] pubKey = Node.walletStorage.getKeyPair(primary_address_bytes).publicKeyBytes;
+
+            // Check if this wallet's public key is already in the WalletState
+            Wallet mywallet = Node.walletState.getWallet(primary_address_bytes);
+            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+            {
+                // Walletstate public key matches, we don't need to send the public key in the transaction
+                pubKey = primary_address_bytes;
+            }
+
+            bool adjust_amount = false;
+            if (fromList.Count == 0)
+            {
+                fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
+                adjust_amount = true;
+            }
+
+            if (fromList == null || fromList.Count == 0)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
+            }
+
+            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
+            //Logging.info(String.Format("Intial transaction size: {0}.", transaction.getBytes().Length));
+            //Logging.info(String.Format("Intial transaction set fee: {0}.", transaction.fee));
+            if (adjust_amount) //true only if automatically generating from address
+            {
+                IxiNumber total_tx_fee = fee;
+                for (int i = 0; i < 2 && transaction.fee != total_tx_fee; i++)
+                {
+                    total_tx_fee = transaction.fee;
+                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList());
+                    if (fromList == null || fromList.Count == 0)
+                    {
+                        return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
+                    }
+                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
+                }
+            }
+            else if (auto_fee) // true if user specified both a valid from address and the parameter autofee=true
+            {
+                // fee is taken from the first specified address
+                byte[] first_address = fromList.Keys.First();
+                fromList[first_address] = fromList[first_address] + transaction.fee;
+                transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
+            }
+            //Logging.info(String.Format("Transaction size after automatic adjustments: {0}.", transaction.getBytes().Length));
+            //Logging.info(String.Format("Transaction fee after automatic adjustments: {0}.", transaction.fee));
+            // verify that all "from amounts" match all "to_amounts" and that the fee is included in "from_amounts"
+            // we need to recalculate "from_amount"
+            from_amount = fromList.Aggregate(new IxiNumber(), (sum, next) => sum + next.Value, sum => sum);
+            if (from_amount != (to_amount + transaction.fee))
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "From amounts (incl. fee) do not match to amounts. If you haven't accounted for the transaction fee in the from amounts, use the parameter 'autofee' to have the node do it automatically." } };
+            }
+            if (to_amount + transaction.fee > Node.walletStorage.getMyTotalBalance(primary_address_bytes))
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
+            }
+
+            // the transaction appears valid
+            return transaction;
         }
     }
 }
