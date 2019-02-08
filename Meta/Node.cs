@@ -36,8 +36,6 @@ namespace DLT.Meta
         public static bool presenceListActive = false;
 
 
-        public static int keepAliveVersion = 0;
-
         // Private
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
@@ -695,46 +693,24 @@ namespace DLT.Meta
 
                 try
                 {
-                    // Prepare the keepalive message
-                    using (MemoryStream m = new MemoryStream())
+
+                    byte[] ka_bytes = null;
+                    if (Node.getLastBlockVersion() < 3)
                     {
-                        using (BinaryWriter writer = new BinaryWriter(m))
-                        {
-                            writer.Write(keepAliveVersion);
-
-                            byte[] wallet = walletStorage.getPrimaryAddress();
-                            writer.Write(wallet.Length);
-                            writer.Write(wallet);
-
-                            writer.Write(Config.device_id);
-
-                            // Add the unix timestamp
-                            long timestamp = Core.getCurrentTimestamp();
-                            writer.Write(timestamp);
-
-                            string hostname = Node.getFullAddress();
-                            writer.Write(hostname);
-
-                            // Add a verifiable signature
-                            byte[] private_key = walletStorage.getPrimaryPrivateKey();
-                            byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
-                            writer.Write(signature.Length);
-                            writer.Write(signature);
-
-                            PresenceList.curNodePresenceAddress.lastSeenTime = timestamp;
-                            PresenceList.curNodePresenceAddress.signature = signature;
-                        }
-
-
-                        byte[] address = null;
-                        // Update self presence
-                        PresenceList.receiveKeepAlive(m.ToArray(), out address);
-
-                        // Send this keepalive message to all connected clients
-                        ProtocolMessage.broadcastEventBasedMessage(ProtocolMessageCode.keepAlivePresence, m.ToArray(), address);
-                        
-
+                        ka_bytes = keepAlive_v0();
+                    }else
+                    {
+                        ka_bytes = keepAlive_v1();
                     }
+
+                    byte[] address = null;
+                    
+                    // Update self presence
+                    PresenceList.receiveKeepAlive(ka_bytes, out address);
+
+                    // Send this keepalive message to all connected clients
+                    ProtocolMessage.broadcastEventBasedMessage(ProtocolMessageCode.keepAlivePresence, ka_bytes, address);
+
                 }
                 catch (Exception)
                 {
@@ -744,6 +720,80 @@ namespace DLT.Meta
             }
 
             Thread.Yield();
+        }
+
+        private static byte[] keepAlive_v0()
+        {
+            // Prepare the keepalive message
+            using (MemoryStream m = new MemoryStream())
+            {
+                using (BinaryWriter writer = new BinaryWriter(m))
+                {
+                    writer.Write(0);
+
+                    byte[] wallet = walletStorage.getPrimaryAddress();
+                    writer.Write(wallet.Length);
+                    writer.Write(wallet);
+
+                    writer.Write(Config.device_id);
+
+                    // Add the unix timestamp
+                    long timestamp = Core.getCurrentTimestamp();
+                    writer.Write(timestamp);
+
+                    string hostname = Node.getFullAddress();
+                    writer.Write(hostname);
+
+                    // Add a verifiable signature
+                    byte[] private_key = walletStorage.getPrimaryPrivateKey();
+                    byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
+                    writer.Write(signature.Length);
+                    writer.Write(signature);
+
+                    PresenceList.curNodePresenceAddress.lastSeenTime = timestamp;
+                    PresenceList.curNodePresenceAddress.signature = signature;
+                }
+
+                return m.ToArray();
+            }
+        }
+
+        private static byte[] keepAlive_v1()
+        {
+            // Prepare the keepalive message
+            using (MemoryStream m = new MemoryStream())
+            {
+                using (BinaryWriter writer = new BinaryWriter(m))
+                {
+                    writer.Write(1);
+
+                    byte[] wallet = walletStorage.getPrimaryAddress();
+                    writer.Write(wallet.Length);
+                    writer.Write(wallet);
+
+                    writer.Write(Config.device_id);
+
+                    // Add the unix timestamp
+                    long timestamp = Core.getCurrentTimestamp();
+                    writer.Write(timestamp);
+
+                    string hostname = Node.getFullAddress();
+                    writer.Write(hostname);
+
+                    writer.Write(PresenceList.curNodePresenceAddress.type);
+
+                    // Add a verifiable signature
+                    byte[] private_key = walletStorage.getPrimaryPrivateKey();
+                    byte[] signature = CryptoManager.lib.getSignature(m.ToArray(), private_key);
+                    writer.Write(signature.Length);
+                    writer.Write(signature);
+
+                    PresenceList.curNodePresenceAddress.lastSeenTime = timestamp;
+                    PresenceList.curNodePresenceAddress.signature = signature;
+                }
+
+                return m.ToArray();
+            }
         }
 
         // Perform periodic cleanup tasks
