@@ -211,14 +211,7 @@ namespace DLT
                 object[] pending = pendingTransactions.Find(x => ((Transaction)x[0]).id.SequenceEqual(transaction.id));
                 if (pending != null)
                 {
-                    if ((int)pending[2] > 2)
-                    {
-                        pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(transaction.id));
-                    }
-                    else
-                    {
-                        pending[2] = (int)pending[2] + 1;
-                    }
+                    pending[2] = (int)pending[2] + 1;
                 }
             }
 
@@ -424,7 +417,7 @@ namespace DLT
                 }
             }
 
-            if (pubkey == null || pubkey.Length != 523)
+            if (pubkey == null || pubkey.Length < 32 || pubkey.Length > 2500)
             {
                 Logging.warn(string.Format("Invalid pubkey for transaction id: {0}", transaction.id));
                 return false;
@@ -463,6 +456,10 @@ namespace DLT
                     if (Node.walletStorage.isMyAddress((new Address(t.pubKey)).address) || Node.walletStorage.extractMyAddressesFromAddressList(t.toList) != null)
                     {
                         ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
+                        lock (pendingTransactions)
+                        {
+                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                        }
                     }
 
                     if (t.applied == 0)
@@ -2068,22 +2065,38 @@ namespace DLT
                 {
                     Transaction t = (Transaction)entry[0];
                     long tx_time = (long)entry[1];
+                    if((int)entry[2] > 3) // already received 3+ feedback
+                    {
+                        continue;
+                    }
 
                     // if transaction expired, remove it from pending transactions
                     if(t.blockHeight < Node.getLastBlockHeight() - CoreConfig.getRedactedWindowSize())
                     {
+                        ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                         pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                         continue;
                     }
 
                     // check if PoW and if already solved
-                    if(t.type == (int)Transaction.Type.PoWSolution)
+                    if (t.type == (int)Transaction.Type.PoWSolution)
                     {
                         ulong pow_block_num = BitConverter.ToUInt64(t.data, 0);
 
                         Block tmpBlock = Node.blockChain.getBlock(pow_block_num);
                         if (tmpBlock == null || tmpBlock.powField != null)
                         {
+                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
+                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        // check if transaction is still valid
+                        if (!verifyTransaction(t))
+                        {
+                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                             pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                             continue;
                         }
