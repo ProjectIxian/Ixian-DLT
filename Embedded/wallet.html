@@ -368,10 +368,12 @@
             $(function () {
                 console.log("Wallet loaded");
 
-                getMyWallet();
                 setInterval(getMyWallet, 5000);
                 setInterval(getActivity, 5000);
                 setInterval(getStatus, 5000);
+                getMyWallet();
+                getActivity();
+                getStatus();
             });
 
             $('#sendForm').submit(function () {

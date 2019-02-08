@@ -161,9 +161,16 @@ namespace DLT
             }
 
             // lock transaction v1 with block v2
-            if(transaction.version < 1 && Node.blockChain.getLastBlockVersion() >= 2)
+            if (transaction.version < 1 && Node.blockChain.getLastBlockVersion() >= 2)
             {
                 Logging.warn(String.Format("Transaction version is too low, network is using v1 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
+            // lock transaction v2 with block v3
+            if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= 3)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v2 as the lowest valid version. TXid: {0}.", transaction.id));
                 return false;
             }
 
@@ -514,7 +521,49 @@ namespace DLT
                 {
                     tmp_transactions = block.transactions;
                 }
-                foreach(var tx_key in tmp_transactions)
+                Transaction orig_tx = getTransaction(txid);
+                if(orig_tx != null)
+                {
+                    object orig_ms_data = orig_tx.GetMultisigData();
+                    byte[] signer_pub_key = null;
+                    byte[] signer_nonce = null;
+                    if (orig_ms_data is Transaction.MultisigAddrAdd)
+                    {
+                        var multisig_obj = (Transaction.MultisigAddrAdd)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else if (orig_ms_data is Transaction.MultisigAddrDel)
+                    {
+                        var multisig_obj = (Transaction.MultisigAddrDel)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else if (orig_ms_data is Transaction.MultisigChSig)
+                    {
+                        var multisig_obj = (Transaction.MultisigChSig)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else if (orig_ms_data is Transaction.MultisigTxData)
+                    {
+                        var multisig_obj = (Transaction.MultisigTxData)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else
+                    {
+                        // unknown MS transaction, discard
+                        failed_transactions.Add(orig_tx);
+                        orig_tx = null;
+                    }
+                    if (orig_tx != null)
+                    {
+                        byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
+                        signer_addresses.Add(signer_address);
+                    }
+                }
+                foreach (var tx_key in tmp_transactions)
                 {
                     if (!transactions.ContainsKey(tx_key))
                     {
@@ -552,6 +601,14 @@ namespace DLT
 
                         if (orig_txid == txid)
                         {
+                            if (orig_tx == null)
+                            {
+                                Logging.warn(String.Format("Multisig transaction {{ {0} }} signs a missing orig multisig transaction {1}!",
+                                    tx.id, orig_txid));
+                                failed_transactions.Add(tx);
+                                continue;
+                            }
+
                             byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
                             if (signer_addresses.Contains(signer_address, new ByteArrayComparer()))
                             {
@@ -569,6 +626,8 @@ namespace DLT
                                 failed_transactions.Add(tx);
                                 continue;
                             }
+
+                            signer_addresses.Add(signer_address);
 
                             num_related += 1;
                         }
@@ -2101,7 +2160,7 @@ namespace DLT
                 foreach (var entry in txs)
                 {
                     Transaction tx = (Transaction)entry[0];
-                    if ((new Address(tx.pubKey)).address.SequenceEqual(primary_address))
+                    if (primary_address == null || (new Address(tx.pubKey)).address.SequenceEqual(primary_address))
                     {
                         amount += tx.amount;
                     }

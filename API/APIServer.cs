@@ -543,8 +543,6 @@ namespace DLTNode
                 }
             }
 
-            string signer = request.QueryString["signer"];
-            byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
             IxiNumber fee = CoreConfig.transactionPrice;
 
             Transaction transaction = Transaction.multisigAddTxSignature(orig_txid, fee, destWallet, Node.blockChain.getLastBlockNum());
@@ -873,7 +871,10 @@ namespace DLTNode
 
         public JsonResponse onGetTotalBalance()
         {
-            return new JsonResponse { result = Node.walletStorage.getMyTotalBalance(Node.walletStorage.getPrimaryAddress()).ToString(), error = null };
+            IxiNumber balance = Node.walletStorage.getMyTotalBalance(Node.walletStorage.getPrimaryAddress());
+            // TODO TODO TODO TODO adapt the following line for v3 wallets
+            balance -= TransactionPool.getPendingSendingTransactionsAmount(null);
+            return new JsonResponse { result = balance.ToString(), error = null };
         }
 
         public JsonResponse onStress(HttpListenerRequest request)
@@ -1022,7 +1023,7 @@ namespace DLTNode
                 }
                 if (w.publicKey != null)
                 {
-                    walletData.Add("publicKey", w.publicKey.ToString());
+                    walletData.Add("publicKey", Crypto.hashToString(w.publicKey));
                 }
                 else
                 {
