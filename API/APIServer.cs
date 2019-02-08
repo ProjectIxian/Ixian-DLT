@@ -390,6 +390,13 @@ namespace DLTNode
             IxiNumber from_amount = 0;
             IxiNumber fee = CoreConfig.transactionPrice;
 
+            string r_auto_fee = request.QueryString["autofee"];
+            bool auto_fee = false;
+            if(r_auto_fee != null && (r_auto_fee.ToLower() == "true" || r_auto_fee == "1"))
+            {
+                auto_fee = true;
+            }
+
             string primary_address = request.QueryString["primaryAddress"];
             byte[] primary_address_bytes = null;
             if (primary_address == null)
@@ -400,7 +407,6 @@ namespace DLTNode
                 primary_address_bytes = Base58Check.Base58CheckEncoding.DecodePlain(primary_address);
             }
 
-            bool adjust_amount = false;
             SortedDictionary<byte[], IxiNumber> fromList = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
             if (request.QueryString["from"] != null)
             {
@@ -423,7 +429,7 @@ namespace DLTNode
                             break;
                         }
                         from_amount += singleFromAmount;
-                        fromList.Add(single_from_address, singleFromAmount);
+                        fromList.Add(single_from_nonce, singleFromAmount);
                     }
                 }
                 // Only create a transaction if there is a valid amount
@@ -491,7 +497,9 @@ namespace DLTNode
             }
 
             Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
-            if(adjust_amount)
+            //Logging.info(String.Format("Intial transaction size: {0}.", transaction.getBytes().Length));
+            //Logging.info(String.Format("Intial transaction set fee: {0}.", transaction.fee));
+            if(adjust_amount) //true only if automatically generating from address
             {
                 IxiNumber total_tx_fee = fee;
                 for (int i = 0; i < 2 && transaction.fee != total_tx_fee; i++)
@@ -504,6 +512,21 @@ namespace DLTNode
                     }
                     transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
                 }
+            } else if (auto_fee) // true if user specified both a valid from address and the parameter autofee=true
+            {
+                // fee is taken from the first specified address
+                byte[] first_address = fromList.Keys.First();
+                fromList[first_address] = fromList[first_address] + transaction.fee;
+                transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
+            }
+            //Logging.info(String.Format("Transaction size after automatic adjustments: {0}.", transaction.getBytes().Length));
+            //Logging.info(String.Format("Transaction fee after automatic adjustments: {0}.", transaction.fee));
+            // verify that all "from amounts" match all "to_amounts" and that the fee is included in "from_amounts"
+            // we need to recalculate "from_amount"
+            from_amount = fromList.Aggregate(new IxiNumber(), (sum, next) => sum + next.Value, sum => sum);
+            if(from_amount != (to_amount + transaction.fee))
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "From amounts (incl. fee) do not match to amounts. If you haven't accounted for the transaction fee in the from amounts, use the parameter 'autofee' to have the node do it automatically." } };
             }
             if (to_amount + transaction.fee > Node.walletStorage.getMyTotalBalance(primary_address_bytes))
             {
