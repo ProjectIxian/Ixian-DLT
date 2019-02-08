@@ -411,12 +411,11 @@ namespace DLTNode
                     {
                         string[] single_from_split = single_from.Split('_');
                         byte[] single_from_address = Base58Check.Base58CheckEncoding.DecodePlain(single_from_split[0]);
-                        // the user provides a normal address, but it has to be converted to the nonce value for internal use
-                        byte[] nonce = Node.walletStorage.getNonceFromAddress(single_from_address);
-                        if(nonce == null)
+                        if(!Node.walletStorage.isMyAddress(single_from_address))
                         {
-                            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY, message = "The From address does not belong to this node." } };
+                            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from address was specified" } };
                         }
+                        byte[] single_from_nonce = Node.walletStorage.getAddress(single_from_address).nonce;
                         IxiNumber singleFromAmount = new IxiNumber(single_from_split[1]);
                         if (singleFromAmount < 0 || singleFromAmount == 0)
                         {
@@ -424,7 +423,7 @@ namespace DLTNode
                             break;
                         }
                         from_amount += singleFromAmount;
-                        fromList.Add(nonce, singleFromAmount);
+                        fromList.Add(single_from_address, singleFromAmount);
                     }
                 }
                 // Only create a transaction if there is a valid amount
@@ -432,10 +431,6 @@ namespace DLTNode
                 {
                     return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid from amount was specified" } };
                 }
-            }
-            if(fromList.Count > 0)
-            {
-                adjust_amount = true;
             }
 
             IxiNumber to_amount = 0;
@@ -483,6 +478,7 @@ namespace DLTNode
                 pubKey = primary_address_bytes;
             }
 
+            bool adjust_amount = false;
             if (fromList.Count == 0)
             {
                 fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
@@ -547,8 +543,6 @@ namespace DLTNode
                 }
             }
 
-            string signer = request.QueryString["signer"];
-            byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
             IxiNumber fee = CoreConfig.transactionPrice;
 
             Transaction transaction = Transaction.multisigAddTxSignature(orig_txid, fee, destWallet, Node.blockChain.getLastBlockNum());
@@ -674,8 +668,6 @@ namespace DLTNode
 
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
-
-            byte[] tx_pub_key = null;
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
 
@@ -879,7 +871,10 @@ namespace DLTNode
 
         public JsonResponse onGetTotalBalance()
         {
-            return new JsonResponse { result = Node.walletStorage.getMyTotalBalance(Node.walletStorage.getPrimaryAddress()).ToString(), error = null };
+            IxiNumber balance = Node.walletStorage.getMyTotalBalance(Node.walletStorage.getPrimaryAddress());
+            // TODO TODO TODO TODO adapt the following line for v3 wallets
+            balance -= TransactionPool.getPendingSendingTransactionsAmount(null);
+            return new JsonResponse { result = balance.ToString(), error = null };
         }
 
         public JsonResponse onStress(HttpListenerRequest request)
@@ -1028,7 +1023,7 @@ namespace DLTNode
                 }
                 if (w.publicKey != null)
                 {
-                    walletData.Add("publicKey", w.publicKey.ToString());
+                    walletData.Add("publicKey", Crypto.hashToString(w.publicKey));
                 }
                 else
                 {

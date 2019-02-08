@@ -161,9 +161,16 @@ namespace DLT
             }
 
             // lock transaction v1 with block v2
-            if(transaction.version < 1 && Node.blockChain.getLastBlockVersion() >= 2)
+            if (transaction.version < 1 && Node.blockChain.getLastBlockVersion() >= 2)
             {
                 Logging.warn(String.Format("Transaction version is too low, network is using v1 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
+            // lock transaction v2 with block v3
+            if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= 3)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v2 as the lowest valid version. TXid: {0}.", transaction.id));
                 return false;
             }
 
@@ -204,14 +211,7 @@ namespace DLT
                 object[] pending = pendingTransactions.Find(x => ((Transaction)x[0]).id.SequenceEqual(transaction.id));
                 if (pending != null)
                 {
-                    if ((int)pending[2] > 2)
-                    {
-                        pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(transaction.id));
-                    }
-                    else
-                    {
-                        pending[2] = (int)pending[2] + 1;
-                    }
+                    pending[2] = (int)pending[2] + 1;
                 }
             }
 
@@ -417,7 +417,7 @@ namespace DLT
                 }
             }
 
-            if (pubkey == null || pubkey.Length != 523)
+            if (pubkey == null || pubkey.Length < 32 || pubkey.Length > 2500)
             {
                 Logging.warn(string.Format("Invalid pubkey for transaction id: {0}", transaction.id));
                 return false;
@@ -456,6 +456,10 @@ namespace DLT
                     if (Node.walletStorage.isMyAddress((new Address(t.pubKey)).address) || Node.walletStorage.extractMyAddressesFromAddressList(t.toList) != null)
                     {
                         ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
+                        lock (pendingTransactions)
+                        {
+                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                        }
                     }
 
                     if (t.applied == 0)
@@ -514,7 +518,49 @@ namespace DLT
                 {
                     tmp_transactions = block.transactions;
                 }
-                foreach(var tx_key in tmp_transactions)
+                Transaction orig_tx = getTransaction(txid);
+                if(orig_tx != null)
+                {
+                    object orig_ms_data = orig_tx.GetMultisigData();
+                    byte[] signer_pub_key = null;
+                    byte[] signer_nonce = null;
+                    if (orig_ms_data is Transaction.MultisigAddrAdd)
+                    {
+                        var multisig_obj = (Transaction.MultisigAddrAdd)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else if (orig_ms_data is Transaction.MultisigAddrDel)
+                    {
+                        var multisig_obj = (Transaction.MultisigAddrDel)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else if (orig_ms_data is Transaction.MultisigChSig)
+                    {
+                        var multisig_obj = (Transaction.MultisigChSig)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else if (orig_ms_data is Transaction.MultisigTxData)
+                    {
+                        var multisig_obj = (Transaction.MultisigTxData)orig_ms_data;
+                        signer_pub_key = multisig_obj.signerPubKey;
+                        signer_nonce = multisig_obj.signerNonce;
+                    }
+                    else
+                    {
+                        // unknown MS transaction, discard
+                        failed_transactions.Add(orig_tx);
+                        orig_tx = null;
+                    }
+                    if (orig_tx != null)
+                    {
+                        byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
+                        signer_addresses.Add(signer_address);
+                    }
+                }
+                foreach (var tx_key in tmp_transactions)
                 {
                     if (!transactions.ContainsKey(tx_key))
                     {
@@ -552,6 +598,14 @@ namespace DLT
 
                         if (orig_txid == txid)
                         {
+                            if (orig_tx == null)
+                            {
+                                Logging.warn(String.Format("Multisig transaction {{ {0} }} signs a missing orig multisig transaction {1}!",
+                                    tx.id, orig_txid));
+                                failed_transactions.Add(tx);
+                                continue;
+                            }
+
                             byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
                             if (signer_addresses.Contains(signer_address, new ByteArrayComparer()))
                             {
@@ -569,6 +623,8 @@ namespace DLT
                                 failed_transactions.Add(tx);
                                 continue;
                             }
+
+                            signer_addresses.Add(signer_address);
 
                             num_related += 1;
                         }
@@ -2009,22 +2065,38 @@ namespace DLT
                 {
                     Transaction t = (Transaction)entry[0];
                     long tx_time = (long)entry[1];
+                    if((int)entry[2] > 3) // already received 3+ feedback
+                    {
+                        continue;
+                    }
 
                     // if transaction expired, remove it from pending transactions
                     if(t.blockHeight < Node.getLastBlockHeight() - CoreConfig.getRedactedWindowSize())
                     {
+                        ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                         pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                         continue;
                     }
 
                     // check if PoW and if already solved
-                    if(t.type == (int)Transaction.Type.PoWSolution)
+                    if (t.type == (int)Transaction.Type.PoWSolution)
                     {
                         ulong pow_block_num = BitConverter.ToUInt64(t.data, 0);
 
                         Block tmpBlock = Node.blockChain.getBlock(pow_block_num);
                         if (tmpBlock == null || tmpBlock.powField != null)
                         {
+                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
+                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        // check if transaction is still valid
+                        if (!verifyTransaction(t))
+                        {
+                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                             pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                             continue;
                         }
@@ -2101,7 +2173,7 @@ namespace DLT
                 foreach (var entry in txs)
                 {
                     Transaction tx = (Transaction)entry[0];
-                    if ((new Address(tx.pubKey)).address.SequenceEqual(primary_address))
+                    if (primary_address == null || (new Address(tx.pubKey)).address.SequenceEqual(primary_address))
                     {
                         amount += tx.amount;
                     }

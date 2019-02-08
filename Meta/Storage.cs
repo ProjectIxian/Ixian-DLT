@@ -90,6 +90,18 @@ namespace DLT
             // Creates the storage file if not found
             public static bool prepareStorage()
             {
+                var files = Directory.EnumerateFiles(path + Path.DirectorySeparatorChar + "0000", "*.dat-shm");
+                foreach (var file in files)
+                {
+                    File.Delete(file);
+                }
+
+                files = Directory.EnumerateFiles(path + Path.DirectorySeparatorChar + "0000", "*.dat-wal");
+                foreach (var file in files)
+                {
+                    File.Delete(file);
+                }
+
                 // Get latest block number to initialize the cache as well
                 ulong last_block = getLastBlockNum();
                 Logging.info(string.Format("Last storage block number is: #{0}", last_block));

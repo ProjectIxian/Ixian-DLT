@@ -98,6 +98,10 @@ namespace DLT
                 }
 
                 int block_version = Block.maxVersion;
+                if(Node.getLastBlockHeight() == 0)
+                {
+                    block_version = 2; // TODO TODO TODO TODO for now force this to block version 2 due to checksum changes if anyone will create his own genesis block, later we'll fix this, once genesis is included in file
+                }
 
                 bool forceNextBlock = Node.forceNextBlock;
                 Random rnd = new Random();
@@ -649,11 +653,19 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version >= 2)
+                else if (b.version == 2)
                 {
                     if (t.version < 1 || t.version > 2)
                     {
                         Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 1 or 2!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }
+                else if (b.version > 2)
+                {
+                    if (t.version < 2 || t.version > 3)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 2 or 3!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
                 }

@@ -632,7 +632,7 @@ namespace DLT
 
 
 
-                                data_checksum = reader.ReadBytes(32); // sha256, 8 bits per byte
+                                data_checksum = reader.ReadBytes(32); // sha512qu, 32 bytes
                                 byte header_checksum = reader.ReadByte();
                                 byte endByte = reader.ReadByte();
                                 data = reader.ReadBytes(data_length);
@@ -643,7 +643,7 @@ namespace DLT
                                 return;
                             }
                             // Compute checksum of received data
-                            byte[] local_checksum = Crypto.sha512sqTrunc(data, 0, 0, 16);
+                            byte[] local_checksum = Crypto.sha512sqTrunc(data, 0, 0, 32);
 
                             // Verify the checksum before proceeding
                             if (local_checksum.SequenceEqual(data_checksum) == false)
