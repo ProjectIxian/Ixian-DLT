@@ -30,6 +30,19 @@ namespace DLTNode
         [DllImport("kernel32.dll")]
         static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
 
+        [DllImport("Kernel32")]
+        static extern bool SetConsoleCtrlHandler(HandlerRoutine Handler, bool Add);
+
+        delegate bool HandlerRoutine(CtrlTypes CtrlType);
+
+        enum CtrlTypes
+        {
+            CTRL_C_EVENT = 0,
+            CTRL_BREAK_EVENT,
+            CTRL_CLOSE_EVENT,
+            CTRL_LOGOFF_EVENT = 5,
+            CTRL_SHUTDOWN_EVENT
+        }
 
         static void CheckRequiredFiles()
         {
@@ -211,6 +224,10 @@ namespace DLTNode
 
             // Start logging
             Logging.start();
+
+            // Hook a handler for force close
+            Logging.info("Installing an event handler to catch close commands.");
+            SetConsoleCtrlHandler(new HandlerRoutine(HandleConsoleClose), true);
 
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
@@ -455,6 +472,45 @@ namespace DLTNode
                 Console.WriteLine("");
                 Console.WriteLine("Ixian DLT Node stopped.");
             }
+        }
+
+        static bool HandleConsoleClose(CtrlTypes type)
+        {
+            switch(type)
+            {
+                case CtrlTypes.CTRL_C_EVENT:
+                case CtrlTypes.CTRL_BREAK_EVENT:
+                    return true; // ignore these, as they will be caught by the managed event handler in Main()
+                case CtrlTypes.CTRL_CLOSE_EVENT:
+                case CtrlTypes.CTRL_LOGOFF_EVENT:
+                case CtrlTypes.CTRL_SHUTDOWN_EVENT:
+                    Logging.info("Application is being closed! Shutting down!");
+                    Node.apiServer.forceShutdown = true;
+                    // Wait (max 5 seconds) for everything to die
+                    DateTime waitStart = DateTime.Now;
+                    while(true)
+                    {
+                        if(Process.GetCurrentProcess().Threads.Count > 1)
+                        {
+                            Thread.Sleep(50);
+                        } else
+                        {
+                            Logging.info(String.Format("Graceful shutdown achieved in {0} seconds.", (DateTime.Now - waitStart).TotalSeconds));
+                            break;
+                        }
+                        if((DateTime.Now - waitStart).TotalSeconds > 30)
+                        {
+                            Logging.warn("Unable to gracefully shutdown. Aborting. Threads that are still alive: ");
+                            foreach(Thread t in Process.GetCurrentProcess().Threads)
+                            {
+                                Logging.warn(String.Format("Thread {0}: {1}.", t.ManagedThreadId, t.Name));
+                            }
+                            break;
+                        }
+                    }
+                    return true;
+            }
+            return true;
         }
 
 
