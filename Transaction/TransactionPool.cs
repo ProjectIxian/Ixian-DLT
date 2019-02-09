@@ -2061,6 +2061,7 @@ namespace DLT
                 long cur_time = Clock.getTimestamp();
                 List<object[]> tmp_pending_transactions = new List<object[]>(pendingTransactions);
                 int idx = 0;
+                ulong last_block_height = Node.getLastBlockHeight();
                 foreach(var entry in tmp_pending_transactions)
                 {
                     Transaction t = (Transaction)entry[0];
@@ -2070,8 +2071,14 @@ namespace DLT
                         continue;
                     }
 
+                    if (t.applied != 0)
+                    {
+                        pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                        continue;
+                    }
+
                     // if transaction expired, remove it from pending transactions
-                    if(t.blockHeight < Node.getLastBlockHeight() - CoreConfig.getRedactedWindowSize())
+                    if (last_block_height > CoreConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - CoreConfig.getRedactedWindowSize())
                     {
                         ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                         pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
@@ -2094,7 +2101,7 @@ namespace DLT
                     else
                     {
                         // check if transaction is still valid
-                        if (!verifyTransaction(t))
+                        if (getTransaction(t.id) == null && !verifyTransaction(t))
                         {
                             ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                             pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));

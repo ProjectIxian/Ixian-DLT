@@ -483,8 +483,14 @@ namespace DLTNode
                 case CtrlTypes.CTRL_CLOSE_EVENT:
                 case CtrlTypes.CTRL_LOGOFF_EVENT:
                 case CtrlTypes.CTRL_SHUTDOWN_EVENT:
+                    Console.WriteLine();
                     Logging.info("Application is being closed! Shutting down!");
-                    Node.apiServer.forceShutdown = true;
+                    noStart = true;
+                    if (Node.apiServer != null)
+                    {
+                        Node.apiServer.forceShutdown = true;
+                    }
+                    Logging.flush();
                     // Wait (max 5 seconds) for everything to die
                     DateTime waitStart = DateTime.Now;
                     while(true)
