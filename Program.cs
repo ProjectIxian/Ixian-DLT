@@ -226,7 +226,6 @@ namespace DLTNode
             Logging.start();
 
             // Hook a handler for force close
-            Logging.info("Installing an event handler to catch close commands.");
             SetConsoleCtrlHandler(new HandlerRoutine(HandleConsoleClose), true);
 
             // For testing only. Run any experiments here as to not affect the infrastructure.

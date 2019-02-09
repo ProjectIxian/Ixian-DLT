@@ -786,7 +786,7 @@ namespace DLT
                         long timeDiff = endpoint.calculateTimeDifference();
 
                         // amortize +- 2 seconds
-                        if (timeDiff > -2 && timeDiff < 2)
+                        if (timeDiff >= -2 && timeDiff <= 2)
                         {
                             timeDiff = 0;
                         }

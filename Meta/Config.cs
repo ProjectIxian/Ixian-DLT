@@ -83,7 +83,10 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234] [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234] [--disableWebStart] [--disableMiner] [--genesis] [--netdump dumpfile] [--recover] [--forceTimeOffset 0]");
+                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
+                Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
+                Console.WriteLine(" [--disableWebStart] [--disableMiner] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover]");
+                Console.WriteLine(" [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--walletPassword]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -106,14 +109,14 @@ namespace DLT
                 Console.WriteLine("    --disableMiner\t Disable miner");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
-                Console.WriteLine("    --genesis\t\t Start node in genesis mode");
+                Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
                 Console.WriteLine("    --netdump\t\t Enable netdump for debugging purposes");
-                Console.WriteLine("    --benchmarkKeys [key size]\t\t Perform a key-generation benchmark, then exit");
+                Console.WriteLine("    --benchmarkKeys\t Perform a key-generation benchmark, then exit");
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
-				Console.WriteLine("    --fullStorageDataVerification\t Verify blocks and transactions fully even if read from local storage");
+				Console.WriteLine("    --verifyStorage\t Full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
-                Console.WriteLine("    --walletPassword\t Speficies the password for the wallet. [TESTNET ONLY!]");
+                Console.WriteLine("    --walletPassword\t Specify the password for the wallet. [TESTNET ONLY!]");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue semantics.");
@@ -132,6 +135,9 @@ namespace DLT
                 Console.WriteLine("    addTestnetPeer\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
                 Console.WriteLine("    maxLogSize\t\t Specify maximum log file size in MB (same as --maxLogSize CLI)");
                 Console.WriteLine("    maxLogCount\t\t Specify maximum number of log files (same as --maxLogCount CLI)");
+                Console.WriteLine("    disableMiner\t 1 to disable the miner, 0 to enable (same as --disableMiner CLI)");
+                Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
+                Console.WriteLine("    forceTimeOffset\t Forces network time offset to the specified value (same as --forceTimeOffset CLI)");
 
                 return "";
             }
@@ -167,7 +173,7 @@ namespace DLT
                     {
                         continue;
                     }
-
+                    Logging.info("Processing config parameter '" + key + "' = '" + value + "'");
                     switch (key)
                     {
                         case "dltPort":
@@ -204,8 +210,24 @@ namespace DLT
                         case "maxLogCount":
                             maxLogCount = int.Parse(value);
                             break;
+                        case "disableMiner":
+                            if (int.Parse(value) != 0)
+                            {
+                                disableMiner = true;
+                            }
+                            break;
+                        case "disableWebStart":
+                            if (int.Parse(value) != 0)
+                            {
+                                disableWebStart = true;
+                            }
+                            break;
+                        case "forceTimeOffset":
+                            forceTimeOffset = int.Parse(value);
+                            break;
                         default:
                             // unknown key
+                            Logging.warn("Unknown config parameter was specified '" + key + "'");
                             break;
                     }
                 }
@@ -213,16 +235,21 @@ namespace DLT
 
             public static void readFromCommandLine(string[] args)
             {
-                //Logging.log(LogSeverity.info, "Reading config...");
-
                 // first pass
                 var cmd_parser = new FluentCommandLineParser();
 
+                // help
+                cmd_parser.SetupHelp("h", "help").Callback(text => outputHelp());
 
                 // config file
                 cmd_parser.Setup<string>("config").Callback(value => configFilename = value).Required();
 
                 cmd_parser.Parse(args);
+
+                if(DLTNode.Program.noStart)
+                {
+                    return;
+                }
 
                 readConfigFile(configFilename);
 
@@ -252,9 +279,6 @@ namespace DLT
                 cmd_parser = new FluentCommandLineParser();
 
                 bool start_clean = false; // Flag to determine if node should delete cache+logs
-
-                // help
-                cmd_parser.SetupHelp("h", "help").Callback(text => outputHelp());
 
                 // version
                 cmd_parser.Setup<bool>('v', "version").Callback(text => outputVersion());
@@ -303,7 +327,7 @@ namespace DLT
 
                 cmd_parser.Setup<bool>("disableMiner").Callback(value => disableMiner = true).Required();
 
-                cmd_parser.Setup<bool>("fullStorageDataVerification").Callback(value => fullStorageDataVerification = true).Required();
+                cmd_parser.Setup<bool>("verifyStorage").Callback(value => fullStorageDataVerification = true).Required();
                 
 
                 // Debug
