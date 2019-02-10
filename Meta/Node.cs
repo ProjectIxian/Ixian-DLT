@@ -19,7 +19,7 @@ namespace DLT.Meta
         public static BlockChain blockChain = null;
         public static BlockProcessor blockProcessor = null;
         public static BlockSync blockSync = null;
-        public static WalletStorage walletStorage = null;
+        public static DLTWalletStorage walletStorage = null;
         public static Miner miner = null;
         public static WalletState walletState = null;
 
@@ -56,7 +56,7 @@ namespace DLT.Meta
             NodeLegacy.upgrade();
 
             // Load or Generate the wallet
-            walletStorage = new WalletStorage(Config.walletFile);
+            walletStorage = new DLTWalletStorage(Config.walletFile);
             if (walletStorage.getPrimaryPublicKey() == null)
             {
                 running = false;
