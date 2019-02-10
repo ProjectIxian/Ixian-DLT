@@ -177,7 +177,13 @@ namespace DLTNode
 
             if(methodName.Equals("calculatetransactionfee", StringComparison.OrdinalIgnoreCase))
             {
-                response = onCalculateTransactionFee(request);
+                if (request.QueryString["autofee"] != null)
+                {
+                    response = new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Automatic fee generation is invalid for `calculatetransactionfee`." } };
+                } else
+                {
+                    response = onCalculateTransactionFee(request);
+                }
             }
 
             if (methodName.Equals("addmultisigtransaction", StringComparison.OrdinalIgnoreCase))
@@ -488,6 +494,11 @@ namespace DLTNode
             object res = "Incorrect transaction parameters.";
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            if(destWallet == null)
+            {
+                error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "wallet parameter is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
             string orig_txid = request.QueryString["origtx"];
             if (orig_txid == null)
             {
@@ -499,7 +510,7 @@ namespace DLTNode
                 Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
                 if (orig_tx == null)
                 {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Original tx " + orig_txid + " not found" };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Original tx " + orig_txid + " not found" };
                     return new JsonResponse { result = null, error = error };
                 }
             }
@@ -514,7 +525,8 @@ namespace DLTNode
             }
             else
             {
-                res = "There was an error adding the transaction.";
+                error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "There was an error adding the transaction." };
+                res = null;
             }
 
             return new JsonResponse { result = res, error = error };
@@ -562,20 +574,24 @@ namespace DLTNode
             }
 
             byte[] from = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["from"]);
-
+            if(Node.walletState.getWallet(from).type != WalletType.Multisig)
+            {
+                error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "The specified 'from' wallet is not a multisig wallet." };
+                return new JsonResponse { result = null, error = error };
+            }
             // Only create a transaction if there is a valid amount
             if (amount > 0)
             {
                 Transaction transaction = Transaction.multisigTransaction(fee, toList, from, Node.blockChain.getLastBlockNum());
                 if(transaction == null)
                 {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "An error occured while creating multisig transaction" };
                     return new JsonResponse { result = null, error = error };
                 }
                 Wallet wallet = Node.walletState.getWallet(from);
                 if (wallet.balance < transaction.amount + transaction.fee)
                 {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Your account's balance is less than the sending amount + fee." };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Your account's balance is less than the sending amount + fee." };
                     return new JsonResponse { result = null, error = error };
                 }
                 else
@@ -587,7 +603,7 @@ namespace DLTNode
                     }
                     else
                     {
-                        error = new JsonError { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "An error occured while creating multisig transaction" };
+                        error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "An error occured while creating multisig transaction" };
                         return new JsonResponse { result = null, error = error };
                     }
                 }
@@ -601,11 +617,17 @@ namespace DLTNode
             JsonError error = null;
 
             // transaction which alters a multisig wallet
-            object res = "Incorrect transaction parameters.";
-
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            if (destWallet == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Parameter 'wallet' is missing." } };
+            }
 
             string signer = request.QueryString["signer"];
+            if (signer == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Parameter 'signer' is missing." } };
+            }
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
             IxiNumber fee = CoreConfig.transactionPrice;
 
@@ -613,14 +635,9 @@ namespace DLTNode
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
-                res = transaction.toDictionary();
+                return new JsonResponse { result = transaction.toDictionary(), error = null };
             }
-            else
-            {
-                res = "There was an error adding the transaction.";
-            }
-
-            return new JsonResponse { result = res, error = error };
+            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Error while creating the transaction." } };
         }
 
         public JsonResponse onDelMultiSigKey(HttpListenerRequest request)
