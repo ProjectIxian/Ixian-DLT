@@ -1285,7 +1285,20 @@ namespace DLT
                                         if (message.Length > 0)
                                             Logging.info(string.Format("Disconnected with message: {0}", message));
                                         else
-                                            Logging.info("Disconnected");                                        
+                                            Logging.info("Disconnected");
+
+                                        // TODO TODO TODO TODO remove this after upgrade as it won't be needed
+                                        // Convert to Worker node if possible
+                                        if (message.StartsWith("Insufficient funds"))
+                                        {
+
+                                            if (Config.disableMiner == false)
+                                            {
+                                                Logging.info("Reconnecting in Worker mode.");
+                                                Node.convertToWorkerNode();
+                                            }
+                                            return;
+                                        }
                                     }
                                 }
                             }

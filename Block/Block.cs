@@ -451,11 +451,15 @@ namespace DLT
 
         public byte[] getSignerPubKey(byte[] address_or_pub_key)
         {
-            if(address_or_pub_key.Length == 523)
+            if(address_or_pub_key == null)
+            {
+                return null;
+            }
+            if (address_or_pub_key.Length > 128 && address_or_pub_key.Length < 2500)
             {
                 return address_or_pub_key;
             }
-            if (address_or_pub_key.Length < 70)
+            if (address_or_pub_key.Length >= 36 && address_or_pub_key.Length <= 128)
             {
                 // Extract the public key from the walletstate
                 Wallet signer_wallet = Node.walletState.getWallet(address_or_pub_key);

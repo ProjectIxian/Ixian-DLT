@@ -182,7 +182,7 @@ namespace DLT.Meta
                 }
             }
 
-            char node_type = 'W';
+            char node_type = 'M'; // TODO TODO TODO TODO change this to 'W' or 'C' after the upgrade
 
             if(Config.disableMiner)
             {
@@ -602,14 +602,14 @@ namespace DLT.Meta
                         {
                             if (!isWorkerNode())
                             {
-                                Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a client node.",
-                                    CoreConfig.minimumMasterNodeFunds)));
+                                Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a worker node.",
+                                    CoreConfig.minimumMasterNodeFunds));
                                 convertToWorkerNode();
                             }
                         }else
                         {
                             Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a client node.",
-                                CoreConfig.minimumMasterNodeFunds)));
+                                CoreConfig.minimumMasterNodeFunds));
                             convertToClientNode();
                         }
                         return false;
