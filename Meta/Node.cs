@@ -39,7 +39,6 @@ namespace DLT.Meta
         // Private
         private static Thread keepAliveThread;
         private static bool autoKeepalive = false;
-        private static bool workerMode = false;
 
         private static Thread maintenanceThread;
 
@@ -183,13 +182,23 @@ namespace DLT.Meta
                 }
             }
 
-            // Generate presence list
-            char type = 'M';
-            if (Config.storeFullHistory)
+            char node_type = 'W';
+
+            if(Config.disableMiner)
             {
-                type = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
+                node_type = 'M';
             }
-            PresenceList.generatePresenceList(Config.publicServerIP, type);
+
+            // Check if we're in worker-only mode
+            if (Config.workerOnly)
+            {
+                // Enable miner
+                Config.disableMiner = false;
+                node_type = 'W';
+            }
+
+            // Generate presence list
+            PresenceList.generatePresenceList(Config.publicServerIP, node_type);
 
             // Initialize storage
             Storage.prepareStorage();
@@ -212,15 +221,6 @@ namespace DLT.Meta
             if (IXICore.Platform.onMono() == false && !Config.disableWebStart)
             {
                 System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
-            }
-
-            // Check if we're in worker-only mode
-            if (Config.workerOnly)
-            {
-                // Enable miner
-                Config.disableMiner = false;
-                workerMode = true;
-                PresenceList.curNodePresenceAddress.type = 'W';
             }
 
             miner = new Miner();
@@ -359,6 +359,11 @@ namespace DLT.Meta
             // Start the maintenance thread
             maintenanceThread = new Thread(performMaintenance);
             maintenanceThread.Start();
+        }
+
+        static public char getNodeType()
+        {
+            return PresenceList.curNodePresenceAddress.type;
         }
 
         static public bool update()
@@ -582,21 +587,31 @@ namespace DLT.Meta
                 if (Node.blockChain.getLastBlockNum() > 2)
                 {
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.getPrimaryAddress());
-                    if(isWorkerNode())
+                    if(!isMasterNode())
                     {
                         if (nodeBalance > CoreConfig.minimumMasterNodeFunds)
                         {
-                            Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", nodeBalance));
+                            Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", CoreConfig.minimumMasterNodeFunds));
                             convertToMasterNode();
                         }
                     }
                     else
                     if (nodeBalance < CoreConfig.minimumMasterNodeFunds)
                     {
-                        Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode.\nSend more IXIs to {1} and restart the node.", 
-                            CoreConfig.minimumMasterNodeFunds, Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress())));
-                        //Node.stop();
-                        //running = false;
+                        if (Config.disableMiner == false)
+                        {
+                            if (!isWorkerNode())
+                            {
+                                Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a client node.",
+                                    CoreConfig.minimumMasterNodeFunds)));
+                                convertToWorkerNode();
+                            }
+                        }else
+                        {
+                            Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a client node.",
+                                CoreConfig.minimumMasterNodeFunds)));
+                            convertToClientNode();
+                        }
                         return false;
                     }
                 }
@@ -822,11 +837,22 @@ namespace DLT.Meta
         // Convert this masternode to a worker node
         public static void convertToWorkerNode()
         {
-            if (workerMode)
+            if (getNodeType() == 'W')
                 return;
 
-            workerMode = true;
             PresenceList.curNodePresenceAddress.type = 'W';
+
+            NetworkClientManager.restartClients();
+            NetworkServer.stopNetworkOperations();
+        }
+
+        // Convert this masternode to a worker node
+        public static void convertToClientNode()
+        {
+            if (getNodeType() == 'C')
+                return;
+
+            PresenceList.curNodePresenceAddress.type = 'C';
 
             NetworkClientManager.restartClients();
             NetworkServer.stopNetworkOperations();
@@ -835,10 +861,9 @@ namespace DLT.Meta
         // Convert this worker node to a masternode
         public static void convertToMasterNode()
         {
-            if (!workerMode)
+            if (getNodeType() == 'M' || getNodeType() == 'H')
                 return;
 
-            workerMode = false;
             if (Config.storeFullHistory)
             {
                 PresenceList.curNodePresenceAddress.type = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
@@ -855,7 +880,16 @@ namespace DLT.Meta
 
         public static bool isWorkerNode()
         {
-            return workerMode;
+            if (getNodeType() == 'W')
+                return true;
+            return false;
+        }
+
+        public static bool isMasterNode()
+        {
+            if (getNodeType() == 'M' || getNodeType() == 'H')
+                return true;
+            return false;
         }
 
         public static ulong getLastBlockHeight()

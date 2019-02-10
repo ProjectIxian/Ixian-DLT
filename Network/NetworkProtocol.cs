@@ -315,7 +315,7 @@ namespace DLT
                                 return true;
                             }
                         }
-                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
+                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
                     }
                 }
             }
@@ -355,7 +355,7 @@ namespace DLT
                             }
                         }
                         // TODO TODO TODO TODO TODO determine if historic transaction and send to 'H' instead of 'M'
-                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
+                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
                     }
                 }
             }
@@ -377,7 +377,7 @@ namespace DLT
                                 return true;
                             }
                         }
-                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
+                        return broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
                     }
                 }
             }
@@ -896,15 +896,7 @@ namespace DLT
                         writer.Write(Config.isTestNet);
 
                         // Send the node type
-                        char node_type = 'M'; // This is a Master node
-
-                        if(Config.storeFullHistory)
-                        {
-                            node_type = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
-                        }
-
-                        if (Node.isWorkerNode())
-                            node_type = 'W'; // This is a Worker node
+                        char node_type =  Node.getNodeType(); // This is a Master node
 
                         writer.Write(node_type);
 
@@ -1293,22 +1285,7 @@ namespace DLT
                                         if (message.Length > 0)
                                             Logging.info(string.Format("Disconnected with message: {0}", message));
                                         else
-                                            Logging.info("Disconnected");
-
-                                        // Convert to Worker node if possible
-                                        if (message.StartsWith("Insufficient funds"))
-                                        {
-
-                                            if (Config.disableMiner == false)
-                                            {
-                                                Logging.info("Reconnecting in Worker mode.");
-                                                Node.convertToWorkerNode();
-                                            }
-                                            return;
-                                        }
-
-                                        
-                                        
+                                            Logging.info("Disconnected");                                        
                                     }
                                 }
                             }

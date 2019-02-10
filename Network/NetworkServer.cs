@@ -45,9 +45,9 @@ namespace DLT
                     return;
                 }
 
-                if(Node.isWorkerNode())
+                if(!Node.isMasterNode())
                 {
-                    Logging.info("Network server is not enabled when in Worker mode.");
+                    Logging.info("Network server is not enabled in modes other than master node.");
                     return;
                 }
 

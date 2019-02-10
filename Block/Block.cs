@@ -341,7 +341,7 @@ namespace DLT
         // Applies this node's signature to this block
         public bool applySignature()
         {
-            if (Node.isWorkerNode())
+            if (!Node.isMasterNode())
             {
                 return true;
             }

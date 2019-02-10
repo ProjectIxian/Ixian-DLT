@@ -485,12 +485,12 @@ namespace DLTNode
                 case CtrlTypes.CTRL_SHUTDOWN_EVENT:
                     Console.WriteLine();
                     Logging.info("Application is being closed! Shutting down!");
+                    Logging.flush();
                     noStart = true;
                     if (Node.apiServer != null)
                     {
                         Node.apiServer.forceShutdown = true;
                     }
-                    Logging.flush();
                     // Wait (max 5 seconds) for everything to die
                     DateTime waitStart = DateTime.Now;
                     while(true)
@@ -500,15 +500,15 @@ namespace DLTNode
                             Thread.Sleep(50);
                         } else
                         {
-                            Logging.info(String.Format("Graceful shutdown achieved in {0} seconds.", (DateTime.Now - waitStart).TotalSeconds));
+                            Console.WriteLine(String.Format("Graceful shutdown achieved in {0} seconds.", (DateTime.Now - waitStart).TotalSeconds));
                             break;
                         }
                         if((DateTime.Now - waitStart).TotalSeconds > 30)
                         {
-                            Logging.warn("Unable to gracefully shutdown. Aborting. Threads that are still alive: ");
+                            Console.WriteLine("Unable to gracefully shutdown. Aborting. Threads that are still alive: ");
                             foreach(Thread t in Process.GetCurrentProcess().Threads)
                             {
-                                Logging.warn(String.Format("Thread {0}: {1}.", t.ManagedThreadId, t.Name));
+                                Console.WriteLine(String.Format("Thread {0}: {1}.", t.ManagedThreadId, t.Name));
                             }
                             break;
                         }

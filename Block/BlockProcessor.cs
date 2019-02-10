@@ -903,14 +903,14 @@ namespace DLT
                         Logging.info(String.Format("Block #{0} received from the network is the block we are currently working on. Merging signatures.", b.blockNum));
                         if(localNewBlock.addSignaturesFrom(b))
                         {
-                            if (Node.isWorkerNode())
+                            if (!Node.isMasterNode())
                                 return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
                             Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }else if(localNewBlock.signatures.Count != b.signatures.Count)
                         {
-                            if (Node.isWorkerNode())
+                            if (!Node.isMasterNode())
                                 return;
                             Logging.info(String.Format("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
@@ -927,7 +927,7 @@ namespace DLT
                         }
                         else
                         {
-                            if (Node.isWorkerNode())
+                            if (!Node.isMasterNode())
                                 return;
                             // discard with a warning, likely spam, resend our local block
                             Logging.info(String.Format("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
@@ -1049,7 +1049,7 @@ namespace DLT
                     {
                         if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                         {
-                            if (!Node.isWorkerNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                            if (Node.isMasterNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
                             {
                                 ProtocolMessage.broadcastNewBlock(localNewBlock);
                             }
@@ -1142,7 +1142,7 @@ namespace DLT
                     }
                     else
                     {
-                        if (Node.isWorkerNode() == false)
+                        if (Node.isMasterNode())
                         {
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
                             Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
@@ -1467,7 +1467,7 @@ namespace DLT
         // Generate a new block
         public void generateNewBlock(int block_version)
         {
-            if (Node.isWorkerNode())
+            if (!Node.isMasterNode())
             {
                 return;
             }
