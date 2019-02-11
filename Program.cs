@@ -172,15 +172,30 @@ namespace DLTNode
             }
         }
 
+        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
+        static void installUnhandledExceptionHandler()
+        {
+            System.AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        }
+
+        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Logging.error(String.Format("Exception was triggered and not handled. Please send this log to the Ixian developers!"));
+            Logging.error(e.ExceptionObject.ToString());
+        }
+
         private static System.Timers.Timer mainLoopTimer;
 
         public static bool noStart = false;
 
-        static void prepareConsole()
+        // Handle Windows OS-specific calls
+        static void prepareWindowsConsole()
         {
             // Ignore if we're on Mono
             if (IXICore.Platform.onMono())
                 return;
+
+            installUnhandledExceptionHandler();
 
             IntPtr consoleHandle = GetStdHandle(STD_INPUT_HANDLE);
 
@@ -200,33 +215,19 @@ namespace DLTNode
             {
                 // ERROR: Unable to set console mode
             }
-        }
-
-        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
-        static void installUnhandledExceptionHandler()
-        {
-            System.AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-        }
-
-        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            Logging.error(String.Format("Exception was triggered and not handled. Please send this log to the Ixian developers!"));
-            Logging.error(e.ExceptionObject.ToString());
-        }
-
-        static void Main(string[] args)
-        {
-            installUnhandledExceptionHandler();
-            
-            Console.Clear();
-
-            prepareConsole();
-
-            // Start logging
-            Logging.start();
 
             // Hook a handler for force close
             SetConsoleCtrlHandler(new HandlerRoutine(HandleConsoleClose), true);
+        }
+
+        static void Main(string[] args)
+        {            
+            Console.Clear();
+
+            prepareWindowsConsole();
+
+            // Start logging
+            Logging.start();
 
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
