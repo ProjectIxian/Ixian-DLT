@@ -331,6 +331,11 @@ namespace DLTNode
                 response = onGenerateNewAddress(request);
             }
 
+            if (methodName.Equals("countnodeversions", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onCountNodeVersions(request);
+            }
+
             bool resources = false;
 
             if (methodName.Equals("resources", StringComparison.OrdinalIgnoreCase))
@@ -1287,6 +1292,28 @@ namespace DLTNode
             {
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_ERROR, message = "Error occured while generating a new address" } };
             }
+        }
+
+        private JsonResponse onCountNodeVersions(HttpListenerRequest request)
+        {
+            Dictionary<string, int> versions = new Dictionary<string, int>();
+
+            lock (PresenceList.presences)
+            {
+                foreach (var entry in PresenceList.presences)
+                {
+                    foreach (var pa_entry in entry.addresses)
+                    {
+                        if(!versions.ContainsKey(pa_entry.nodeVersion))
+                        {
+                            versions.Add(pa_entry.nodeVersion, 0);
+                        }
+                        versions[pa_entry.nodeVersion]++;
+                    }
+                }
+            }
+
+            return new JsonResponse { result = versions, error = null };
         }
 
         // This is a bit hacky way to return useful error values
