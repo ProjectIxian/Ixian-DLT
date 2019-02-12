@@ -912,7 +912,13 @@ namespace DLT
                     }
                     else
                     {
-                        if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                        Block b = Node.blockChain.getBlock(block_height, true);
+                        int block_version = b.version;
+                        if(b.walletStateChecksum.Length == 32)
+                        {
+                            block_version = 2;
+                        }
+                        if (Node.walletState.calculateWalletStateChecksum(b.version).SequenceEqual(walletstate_checksum))
                         {
                             wsSyncConfirmedBlockNum = block_height;
                             wsSynced = true;
@@ -971,7 +977,12 @@ namespace DLT
                 else
                 {
                     Block b = Node.blockChain.getBlock(wsSyncConfirmedBlockNum, true);
-                    if (b == null || !Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
+                    int block_version = b.version;
+                    if (b.walletStateChecksum.Length == 32)
+                    {
+                        block_version = 2;
+                    }
+                    if (b == null || !Node.walletState.calculateWalletStateChecksum(block_version).SequenceEqual(b.walletStateChecksum))
                     {
                         Logging.error("BlockSync WatchDog: Wallet state mismatch");
                         return;

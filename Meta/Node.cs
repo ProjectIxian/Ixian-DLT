@@ -325,7 +325,7 @@ namespace DLT.Meta
                 }
                 else
                 {
-                    ulong blockNum = WalletStateStorage.restoreWalletState();
+                    ulong blockNum = WalletStateStorage.restoreWalletState(lastLocalBlockNum);
                     if(blockNum > 0)
                     {
                         Block b = blockChain.getBlock(blockNum, true);

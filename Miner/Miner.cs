@@ -52,8 +52,8 @@ namespace DLT
 
         byte[] activeBlockChallenge = null;
 
-        [ThreadStatic] private static Random random = null; // Used for random nonce
-        [ThreadStatic] private static long randomCounter = 0;
+        private static Random random = new Random(); // used to seed initial curNonce's
+        [ThreadStatic] private static byte[] curNonce = null; // Used for random nonce
 
         private static List<ulong> solvedBlocks = new List<ulong>(); // Maintain a list of solved blocks to prevent duplicate work
         private static long solvedBlockCount = 0;
@@ -410,15 +410,29 @@ namespace DLT
 
         private byte[] randomNonce(int length)
         {
-            if (random == null || randomCounter > 50000)
+            if (curNonce == null)
             {
-                random = new Random();
-                randomCounter = 0;
+                curNonce = new byte[length];
+                lock (random)
+                {
+                    random.NextBytes(curNonce);
+                }
             }
-            randomCounter++;
-            byte[] nonce = new byte[length];
-            random.NextBytes(nonce);
-            return nonce;
+            bool inc_next = true;
+            length = curNonce.Length;
+            for (int pos = length - 1; inc_next == true && pos > 0; pos--)
+            {
+                if (curNonce[pos] < 0xFF)
+                {
+                    inc_next = false;
+                    curNonce[pos]++;
+                }
+                else
+                {
+                    curNonce[pos] = 0;
+                }
+            }
+            return curNonce;
         }
 
         private void calculatePow_v1(byte[] hash_ceil)

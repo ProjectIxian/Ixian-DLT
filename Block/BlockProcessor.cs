@@ -857,7 +857,7 @@ namespace DLT
                         Node.walletState.snapshot();
                         if (applyAcceptedBlock(b, true))
                         {
-                            ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                            ws_checksum = Node.walletState.calculateWalletStateChecksum(0, true);
                         }
                         Node.walletState.revert();
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
@@ -1520,18 +1520,13 @@ namespace DLT
                         break;
                     }
 
-                    // lock transaction v1 with block v2
-                    if (block_version >= 2 && transaction.version < 1)
+                    // lock transaction v2 with block v3
+                    if (block_version >= 3 && transaction.version < 2)
                     {
-                        if(Node.blockChain.getLastBlockVersion() >= 2)
+                        if(Node.blockChain.getLastBlockVersion() >= 3)
                         {
                             TransactionPool.removeTransaction(transaction.id);
                         }
-                        continue;
-                    }
-
-                    if(block_version == 1 && transaction.version >= 2)
-                    {
                         continue;
                     }
 
@@ -1593,6 +1588,8 @@ namespace DLT
                         }
                     }
 
+
+                    bool from_ok = true;
                     foreach (var entry in transaction.fromList)
                     {
                         byte[] address = (new Address(transaction.pubKey, entry.Key)).address;
@@ -1610,7 +1607,11 @@ namespace DLT
 
                             if (from_balance < new_minus_balance)
                             {
-                                continue;
+                                // TODO TODO TODO TODO TODO, it might not be the best idea to remove overspent transaction here as the block isn't confirmed yet,
+                                // we should do this after the block has been confirmed
+                                TransactionPool.removeTransaction(transaction.id);
+                                from_ok = false;
+                                break;
                             }
                             minusBalances[address] = new_minus_balance;
                         }
@@ -1621,6 +1622,11 @@ namespace DLT
                             // 'includeApplicableMultisg transactions' will return true if the transaction is not a multisig transaction
                             localNewBlock.addTransaction(transaction);
                         }
+                    }
+
+                    if(!from_ok)
+                    {
+                        continue;
                     }
 
                     // amount is counted only for originating multisig transaction.
@@ -1654,7 +1660,7 @@ namespace DLT
                     Node.walletState.revert();
                     return;
                 }
-                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
+                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(0, true));
                 Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
                 Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
                 Node.walletState.revert();

@@ -160,13 +160,6 @@ namespace DLT
                 return false;
             }
 
-            // lock transaction v1 with block v2
-            if (transaction.version < 1 && Node.blockChain.getLastBlockVersion() >= 2)
-            {
-                Logging.warn(String.Format("Transaction version is too low, network is using v1 as the lowest valid version. TXid: {0}.", transaction.id));
-                return false;
-            }
-
             // lock transaction v2 with block v3
             if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= 3)
             {
