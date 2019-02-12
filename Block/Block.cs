@@ -769,6 +769,7 @@ namespace DLT
                 last_block_chksum = "G E N E S I S  B L O C K";
             }
             Logging.info(String.Format("\t\t|- Block Number:\t\t {0}", blockNum));
+            Logging.info(String.Format("\t\t|- Block Version:\t\t {0}", version));
             Logging.info(String.Format("\t\t|- Signatures:\t\t\t {0} ({1} req)", signatures.Count, Node.blockChain.getRequiredConsensus()));
             Logging.info(String.Format("\t\t|- Block Checksum:\t\t {0}", Crypto.hashToString(blockChecksum)));
             Logging.info(String.Format("\t\t|- Last Block Checksum: \t {0}", last_block_chksum));

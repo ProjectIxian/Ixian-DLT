@@ -1074,6 +1074,7 @@ namespace DLT
                             {
                                 Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
                                     Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                Logging.error(String.Format("Node reports block version: {0}", Node.getLastBlockVersion()));
                                 rollBackAcceptedBlock(localNewBlock);
                                 if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
                                 {
@@ -1654,6 +1655,8 @@ namespace DLT
                     return;
                 }
                 localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
+                Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
+                Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
                 Node.walletState.revert();
 
                 localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();

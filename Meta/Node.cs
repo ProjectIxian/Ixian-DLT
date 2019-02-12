@@ -441,10 +441,11 @@ namespace DLT.Meta
             ActivityStorage.stopStorage();
 
             // Stop the console stats screen
-            if (Config.verboseConsoleOutput == false)
-            {
+            // Console screen has a thread running even if we are in verbose mode
+            //if (Config.verboseConsoleOutput == false)
+            //{
                 statsConsoleScreen.stop();
-            }
+            //}
 
             NetDump.Instance.shutdown();
 
