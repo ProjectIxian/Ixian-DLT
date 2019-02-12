@@ -619,8 +619,6 @@ namespace DLTNode
 
         public JsonResponse onAddMultiSigKey(HttpListenerRequest request)
         {
-            JsonError error = null;
-
             // transaction which alters a multisig wallet
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
             if (destWallet == null)
@@ -647,14 +645,20 @@ namespace DLTNode
 
         public JsonResponse onDelMultiSigKey(HttpListenerRequest request)
         {
-            JsonError error = null;
-
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            if (destWallet == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Parameter 'wallet' is missing." } };
+            }
 
             string signer = request.QueryString["signer"];
+            if (signer == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Parameter 'signer' is missing." } };
+            }
             byte[] signer_address = new Address(Base58Check.Base58CheckEncoding.DecodePlain(signer)).address;
 
             IxiNumber fee = CoreConfig.transactionPrice;
@@ -663,26 +667,28 @@ namespace DLTNode
             if (TransactionPool.addTransaction(transaction))
             {
                 TransactionPool.addPendingLocalTransaction(transaction);
-                res = transaction.toDictionary();
+                return new JsonResponse { result = transaction.toDictionary(), error = null };
             }
-            else
-            {
-                res = "There was an error adding the transaction.";
-            }
-
-            return new JsonResponse { result = res, error = error };
+            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Error while creating the transaction." } };
         }
 
         public JsonResponse onChangeMultiSigs(HttpListenerRequest request)
         {
-            JsonError error = null;
-
             // transaction which alters a multisig wallet
             object res = "Incorrect transaction parameters.";
 
             byte[] destWallet = Base58Check.Base58CheckEncoding.DecodePlain(request.QueryString["wallet"]);
+            if (destWallet == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Parameter 'wallet' is missing." } };
+            }
 
             string sigs = request.QueryString["sigs"];
+            if (sigs == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Parameter 'sigs' is missing." } };
+            }
+
             IxiNumber fee = CoreConfig.transactionPrice;
             if (byte.TryParse(sigs, out byte reqSigs))
             {
@@ -691,15 +697,14 @@ namespace DLTNode
                 if (TransactionPool.addTransaction(transaction))
                 {
                     TransactionPool.addPendingLocalTransaction(transaction);
-                    res = transaction.toDictionary();
+                    return new JsonResponse { result = transaction.toDictionary(), error = null };
                 }
-                else
-                {
-                    res = "There was an error adding the transaction.";
-                }
+            } else
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'sigs' must be a number between 1 and 255." } };
             }
 
-            return new JsonResponse { result = res, error = error };
+            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Error while creating the transaction." } };
         }
 
         public JsonResponse onGetBalance(HttpListenerRequest request)
