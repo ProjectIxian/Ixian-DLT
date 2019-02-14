@@ -843,7 +843,7 @@ namespace DLT
             }
         }
 
-        public void onHelloDataReceived(ulong block_height, byte[] block_checksum, byte[] walletstate_checksum, int consensus, ulong last_block_to_read_from_storage = 0, bool from_network = false)
+        public void onHelloDataReceived(ulong block_height, byte[] block_checksum, int block_version, byte[] walletstate_checksum, int consensus, ulong last_block_to_read_from_storage = 0, bool from_network = false)
         {
             Logging.info("SYNC HEADER DATA");
             Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));
@@ -912,13 +912,12 @@ namespace DLT
                     }
                     else
                     {
-                        Block b = Node.blockChain.getBlock(block_height, true);
-                        int block_version = b.version;
-                        if(b.walletStateChecksum.Length == 32)
+                        int tmp_block_version = block_version;
+                        if(walletstate_checksum.Length == 32)
                         {
-                            block_version = 2;
+                            tmp_block_version = 2;
                         }
-                        if (Node.walletState.calculateWalletStateChecksum(b.version).SequenceEqual(walletstate_checksum))
+                        if (Node.walletState.calculateWalletStateChecksum(tmp_block_version).SequenceEqual(walletstate_checksum))
                         {
                             wsSyncConfirmedBlockNum = block_height;
                             wsSynced = true;
@@ -977,10 +976,14 @@ namespace DLT
                 else
                 {
                     Block b = Node.blockChain.getBlock(wsSyncConfirmedBlockNum, true);
-                    int block_version = b.version;
-                    if (b.walletStateChecksum.Length == 32)
+                    int block_version = Block.maxVersion;
+                    if (b != null)
                     {
-                        block_version = 2;
+                        block_version = b.version;
+                        if (b.walletStateChecksum.Length == 32)
+                        {
+                            block_version = 2;
+                        }
                     }
                     if (b == null || !Node.walletState.calculateWalletStateChecksum(block_version).SequenceEqual(b.walletStateChecksum))
                     {
