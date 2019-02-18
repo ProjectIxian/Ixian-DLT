@@ -732,7 +732,7 @@ namespace DLT
 
             // Broadcast this transaction to the network
             if (no_broadcast == false)
-                ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), skipEndpoint);
+                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), skipEndpoint);
 
 
             return true;
@@ -2110,7 +2110,7 @@ namespace DLT
 
                     if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                     {
-                        ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes());
+                        CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes());
                         pendingTransactions[idx][1] = cur_time;
                     }
                     idx++;
@@ -2180,6 +2180,61 @@ namespace DLT
                 }
             }
             return amount;
+        }
+
+
+        // Returns a list of transactions connected to this block 
+        public static List<Transaction> getFullBlockTransactions(Block block)
+        {
+            List<Transaction> tx_list = new List<Transaction>();
+            List<string> tx_ids = block.transactions;
+            for (int i = 0; i < tx_ids.Count; i++)
+            {
+                Transaction t = getTransaction(tx_ids[i], block.blockNum);
+                if (t == null)
+                {
+                    Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
+                    continue;
+                }
+                tx_list.Add(t);
+            }
+            return tx_list;
+        }
+
+        // temporary function that will correctly JSON Serialize IxiNumber
+        public static List<Dictionary<string, object>> getFullBlockTransactionsAsArray(Block block)
+        {
+            List<Dictionary<string, object>> tx_list = new List<Dictionary<string, object>>();
+            List<string> tx_ids = block.transactions;
+            for (int i = 0; i < tx_ids.Count; i++)
+            {
+                Transaction t = TransactionPool.getTransaction(tx_ids[i], block.blockNum, true);
+                if (t == null)
+                {
+                    Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
+                    continue;
+                }
+
+                tx_list.Add(t.toDictionary());
+
+            }
+            return tx_list;
+        }
+
+        // Returs total value of transactions connected to this block 
+        public static IxiNumber getTotalTransactionsValueInBlock(Block block)
+        {
+            IxiNumber val = 0;
+            List<string> tx_ids = block.transactions;
+            for (int i = 0; i < tx_ids.Count; i++)
+            {
+                Transaction t = TransactionPool.getTransaction(tx_ids[i], block.blockNum);
+                if (t == null)
+                    Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
+                else
+                    val.add(t.amount);
+            }
+            return val;
         }
     }
 }

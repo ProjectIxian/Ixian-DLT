@@ -640,7 +640,7 @@ namespace DLT
 
             if (!Config.recoverFromFile)
             {
-                ProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], Node.getHighestKnownNetworkBlockHeight());
+                CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], Node.getHighestKnownNetworkBlockHeight());
 
                 Node.miner.start();
             }

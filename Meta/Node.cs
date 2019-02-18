@@ -1,14 +1,13 @@
 ﻿using DLT.Network;
 using DLTNode;
 using IXICore;
+using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Numerics;
-using System.Text;
 using System.Threading;
 
 namespace DLT.Meta
@@ -37,9 +36,6 @@ namespace DLT.Meta
 
 
         // Private
-        private static Thread keepAliveThread;
-        private static bool autoKeepalive = false;
-
         private static Thread maintenanceThread;
 
         private static bool running = false;
@@ -118,20 +114,57 @@ namespace DLT.Meta
             }
         }
 
-        // Start the node
-        static public void start(bool verboseConsoleOutput)
+        static private void distributeGenesisFunds(IxiNumber genesisFunds)
         {
-            // First create the data folder if it does not already exist
-            checkDataFolder();
+            byte[] from = CoreConfig.ixianInfiniMineAddress;
 
-            renameStorageFiles(); // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
+            int tx_type = (int)Transaction.Type.Genesis;
 
-            // debug
-            if (Config.networkDumpFile != "")
+            Transaction tx = new Transaction(tx_type, genesisFunds, new IxiNumber(0), walletStorage.getPrimaryAddress(), from, null, null, 1);
+            TransactionPool.addTransaction(tx);
+
+            if (Config.genesis2Address != "")
             {
-                NetDump.Instance.start(Config.networkDumpFile);
+                Transaction txGen2 = new Transaction(tx_type, genesisFunds, new IxiNumber(0), Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address), from, null, null, 1);
+                TransactionPool.addTransaction(txGen2);
             }
 
+            if (Config.isTestNet)
+            {
+                // testnet seed2
+                Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
+                TransactionPool.addTransaction(tx2);
+            }
+            else
+            {
+                // seed2
+                Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
+                TransactionPool.addTransaction(tx2);
+
+                // seed3
+                Transaction tx3 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
+                TransactionPool.addTransaction(tx3);
+
+                // seed4
+                Transaction tx4 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
+                TransactionPool.addTransaction(tx4);
+
+                // seed5
+                Transaction tx5 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
+                TransactionPool.addTransaction(tx5);
+
+                // Team Reward
+                Transaction tx6 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"), from, null, null, 1);
+                TransactionPool.addTransaction(tx6);
+
+                // Development
+                Transaction tx7 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"), from, null, null, 1);
+                TransactionPool.addTransaction(tx7);
+            }
+        }
+
+        static private void configureNetwork()
+        {
             // Network configuration
             upnp = new UPnP();
             if (Config.externalIp != "" && IPAddress.TryParse(Config.externalIp, out _))
@@ -157,7 +190,8 @@ namespace DLT.Meta
                     {
                         Logging.warn("Unable to determine primary IP address.");
                         showIPmenu();
-                    } else
+                    }
+                    else
                     {
                         Logging.warn(String.Format("None of the locally configured IP addresses are public. Attempting UPnP..."));
                         IPAddress public_ip = upnp.GetExternalIPAddress();
@@ -165,14 +199,16 @@ namespace DLT.Meta
                         {
                             Logging.warn("UPnP failed.");
                             showIPmenu();
-                        } else
+                        }
+                        else
                         {
                             Logging.info(String.Format("UPNP-determined public IP: {0}. Attempting to configure a port-forwarding rule.", public_ip.ToString()));
                             if (upnp.MapPublicPort(Config.serverPort, primary_local))
                             {
                                 Config.publicServerIP = public_ip.ToString(); //upnp.getMappedIP();
                                 Logging.info(string.Format("Network configured. Public IP is: {0}", Config.publicServerIP));
-                            } else
+                            }
+                            else
                             {
                                 Logging.warn("UPnP configuration failed.");
                                 showIPmenu();
@@ -181,6 +217,23 @@ namespace DLT.Meta
                     }
                 }
             }
+        }
+
+        // Start the node
+        static public void start(bool verboseConsoleOutput)
+        {
+            // First create the data folder if it does not already exist
+            checkDataFolder();
+
+            renameStorageFiles(); // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
+
+            // debug
+            if (Config.networkDumpFile != "")
+            {
+                NetDump.Instance.start(Config.networkDumpFile);
+            }
+
+            configureNetwork();
 
             char node_type = 'M'; // TODO TODO TODO TODO change this to 'W' or 'C' after the upgrade
 
@@ -245,56 +298,19 @@ namespace DLT.Meta
             {
                 Logging.info(String.Format("Genesis {0} specified. Starting operation.", genesisFunds));
 
-                byte[] from = CoreConfig.ixianInfiniMineAddress;
-
-                int tx_type = (int)Transaction.Type.Genesis;
-
-                Transaction tx = new Transaction(tx_type, genesisFunds, new IxiNumber(0), walletStorage.getPrimaryAddress(), from, null, null, 1);
-                TransactionPool.addTransaction(tx);
-
-                if(Config.genesis2Address != "")
-                {
-                    Transaction txGen2 = new Transaction(tx_type, genesisFunds, new IxiNumber(0), Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address), from, null, null, 1);
-                    TransactionPool.addTransaction(txGen2);
-                }
-
-                if (Config.isTestNet)
-                {
-                    // testnet seed2
-                    Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
-                    TransactionPool.addTransaction(tx2);
-                }
-                else
-                {
-                    // seed2
-                    Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
-                    TransactionPool.addTransaction(tx2);
-
-                    // seed3
-                    Transaction tx3 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
-                    TransactionPool.addTransaction(tx3);
-
-                    // seed4
-                    Transaction tx4 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
-                    TransactionPool.addTransaction(tx4);
-
-                    // seed5
-                    Transaction tx5 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
-                    TransactionPool.addTransaction(tx5);
-
-                    // Team Reward
-                    Transaction tx6 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"), from, null, null, 1);
-                    TransactionPool.addTransaction(tx6);
-
-                    // Development
-                    Transaction tx7 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"), from, null, null, 1);
-                    TransactionPool.addTransaction(tx7);
-                }
+                distributeGenesisFunds(genesisFunds);
 
                 genesisNode = true;
                 blockProcessor.resumeOperation();
                 serverStarted = true;
-                NetworkServer.beginNetworkOperations();
+                if (!isMasterNode())
+                {
+                    Logging.info("Network server is not enabled in modes other than master node.");
+                }
+                else
+                {
+                    NetworkServer.beginNetworkOperations();
+                }
             }
             else
             {
@@ -344,17 +360,21 @@ namespace DLT.Meta
 
                     // Start the server for ping purposes
                     serverStarted = true;
-                    NetworkServer.beginNetworkOperations();
+                    if (!isMasterNode())
+                    {
+                        Logging.info("Network server is not enabled in modes other than master node.");
+                    }
+                    else
+                    {
+                        NetworkServer.beginNetworkOperations();
+                    }
 
                     // Start the network client manager
                     NetworkClientManager.start();
                 }
             }
 
-            // Start the keepalive thread
-            autoKeepalive = true;
-            keepAliveThread = new Thread(keepAlive);
-            keepAliveThread.Start();
+            PresenceList.startKeepAlive();
 
             // Start the maintenance thread
             maintenanceThread = new Thread(performMaintenance);
@@ -375,7 +395,14 @@ namespace DLT.Meta
                     Logging.info("Starting Network Server now.");
 
                     // Start the node server
-                    NetworkServer.beginNetworkOperations();
+                    if (!isMasterNode())
+                    {
+                        Logging.info("Network server is not enabled in modes other than master node.");
+                    }
+                    else
+                    {
+                        NetworkServer.beginNetworkOperations();
+                    }
 
                     serverStarted = true;
                 //}
@@ -407,12 +434,7 @@ namespace DLT.Meta
             }
 
             // Stop the keepalive thread
-            autoKeepalive = false;
-            if (keepAliveThread != null)
-            {
-                keepAliveThread.Abort();
-                keepAliveThread = null;
-            }
+            PresenceList.stopKeepAlive();
 
             if (maintenanceThread != null)
             {
@@ -460,7 +482,16 @@ namespace DLT.Meta
             // Reset the network receive queue
             NetworkQueue.reset();
 
-            NetworkServer.restartNetworkOperations();
+            if (!Node.isMasterNode())
+            {
+                Logging.info("Network server is not enabled in modes other than master node.");
+                NetworkServer.stopNetworkOperations();
+            }
+            else
+            {
+                NetworkServer.restartNetworkOperations();
+            }
+
             NetworkClientManager.restartClients();
         }
 
@@ -487,7 +518,15 @@ namespace DLT.Meta
         static public void isolate()
         {
             NetworkClientManager.isolate();
-            NetworkServer.restartNetworkOperations();
+            if (!Node.isMasterNode())
+            {
+                Logging.info("Network server is not enabled in modes other than master node.");
+                NetworkServer.stopNetworkOperations();
+            }
+            else
+            {
+                NetworkServer.restartNetworkOperations();
+            }
 
         }
 
@@ -552,7 +591,7 @@ namespace DLT.Meta
             string chosenIP = Console.ReadLine();
 
             // Validate the IP
-            if (chosenIP.Length > 255 || validateIPv4(chosenIP) == false)
+            if (chosenIP.Length > 255 || IxiUtils.validateIPv4(chosenIP) == false)
             {
                 Console.WriteLine("Incorrect IP. Please try again.");
                 showManualIPEntry();
@@ -621,24 +660,6 @@ namespace DLT.Meta
             return true;
         }
 
-        // Helper for validating IPv4 addresses
-        static public bool validateIPv4(string ipString)
-        {
-            if (String.IsNullOrWhiteSpace(ipString))
-            {
-                return false;
-            }
-
-            string[] splitValues = ipString.Split('.');
-            if (splitValues.Length != 4)
-            {
-                return false;
-            }
-
-            byte tempForParsing;
-            return splitValues.All(r => byte.TryParse(r, out tempForParsing));
-        }
-
         public static void debugDumpState()
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -689,128 +710,6 @@ namespace DLT.Meta
             return true;
         }
 
-        // Sends perioding keepalive network messages
-        private static void keepAlive()
-        {
-            while (autoKeepalive)
-            {
-                // Wait x seconds before rechecking
-                for (int i = 0; i < CoreConfig.keepAliveInterval; i++)
-                {
-                    if (autoKeepalive == false)
-                    {
-                        Thread.Yield();
-                        return;
-                    }
-                    // Sleep for one second
-                    Thread.Sleep(1000);
-                }
-
-
-                try
-                {
-
-                    byte[] ka_bytes = null;
-                    if (Node.getLastBlockVersion() < 3)
-                    {
-                        ka_bytes = keepAlive_v0();
-                    }else
-                    {
-                        ka_bytes = keepAlive_v1();
-                    }
-
-                    byte[] address = null;
-                    
-                    // Update self presence
-                    PresenceList.receiveKeepAlive(ka_bytes, out address);
-
-                    // Send this keepalive message to all connected clients
-                    ProtocolMessage.broadcastEventBasedMessage(ProtocolMessageCode.keepAlivePresence, ka_bytes, address);
-
-                }
-                catch (Exception)
-                {
-                    continue;
-                }
-
-            }
-
-            Thread.Yield();
-        }
-
-        private static byte[] keepAlive_v0()
-        {
-            // Prepare the keepalive message
-            using (MemoryStream m = new MemoryStream())
-            {
-                using (BinaryWriter writer = new BinaryWriter(m))
-                {
-                    writer.Write(0);
-
-                    byte[] wallet = walletStorage.getPrimaryAddress();
-                    writer.Write(wallet.Length);
-                    writer.Write(wallet);
-
-                    writer.Write(Config.device_id);
-
-                    // Add the unix timestamp
-                    long timestamp = Core.getCurrentTimestamp();
-                    writer.Write(timestamp);
-
-                    string hostname = Node.getFullAddress();
-                    writer.Write(hostname);
-
-                    // Add a verifiable signature
-                    byte[] private_key = walletStorage.getPrimaryPrivateKey();
-                    byte[] signature = CryptoManager.lib.getSignature(Encoding.UTF8.GetBytes(CoreConfig.ixianChecksumLockString + "-" + Config.device_id + "-" + timestamp + "-" + hostname), private_key);
-                    writer.Write(signature.Length);
-                    writer.Write(signature);
-
-                    PresenceList.curNodePresenceAddress.lastSeenTime = timestamp;
-                    PresenceList.curNodePresenceAddress.signature = signature;
-                }
-
-                return m.ToArray();
-            }
-        }
-
-        private static byte[] keepAlive_v1()
-        {
-            // Prepare the keepalive message
-            using (MemoryStream m = new MemoryStream())
-            {
-                using (BinaryWriter writer = new BinaryWriter(m))
-                {
-                    writer.Write(1);
-
-                    byte[] wallet = walletStorage.getPrimaryAddress();
-                    writer.Write(wallet.Length);
-                    writer.Write(wallet);
-
-                    writer.Write(Config.device_id);
-
-                    // Add the unix timestamp
-                    long timestamp = Core.getCurrentTimestamp();
-                    writer.Write(timestamp);
-
-                    string hostname = Node.getFullAddress();
-                    writer.Write(hostname);
-
-                    writer.Write(PresenceList.curNodePresenceAddress.type);
-
-                    // Add a verifiable signature
-                    byte[] private_key = walletStorage.getPrimaryPrivateKey();
-                    byte[] signature = CryptoManager.lib.getSignature(m.ToArray(), private_key);
-                    writer.Write(signature.Length);
-                    writer.Write(signature);
-
-                    PresenceList.curNodePresenceAddress.lastSeenTime = timestamp;
-                    PresenceList.curNodePresenceAddress.signature = signature;
-                }
-
-                return m.ToArray();
-            }
-        }
 
         // Perform periodic cleanup tasks
         private static void performMaintenance()
@@ -875,8 +774,15 @@ namespace DLT.Meta
             }
 
             NetworkClientManager.restartClients();
-            NetworkServer.restartNetworkOperations();
-            
+            if (!Node.isMasterNode())
+            {
+                Logging.info("Network server is not enabled in modes other than master node.");
+                NetworkServer.stopNetworkOperations();
+            }
+            else
+            {
+                NetworkServer.restartNetworkOperations();
+            }
         }
 
         public static bool isWorkerNode()
@@ -901,6 +807,11 @@ namespace DLT.Meta
         public static int getLastBlockVersion()
         {
             return blockChain.getLastBlockVersion();
+        }
+
+        public static int getRequiredConsensus()
+        {
+            return blockChain.getRequiredConsensus();
         }
 
         // Check if the data folder exists. Otherwise it creates it
@@ -944,6 +855,20 @@ namespace DLT.Meta
             }
 
             return bh;
+        }
+
+        public static Block getLastBlock()
+        {
+            return blockChain.getBlock(blockChain.getLastBlockNum());
+        }
+
+        public static bool isAcceptingConnections()
+        {
+            if(Node.blockProcessor.operating)
+            {
+                return true;
+            }
+            return false;
         }
 
         /*static void runDiffTests()

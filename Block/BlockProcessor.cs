@@ -1113,7 +1113,7 @@ namespace DLT
                                     highestNetworkBlockNum = 0;
                                 }
 
-                                ProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes());
+                                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes());
                                 localNewBlock = null;
 
                                 if (Node.miner.searchMode != BlockSearchMode.latestBlock)
@@ -1246,7 +1246,7 @@ namespace DLT
             applyTransactionFeeRewards(b, ws_snapshot);
 
             // Update wallet state public keys
-            b.updateWalletStatePublicKeys(ws_snapshot);
+            updateWalletStatePublicKeys(b.blockNum, ws_snapshot);
 
             return true;
         }
@@ -1875,7 +1875,7 @@ namespace DLT
             for (i = 0; i < 10; i++)
             {
                 Block b = Node.blockChain.getBlock(last_block_num - i);
-                List<Transaction> b_txs = b.getFullTransactions().FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
+                List<Transaction> b_txs = TransactionPool.getFullBlockTransactions(b).FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
                 foreach (Transaction tx in b_txs)
                 {
                     Block pow_b = Node.blockChain.getBlock(BitConverter.ToUInt64(tx.data, 0));
@@ -1898,7 +1898,7 @@ namespace DLT
         private static long countLastBlockPowSolutions()
         {
             Block b = Node.blockChain.getBlock(Node.getLastBlockHeight());
-            List<Transaction> b_txs = b.getFullTransactions().FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
+            List<Transaction> b_txs = TransactionPool.getFullBlockTransactions(b).FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
             Dictionary<ulong, ulong> solved_blocks = new Dictionary<ulong, ulong>();
             foreach (Transaction tx in b_txs)
             {
@@ -2209,6 +2209,48 @@ namespace DLT
                 }
             }
             return false;
+        }
+
+
+        // Updates the walletstate public keys. Called from BlockProcessor applyAcceptedBlock()
+        public bool updateWalletStatePublicKeys(ulong blockNum, bool ws_snapshot = false)
+        {
+            Block targetBlock = Node.blockChain.getBlock(blockNum - 6, false);
+            if (targetBlock == null)
+            {
+                return false;
+            }
+            List<byte[][]> sigs = targetBlock.signatures;
+            foreach (byte[][] sig in sigs)
+            {
+                byte[] signature = sig[0];
+                byte[] signerPubkeyOrAddress = sig[1];
+
+                if (signerPubkeyOrAddress.Length < 70)
+                {
+                    byte[] signerAddress = signerPubkeyOrAddress;
+                    Wallet signerWallet = Node.walletState.getWallet(signerAddress);
+                    if (signerWallet.publicKey == null)
+                    {
+                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        continue;
+                    }
+                }
+                else
+                {
+                    byte[] signerPubKey = signerPubkeyOrAddress;
+                    // Generate an address
+                    Address p_address = new Address(signerPubKey);
+                    Wallet signerWallet = Node.walletState.getWallet(p_address.address);
+                    if (signerWallet.publicKey == null)
+                    {
+                        // Set the WS public key
+                        Node.walletState.setWalletPublicKey(p_address.address, signerPubKey, ws_snapshot);
+                    }
+                }
+            }
+
+            return true;
         }
     }
 }

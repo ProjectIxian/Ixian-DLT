@@ -86,19 +86,16 @@
   <ItemGroup>
     <Compile Include="API\APIServer.cs" />
     <Compile Include="API\JsonRpc.cs" />
-    <Compile Include="Block\Block.cs" />
     <Compile Include="Block\BlockChain.cs" />
     <Compile Include="Block\BlockProcessor.cs" />
     <Compile Include="Block\BlockSync.cs" />
     <Compile Include="Legacy\NodeLegacy.cs" />
-    <Compile Include="Meta\Activity.cs" />
     <Compile Include="Meta\Config.cs" />
     <Compile Include="Meta\Node.cs" />
     <Compile Include="Meta\StatsConsoleScreen.cs" />
     <Compile Include="Meta\Storage.cs" />
     <Compile Include="Meta\WalletStateStorage.cs" />
     <Compile Include="Miner\Miner.cs" />
-    <Compile Include="Network\NetworkServer.cs" />
     <Compile Include="Network\NetworkProtocol.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

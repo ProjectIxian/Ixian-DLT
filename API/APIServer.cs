@@ -752,7 +752,7 @@ namespace DLTNode
                 blockData.Add("Difficulty", block.difficulty.ToString());
                 blockData.Add("Signature count", block.signatures.Count.ToString());
                 blockData.Add("Transaction count", block.transactions.Count.ToString());
-                blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
+                blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
             }
@@ -789,7 +789,7 @@ namespace DLTNode
                 blockData.Add("Difficulty", block.difficulty.ToString());
                 blockData.Add("Signature count", block.signatures.Count.ToString());
                 blockData.Add("Transaction count", block.transactions.Count.ToString());
-                blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
+                blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
 
@@ -835,10 +835,10 @@ namespace DLTNode
                 blockData.Add("Difficulty", block.difficulty.ToString());
                 blockData.Add("Signature count", block.signatures.Count.ToString());
                 blockData.Add("Transaction count", block.transactions.Count.ToString());
-                blockData.Add("Transaction amount", block.getTotalTransactionsValue().ToString());
+                blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
-                blockData.Add("Transactions", JsonConvert.SerializeObject(block.getFullTransactionsAsArray()));
+                blockData.Add("Transactions", JsonConvert.SerializeObject(TransactionPool.getFullBlockTransactionsAsArray(block)));
             }
 
             return new JsonResponse { result = blockData, error = error };
