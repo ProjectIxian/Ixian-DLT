@@ -300,7 +300,7 @@ namespace DLTNode
                     {
                         Logging.info("Generating a new wallet.");
                         CryptoManager.initLib();
-                        DLTWalletStorage wst = new DLTWalletStorage(Config.walletFile);
+                        WalletStorage wst = new WalletStorage(Config.walletFile);
                         wst.writeWallet(Config.dangerCommandlinePasswordCleartextUnsafe);
                     }
                 } else

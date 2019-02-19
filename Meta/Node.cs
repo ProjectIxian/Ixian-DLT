@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 
 namespace DLT.Meta
@@ -18,7 +19,7 @@ namespace DLT.Meta
         public static BlockChain blockChain = null;
         public static BlockProcessor blockProcessor = null;
         public static BlockSync blockSync = null;
-        public static DLTWalletStorage walletStorage = null;
+        public static WalletStorage walletStorage = null;
         public static Miner miner = null;
         public static WalletState walletState = null;
 
@@ -44,16 +45,13 @@ namespace DLT.Meta
         // Perform basic initialization of node
         static public void init()
         {
-
-
             running = true;
             
             // Upgrade any legacy files
             NodeLegacy.upgrade();
 
             // Load or Generate the wallet
-            walletStorage = new DLTWalletStorage(Config.walletFile);
-            if (walletStorage.getPrimaryPublicKey() == null)
+            if(!initWallet())
             {
                 running = false;
                 DLTNode.Program.noStart = true;
@@ -65,6 +63,170 @@ namespace DLT.Meta
 
             // Initialize the wallet state
             walletState = new WalletState();
+        }
+
+        static private void displayBackupText()
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("");
+            Console.WriteLine("!! Always remember to keep a backup of your ixian.wal file and your password.");
+            Console.WriteLine("!! In case of a lost file you will not be able to access your funds.");
+            Console.WriteLine("!! Never give your ixian.wal and/or password to anyone.");
+            Console.WriteLine("");
+            Console.ResetColor();
+        }
+
+        // Requests the user to type a new password
+        static private string requestNewPassword(string banner)
+        {
+            Console.WriteLine();
+            Console.Write(banner);
+            try
+            {
+                string pass = getPasswordInput();
+
+                if (pass.Length < 10)
+                {
+                    Console.WriteLine("Password needs to be at least 10 characters. Try again.");
+                    return "";
+                }
+
+                Console.Write("Type it again to confirm: ");
+
+                string passconfirm = getPasswordInput();
+
+                if (pass.Equals(passconfirm, StringComparison.Ordinal))
+                {
+                    return pass;
+                }
+                else
+                {
+                    Console.WriteLine("Passwords don't match, try again.");
+
+                    // Passwords don't match
+                    return "";
+                }
+
+            }
+            catch (Exception)
+            {
+                // Handle exceptions
+                return "";
+            }
+        }
+
+        // Handles console password input
+        static public string getPasswordInput()
+        {
+            StringBuilder sb = new StringBuilder();
+            while (true)
+            {
+                ConsoleKeyInfo i = Console.ReadKey(true);
+                if (i.Key == ConsoleKey.Enter)
+                {
+                    Console.WriteLine();
+                    break;
+                }
+                else if (i.Key == ConsoleKey.Backspace)
+                {
+                    if (sb.Length > 0)
+                    {
+                        sb.Remove(sb.Length - 1, 1);
+                        Console.Write("\b \b");
+                    }
+                }
+                else if (i.KeyChar != '\u0000')
+                {
+                    sb.Append(i.KeyChar);
+                    Console.Write("*");
+                }
+            }
+            return sb.ToString();
+        }
+
+        static public bool initWallet()
+        {
+            walletStorage = new WalletStorage(Config.walletFile);
+
+            if (!walletStorage.walletExists())
+            {
+                displayBackupText();
+
+                // Request a password
+                // NOTE: This can only be done in testnet to enable automatic testing!
+                string password = "";
+                if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && Config.isTestNet)
+                {
+                    Logging.warn("TestNet detected and wallet password has been specified on the command line!");
+                    password = Config.dangerCommandlinePasswordCleartextUnsafe;
+                    // Also note that the commandline password still has to be >= 10 characters
+                }
+                while (password.Length < 10)
+                {
+                    Logging.flush();
+                    password = requestNewPassword("Enter a password for your new wallet: ");
+                }
+                walletStorage.readWallet(password);
+            }
+            else
+            {
+                bool success = false;
+                while (!success)
+                {
+                    displayBackupText();
+
+                    // NOTE: This is only permitted on the testnet for dev/testing purposes!
+                    string password = "";
+                    if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && Config.isTestNet)
+                    {
+                        Logging.warn("Attempting to unlock the wallet with a password from commandline!");
+                        password = Config.dangerCommandlinePasswordCleartextUnsafe;
+                    }
+                    if (password.Length < 10)
+                    {
+                        Logging.flush();
+                        Console.Write("Enter wallet password: ");
+                        password = getPasswordInput();
+                    }
+                    if (walletStorage.readWallet(password))
+                    {
+                        success = true;
+                    }
+                }
+            }
+
+
+            if (walletStorage.getPrimaryPublicKey() == null)
+            {
+                return false;
+            }
+
+            // Wait for any pending log messages to be written
+            Logging.flush();
+
+            Console.WriteLine();
+            Console.Write("Your IXIAN address is ");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
+            Console.ResetColor();
+            Console.WriteLine();
+
+            // Check if we should change the password of the wallet
+            if (Config.changePass == true)
+            {
+                // Request a new password
+                string new_password = "";
+                while (new_password.Length < 10)
+                {
+                    new_password = requestNewPassword("Enter a new password for your wallet: ");
+                }
+                walletStorage.writeWallet(new_password);
+            }
+
+            Logging.info("Public Node Address: {0}", Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
+
+
+            return true;
         }
 
         // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
