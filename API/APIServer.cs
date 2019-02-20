@@ -336,6 +336,11 @@ namespace DLTNode
                 response = onCountNodeVersions(request);
             }
 
+            if (methodName.Equals("setBlockSelectionAlgorithm", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onSetBlockSelectionAlgorithm(request);
+            }
+
             bool resources = false;
 
             if (methodName.Equals("resources", StringComparison.OrdinalIgnoreCase))
@@ -1320,7 +1325,7 @@ namespace DLTNode
                 {
                     foreach (var pa_entry in entry.addresses)
                     {
-                        if(!versions.ContainsKey(pa_entry.nodeVersion))
+                        if (!versions.ContainsKey(pa_entry.nodeVersion))
                         {
                             versions.Add(pa_entry.nodeVersion, 0);
                         }
@@ -1330,6 +1335,33 @@ namespace DLTNode
             }
 
             return new JsonResponse { result = versions, error = null };
+        }
+
+        private JsonResponse onSetBlockSelectionAlgorithm(HttpListenerRequest request)
+        {
+            int algo = int.Parse(request.QueryString["algorithm"]);
+            if (algo == (int)BlockSearchMode.lowestDifficulty)
+            {
+                Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
+            }
+            else if (algo == (int)BlockSearchMode.randomLowestDifficulty)
+            {
+                Node.miner.searchMode = BlockSearchMode.randomLowestDifficulty;
+            }
+            else if (algo == (int)BlockSearchMode.latestBlock)
+            {
+                Node.miner.searchMode = BlockSearchMode.latestBlock;
+            }
+            else if (algo == (int)BlockSearchMode.random)
+            {
+                Node.miner.searchMode = BlockSearchMode.random;
+            }else
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid algorithm was specified" } };
+            }
+
+
+            return new JsonResponse { result = "", error = null };
         }
 
         // This is a bit hacky way to return useful error values

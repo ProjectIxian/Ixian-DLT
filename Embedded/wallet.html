@@ -296,6 +296,15 @@
 
             }
 
+            function setBlockSelectionAlgorithm(algorithm) {
+                var dltAPI = "#IXIAN#NODE#URL#" + "setBlockSelectionAlgorithm?algorithm=" + algorithm;
+                $.getJSON(dltAPI, { format: "json" })
+                    .done(function (data) {
+                        getStatus();
+                    });
+
+            }
+
             function getStatus() {
 
                 var dltAPI = "#IXIAN#NODE#URL#" + "status";
@@ -329,15 +338,22 @@
                         if (data["result"]) {
                             var status = "Disabled";
                             if (data["result"]["Hashrate"] > 0) {
-                                status = "Mining"
+                                status = "Mining";
                             } else {
-                                status = "Paused"
+                                status = "Paused";
                             }
                             var minerEl = document.getElementById("MinerSection");
                             minerEl.style.display = "block";
-                            minerEl.innerHTML = "Miner:" + status + "<br/>";
-                            minerEl.innerHTML += "Rate:" + data["result"]["Hashrate"] + "<br/>";
-                            minerEl.innerHTML += "Algorithm: " + data["result"]["Search Mode"];
+                            var html = "Miner: " + status + "<br/>";
+                            html += "Rate: " + data["result"]["Hashrate"] + "<br/>";
+                            html += "Algorithm: " + data["result"]["Search Mode"] + "<br/>";
+                            html += "<div class=\"dropDown\">";
+                            html += "<span onclick=\"setBlockSelectionAlgorithm(0);\">Lowest Difficulty</span><br/>";
+                            html += "<span onclick=\"setBlockSelectionAlgorithm(1);\">Random Lowest Difficulty</span><br/>";
+                            html += "<span onclick=\"setBlockSelectionAlgorithm(2);\">Latest Block</span><br/>";
+                            html += "<span onclick=\"setBlockSelectionAlgorithm(3);\">Random</span><br/>";
+                            html += "</div>";
+                            minerEl.innerHTML = html;
                         } else {
                             document.getElementById("MinerSection").style.display = "none";
                         }
