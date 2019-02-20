@@ -148,6 +148,8 @@ namespace DLT.Meta
         {
             walletStorage = new WalletStorage(Config.walletFile);
 
+            Logging.flush();
+
             if (!walletStorage.walletExists())
             {
                 displayBackupText();
@@ -170,10 +172,11 @@ namespace DLT.Meta
             }
             else
             {
+                displayBackupText();
+
                 bool success = false;
                 while (!success)
                 {
-                    displayBackupText();
 
                     // NOTE: This is only permitted on the testnet for dev/testing purposes!
                     string password = "";
