@@ -15,7 +15,7 @@ namespace DLT
     {
         public static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
 
-        static List<object[]> pendingTransactions = new List<object[]>();
+        public static List<object[]> pendingTransactions = new List<object[]>();
 
         static TransactionPool()
         {

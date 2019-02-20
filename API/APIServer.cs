@@ -1469,7 +1469,10 @@ namespace DLTNode
             bool adjust_amount = false;
             if (fromList.Count == 0)
             {
-                fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList());
+                lock (TransactionPool.pendingTransactions)
+                {
+                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList(), TransactionPool.pendingTransactions.Select(x => (Transaction)x[0]).ToList());
+                }
                 adjust_amount = true;
             }
 
@@ -1487,7 +1490,10 @@ namespace DLTNode
                 for (int i = 0; i < 2 && transaction.fee != total_tx_fee; i++)
                 {
                     total_tx_fee = transaction.fee;
-                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList());
+                    lock (TransactionPool.pendingTransactions)
+                    {
+                        fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList(), TransactionPool.pendingTransactions.Select(x => (Transaction)x[0]).ToList());
+                    }
                     if (fromList == null || fromList.Count == 0)
                     {
                         return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
