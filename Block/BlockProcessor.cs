@@ -48,6 +48,8 @@ namespace DLT
 
         Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
 
+        public bool networkUpgraded = false;
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.UtcNow;
@@ -474,6 +476,10 @@ namespace DLT
             if(b.version > Block.maxVersion)
             {
                 Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
+                if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus())
+                {
+                    networkUpgraded = true;
+                }
                 return BlockVerifyStatus.IndeterminateVersionUpgradeBlock;
             }
 

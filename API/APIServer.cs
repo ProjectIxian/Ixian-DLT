@@ -1109,6 +1109,17 @@ namespace DLTNode
             string dltStatus = "Active";
             if (Node.blockSync.synchronizing)
                 dltStatus = "Synchronizing";
+
+            if (Node.blockChain.getTimeSinceLastBLock() > 600) // if no block for over 600 seconds
+            {
+                dltStatus = "ErrorLongTimeNoBlock";
+            }
+
+            if (Node.blockProcessor.networkUpgraded)
+            {
+                dltStatus = "ErrorForkedViaUpgrade";
+            }
+
             networkArray.Add("DLT Status", dltStatus);
 
             string bpStatus = "Stopped";

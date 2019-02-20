@@ -87,6 +87,8 @@ namespace DLT.Meta
             }
 
             // Node status
+            Console.Write("\tStatus:\t\t");
+
             string dltStatus =  "active       ";
             if (Node.blockSync.synchronizing)
                 dltStatus =     "synchronizing";
@@ -106,8 +108,22 @@ namespace DLT.Meta
             if (connectionsIn + connectionsOut < 1)
                 dltStatus =     "connecting   ";
 
+            if (Node.blockChain.getTimeSinceLastBLock() > 600) // if no block for over 600 seconds
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                dltStatus = "No fully signed block received for over 10 minutes";
+            }
 
-            writeLine("\tStatus:\t\t{0}                       ", dltStatus);
+            if (Node.blockProcessor.networkUpgraded)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                dltStatus = "Network has been upgraded, please download a newer version of Ixian DLT";
+            }
+
+
+            writeLine(dltStatus);
+            Console.ResetColor();
+
             writeLine("                                             ");
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
             int sigCount = 0;

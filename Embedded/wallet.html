@@ -34,8 +34,8 @@
             </div>
         </nav>
 
-        <div id="sync_bar" class="sync_bar">
-            <p class="text-center" style="padding-top:8px">The blockchain is not fully synchronized</p>
+        <div id="warning_bar" class="warning_bar">
+            <p class="text-center" style="padding-top:8px"></p>
         </div>
 
         <div id="wrap" class="container-fluid">
@@ -302,13 +302,24 @@
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
                         sync_status = data["result"]["DLT Status"];
+                        var warning_bar = document.getElementById("warning_bar");
                         if (sync_status == "Synchronizing") {
                             // Show the syncbar
-                            document.getElementById("sync_bar").style.display = "block";
+                            warning_bar.style.display = "block";
+                            warning_bar.firstElementChild.innerHTML = "The blockchain is not fully synchronized";
+
+                        } else if (sync_status == "ErrorForkedViaUpgrade")
+                        {
+                            warning_bar.style.display = "block";
+                            warning_bar.firstElementChild.innerHTML = "Network has been upgraded, please download a newer version of Ixian DLT";
+                        } else if (sync_status == "ErrorLongTimeNoBlock")
+                        {
+                            warning_bar.style.display = "block";
+                            warning_bar.firstElementChild.innerHTML = "TNo fully signed block received for a while, make sure that you're connected to the internet";
                         }
                         else {
                             // Hide the syncbar
-                            document.getElementById("sync_bar").style.display = "none";
+                            warning_bar.style.display = "none";
                         }
                     });
 

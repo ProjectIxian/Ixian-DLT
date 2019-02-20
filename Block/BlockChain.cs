@@ -14,6 +14,7 @@ namespace DLT
 
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
 
+        long lastBlockReceivedTime = 0;
 
         public long Count
         {
@@ -121,6 +122,9 @@ namespace DLT
                     }
                 }
             }
+
+            lastBlockReceivedTime = Clock.getTimestamp();
+
             return true;
         }
 
@@ -400,6 +404,11 @@ namespace DLT
                 }
             }
             return solved_blocks;
+        }
+
+        public long getTimeSinceLastBLock()
+        {
+            return Clock.getTimestamp() - lastBlockReceivedTime;
         }
 
         // Clears all the transactions in the pool
