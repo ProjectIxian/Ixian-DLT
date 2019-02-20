@@ -512,30 +512,13 @@ namespace DLT
                                             return;
                                         }
 
-                                        int block_version = 1;
-                                        try
-                                        {
-                                            block_version = reader.ReadInt32();
-                                        }
-                                        catch (Exception)
-                                        {
-                                            block_version = 1;
-                                        }
+                                        int block_version = reader.ReadInt32();
 
                                         // Check for legacy level
-                                        ulong legacy_level = last_block_num;
-                                        try
-                                        {
-                                            ulong level = reader.ReadUInt64();
-                                            legacy_level = level;
-                                        }
-                                        catch(Exception)
-                                        {
-                                            legacy_level = 0;
-                                        }
+                                        ulong legacy_level = reader.ReadUInt64();
 
                                         // Check for legacy node
-                                        if(Legacy.isLegacy(legacy_level))
+                                        if (Legacy.isLegacy(legacy_level))
                                         {
                                             // TODO TODO TODO TODO check this out
                                             //endpoint.setLegacy(true);

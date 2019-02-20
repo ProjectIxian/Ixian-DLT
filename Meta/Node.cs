@@ -166,7 +166,7 @@ namespace DLT.Meta
                     Logging.flush();
                     password = requestNewPassword("Enter a password for your new wallet: ");
                 }
-                walletStorage.readWallet(password);
+                walletStorage.generateWallet(password);
             }
             else
             {
