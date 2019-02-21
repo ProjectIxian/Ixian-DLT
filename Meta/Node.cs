@@ -127,6 +127,12 @@ namespace DLT.Meta
                     return "";
                 }
 
+                if (!Console.KeyAvailable)
+                {
+                    Thread.Yield();
+                    continue;
+                }
+
                 ConsoleKeyInfo i = Console.ReadKey(true);
                 if (i.Key == ConsoleKey.Enter)
                 {
@@ -602,8 +608,10 @@ namespace DLT.Meta
             // Check for node deprecation
             if (checkCurrentBlockDeprecation(Node.blockChain.getLastBlockNum()) == false)
             {
+                Config.verboseConsoleOutput = true;
                 Logging.consoleOutput = true;
                 Logging.error(string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.compileTimeBlockNumber + Config.deprecationBlockOffset));
+                forceShutdown = true;
                 running = false;
                 return running;
             }

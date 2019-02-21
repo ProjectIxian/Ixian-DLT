@@ -14,7 +14,7 @@ namespace DLT
 
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
 
-        long lastBlockReceivedTime = 0;
+        long lastBlockReceivedTime = Clock.getTimestamp();
 
         public long Count
         {
