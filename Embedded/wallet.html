@@ -218,7 +218,7 @@
 
                         var html = "<div id=\"selectedReceiveAddress\" onclick=\"copyToClipboard('" + selectedReceiveAddress + "');\">" + selectedReceiveAddress + "</div>";
 
-                        if (data.length > 1) {
+                        if (keyList.length > 1) {
                             html += "<div class=\"dropDown\">";
                             for (var i in data) {
 
@@ -368,7 +368,7 @@
                         } else if (sync_status == "ErrorLongTimeNoBlock")
                         {
                             warning_bar.style.display = "block";
-                            warning_bar.firstElementChild.innerHTML = "TNo fully signed block received for a while, make sure that you're connected to the internet";
+                            warning_bar.firstElementChild.innerHTML = "No fully signed block received for a while, make sure that you're connected to the internet";
                         }
                         else {
                             // Hide the syncbar
@@ -392,6 +392,7 @@
                             html += "Rate: " + data["result"]["Hashrate"] + "<br/>";
                             html += "Algorithm: " + data["result"]["Search Mode"] + "<br/>";
                             html += "<div class=\"dropDown\">";
+                            html += "<span onclick=\"setBlockSelectionAlgorithm(-1);\">Disable</span><br/>";
                             html += "<span onclick=\"setBlockSelectionAlgorithm(0);\">Lowest Difficulty</span><br/>";
                             html += "<span onclick=\"setBlockSelectionAlgorithm(1);\">Random Lowest Difficulty</span><br/>";
                             html += "<span onclick=\"setBlockSelectionAlgorithm(2);\">Latest Block</span><br/>";

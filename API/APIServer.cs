@@ -1293,20 +1293,27 @@ namespace DLTNode
         private JsonResponse onSetBlockSelectionAlgorithm(HttpListenerRequest request)
         {
             int algo = int.Parse(request.QueryString["algorithm"]);
-            if (algo == (int)BlockSearchMode.lowestDifficulty)
+            if(algo == -1)
             {
+                Node.miner.pause = true;
+            }else if (algo == (int)BlockSearchMode.lowestDifficulty)
+            {
+                Node.miner.pause = false;
                 Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
             }
             else if (algo == (int)BlockSearchMode.randomLowestDifficulty)
             {
+                Node.miner.pause = false;
                 Node.miner.searchMode = BlockSearchMode.randomLowestDifficulty;
             }
             else if (algo == (int)BlockSearchMode.latestBlock)
             {
+                Node.miner.pause = false;
                 Node.miner.searchMode = BlockSearchMode.latestBlock;
             }
             else if (algo == (int)BlockSearchMode.random)
             {
+                Node.miner.pause = false;
                 Node.miner.searchMode = BlockSearchMode.random;
             }else
             {

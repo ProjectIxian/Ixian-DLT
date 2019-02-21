@@ -122,6 +122,11 @@ namespace DLT.Meta
             StringBuilder sb = new StringBuilder();
             while (true)
             {
+                if (forceShutdown)
+                {
+                    return "";
+                }
+
                 ConsoleKeyInfo i = Console.ReadKey(true);
                 if (i.Key == ConsoleKey.Enter)
                 {
