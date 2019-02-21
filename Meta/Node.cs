@@ -208,11 +208,19 @@ namespace DLT.Meta
             Logging.flush();
 
             Console.WriteLine();
-            Console.Write("Your IXIAN address is ");
+            Console.WriteLine("Your IXIAN addresses are: ");
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
+            foreach(var entry in walletStorage.getMyAddressesBase58())
+            {
+                Console.WriteLine(entry);
+            }
             Console.ResetColor();
             Console.WriteLine();
+
+            if(Config.onlyShowAddresses)
+            {
+                return false;
+            }
 
             // Check if we should change the password of the wallet
             if (Config.changePass == true)
@@ -576,6 +584,7 @@ namespace DLT.Meta
             // Check for node deprecation
             if (checkCurrentBlockDeprecation(Node.blockChain.getLastBlockNum()) == false)
             {
+                Logging.consoleOutput = true;
                 Logging.error(string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.compileTimeBlockNumber + Config.deprecationBlockOffset));
                 running = false;
                 return running;

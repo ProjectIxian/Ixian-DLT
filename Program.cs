@@ -353,6 +353,12 @@ namespace DLTNode
             // Initialize the node
             Node.init();
 
+            if (noStart)
+            {
+                Thread.Sleep(1000);
+                return;
+            }
+
             // Start the actual DLT node
             Node.start(verboseConsoleOutputSetting);
 

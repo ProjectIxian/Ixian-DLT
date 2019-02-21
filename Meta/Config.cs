@@ -45,6 +45,8 @@ namespace DLT
 
             public static bool fullStorageDataVerification = false;
 
+            public static bool onlyShowAddresses = false;
+
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
@@ -85,8 +87,8 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--disableMiner] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover]");
-                Console.WriteLine(" [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--walletPassword]");
+                Console.WriteLine(" [--disableWebStart] [--disableMiner] [--onlyShowAddressList] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
+                Console.WriteLine(" [--recover] [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--walletPassword]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -107,6 +109,7 @@ namespace DLT
                 Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
                 Console.WriteLine("    --disableMiner\t Disable miner");
+                Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -328,7 +331,9 @@ namespace DLT
                 cmd_parser.Setup<bool>("disableMiner").Callback(value => disableMiner = true).Required();
 
                 cmd_parser.Setup<bool>("verifyStorage").Callback(value => fullStorageDataVerification = true).Required();
-                
+
+                cmd_parser.Setup<bool>("onlyShowAddresses").Callback(value => onlyShowAddresses = true).Required();
+
 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
