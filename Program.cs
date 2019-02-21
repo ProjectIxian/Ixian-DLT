@@ -457,12 +457,6 @@ namespace DLTNode
                 mainLoopTimer.Stop();
             }
 
-            // Stop the API server
-            if (Node.apiServer != null)
-            {
-                Node.apiServer.stop();
-            }
-
             if (noStart == false)
             {
                 // Stop the DLT

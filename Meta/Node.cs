@@ -167,7 +167,7 @@ namespace DLT.Meta
                 {
                     Logging.flush();
                     password = requestNewPassword("Enter a password for your new wallet: ");
-                    if(Node.apiServer.forceShutdown == false)
+                    if (apiServer.forceShutdown)
                     {
                         return false;
                     }
@@ -195,13 +195,13 @@ namespace DLT.Meta
                         Console.Write("Enter wallet password: ");
                         password = getPasswordInput();
                     }
+                    if (apiServer.forceShutdown)
+                    {
+                        return false;
+                    }
                     if (walletStorage.readWallet(password))
                     {
                         success = true;
-                    }
-                    if (Node.apiServer.forceShutdown == false)
-                    {
-                        return false;
                     }
                 }
             }
@@ -238,7 +238,7 @@ namespace DLT.Meta
                 while (new_password.Length < 10)
                 {
                     new_password = requestNewPassword("Enter a new password for your wallet: ");
-                    if (Node.apiServer.forceShutdown == false)
+                    if (apiServer.forceShutdown)
                     {
                         return false;
                     }
@@ -613,10 +613,18 @@ namespace DLT.Meta
 
         static public void stop()
         {
+            // Stop the API server
+            if (apiServer != null)
+            {
+                apiServer.stop();
+                apiServer = null;
+            }
+
             // Stop the miner
             if (miner != null)
             {
                 miner.stop();
+                miner = null;
             }
 
             // Stop the keepalive thread
@@ -650,10 +658,7 @@ namespace DLT.Meta
 
             // Stop the console stats screen
             // Console screen has a thread running even if we are in verbose mode
-            //if (Config.verboseConsoleOutput == false)
-            //{
-                statsConsoleScreen.stop();
-            //}
+            statsConsoleScreen.stop();
 
             NetDump.Instance.shutdown();
 
