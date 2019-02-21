@@ -15,63 +15,16 @@ using System.Text;
 
 namespace DLTNode
 {
-    class JsonError
-    {
-        public int code = 0;
-        public string message = null;
-    }
-
-    class JsonResponse
-    {
-        public object result = null;
-        public JsonError error = null;
-        public string id = null;
-    }
 
     class APIServer : GenericAPIServer
     {
-
-        private JsonRpc jsonRpc = new JsonRpc();
-
         public APIServer()
         {
             // Start the API server
             start(String.Format("http://localhost:{0}/", Config.apiPort), Config.apiUsers);
         }
 
-        public void sendResponse(HttpListenerResponse responseObject, JsonResponse response)
-        {
-            string responseString = JsonConvert.SerializeObject(response);
 
-            byte[] buffer = Encoding.UTF8.GetBytes(responseString);
-
-            try
-            {
-                responseObject.ContentLength64 = buffer.Length;
-                Stream output = responseObject.OutputStream;
-                output.Write(buffer, 0, buffer.Length);
-                output.Close();
-            }
-            catch (Exception e)
-            {
-                Logging.error(String.Format("APIServer: {0}", e));
-            }
-        }
-
-        public void sendResponse(HttpListenerResponse responseObject, byte[] buffer)
-        {
-            try
-            {
-                responseObject.ContentLength64 = buffer.Length;
-                Stream output = responseObject.OutputStream;
-                output.Write(buffer, 0, buffer.Length);
-                output.Close();
-            }
-            catch (Exception e)
-            {
-                Logging.error(String.Format("APIServer: {0}", e));
-            }
-        }
         protected override void onUpdate(HttpListenerContext context)
         {
             try
@@ -367,7 +320,7 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            forceShutdown = true;
+            Node.forceShutdown = true;
 
             return new JsonResponse { result = "Node shutdown", error = error };
         }

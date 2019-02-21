@@ -35,6 +35,7 @@ namespace DLT.Meta
         public static bool serverStarted = false;
         public static bool presenceListActive = false;
 
+        public static bool forceShutdown = false;
 
         // Private
         private static Thread maintenanceThread;
@@ -167,7 +168,7 @@ namespace DLT.Meta
                 {
                     Logging.flush();
                     password = requestNewPassword("Enter a password for your new wallet: ");
-                    if (apiServer.forceShutdown)
+                    if (forceShutdown)
                     {
                         return false;
                     }
@@ -195,7 +196,7 @@ namespace DLT.Meta
                         Console.Write("Enter wallet password: ");
                         password = getPasswordInput();
                     }
-                    if (apiServer.forceShutdown)
+                    if (forceShutdown)
                     {
                         return false;
                     }
@@ -238,7 +239,7 @@ namespace DLT.Meta
                 while (new_password.Length < 10)
                 {
                     new_password = requestNewPassword("Enter a new password for your wallet: ");
-                    if (apiServer.forceShutdown)
+                    if (forceShutdown)
                     {
                         return false;
                     }

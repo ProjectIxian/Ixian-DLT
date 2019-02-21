@@ -231,7 +231,7 @@ namespace DLTNode
 
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
                 e.Cancel = true;
-                Node.apiServer.forceShutdown = true;
+                Node.forceShutdown = true;
             };
 
             // For testing only. Run any experiments here as to not affect the infrastructure.
@@ -245,7 +245,7 @@ namespace DLTNode
 
             if(Node.apiServer != null)
             { 
-                while (Node.apiServer.forceShutdown == false)
+                while (Node.forceShutdown == false)
                 {
                     Thread.Sleep(1000);
                 }
@@ -414,7 +414,7 @@ namespace DLTNode
                 }
                 else if(key.Key == ConsoleKey.Escape)
                 {
-                    Node.apiServer.forceShutdown = true;
+                    Node.forceShutdown = true;
                 }
                 else if (key.Key == ConsoleKey.M)
                 {
@@ -446,7 +446,7 @@ namespace DLTNode
             }
             if (Node.update() == false)
             {
-                Node.apiServer.forceShutdown = true;
+                Node.forceShutdown = true;
             }
         }
 
@@ -490,7 +490,7 @@ namespace DLTNode
                     noStart = true;
                     if (Node.apiServer != null)
                     {
-                        Node.apiServer.forceShutdown = true;
+                        Node.forceShutdown = true;
                     }
                     // Wait (max 5 seconds) for everything to die
                     DateTime waitStart = DateTime.Now;
