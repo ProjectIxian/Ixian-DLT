@@ -76,7 +76,7 @@
                         <p class="text-center top">Scan the QR code to send funds</p>
                         <div id="qrcode" class="middle"></div>
 
-                        <p class="text-center bottom">or copy/paste the address below</p>
+                        <p class="text-center bottom">or click on the address below to copy it to clipboard</p>
 
                     </div>
 
@@ -153,10 +153,43 @@
 
 
         <script type="text/javascript">
+            var selectedReceiveAddress = null;
+
+            // copyToClipboard function copied from https://hackernoon.com/copying-text-to-clipboard-with-javascript-df4d4988697f
+            const copyToClipboard = str => {
+                const el = document.createElement('textarea');  // Create a <textarea> element
+                el.value = str;                                 // Set its value to the string that you want copied
+                el.setAttribute('readonly', '');                // Make it readonly to be tamper-proof
+                el.style.position = 'absolute';
+                el.style.left = '-9999px';                      // Move outside the screen to make it invisible
+                document.body.appendChild(el);                  // Append the <textarea> element to the HTML document
+                const selected =
+                    document.getSelection().rangeCount > 0        // Check if there is any content selected previously
+                        ? document.getSelection().getRangeAt(0)     // Store selection if found
+                        : false;                                    // Mark as false to know no selection existed before
+                el.select();                                    // Select the <textarea> content
+                document.execCommand('copy');                   // Copy - only works as a result of a user action (e.g. click events)
+                document.body.removeChild(el);                  // Remove the <textarea> element
+                if (selected) {                                 // If a selection existed before copying
+                    document.getSelection().removeAllRanges();    // Unselect everything on the HTML document
+                    document.getSelection().addRange(selected);   // Restore the original selection
+                }
+            };
+
             var qrcode = new QRCode(document.getElementById("qrcode"), {
                 width: 300,
                 height: 300
             });
+
+            function setReceiveAddress(address) {
+                selectedReceiveAddress = address;
+
+                document.getElementById("selectedReceiveAddress").innerHTML = selectedReceiveAddress;
+
+                // Create the QR code
+                qrcode.clear();
+                qrcode.makeCode(selectedReceiveAddress);
+            }
 
             function getMyWallet() {
 
@@ -176,15 +209,26 @@
                     .done(function (data) {
                         data = data["result"];
                         var keyList = Object.keys(data);
-                        var address = keyList[keyList.length - 1];
+                        if (selectedReceiveAddress == null) {
+                            selectedReceiveAddress = keyList[keyList.length - 1];
+                            // Create the QR code
+                            qrcode.clear();
+                            qrcode.makeCode(selectedReceiveAddress);
+                        }
+
+                        var html = "<div id=\"selectedReceiveAddress\" onclick=\"copyToClipboard('" + selectedReceiveAddress + "');\">" + selectedReceiveAddress + "</div>";
+
+                        html += "<div class=\"dropDown\">";
+
+                        for (var i in data) {
+
+                            html += "<span onclick=\"setReceiveAddress('" + i + "');\">" + i + " (" + data[i] + ")</span><br/>";
+                        }
+
+                        html += "</div>";
 
                         // Assign relevant wallet information
-                        document.getElementById("receive_own_address").innerHTML = address;
-
-                        // Create the QR code
-                        qrcode.clear();
-                        qrcode.makeCode(address);
-
+                        document.getElementById("receive_own_address").innerHTML = html;
 
                     });
             }

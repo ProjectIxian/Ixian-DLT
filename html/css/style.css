@@ -36,15 +36,17 @@ body, html {
 .dropDown
 {
     display: none;
-    position: absolute;
+    position: relative;
     padding: 10px;
     box-sizing: border-box;
-    background: black;
+    background: white;
+    color: black;
+    border: 1px solid black;
 }
 
 *:hover > .dropDown
 {
-    display: block;
+    display: inline-block;
 }
 
 .navbar-default {
@@ -202,7 +204,6 @@ body, html {
 
 
 /* RECEIVE SCREEN */
-
 .screen_headerbar {
 
     width: 100%;
