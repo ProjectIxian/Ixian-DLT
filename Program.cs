@@ -229,6 +229,11 @@ namespace DLTNode
             // Start logging
             Logging.start();
 
+            Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
+                e.Cancel = true;
+                Node.apiServer.forceShutdown = true;
+            };
+
             // For testing only. Run any experiments here as to not affect the infrastructure.
             // Failure of tests will result in termination of the dlt instance.
             /*if(runTests(args) == false)
@@ -237,11 +242,6 @@ namespace DLTNode
             }*/
 
             onStart(args);
-
-            Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
-                e.Cancel = true;
-                Node.apiServer.forceShutdown = true;
-            };
 
             if(Node.apiServer != null)
             { 
@@ -486,7 +486,7 @@ namespace DLTNode
             {
                 case CtrlTypes.CTRL_C_EVENT:
                 case CtrlTypes.CTRL_BREAK_EVENT:
-                    return true; // ignore these, as they will be caught by the managed event handler in Main()
+                    return true;
                 case CtrlTypes.CTRL_CLOSE_EVENT:
                 case CtrlTypes.CTRL_LOGOFF_EVENT:
                 case CtrlTypes.CTRL_SHUTDOWN_EVENT:

@@ -167,6 +167,10 @@ namespace DLT.Meta
                 {
                     Logging.flush();
                     password = requestNewPassword("Enter a password for your new wallet: ");
+                    if(Node.apiServer.forceShutdown == false)
+                    {
+                        return false;
+                    }
                 }
                 walletStorage.generateWallet(password);
             }
@@ -194,6 +198,10 @@ namespace DLT.Meta
                     if (walletStorage.readWallet(password))
                     {
                         success = true;
+                    }
+                    if (Node.apiServer.forceShutdown == false)
+                    {
+                        return false;
                     }
                 }
             }
@@ -230,6 +238,10 @@ namespace DLT.Meta
                 while (new_password.Length < 10)
                 {
                     new_password = requestNewPassword("Enter a new password for your wallet: ");
+                    if (Node.apiServer.forceShutdown == false)
+                    {
+                        return false;
+                    }
                 }
                 walletStorage.writeWallet(new_password);
             }

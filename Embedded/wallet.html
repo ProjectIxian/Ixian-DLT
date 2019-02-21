@@ -218,15 +218,15 @@
 
                         var html = "<div id=\"selectedReceiveAddress\" onclick=\"copyToClipboard('" + selectedReceiveAddress + "');\">" + selectedReceiveAddress + "</div>";
 
-                        html += "<div class=\"dropDown\">";
+                        if (data.length > 1) {
+                            html += "<div class=\"dropDown\">";
+                            for (var i in data) {
 
-                        for (var i in data) {
+                                html += "<span onclick=\"setReceiveAddress('" + i + "');\">" + i + " (" + data[i] + ")</span><br/>";
+                            }
 
-                            html += "<span onclick=\"setReceiveAddress('" + i + "');\">" + i + " (" + data[i] + ")</span><br/>";
+                            html += "</div>";
                         }
-
-                        html += "</div>";
-
                         // Assign relevant wallet information
                         document.getElementById("receive_own_address").innerHTML = html;
 
@@ -303,8 +303,8 @@
 
 
             function sendTransaction() {
-                var address = document.getElementById("address").value;
-                var amount = document.getElementById("amount").value;
+                var address = document.getElementById("address").value.trim();
+                var amount = document.getElementById("amount").value.trim();
 
                 console.log("Amount " + amount);
                 if (amount <= 0) //  || amount > balance)
