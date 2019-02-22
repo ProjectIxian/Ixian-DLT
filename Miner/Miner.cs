@@ -819,6 +819,10 @@ namespace DLT
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {
                 Block block = Node.blockChain.getBlock(i);
+                if(block == null)
+                {
+                    continue;
+                }
                 if (block.powField == null)
                 {
                     empty_blocks++;

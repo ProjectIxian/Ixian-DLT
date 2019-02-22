@@ -1087,6 +1087,7 @@ namespace DLTNode
 
             networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
             networkArray.Add("Block Version", Node.blockChain.getLastBlockVersion());
+            networkArray.Add("Network Block Height", Node.getHighestKnownNetworkBlockHeight());
             networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
             networkArray.Add("Wallets", Node.walletState.numWallets);
             networkArray.Add("Presences", PresenceList.getTotalPresences());

@@ -189,6 +189,8 @@
                 // Create the QR code
                 qrcode.clear();
                 qrcode.makeCode(selectedReceiveAddress);
+
+                copyToClipboard(address);
             }
 
             function getMyWallet() {
@@ -332,10 +334,8 @@
                 var dltAPI = "#IXIAN#NODE#URL#" + "generatenewaddress";
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
-                        document.getElementById("receive_own_address").innerHTML = data["result"];
-                        // Create the QR code
-                        qrcode.clear();
-                        qrcode.makeCode(address);
+                        selectedReceiveAddress = data["result"];
+                        getMyWallet();
                     });
 
             }
@@ -359,7 +359,7 @@
                         if (sync_status == "Synchronizing") {
                             // Show the syncbar
                             warning_bar.style.display = "block";
-                            warning_bar.firstElementChild.innerHTML = "The blockchain is not fully synchronized";
+                            warning_bar.firstElementChild.innerHTML = "Synchronizing the blockchain, block #" + data["result"]["Block Height"] + " / " + data["result"]["Network Block Height"];
 
                         } else if (sync_status == "ErrorForkedViaUpgrade")
                         {
