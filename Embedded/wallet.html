@@ -99,6 +99,12 @@
                         <p class="text-center" style="padding-top:8px">Send Funds</p>
                     </div>
 
+                    <div id="send_balance">
+                        <p class="text-center top">Available Balance</p>
+                        <p class="text-center"><span class="status_dbalance" id="send_balance_number">0</span> <i>IXI</i></p>
+
+                    </div>
+
                     <div class="send_address">
                         enter address or scan QR code
                     </div>
@@ -115,14 +121,15 @@
                         </div>
 
                         <div class="amount_edit">
-                            <input type="text" id="amount" placeholder="" class="input-sm form-control">
+                            <input type="text" id="amount" placeholder="" class="input-sm form-control" onkeyup="calculateTransactionAmounts();">
                         </div>
 
+                        <div id="transaction_amounts">
+                            <p class="text-center top">Transaction Fee</p>
+                            <p class="text-center"><span class="status_dbalance" id="transactionFee">0</span> <i>IXI</i></p>
 
-                        <div id="send_balance">
-                            <p class="text-center top">Available Balance</p>
-                            <p class="text-center"><span class="status_dbalance" id="send_balance_number">0</span> <i>IXI</i></p>
-
+                            <p class="text-center top">Total Amount</p>
+                            <p class="text-center"><span class="status_dbalance" id="totalAmount">0</span> <i>IXI</i></p>
                         </div>
 
                         <div class="send_button_wrap">
@@ -345,6 +352,23 @@
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
                         getStatus();
+                    });
+
+            }
+
+            function calculateTransactionAmounts() {
+                var address = document.getElementById("address").value.trim();
+                var amount = document.getElementById("amount").value.trim();
+
+                var dltAPI = "#IXIAN#NODE#URL#" + "createtransaction?to=" + address + "_" + amount;
+                $.getJSON(dltAPI, { format: "json" })
+                    .done(function (data) {
+                        if (data["result"] != null) {
+                            document.getElementById("transactionFee").innerHTML = data["result"]["fee"];
+                            document.getElementById("totalAmount").innerHTML = data["result"]["amount"];
+                        } else {
+                            // fail
+                        }
                     });
 
             }
