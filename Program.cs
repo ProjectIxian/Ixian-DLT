@@ -221,8 +221,13 @@ namespace DLTNode
         }
 
         static void Main(string[] args)
-        {            
-            Console.Clear();
+        {
+            if (!Console.IsOutputRedirected)
+            {
+                // There are probably more problematic Console operations if we're working in stdout redirected mode, but 
+                // this one is blocking automated testing.
+                Console.Clear();
+            }
 
             prepareWindowsConsole();
 
