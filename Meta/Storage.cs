@@ -85,8 +85,6 @@ namespace DLT
                 public int version { get; set; }
             }
 
-
-
             // Creates the storage file if not found
             public static bool prepareStorage()
             {
