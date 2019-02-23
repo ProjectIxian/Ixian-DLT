@@ -379,7 +379,7 @@ namespace DLTNode.API
                 base_address = Node.walletStorage.getPrimaryAddress();
             }
 
-            Address new_address = Node.walletStorage.generateNewAddress(new Address(base_address));
+            Address new_address = Node.walletStorage.generateNewAddress(new Address(base_address), null);
             if (new_address != null)
             {
                 return new JsonResponse { result = new_address.ToString(), error = null };

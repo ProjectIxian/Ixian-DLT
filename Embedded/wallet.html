@@ -365,7 +365,7 @@
                     .done(function (data) {
                         if (data["result"] != null) {
                             document.getElementById("transactionFee").innerHTML = data["result"]["fee"];
-                            document.getElementById("totalAmount").innerHTML = data["result"]["amount"];
+                            document.getElementById("totalAmount").innerHTML = data["result"]["totalAmount"];
                         } else {
                             // fail
                         }

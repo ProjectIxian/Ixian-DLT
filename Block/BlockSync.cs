@@ -643,6 +643,8 @@ namespace DLT
                 CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], Node.getHighestKnownNetworkBlockHeight());
 
                 Node.miner.start();
+
+                Node.walletStorage.scanForLostAddresses();
             }
 
         }
