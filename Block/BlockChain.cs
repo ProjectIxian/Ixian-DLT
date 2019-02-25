@@ -3,7 +3,6 @@ using IXICore;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 namespace DLT
@@ -15,6 +14,9 @@ namespace DLT
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
 
         long lastBlockReceivedTime = Clock.getTimestamp();
+
+        ulong lastBlockNum = 0;
+        int lastBlockVersion = 0;
 
         public long Count
         {
@@ -65,6 +67,14 @@ namespace DLT
         {
             lock (blocks)
             {
+                if (b.blockNum > lastBlockNum)
+                {
+                    lastBlockNum = b.blockNum;
+                    if (b.version != lastBlockVersion)
+                    {
+                        lastBlockVersion = b.version;
+                    }
+                }
                 // special case when we are starting up and have an empty chain
                 if (blocks.Count == 0)
                 {
@@ -203,20 +213,12 @@ namespace DLT
 
         public ulong getLastBlockNum()
         {
-            lock (blocks)
-            {
-                if (blocks.Count == 0) return 0;
-                return blocks[blocks.Count - 1].blockNum;
-            }
+            return lastBlockNum;
         }
 
         public int getLastBlockVersion()
         {
-            lock (blocks)
-            {
-                if (blocks.Count == 0) return 0;
-                return blocks[blocks.Count - 1].version;
-            }
+            return lastBlockVersion;
         }
 
         public int getRequiredConsensus()
@@ -271,6 +273,7 @@ namespace DLT
 
         public byte[] getLastBlockChecksum()
         {
+            // TODO TODO TODO TODO cache
             lock (blocks)
             {
                 if (blocks.Count == 0) return null;
@@ -280,6 +283,7 @@ namespace DLT
 
         public byte[] getCurrentWalletState()
         {
+            // TODO TODO TODO TODO cache
             lock (blocks)
             {
                 if (blocks.Count == 0) return null;
@@ -289,6 +293,7 @@ namespace DLT
 
         public int getBlockSignaturesReverse(int index)
         {
+            // TODO TODO TODO TODO cache
             lock (blocks)
             {
                 if (blocks.Count - index - 1 < 0) return 0;
@@ -381,6 +386,7 @@ namespace DLT
         // Get the number of PoW solved blocks
         public ulong getSolvedBlocksCount(ulong redacted_window_size)
         {
+            // TODO TODO TODO TODO cache
             ulong solved_blocks = 0;
 
             ulong firstBlockNum = 1;

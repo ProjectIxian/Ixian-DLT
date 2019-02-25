@@ -58,6 +58,19 @@ namespace DLT
                         Logging.info(String.Format("Multisig transaction {{ {0} }} is an origin multisig transaction.", transaction.id));
                     }
                     orig_txid = multisig_obj.origTXId;
+                    if (transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
+                    {
+                        Transaction tmp_tx = null;
+                        if (orig_txid != null)
+                        {
+                            tmp_tx = TransactionPool.getTransaction(orig_txid, 0);
+                        }
+                        if (tmp_tx == null || tmp_tx.applied != 0)
+                        {
+                            Logging.warn(String.Format("Orig txid {0} doesn't exist or has already been applied.", orig_txid));
+                            return false;
+                        }
+                    }
                     signer_pub_key = multisig_obj.signerPubKey;
                     signer_nonce = multisig_obj.signerNonce;
                 }
@@ -1215,6 +1228,7 @@ namespace DLT
                     }
                     if (tx.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
+                        applyMultisigAddTxSignature(tx, block, failed_transactions, ws_snapshot);
                         continue;
                     }
 
@@ -1480,7 +1494,7 @@ namespace DLT
 
         public static bool applyMultisigTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
-            if(tx.type == (int)Transaction.Type.MultisigTX)
+            if (tx.type == (int)Transaction.Type.MultisigTX)
             {
                 ulong minBh = 0;
                 if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
@@ -1495,7 +1509,7 @@ namespace DLT
                     return false;
                 }
 
-                if(tx.fromList.Count > 1)
+                if (tx.fromList.Count > 1)
                 {
                     Logging.error(String.Format("Multisig transaction {{ {0} }} has more than one 'from' address!", tx.id));
                     failed_transactions.Add(tx);
@@ -1504,7 +1518,7 @@ namespace DLT
                 object multisig_type = tx.GetMultisigData();
                 byte[] from_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
                 Wallet orig = Node.walletState.getWallet(from_address, ws_snapshot);
-                if(orig is null)
+                if (orig is null)
                 {
                     Logging.error(String.Format("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(from_address)));
                     failed_transactions.Add(tx);
@@ -1562,6 +1576,100 @@ namespace DLT
                 // ignore if it doesn't have enough sigs - it will either accumulate more sigs, or be pruned after a timeout period
                 // it processes as normal
                 return applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
+            }
+            return false;
+        }
+
+        public static bool applyMultisigAddTxSignature(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
+        {
+            if (tx.type == (int)Transaction.Type.MultisigAddTxSignature)
+            {
+                ulong minBh = 0;
+                if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+                {
+                    minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                }
+                // Check the block height
+                if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
+                {
+                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+
+                if (tx.fromList.Count > 1)
+                {
+                    Logging.error(String.Format("Multisig transaction {{ {0} }} has more than one 'from' address!", tx.id));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                object multisig_type = tx.GetMultisigData();
+                byte[] from_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
+                Wallet orig = Node.walletState.getWallet(from_address, ws_snapshot);
+                if (orig is null)
+                {
+                    Logging.error(String.Format("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(from_address)));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                if (orig.type != WalletType.Multisig)
+                {
+                    Logging.error(String.Format("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
+                        Crypto.hashToString(from_address), tx.id));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+                // we only attempt to execute the original transaction, if there are enough signatures
+                if (multisig_type is Transaction.MultisigTxData)
+                {
+                    var multisig_obj = (Transaction.MultisigTxData)multisig_type;
+                    if (multisig_obj.origTXId != "")
+                    {
+                        if(!block.transactions.Contains(multisig_obj.origTXId))
+                        {
+                            Logging.error(String.Format("Multisig transaction {{ {0} }} has invalid multisig data!", tx.id));
+                            failed_transactions.Add(tx);
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        Logging.error(String.Format("Multisig transaction {{ {0} }} has invalid multisig data!", tx.id));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+                }
+                else
+                {
+                    Logging.error(String.Format("Multisig transaction {{ {0} }} has invalid multisig data!", tx.id));
+                    failed_transactions.Add(tx);
+                    return false;
+                }
+
+                foreach (var entry in tx.fromList)
+                {
+                    byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
+
+                    Wallet source_wallet = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                    IxiNumber source_balance_before = source_wallet.balance;
+                    // Withdraw the full amount, including fee
+                    IxiNumber source_balance_after = source_balance_before - entry.Value;
+                    if (source_balance_after < (long)0)
+                    {
+                        Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
+                            tx.id, block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address));
+                        failed_transactions.Add(tx);
+                        return false;
+                    }
+
+                    Node.walletState.setWalletBalance(tmp_address, source_balance_after, ws_snapshot);
+                }
+
+                if (!ws_snapshot)
+                {
+                    setAppliedFlag(tx.id, block.blockNum);
+                }
+                return true;
             }
             return false;
         }
@@ -2049,6 +2157,7 @@ namespace DLT
 
         public static void processPendingTransactions()
         {
+            ulong last_block_height = Node.getLastBlockHeight();
             lock (transactions) // this lock must be here to prevent deadlocks TODO: improve this at some point
             {
                 lock (pendingTransactions)
@@ -2056,7 +2165,6 @@ namespace DLT
                     long cur_time = Clock.getTimestamp();
                     List<object[]> tmp_pending_transactions = new List<object[]>(pendingTransactions);
                     int idx = 0;
-                    ulong last_block_height = Node.getLastBlockHeight();
                     foreach (var entry in tmp_pending_transactions)
                     {
                         Transaction t = (Transaction)entry[0];
