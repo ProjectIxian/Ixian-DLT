@@ -2049,71 +2049,74 @@ namespace DLT
 
         public static void processPendingTransactions()
         {
-            lock(pendingTransactions)
+            lock (transactions) // this lock must be here to prevent deadlocks TODO: improve this at some point
             {
-                long cur_time = Clock.getTimestamp();
-                List<object[]> tmp_pending_transactions = new List<object[]>(pendingTransactions);
-                int idx = 0;
-                ulong last_block_height = Node.getLastBlockHeight();
-                foreach(var entry in tmp_pending_transactions)
+                lock (pendingTransactions)
                 {
-                    Transaction t = (Transaction)entry[0];
-                    long tx_time = (long)entry[1];
-                    if((int)entry[2] > 3) // already received 3+ feedback
+                    long cur_time = Clock.getTimestamp();
+                    List<object[]> tmp_pending_transactions = new List<object[]>(pendingTransactions);
+                    int idx = 0;
+                    ulong last_block_height = Node.getLastBlockHeight();
+                    foreach (var entry in tmp_pending_transactions)
                     {
-                        continue;
-                    }
+                        Transaction t = (Transaction)entry[0];
+                        long tx_time = (long)entry[1];
+                        if ((int)entry[2] > 3) // already received 3+ feedback
+                        {
+                            continue;
+                        }
 
-                    if (t.applied != 0)
-                    {
-                        pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
-                        continue;
-                    }
+                        if (t.applied != 0)
+                        {
+                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            continue;
+                        }
 
-                    // if transaction expired, remove it from pending transactions
-                    if (last_block_height > CoreConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - CoreConfig.getRedactedWindowSize())
-                    {
-                        ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                        pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
-                        continue;
-                    }
-
-                    // check if PoW and if already solved
-                    if (t.type == (int)Transaction.Type.PoWSolution)
-                    {
-                        ulong pow_block_num = BitConverter.ToUInt64(t.data, 0);
-
-                        Block tmpBlock = Node.blockChain.getBlock(pow_block_num);
-                        if (tmpBlock == null || tmpBlock.powField != null)
+                        // if transaction expired, remove it from pending transactions
+                        if (last_block_height > CoreConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - CoreConfig.getRedactedWindowSize())
                         {
                             ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                             pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                             continue;
                         }
-                    }
-                    else
-                    {
-                        // check if transaction is still valid
-                        if (getTransaction(t.id) == null && !verifyTransaction(t))
+
+                        // check if PoW and if already solved
+                        if (t.type == (int)Transaction.Type.PoWSolution)
                         {
-                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
-                            continue;
+                            ulong pow_block_num = BitConverter.ToUInt64(t.data, 0);
+
+                            Block tmpBlock = Node.blockChain.getBlock(pow_block_num);
+                            if (tmpBlock == null || tmpBlock.powField != null)
+                            {
+                                ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
+                                pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                                continue;
+                            }
                         }
-                    }
+                        else
+                        {
+                            // check if transaction is still valid
+                            if (getTransaction(t.id) == null && !verifyTransaction(t))
+                            {
+                                ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
+                                pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                                continue;
+                            }
+                        }
 
-                    if ((bool)pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
-                    {
-                        ProtocolMessage.broadcastGetTransaction(t.id, 0);
-                        pendingTransactions[idx][3] = true;
-                    }
+                        if ((bool)pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
+                        {
+                            ProtocolMessage.broadcastGetTransaction(t.id, 0);
+                            pendingTransactions[idx][3] = true;
+                        }
 
-                    if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
-                    {
-                        CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes());
-                        pendingTransactions[idx][1] = cur_time;
+                        if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
+                        {
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes());
+                            pendingTransactions[idx][1] = cur_time;
+                        }
+                        idx++;
                     }
-                    idx++;
                 }
             }
         }
