@@ -568,7 +568,7 @@ namespace DLT
             }
 
             // Verify sigfreeze
-            if (b.blockNum <= lastBlockNum)
+            if (b.blockNum <= lastBlockNum + 1)
             {
                 if (!verifySignatureFreezeChecksum(b, endpoint))
                 {
@@ -1210,7 +1210,7 @@ namespace DLT
 
         public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint)
         {
-            if(Node.blockChain.Count < 5)
+            if(Node.blockChain.Count <= 5)
             {
                 return true;
             }
@@ -1235,6 +1235,7 @@ namespace DLT
             }
             else if (b.blockNum > 5)
             {
+                // this shouldn't be possible
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
                     b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5));
