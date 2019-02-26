@@ -65,9 +65,17 @@ namespace DLT
                         {
                             tmp_tx = TransactionPool.getTransaction(orig_txid, 0);
                         }
-                        if (tmp_tx == null || tmp_tx.applied != 0)
+                        if (tmp_tx == null)
                         {
-                            Logging.warn(String.Format("Orig txid {0} doesn't exist or has already been applied.", orig_txid));
+                            Logging.warn(String.Format("Orig txid {0} doesn't exist.", orig_txid));
+                            return false;
+                        }else if(tmp_tx.applied != 0)
+                        {
+                            Logging.warn(String.Format("Orig txid {0} has already been applied.", orig_txid));
+                            return false;
+                        }else if (tmp_tx.type != (int)Transaction.Type.ChangeMultisigWallet && (tmp_tx.type != (int)Transaction.Type.MultisigTX))
+                        {
+                            Logging.warn(String.Format("Orig txid {0} is not a multisig transaction.", orig_txid));
                             return false;
                         }
                     }
