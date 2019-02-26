@@ -829,7 +829,7 @@ namespace DLT.Meta
             // First check if the block processor is running
             if (blockProcessor.operating == true)
             {
-                if (Node.blockChain.getLastBlockNum() > 2)
+                if (blockChain.getLastBlockNum() > 2)
                 {
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.getPrimaryAddress());
                     if(!isMasterNode())
@@ -843,8 +843,12 @@ namespace DLT.Meta
                     else
                     if (nodeBalance < CoreConfig.minimumMasterNodeFunds)
                     {
-                        if (Config.disableMiner == false)
+                        if (Config.disableMiner == false || Config.isTestNet)
                         {
+                            if(Config.disableMiner)
+                            {
+                                miner.pause = true;
+                            }
                             if (!isWorkerNode())
                             {
                                 Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a worker node.",

@@ -468,15 +468,7 @@ namespace DLTNode
                 error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "origtx parameter is missing" };
                 return new JsonResponse { result = null, error = error };
             }
-            else
-            {
-                Transaction orig_tx = TransactionPool.getTransaction(orig_txid);
-                if (orig_tx == null)
-                {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_TRANSACTION_ERROR, message = "Original tx " + orig_txid + " not found" };
-                    return new JsonResponse { result = null, error = error };
-                }
-            }
+            // no need to check if orig_txid exists as it may not (yet) because we're C/W node, TODO TODO in the future we could query a M/H node
 
             IxiNumber fee = CoreConfig.transactionPrice;
 

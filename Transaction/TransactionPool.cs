@@ -42,6 +42,12 @@ namespace DLT
                     Logging.warn(String.Format("Multisig transaction {{ {0} }} has invalid multisig data attached!", transaction.id));
                     return false;
                 }
+
+                // we can use fromList.First because:
+                //  a: verifyTransaction() checks that there is at least one fromAddress (if there isn't, totalAmount == 0 and transaction is failed before it gets here)
+                //  b: at the start of this function, fromList is checked for fromList.Count > 1 and failed if so
+                byte[] from_address = (new Address(transaction.pubKey, transaction.fromList.First().Key)).address;
+
                 string orig_txid = "";
                 byte[] signer_pub_key = null;
                 byte[] signer_nonce = null;
@@ -60,15 +66,20 @@ namespace DLT
                     orig_txid = multisig_obj.origTXId;
                     if (transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
-                        Transaction tmp_tx = null;
-                        if (orig_txid != null)
+                        if(orig_txid == null || orig_txid.Length > 100 || orig_txid.Length < 10)
                         {
-                            tmp_tx = TransactionPool.getTransaction(orig_txid, 0);
+                            Logging.warn(String.Format("Orig txid {0} is invalid.", orig_txid));
+                            return false;
                         }
+
+                        Transaction tmp_tx = getTransaction(orig_txid, 0);
                         if (tmp_tx == null)
                         {
-                            Logging.warn(String.Format("Orig txid {0} doesn't exist.", orig_txid));
-                            return false;
+                            if(findMyMultisigAddressData(from_address) == null)
+                            {
+                                Logging.warn(String.Format("Orig txid {0} doesn't exist.", orig_txid));
+                                return false;
+                            }
                         }else if(tmp_tx.applied != 0)
                         {
                             Logging.warn(String.Format("Orig txid {0} has already been applied.", orig_txid));
@@ -121,10 +132,7 @@ namespace DLT
                     Logging.warn(String.Format("Multisig transaction {{ {0} }}, has a null signer pubkey!", transaction.id));
                 }
                 byte[] tx_signer_address = (new Address(signer_pub_key, signer_nonce)).address;
-                // we can use fromList.First because:
-                //  a: verifyTransaction() checks that there is at least one fromAddress (if there isn't, totalAmount == 0 and transaction is failed before it gets here)
-                //  b: at the start of this function, fromList is checked for fromList.Count > 1 and failed if so
-                byte[] from_address = (new Address(transaction.pubKey, transaction.fromList.First().Key)).address;
+
                 Wallet w = Node.walletState.getWallet(from_address);
                 if (!w.isValidSigner(tx_signer_address))
                 {
@@ -269,34 +277,51 @@ namespace DLT
                 totalAmount += entry.Value;
                 if (transaction.type != (int)Transaction.Type.PoWSolution
                     && transaction.type != (int)Transaction.Type.StakingReward
-                    && transaction.type != (int)Transaction.Type.Genesis
-                    && transaction.type != (int)Transaction.Type.ChangeMultisigWallet
-                    && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
+                    && transaction.type != (int)Transaction.Type.Genesis)
                 {
                     if (Node.blockSync.synchronizing == false)
                     {
                         byte[] tmp_from_address = (new Address(transaction.pubKey, entry.Key)).address;
-                        if(transaction.toList.ContainsKey(tmp_from_address))
+
+
+                        if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet
+                            && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
                         {
-                            // Prevent sending to the same address
-                            Logging.warn(String.Format("To and from addresses are the same in transaction {{ {0} }}.", transaction.id));
-                            return false;
+                            if (transaction.toList.ContainsKey(tmp_from_address))
+                            {
+                                // Prevent sending to the same address
+                                Logging.warn(String.Format("To and from addresses are the same in transaction {{ {0} }}.", transaction.id));
+                                return false;
+                            }
                         }
 
                         Wallet tmp_wallet = Node.walletState.getWallet(tmp_from_address);
 
                         
-                        if(transaction.type == (int)Transaction.Type.MultisigTX)
+                        if(transaction.type == (int)Transaction.Type.MultisigTX
+                            || transaction.type == (int)Transaction.Type.ChangeMultisigWallet
+                            || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
                         {
                             if (tmp_wallet.type != WalletType.Multisig)
                             {
-                                Logging.warn(String.Format("Attempted to use normal address with multisig transaction {{ {0} }}.", transaction.id));
+                                object ms_data = transaction.GetMultisigData();
+                                if (ms_data is Transaction.MultisigAddrAdd)
+                                {
+                                    // wallet type can be normal or multisig
+                                }
+                                else
+                                {
+                                    Logging.warn(String.Format("Attempted to use normal address with multisig transaction {{ {0} }}.", transaction.id));
+                                    return false;
+                                }
+                            }
+                        }else
+                        {
+                            if (tmp_wallet.type != WalletType.Normal)
+                            {
+                                Logging.warn(String.Format("Attempted to use a non-normal address with normal transaction {{ {0} }}.", transaction.id));
                                 return false;
                             }
-                        }else if(tmp_wallet.type != WalletType.Normal)
-                        {
-                            Logging.warn(String.Format("Attempted to use multisig address with normal transaction {{ {0} }}.", transaction.id));
-                            return false;
                         }
 
                         // Verify the transaction against the wallet state
@@ -599,13 +624,16 @@ namespace DLT
                             signer_nonce = multisig_obj.signerNonce;
                         }
 
-                        if (orig_txid == "")
+                        if (orig_txid == "" || orig_txid == null)
                         {
+                            Logging.warn(String.Format("Multisig transaction {{ {0} }} has a null orig txid!", tx.id));
+                            failed_transactions.Add(tx);
                             continue;
                         }
 
                         if (signer_pub_key == null)
                         {
+                            Logging.warn(String.Format("Multisig transaction {{ {0} }} signer_pub_key is null - orig multisig transaction: {1}!", tx.id, orig_txid));
                             failed_transactions.Add(tx);
                             continue;
                         }
@@ -614,8 +642,7 @@ namespace DLT
                         {
                             if (orig_tx == null)
                             {
-                                Logging.warn(String.Format("Multisig transaction {{ {0} }} signs a missing orig multisig transaction {1}!",
-                                    tx.id, orig_txid));
+                                Logging.warn(String.Format("Multisig transaction {{ {0} }} signs a missing orig multisig transaction {1}!", tx.id, orig_txid));
                                 failed_transactions.Add(tx);
                                 continue;
                             }

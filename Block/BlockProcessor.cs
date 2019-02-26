@@ -688,32 +688,13 @@ namespace DLT
                     try
                     {
                         // TODO: check to see if other transaction types need additional verification
-                        if (t.type == (int)Transaction.Type.Normal)
+                        if (t.type != (int)Transaction.Type.Genesis
+                            && t.type != (int)Transaction.Type.PoWSolution
+                            && t.type != (int)Transaction.Type.StakingReward)
                         {
                             txCount++;
                             IxiNumber new_minus_balance = minusBalances[address] + entry.Value;
                             minusBalances[address] = new_minus_balance;
-                        }
-                        else if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet || t.type == (int)Transaction.Type.MultisigAddTxSignature)
-                        {
-                            object multisig_data = t.GetMultisigData();
-                            string orig_txid = "";
-                            if (multisig_data is Transaction.MultisigTxData)
-                            {
-                                orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
-                            }
-                            if (orig_txid == "")
-                            {
-                                orig_txid = t.id;
-                            }
-                            Wallet from_w = Node.walletState.getWallet(address);
-                            int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, b) + 1;
-                            if (num_valid_multisigs < from_w.requiredSigs)
-                            {
-                                Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
-                                    t.id, num_valid_multisigs, from_w.requiredSigs));
-                                return BlockVerifyStatus.Invalid;
-                            }
                         }
                     }
                     catch (OverflowException)
@@ -723,6 +704,41 @@ namespace DLT
                         Logging.error(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}",
                             t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(address)));
                         return BlockVerifyStatus.Invalid;
+                    }
+                }
+            }
+
+            // Pass #2 verifications for multisigs after all transactions have been received
+            if(hasAllTransactions)
+            {
+                foreach (string txid in b.transactions)
+                {
+                    Transaction t = TransactionPool.getTransaction(txid, b.blockNum);
+                    if(t == null)
+                    {
+                        continue;
+                    }
+                    if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet || t.type == (int)Transaction.Type.MultisigAddTxSignature)
+                    {
+                        object multisig_data = t.GetMultisigData();
+                        string orig_txid = "";
+                        if (multisig_data is Transaction.MultisigTxData)
+                        {
+                            orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
+                        }
+                        if (orig_txid == "")
+                        {
+                            orig_txid = t.id;
+                        }
+                        byte[] address = (new Address(t.pubKey, t.fromList.Keys.First())).address;
+                        Wallet from_w = Node.walletState.getWallet(address);
+                        int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, b) + 1;
+                        if (num_valid_multisigs < from_w.requiredSigs)
+                        {
+                            Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
+                                t.id, num_valid_multisigs, from_w.requiredSigs));
+                            return BlockVerifyStatus.Invalid;
+                        }
                     }
                 }
             }
