@@ -28,6 +28,7 @@ namespace DLT
         public ulong firstSplitOccurence { get; private set; }
 
         Block localNewBlock; // Block being worked on currently
+        Block pendingSigFreezingBlock; // Waiting for sigfreezed target block
         public readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
@@ -282,51 +283,60 @@ namespace DLT
                 {
                     sigFreezingBlock = localNewBlock;
                 }
-            }
-            if (sigFreezingBlock != null)
-            {
-                lock (localBlockLock)
+                if (sigFreezingBlock == null && pendingSigFreezingBlock != null && pendingSigFreezingBlock.blockNum == b.blockNum + 5)
                 {
-                    sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
+                    sigFreezingBlock = pendingSigFreezingBlock;
                 }
-                // this block already has a sigfreeze, don't tamper with the signatures
-                Block targetBlock = Node.blockChain.getBlock(b.blockNum);
-                if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()))
+                if (sigFreezingBlock != null)
                 {
-                    // we already have the correct block
-                    if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
+                    lock (localBlockLock)
                     {
-                        // we already have the correct block but the sender does not, broadcast our block
-                        endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes());
+                        sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
                     }
-                    return false;
-                }
-                if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
-                {
-                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                    if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
+                    // this block already has a sigfreeze, don't tamper with the signatures
+                    Block targetBlock = Node.blockChain.getBlock(b.blockNum);
+                    if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()))
                     {
-                        // this is likely the correct block, update and broadcast to others
-                        Node.blockChain.refreshSignatures(b, true);
-                        ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
+                        // we already have the correct block
+                        if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
+                        {
+                            // we already have the correct block but the sender does not, broadcast our block
+                            endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes());
+                        }
+                        return false;
+                    }
+                    if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
+                    {
+                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                        if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
+                        {
+                            lock (localBlockLock)
+                            {
+                                pendingSigFreezingBlock = null;
+                            }
+                            // this is likely the correct block, update and broadcast to others
+                            Node.blockChain.refreshSignatures(b, true);
+                            ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
+                        }
+                        else
+                        {
+                            Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
+                            // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
+                            CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
+                            lock (localBlockLock)
+                            {
+                                localNewBlock = null;
+                                pendingSigFreezingBlock = null;
+                            }
+                        }
+                        return false;
                     }
                     else
                     {
-                        Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
-                        // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
-                        CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
-                        lock (localBlockLock)
-                        {
-                            localNewBlock = null;
-                        }
+                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                        ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint);
+                        return false;
                     }
-                    return false;
-                }
-                else
-                {
-                    Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                    ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint);
-                    return false;
                 }
             }
             return true;
@@ -1227,6 +1237,10 @@ namespace DLT
                 byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
                 if (!b.signatureFreezeChecksum.SequenceEqual(sigFreezeChecksum))
                 {
+                    lock (localBlockLock)
+                    {
+                        pendingSigFreezingBlock = b;
+                    }
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
                         b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
                     ProtocolMessage.broadcastGetBlock(b.blockNum - 5, null, endpoint);
@@ -1237,7 +1251,7 @@ namespace DLT
             {
                 // this shouldn't be possible
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
-                Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
+                Logging.error(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
                     b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5));
                 ProtocolMessage.broadcastGetBlock(b.blockNum, endpoint);
                 return false;
