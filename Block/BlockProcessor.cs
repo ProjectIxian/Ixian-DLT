@@ -2073,6 +2073,7 @@ namespace DLT
             }
 
             IxiNumber totalIxis = Node.walletState.calculateTotalSupply();
+            //Logging.info(String.Format("totalIxis = {0}", totalIxis.ToString()));
             IxiNumber inflationPA = new IxiNumber("0.1"); // 0.1% inflation per year for the first month
 
             if (targetBlockNum > 86400) // increase inflation to 5% after 1 month
@@ -2085,9 +2086,11 @@ namespace DLT
             {
                 inflationPA = new IxiNumber("1");
             }
+            //Logging.info(String.Format("inflationPA = {0}", inflationPA.ToString()));
 
             // Calculate the amount of new IXIs to be minted
             IxiNumber newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
+            //Logging.info(String.Format("newIxis = {0}", newIxis.ToString()));
             //Console.ForegroundColor = ConsoleColor.Magenta;
             //Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
             // Retrieve the list of signature wallets
@@ -2106,33 +2109,43 @@ namespace DLT
                 if (wallet.balance.getAmount() > 0)
                 {
                     totalIxisStaked += wallet.balance;
+                    //Logging.info(String.Format("wallet {0} stakes {1} IXI", Base58Check.Base58CheckEncoding.EncodePlain(wallet_addr), wallet.balance.ToString()));
                     stakes[stakers] = wallet.balance.getAmount();
                     stakeWallets[stakers] = wallet_addr;
                     stakers += 1;
                 }
             }
+            //Logging.info(String.Format("Stakers: {0}, totalIxisStaked = {1}", stakers, totalIxisStaked.ToString()));
 
-            if(totalIxisStaked.getAmount() <= 0)
+            if (totalIxisStaked.getAmount() <= 0)
             {
                 Logging.warn(String.Format("No Ixis were staked or a logic error occured - total ixi staked returned: {0}", totalIxisStaked.getAmount()));
                 return transactions;
             }
 
             // Second pass, determine awards by stake
+            //Logging.info("Determining awards");
+
             BigInteger totalAwarded = 0;
             for (int i = 0; i < stakers; i++)
             {
                 BigInteger p = (newIxis.getAmount() * stakes[i] * 100) / totalIxisStaked.getAmount();
+                //Logging.info(String.Format("staker[{0}]: p = {1}", i, p.ToString()));
                 awardRemainders[i] = p % 100;
+                //Logging.info(String.Format("staker[{0}]: awardRemainder = {1}", i, awardRemainders[i].ToString()));
                 p = p / 100;
                 awards[i] = p;
+                //Logging.info(String.Format("staker[{0}]: award = {1}", i, awards[i].ToString()));
                 totalAwarded += p;
             }
+            //Logging.info(String.Format("totalAwarded = {0}", totalAwarded.ToString()));
 
             // Third pass, distribute remainders, if any
             // This essentially "rounds up" the awards for the stakers closest to the next whole amount,
             // until we bring the award difference down to zero.
+            //Logging.info("Determining remainders");
             BigInteger diffAward = newIxis.getAmount() - totalAwarded;
+            //Logging.info(String.Format("diffAward = {0}", diffAward.ToString()));
             if (diffAward > 0)
             {
                 int[] descRemaindersIndexes = awardRemainders
@@ -2143,6 +2156,7 @@ namespace DLT
                 while (diffAward > 0)
                 {
                     awards[descRemaindersIndexes[currRemainderAward]] += 1;
+                    //Logging.info(String.Format("Increasing reward {0} by 1, to: {1}", descRemaindersIndexes[currRemainderAward], awards[descRemaindersIndexes[currRemainderAward]].ToString()));
                     currRemainderAward += 1;
                     diffAward -= 1;
                 }
@@ -2153,6 +2167,7 @@ namespace DLT
                 for (int i = 0; i < stakers; i++)
                 {
                     IxiNumber award = new IxiNumber(awards[i]);
+                    //Logging.info(String.Format("Final reward for staker {0}: {1}", i, award.ToString()));
                     if (award > (long)0)
                     {
                         byte[] wallet_addr = stakeWallets[i];
@@ -2171,6 +2186,7 @@ namespace DLT
                 for (int i = 0; i < stakers; i++)
                 {
                     IxiNumber award = new IxiNumber(awards[i]);
+                    //Logging.info(String.Format("Final reward for staker {0}: {1}", i, award.ToString()));
                     if (award > (long)0)
                     {
                         byte[] wallet_addr = stakeWallets[i];
