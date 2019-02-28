@@ -289,10 +289,7 @@ namespace DLT
                 }
                 if (sigFreezingBlock != null)
                 {
-                    lock (localBlockLock)
-                    {
-                        sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
-                    }
+                    sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
                     // this block already has a sigfreeze, don't tamper with the signatures
                     Block targetBlock = Node.blockChain.getBlock(b.blockNum);
                     if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()))
@@ -310,10 +307,7 @@ namespace DLT
                         Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
                         {
-                            lock (localBlockLock)
-                            {
-                                pendingSigFreezingBlock = null;
-                            }
+                            pendingSigFreezingBlock = null;
                             // this is likely the correct block, update and broadcast to others
                             Node.blockChain.refreshSignatures(b, true);
                             ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
@@ -323,11 +317,8 @@ namespace DLT
                             Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
                             // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
                             CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
-                            lock (localBlockLock)
-                            {
-                                localNewBlock = null;
-                                pendingSigFreezingBlock = null;
-                            }
+                            localNewBlock = null;
+                            pendingSigFreezingBlock = null;
                         }
                         return false;
                     }
@@ -1247,7 +1238,7 @@ namespace DLT
                     return false;
                 }
             }
-            else if (b.blockNum > 5)
+            else if (b.blockNum > 7)
             {
                 // this shouldn't be possible
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
