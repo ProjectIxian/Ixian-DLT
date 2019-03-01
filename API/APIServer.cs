@@ -1,7 +1,6 @@
 ﻿using DLT;
 using DLT.Meta;
 using DLT.Network;
-using DLTNode.API;
 using IXICore;
 using IXICore.Utils;
 using Newtonsoft.Json;
@@ -11,10 +10,64 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Text;
 
 namespace DLTNode
 {
+
+    //! Bitcoin RPC error codes
+    enum RPCErrorCode
+    {
+        //! Standard JSON-RPC 2.0 errors
+        RPC_INVALID_REQUEST = -32600,
+        RPC_METHOD_NOT_FOUND = -32601,
+        RPC_INVALID_PARAMS = -32602,
+        RPC_INTERNAL_ERROR = -32603,
+        RPC_PARSE_ERROR = -32700,
+
+        //! General application defined errors
+        RPC_MISC_ERROR = -1,  //! std::exception thrown in command handling
+        RPC_FORBIDDEN_BY_SAFE_MODE = -2,  //! Server is in safe mode, and command is not allowed in safe mode
+        RPC_TYPE_ERROR = -3,  //! Unexpected type was passed as parameter
+        RPC_INVALID_ADDRESS_OR_KEY = -5,  //! Invalid address or key
+        RPC_OUT_OF_MEMORY = -7,  //! Ran out of memory during operation
+        RPC_INVALID_PARAMETER = -8,  //! Invalid, missing or duplicate parameter
+        RPC_DATABASE_ERROR = -20, //! Database error
+        RPC_DESERIALIZATION_ERROR = -22, //! Error parsing or validating structure in raw format
+        RPC_VERIFY_ERROR = -25, //! General error during transaction or block submission
+        RPC_VERIFY_REJECTED = -26, //! Transaction or block was rejected by network rules
+        RPC_VERIFY_ALREADY_IN_CHAIN = -27, //! Transaction already in chain
+        RPC_IN_WARMUP = -28, //! Client still warming up
+
+        //! Aliases for backward compatibility
+        RPC_TRANSACTION_ERROR = RPC_VERIFY_ERROR,
+        RPC_TRANSACTION_REJECTED = RPC_VERIFY_REJECTED,
+        RPC_TRANSACTION_ALREADY_IN_CHAIN = RPC_VERIFY_ALREADY_IN_CHAIN,
+
+        //! P2P client errors
+        RPC_CLIENT_NOT_CONNECTED = -9,  //! Bitcoin is not connected
+        RPC_CLIENT_IN_INITIAL_DOWNLOAD = -10, //! Still downloading initial blocks
+        RPC_CLIENT_NODE_ALREADY_ADDED = -23, //! Node is already added
+        RPC_CLIENT_NODE_NOT_ADDED = -24, //! Node has not been added before
+
+        //! Wallet errors
+        RPC_WALLET_ERROR = -4,  //! Unspecified problem with wallet (key not found etc.)
+        RPC_WALLET_INSUFFICIENT_FUNDS = -6,  //! Not enough funds in wallet or account
+        RPC_WALLET_INVALID_ACCOUNT_NAME = -11, //! Invalid account name
+        RPC_WALLET_KEYPOOL_RAN_OUT = -12, //! Keypool ran out, call keypoolrefill first
+        RPC_WALLET_UNLOCK_NEEDED = -13, //! Enter the wallet passphrase with walletpassphrase first
+        RPC_WALLET_PASSPHRASE_INCORRECT = -14, //! The wallet passphrase entered was incorrect
+        RPC_WALLET_WRONG_ENC_STATE = -15, //! Command given in wrong wallet encryption state (encrypting an encrypted wallet etc.)
+        RPC_WALLET_ENCRYPTION_FAILED = -16, //! Failed to encrypt the wallet
+        RPC_WALLET_ALREADY_UNLOCKED = -17, //! Wallet is already unlocked
+    };
+
+    class JsonRpcRequest
+    {
+        public int jsonrpc = 0;
+        public string id = null;
+        public string method = null;
+        public object @params = null;
+    }
 
     class APIServer : GenericAPIServer
     {
@@ -123,12 +176,27 @@ namespace DLTNode
                 response = onAddTransaction(request);
             }
 
-            if(methodName.Equals("createtransaction", StringComparison.OrdinalIgnoreCase))
+            if (methodName.Equals("createrawtransaction", StringComparison.OrdinalIgnoreCase))
             {
-                response = onCreateTransaction(request);
+                response = onCreateRawTransaction(request);
             }
 
-            if(methodName.Equals("calculatetransactionfee", StringComparison.OrdinalIgnoreCase))
+            if (methodName.Equals("decoderawtransaction", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onDecodeRawTransaction(request);
+            }
+
+            if (methodName.Equals("signrawtransaction", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onSignRawTransaction(request);
+            }
+
+            if (methodName.Equals("sendrawtransaction", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onSendRawTransaction(request);
+            }
+
+            if (methodName.Equals("calculatetransactionfee", StringComparison.OrdinalIgnoreCase))
             {
                 if (request.QueryString["autofee"] != null)
                 {
@@ -388,12 +456,12 @@ namespace DLTNode
             return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "An unknown error occured while adding the transaction" } };
         }
 
-        public JsonResponse onCreateTransaction(HttpListenerRequest request)
+        public JsonResponse onCreateRawTransaction(HttpListenerRequest request)
         {
             // Create a transaction, but do not add it to the TX pool on the node. Useful for:
             // - offline transactions
             // - manually adjusting fee
-            object r = createTransactionHelper(request);
+            object r = createTransactionHelper(request, false);
             Transaction transaction = null;
             if (r is JsonResponse)
             {
@@ -416,8 +484,76 @@ namespace DLTNode
                     }
                 };
             }
-            return new JsonResponse { result = transaction.toDictionary(), error = null };
+            if (request.QueryString["json"] != null)
+            {
+                return new JsonResponse { result = transaction.toDictionary(), error = null };
+            }
+            else
+            {
+                return new JsonResponse { result = Crypto.hashToString(transaction.getBytes()), error = null };
+            }
         }
+
+        public JsonResponse onDecodeRawTransaction(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            string raw_transaction_hex = request.QueryString["transaction"];
+            if (raw_transaction_hex == null)
+            {
+                error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "transaction parameter is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+            Transaction raw_transaction = new Transaction(Crypto.stringToHash(raw_transaction_hex));
+            return new JsonResponse { result = raw_transaction.toDictionary(), error = null };
+        }
+
+        public JsonResponse onSignRawTransaction(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            string raw_transaction_hex = request.QueryString["transaction"];
+            if (raw_transaction_hex == null)
+            {
+                error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "transaction parameter is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+            Transaction raw_transaction = new Transaction(Crypto.stringToHash(raw_transaction_hex));
+            raw_transaction.signature = raw_transaction.getSignature(raw_transaction.checksum);
+            return new JsonResponse { result = Crypto.hashToString(raw_transaction.getBytes()), error = null };
+        }
+
+        public JsonResponse onSendRawTransaction(HttpListenerRequest request)
+        {
+            JsonError error = null;
+
+            // transaction which alters a multisig wallet
+            object res = "Incorrect transaction parameters.";
+
+            string raw_transaction_hex = request.QueryString["transaction"];
+            if (raw_transaction_hex == null)
+            {
+                error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "transaction parameter is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+            Transaction raw_transaction = new Transaction(Crypto.stringToHash(raw_transaction_hex));
+
+            if (TransactionPool.addTransaction(raw_transaction))
+            {
+                TransactionPool.addPendingLocalTransaction(raw_transaction);
+                return new JsonResponse { result = raw_transaction.toDictionary(), error = null };
+            }
+
+            return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "An unknown error occured while adding the transaction" } };
+        }
+
+
 
         public JsonResponse onCalculateTransactionFee(HttpListenerRequest request)
         {
@@ -1319,7 +1455,7 @@ namespace DLTNode
 
         // This is a bit hacky way to return useful error values
         // returns either Transaction or JsonResponse
-        private object createTransactionHelper(HttpListenerRequest request)
+        private object createTransactionHelper(HttpListenerRequest request, bool sign_transaction = true)
         {
             IxiNumber from_amount = 0;
             IxiNumber fee = CoreConfig.transactionPrice;
@@ -1434,7 +1570,7 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
             }
 
-            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
+            Transaction transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, sign_transaction);
             //Logging.info(String.Format("Intial transaction size: {0}.", transaction.getBytes().Length));
             //Logging.info(String.Format("Intial transaction set fee: {0}.", transaction.fee));
             if (adjust_amount) //true only if automatically generating from address
@@ -1451,7 +1587,7 @@ namespace DLTNode
                     {
                         return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_VERIFY_ERROR, message = "From list is empty" } };
                     }
-                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
+                    transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, sign_transaction);
                 }
             }
             else if (auto_fee) // true if user specified both a valid from address and the parameter autofee=true
@@ -1459,7 +1595,7 @@ namespace DLTNode
                 // fee is taken from the first specified address
                 byte[] first_address = fromList.Keys.First();
                 fromList[first_address] = fromList[first_address] + transaction.fee;
-                transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1);
+                transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, sign_transaction);
             }
             //Logging.info(String.Format("Transaction size after automatic adjustments: {0}.", transaction.getBytes().Length));
             //Logging.info(String.Format("Transaction fee after automatic adjustments: {0}.", transaction.fee));
