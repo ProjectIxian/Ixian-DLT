@@ -420,6 +420,8 @@ namespace DLT
         // Clears all the transactions in the pool
         public void clear()
         {
+            lastBlockNum = 0;
+            lastBlockVersion = 0;
             lock (blocksDictionary)
             {
                 blocksDictionary.Clear();

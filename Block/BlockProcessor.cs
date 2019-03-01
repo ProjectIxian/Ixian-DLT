@@ -1971,7 +1971,7 @@ namespace DLT
 
             ulong next_difficulty = min_difficulty;
             BigInteger current_hashes_per_block = 0;
-            BigInteger previous_hashes_per_block = Miner.getTargetHashcountPerBlock(previous_block.difficulty);
+            BigInteger previous_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
 
             // if there are more than 3/4 of solved blocks, max out the difficulty
             if (solved_blocks > window_size * 0.75f)

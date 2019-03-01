@@ -58,9 +58,9 @@ namespace DLTNode
                 "SQLitePCLRaw.core.dll",
                 "SQLitePCLRaw.provider.e_sqlite3.dll",
                 "System.Console.dll",
-                "System.Reflection.TypeExtensions.dll",
-                "x64" + Path.DirectorySeparatorChar + "e_sqlite3.dll"
+                "System.Reflection.TypeExtensions.dll"
             };
+
             foreach(string critical_dll in critical_dlls)
             {
                 if(!File.Exists(critical_dll))
@@ -76,6 +76,15 @@ namespace DLTNode
             if (!File.Exists("libargon2.dll") && !File.Exists("libargon2.so") && !File.Exists("libargon2.dylib"))
             {
                 Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download the archive from https://www.ixian.io!", "libargon2"));
+                Logging.info("Press ENTER to exit.");
+                Console.ReadLine();
+                Environment.Exit(-1);
+            }
+
+            // Special case for sqlite3
+            if (!File.Exists("x64" + Path.DirectorySeparatorChar + "e_sqlite3.dll") && !File.Exists("libe_sqlite3.so") && !File.Exists("libe_sqlite3.dylib"))
+            {
+                Logging.error(String.Format("Missing '{0}' in the program folder. Possibly the IXIAN archive was corrupted or incorrectly installed. Please re-download the archive from https://www.ixian.io!", "sqlite3"));
                 Logging.info("Press ENTER to exit.");
                 Console.ReadLine();
                 Environment.Exit(-1);
