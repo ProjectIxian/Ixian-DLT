@@ -64,6 +64,8 @@ namespace DLT
                         Logging.info(String.Format("Multisig transaction {{ {0} }} is an origin multisig transaction.", transaction.id));
                     }
                     orig_txid = multisig_obj.origTXId;
+                    signer_pub_key = multisig_obj.signerPubKey;
+                    signer_nonce = multisig_obj.signerNonce;
                     if (transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         if(orig_txid == null || orig_txid.Length > 100 || orig_txid.Length < 10)
@@ -75,7 +77,7 @@ namespace DLT
                         Transaction tmp_tx = getTransaction(orig_txid, 0);
                         if (tmp_tx == null)
                         {
-                            if(findMyMultisigAddressData(from_address) == null)
+                            if(!Node.walletStorage.isMyAddress((new Address(signer_pub_key, signer_nonce)).address))
                             {
                                 Logging.warn(String.Format("Orig txid {0} doesn't exist.", orig_txid));
                                 return false;
@@ -90,8 +92,6 @@ namespace DLT
                             return false;
                         }
                     }
-                    signer_pub_key = multisig_obj.signerPubKey;
-                    signer_nonce = multisig_obj.signerNonce;
                 }
                 if (multisig_type is Transaction.MultisigAddrAdd)
                 {
