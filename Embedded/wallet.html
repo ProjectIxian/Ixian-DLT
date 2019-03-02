@@ -360,7 +360,7 @@
                 var address = document.getElementById("address").value.trim();
                 var amount = document.getElementById("amount").value.trim();
 
-                var dltAPI = "#IXIAN#NODE#URL#" + "createrawtransaction?to=" + address + "_" + amount+"&json";
+                var dltAPI = "#IXIAN#NODE#URL#" + "createrawtransaction?to=" + address + "_" + amount+"&json=true";
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
                         if (data["result"] != null) {
