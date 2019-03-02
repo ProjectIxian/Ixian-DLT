@@ -528,19 +528,6 @@ namespace DLT
                         }
                     }
 
-                    if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet)
-                    {
-                        // set applied to all signers (related multisig transactions)
-                        foreach(var related_tx in transactions.Values.Where(x => x != null && x.type == (int)Transaction.Type.MultisigAddTxSignature && x.applied == 0))
-                        {
-                            Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData) related_tx.GetMultisigData();
-                            if (ms_data.origTXId == txid)
-                            {
-                                related_tx.applied = blockNum;
-                                Meta.Storage.insertTransaction(related_tx);
-                            }
-                        }
-                    }
                     return true;
 
                 }
@@ -552,6 +539,8 @@ namespace DLT
         {
             lock(transactions)
             {
+                List<string> related_transaction_ids = new List<string>();
+
                 List<Transaction> failed_transactions = new List<Transaction>();
                 List<byte[]> signer_addresses = new List<byte[]>();
                 List<string> tmp_transactions = transactions.Keys.ToList();
@@ -591,6 +580,7 @@ namespace DLT
                     }
                     else
                     {
+                        Logging.warn(String.Format("Multisig transaction {{ {0} }} has invalid data!", orig_tx.id));
                         // unknown MS transaction, discard
                         failed_transactions.Add(orig_tx);
                         orig_tx = null;
@@ -599,10 +589,12 @@ namespace DLT
                     {
                         byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
                         signer_addresses.Add(signer_address);
+                    } else
+                    {
+                        return related_transaction_ids;
                     }
                 }
 
-                List<string> related_transaction_ids = new List<string>();
                 foreach (var tx_key in tmp_transactions)
                 {
                     if (!transactions.ContainsKey(tx_key))

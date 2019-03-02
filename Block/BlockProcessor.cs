@@ -89,6 +89,8 @@ namespace DLT
         {
             while (operating)
             {
+                bool sleep = false;
+
                 // check if it is time to generate a new block
                 TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
                 if (Node.blockChain.getLastBlockNum() < 10)
@@ -101,10 +103,6 @@ namespace DLT
                 }
 
                 int block_version = Block.maxVersion;
-                if(Node.getLastBlockHeight() == 0)
-                {
-                    block_version = 2; // TODO TODO TODO TODO for now force this to block version 2 due to checksum changes if anyone will create his own genesis block, later we'll fix this, once genesis is included in file
-                }
 
                 bool forceNextBlock = Node.forceNextBlock;
                 Random rnd = new Random();
@@ -123,6 +121,10 @@ namespace DLT
                     block_version = Node.blockChain.getLastBlockVersion();
                 }
 
+                if (Node.getLastBlockHeight() == 0)
+                {
+                    block_version = 2; // TODO TODO TODO TODO for now force this to block version 2 due to checksum changes if anyone will create his own genesis block, later we'll fix this, once genesis is included in file
+                }
 
                 //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
                 if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)) || forceNextBlock)
@@ -146,15 +148,32 @@ namespace DLT
                 }
                 else
                 {
-                    if (localNewBlock != null && localNewBlock.version > Node.blockChain.getLastBlockVersion())
+                    if (localNewBlock != null)
                     {
-                        lastUpgradeTry = Clock.getTimestamp();
+                        if (Node.isMasterNode())
+                        {
+                            if (localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                            {
+                                ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
+                                sleep = true;
+                            }
+                        }
+                        if (localNewBlock.version > Node.blockChain.getLastBlockVersion())
+                        {
+                            lastUpgradeTry = Clock.getTimestamp();
+                        }
                     }
-                    verifyBlockAcceptance();
                 }
 
                 // Sleep until next iteration
-                Thread.Sleep(1000);
+                if (sleep)
+                {
+                    Thread.Sleep(5000);
+                }
+                else {
+                    Thread.Sleep(1000);
+                }
             }
             Thread.Yield();
             return;
@@ -311,6 +330,10 @@ namespace DLT
                             // this is likely the correct block, update and broadcast to others
                             Node.blockChain.refreshSignatures(b, true);
                             ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
+                            if (sigFreezingBlock == localNewBlock)
+                            {
+                                acceptLocalNewBlock();
+                            }
                         }
                         else
                         {
@@ -547,7 +570,7 @@ namespace DLT
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if half of required consensus is reached on the block
-                        if (b.blockNum > lastBlockNum + 2 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
+                        if (b.blockNum > lastBlockNum + 1 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
                         }
@@ -815,7 +838,6 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
         {
-
             var sw = new System.Diagnostics.Stopwatch();
             sw.Start();
 
@@ -865,7 +887,8 @@ namespace DLT
                     if (b.blockNum < Node.blockChain.getLastBlockNum())
                     {
                         Logging.info(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
-                    }else if(b.blockNum == Node.blockChain.getLastBlockNum())
+                    }
+                    else if (b.blockNum == Node.blockChain.getLastBlockNum())
                     {
                         ws_checksum = Node.walletState.calculateWalletStateChecksum();
                         // this should always be the same anyway, but just in case
@@ -931,7 +954,9 @@ namespace DLT
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
                             Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
-                        }else if(localNewBlock.signatures.Count != b.signatures.Count)
+                            acceptLocalNewBlock();
+                        }
+                        else if(localNewBlock.signatures.Count != b.signatures.Count)
                         {
                             if (!Node.isMasterNode())
                                 return;
@@ -947,6 +972,7 @@ namespace DLT
                         {
                             Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             localNewBlock = b;
+                            acceptLocalNewBlock();
                         }
                         else
                         {
@@ -971,6 +997,7 @@ namespace DLT
                     {
                         localNewBlock = b;
                         firstBlockAfterSync = false;
+                        acceptLocalNewBlock();
                     }
                     else
                     {
@@ -1042,11 +1069,10 @@ namespace DLT
             }
         }
 
-        private void verifyBlockAcceptance()
+        private void acceptLocalNewBlock()
         {
             bool requestBlockAgain = false;
             ulong requestBlockNum = 0;
-            bool sleep = false;
 
             var sw = new System.Diagnostics.Stopwatch();
             sw.Start();
@@ -1164,15 +1190,6 @@ namespace DLT
                             localNewBlock = null;
                         }
                     }
-                    else
-                    {
-                        if (Node.isMasterNode())
-                        {
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
-                            Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
-                            sleep = true;
-                        }
-                    }
                 }else if (Node.blockChain.getBlock(localNewBlock.blockNum) == null)
                 {
                     Logging.error(String.Format("We have an invalid block #{0} in verifyBlockAcceptance, requesting the block again.", localNewBlock.blockNum));
@@ -1190,18 +1207,12 @@ namespace DLT
             Logging.info(string.Format("VerifyBlockAcceptance took: {0}ms", elapsed.TotalMilliseconds));
 
 
-            if (sleep)
-            {
-                Thread.Sleep(5000);
-            }
 
             // Check if we should request the block again
             if (requestBlockAgain && requestBlockNum > 0)
             {
                 // Show a notification
                 Logging.error(string.Format("Requesting block {0} again due to previous mismatch.", requestBlockNum));
-                // Sleep a bit to prevent spam
-                Thread.Sleep(5000);
                 // Request the block again
                 ProtocolMessage.broadcastGetBlock(requestBlockNum);
             }
@@ -1265,7 +1276,7 @@ namespace DLT
             distributeStakingRewards(b, b.version, ws_snapshot);
 
             // Apply transactions from block
-            if(!TransactionPool.applyTransactionsFromBlock(b, ws_snapshot))
+            if (!TransactionPool.applyTransactionsFromBlock(b, ws_snapshot))
             {
                 return false;
             }
@@ -1710,8 +1721,12 @@ namespace DLT
                 localNewBlock.logBlockDetails();
 
                 // Broadcast the new block
-                ProtocolMessage.broadcastNewBlock(localNewBlock);         
+                ProtocolMessage.broadcastNewBlock(localNewBlock);
 
+                if (localNewBlock.blockNum < 8)
+                {
+                    acceptLocalNewBlock();
+                }
             }
         }
 
