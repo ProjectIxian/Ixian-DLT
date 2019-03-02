@@ -494,7 +494,10 @@ namespace DLT
 
                     if (Node.walletStorage.isMyAddress((new Address(t.pubKey)).address) || Node.walletStorage.extractMyAddressesFromAddressList(t.toList) != null)
                     {
-                        ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
+                        if (!t.fromLocalStorage)
+                        {
+                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
+                        }
                         lock (pendingTransactions)
                         {
                             pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
@@ -545,7 +548,7 @@ namespace DLT
             return false;
         }
 
-        public static List<string> getRelatedMultisigTransactions(string txid, Block block)
+        public static List<string> getRelatedMultisigTransactions(string txid, Block block, bool remove_failed_transactions = true)
         {
             lock(transactions)
             {
@@ -672,9 +675,25 @@ namespace DLT
                     }
                 }
 
-                foreach(var tx in failed_transactions)
+                if (remove_failed_transactions)
                 {
-                    transactions.Remove(tx.id);
+                    // Remove all failed transactions from the TxPool and block
+                    foreach (Transaction tx in failed_transactions)
+                    {
+                        Logging.warn(String.Format("Removing failed ms transaction #{0} from pool.", tx.id));
+                        // Remove from TxPool
+                        if (tx.applied == 0)
+                        {
+                            lock (transactions)
+                            {
+                                transactions.Remove(tx.id);
+                            }
+                        }
+                        else
+                        {
+                            Logging.error(String.Format("Error, attempting to remove failed ms transaction #{0} from pool, that was already applied.", tx.id));
+                        }
+                    }
                 }
 
                 return related_transaction_ids;
@@ -683,7 +702,7 @@ namespace DLT
 
         public static int getNumRelatedMultisigTransactions(string txid, Block block)
         {
-            return getRelatedMultisigTransactions(txid, block).Count();
+            return getRelatedMultisigTransactions(txid, block, false).Count();
         }
 
         private static void addTransactionToActivityStorage(Transaction transaction)
@@ -768,7 +787,10 @@ namespace DLT
                 else
                 {
                     transactions.Add(transaction.id, transaction);
-                    addTransactionToActivityStorage(transaction);
+                    if (!transaction.fromLocalStorage)
+                    {
+                        addTransactionToActivityStorage(transaction);
+                    }
                 }
             }
 
@@ -2143,7 +2165,7 @@ namespace DLT
 
                         if (block == null || block.powField != null)
                         {
-                            if(Node.walletStorage.isMyAddress((new Address(entry.pubKey)).address))
+                            if (Node.walletStorage.isMyAddress((new Address(entry.pubKey)).address))
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(entry.id), ActivityStatus.Error, 0);
                             }
