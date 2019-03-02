@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DLT.Meta
 {
@@ -391,19 +392,17 @@ namespace DLT.Meta
                     else
                     {
                         Logging.warn(String.Format("None of the locally configured IP addresses are public. Attempting UPnP..."));
-                        IPAddress public_ip = upnp.GetExternalIPAddress();
-                        if (public_ip == null)
+                        Task<IPAddress> public_ip = upnp.GetExternalIPAddress();
+                        if (public_ip.Wait(1000))
                         {
-                            Logging.warn("UPnP failed.");
-                            showIPmenu();
-                        }
-                        else
-                        {
-                            Logging.info(String.Format("UPNP-determined public IP: {0}. Attempting to configure a port-forwarding rule.", public_ip.ToString()));
-                            if (upnp.MapPublicPort(Config.serverPort, primary_local))
+                            if (public_ip.Result != null)
                             {
-                                Config.publicServerIP = public_ip.ToString(); //upnp.getMappedIP();
-                                Logging.info(string.Format("Network configured. Public IP is: {0}", Config.publicServerIP));
+                                Logging.info(String.Format("UPNP-determined public IP: {0}. Attempting to configure a port-forwarding rule.", public_ip.Result.ToString()));
+                                if (upnp.MapPublicPort(Config.serverPort, primary_local))
+                                {
+                                    Config.publicServerIP = public_ip.Result.ToString(); //upnp.getMappedIP();
+                                    Logging.info(string.Format("Network configured. Public IP is: {0}", Config.publicServerIP));
+                                }
                             }
                             else
                             {
@@ -411,6 +410,7 @@ namespace DLT.Meta
                                 showIPmenu();
                             }
                         }
+
                     }
                 }
             }
