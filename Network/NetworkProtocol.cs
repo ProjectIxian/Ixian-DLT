@@ -176,6 +176,61 @@ namespace DLT
                 }
             }
 
+            // Broadcast the current block height. Called after accepting a new block once the node is fully synced
+            // Returns false when no RemoteEndpoints found to send the message to
+            public static bool broadcastBlockHeight(ulong blockNum)
+            {
+                bool result = false;
+                lock (NetworkServer.connectedClients)
+                {
+                    foreach (RemoteEndpoint endpoint in NetworkServer.connectedClients)
+                    {
+                        if (!endpoint.isConnected() || endpoint.helloReceived == false)
+                        {
+                            continue;
+                        }
+
+                        if (endpoint.presence == null || endpoint.presenceAddress == null)
+                        {
+                            continue;
+                        }
+
+                        if (endpoint.presenceAddress.type != 'C')
+                        {
+                            continue;
+                        }
+
+                        byte[] presenceWallet = endpoint.presence.wallet;
+
+                        // Retrieve the latest balance
+                        IxiNumber balance = Node.walletState.getWalletBalance(presenceWallet);
+
+                        // Return the balance for the matching address
+                        using (MemoryStream mw = new MemoryStream())
+                        {
+                            using (BinaryWriter writerw = new BinaryWriter(mw))
+                            {
+                                // Send the address
+                                writerw.Write(presenceWallet.Length);
+                                writerw.Write(presenceWallet);
+                                // Send the balance
+                                writerw.Write(balance.ToString());
+                                // Send the block height for this balance
+                                writerw.Write(Node.blockChain.getLastBlockNum());
+
+                                // Send the message
+                                endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
+
+                                result = true;
+                            }
+                        }
+                    }
+                }
+
+                return result;
+            }
+
+
             public static bool broadcastNewBlockSignature(byte[] signature_data, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
                 if (endpoint != null)
@@ -668,7 +723,7 @@ namespace DLT
                                     return;
                                 }*/
 
-                                Transaction transaction = new Transaction(data);
+                Transaction transaction = new Transaction(data);
                                 if (transaction == null)
                                     return;
                                 TransactionPool.addTransaction(transaction, false, endpoint);

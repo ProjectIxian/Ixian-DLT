@@ -1287,6 +1287,12 @@ namespace DLT
             // Update wallet state public keys
             updateWalletStatePublicKeys(b.blockNum, ws_snapshot);
 
+            // Broadcast blockheight only if the node is synchronized
+            if (!Node.blockSync.synchronizing)
+            {
+                ProtocolMessage.broadcastBlockHeight(b.blockNum);
+            }
+
             return true;
         }
 
