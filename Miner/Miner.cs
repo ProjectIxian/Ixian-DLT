@@ -71,9 +71,13 @@ namespace DLT
             if(Config.disableMiner)
                 return false;
 
-            Logging.info(String.Format("Starting miner with {0} threads", Config.miningThreads));
+            // Calculate the allowed number of threads based on logical processor count
+            Config.miningThreads = calculateMiningThreadsCount(Config.miningThreads);
+            Logging.info(String.Format("Starting miner with {0} threads on {1} logical processors.", Config.miningThreads, Environment.ProcessorCount));
 
             shouldStop = false;
+
+            // Start primary mining thread
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
 
@@ -92,6 +96,36 @@ namespace DLT
         {
             shouldStop = true;
             return true;
+        }
+
+        // Returns the allowed number of mining threads based on amount of logical processors detected
+        public static uint calculateMiningThreadsCount(uint miningThreads)
+        {
+            uint vcpus = (uint)Environment.ProcessorCount;
+
+            // Single logical processor detected, force one mining thread maximum
+            if (vcpus <= 1)
+            {
+                Logging.info("Single logical processor detected, forcing one mining thread maximum.");
+                return 1;
+            }
+
+            // Calculate the maximum number of threads allowed
+            uint maxThreads = (vcpus / 2) - 1;
+            if (maxThreads < 1)
+            {
+                return 1;
+            }
+
+            // Provided mining thread count exceeds maximum
+            if (miningThreads > maxThreads)
+            {
+                Logging.warn("Provided mining thread count ({0}) exceeds maximum allowed ({1})", miningThreads, maxThreads);
+                return maxThreads;
+            }
+
+            // Provided mining thread count is allowed
+            return miningThreads;
         }
 
         public static byte[] getHashCeilFromDifficulty(ulong difficulty)
