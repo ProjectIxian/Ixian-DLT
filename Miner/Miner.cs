@@ -71,6 +71,8 @@ namespace DLT
             if(Config.disableMiner)
                 return false;
 
+            Logging.info(String.Format("Starting miner with {0} threads", Config.miningThreads));
+
             shouldStop = false;
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Start();
