@@ -799,7 +799,7 @@ namespace DLT
 
             // Broadcast this transaction to the network
             if (no_broadcast == false)
-                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), skipEndpoint);
+                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), null, skipEndpoint);
 
 
             return true;
@@ -2256,7 +2256,7 @@ namespace DLT
 
                         if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                         {
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes());
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes(), null);
                             pendingTransactions[idx][1] = cur_time;
                         }
                         idx++;

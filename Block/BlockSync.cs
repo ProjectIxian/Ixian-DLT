@@ -44,6 +44,8 @@ namespace DLT
 
         private bool noNetworkSynchronization = false; // Flag to determine if it ever started a network sync
 
+        private bool syncDone = false;
+
         public BlockSync()
         {
             synchronizing = false;
@@ -60,15 +62,15 @@ namespace DLT
             
             while (running)
             {
-                if (synchronizing == false)
+                if (synchronizing == false || syncDone == true)
                 {
-                    Thread.Sleep(100);
+                    Thread.Sleep(1000);
                     continue;
                 }
                 if (syncTargetBlockNum == 0)
                 {
                     // we haven't connected to any clients yet
-                    Thread.Sleep(100);
+                    Thread.Sleep(1000);
                     continue;
                 }
 
@@ -87,6 +89,11 @@ namespace DLT
                     {
                         // Proceed with rolling forward the chain
                         rollForward();
+
+                        if (syncDone)
+                        {
+                            continue;
+                        }
 
                         if (requestMissingBlocks())
                         {
@@ -120,6 +127,11 @@ namespace DLT
 
         private bool requestMissingBlocks()
         {
+            if (syncDone)
+            {
+                return false;
+            }
+
             if (syncTargetBlockNum == 0)
             {
                 return false;
@@ -619,6 +631,8 @@ namespace DLT
             }
 
             // if we reach here, we are synchronized
+            syncDone = true;
+
             synchronizing = false;
 
             Node.blockProcessor.firstBlockAfterSync = true;
@@ -860,7 +874,7 @@ namespace DLT
                     Logging.info(String.Format("Sync target increased from {0} to {1}.",
                         syncTargetBlockNum, block_height));
 
-                    Node.blockProcessor.highestNetworkBlockNum = block_height;
+                    Node.blockProcessor.highestNetworkBlockNum = block_height; // TODO TODO TODO TODO this has to be improved, to check the validity of the block height - it must have required signatures
 
                     // Start a wallet state synchronization if no network sync was done before
                     if (noNetworkSynchronization && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
@@ -888,7 +902,7 @@ namespace DLT
                 }
             } else
             {
-                if(Node.blockProcessor.operating == false)
+                if (Node.blockProcessor.operating == false && syncDone == false)
                 {
                     if (last_block_to_read_from_storage > 0)
                     {
@@ -952,6 +966,11 @@ namespace DLT
 
         private void handleWatchDog(bool forceWsUpdate = false)
         {
+            if (syncDone)
+            {
+                return;
+            }
+
             if (!forceWsUpdate && watchDogBlockNum == 0)
             {
                 return;

@@ -244,7 +244,7 @@ namespace DLT
                 }
                 else
                 {
-                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlockSignature, signature_data, skipEndpoint);
+                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlockSignature, signature_data, null, skipEndpoint);
                 }
             }
 
@@ -382,14 +382,14 @@ namespace DLT
                 {
                     if (endpoint.isConnected())
                     {
-                        endpoint.sendData(ProtocolMessageCode.newBlock, b.getBytes());
+                        endpoint.sendData(ProtocolMessageCode.newBlock, b.getBytes(), BitConverter.GetBytes(b.blockNum));
                         return true;
                     }
                     return false;
                 }
                 else
                 {
-                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlock, b.getBytes(), skipEndpoint);
+                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlock, b.getBytes(), BitConverter.GetBytes(b.blockNum), skipEndpoint);
                 }
             }
 
@@ -440,9 +440,9 @@ namespace DLT
 
             public static void syncWalletStateNeighbor(string neighbor)
             {
-                if(NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1]) == false)
+                if(NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1], null) == false)
                 {
-                    NetworkServer.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1]);
+                    NetworkServer.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1], null);
                 }
             }
 
@@ -456,9 +456,9 @@ namespace DLT
                     {
                         writer.Write(chunk);
 
-                        if (NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray()) == false)
+                        if (NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray(), null) == false)
                         {
-                            if (NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray()) == false)
+                            if (NetworkServer.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray(), null) == false)
                                 return false;
                         }
                     }
@@ -1026,7 +1026,7 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    CoreProtocolMessage.broadcastEventBasedMessage(ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
+                                    CoreProtocolMessage.broadcastEventBasedMessage(ProtocolMessageCode.keepAlivePresence, data, address, address, endpoint);
                                 }
                                 
                             }

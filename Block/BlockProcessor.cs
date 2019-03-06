@@ -90,88 +90,99 @@ namespace DLT
             while (operating)
             {
                 bool sleep = false;
-
-                // check if it is time to generate a new block
-                TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-                if (Node.blockChain.getLastBlockNum() < 10)
+                try
                 {
-                    blockGenerationInterval = 5;
-                }
-                else
-                {
-                    blockGenerationInterval = 30;
-                }
 
-                int block_version = Block.maxVersion;
-
-                bool forceNextBlock = Node.forceNextBlock;
-                Random rnd = new Random();
-                if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
-                {
-                    forceNextBlock = true;
-                    block_version = Node.blockChain.getLastBlockVersion();
-                }
-
-                // if the node is stuck on the same block for too long, discard the block
-                if(localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20))
-                {
-                    blacklistBlock(localNewBlock);
-                    localNewBlock = null;
-                    lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
-                    block_version = Node.blockChain.getLastBlockVersion();
-                }
-
-                if (Node.getLastBlockHeight() == 0)
-                {
-                    block_version = 2; // TODO TODO TODO TODO for now force this to block version 2 due to checksum changes if anyone will create his own genesis block, later we'll fix this, once genesis is included in file
-                }
-
-                //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
-                if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)) || forceNextBlock)
-                {
-                    if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
+                    // check if it is time to generate a new block
+                    TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+                    if (Node.blockChain.getLastBlockNum() < 10)
                     {
-                        block_version = Node.blockChain.getLastBlockVersion();
+                        blockGenerationInterval = 5;
                     }
                     else
                     {
-                        lastUpgradeTry = 0;
+                        blockGenerationInterval = 30;
                     }
 
-                    if (Node.forceNextBlock)
-                    {
-                        Logging.info("Forcing new block generation");
-                        Node.forceNextBlock = false;
-                    }
+                    int block_version = Block.maxVersion;
 
-                    generateNewBlock(block_version);
-                }
-                else
-                {
-                    if (localNewBlock != null)
+                    bool forceNextBlock = Node.forceNextBlock;
+                    Random rnd = new Random();
+
+                    lock (localBlockLock)
                     {
-                        if (Node.isMasterNode())
+
+                        if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
                         {
-                            if (localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                            forceNextBlock = true;
+                            block_version = Node.blockChain.getLastBlockVersion();
+                        }
+
+                        // if the node is stuck on the same block for too long, discard the block
+                        if (localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20))
+                        {
+                            blacklistBlock(localNewBlock);
+                            localNewBlock = null;
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
+                            block_version = Node.blockChain.getLastBlockVersion();
+                        }
+
+                        if (Node.getLastBlockHeight() == 0)
+                        {
+                            block_version = 2; // TODO TODO TODO TODO for now force this to block version 2 due to checksum changes if anyone will create his own genesis block, later we'll fix this, once genesis is included in file
+                        }
+
+                        //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
+                        if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)) || forceNextBlock)
+                        {
+                            if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
                             {
-                                ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
-                                sleep = true;
+                                block_version = Node.blockChain.getLastBlockVersion();
+                            }
+                            else
+                            {
+                                lastUpgradeTry = 0;
+                            }
+
+                            if (Node.forceNextBlock)
+                            {
+                                Logging.info("Forcing new block generation");
+                                Node.forceNextBlock = false;
+                            }
+
+                            generateNewBlock(block_version);
+                        }
+                        else
+                        {
+                            if (localNewBlock != null)
+                            {
+                                if (Node.isMasterNode())
+                                {
+                                    if (localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                                    {
+                                        ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                        Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
+                                        sleep = true;
+                                    }
+                                }
+                                if (localNewBlock.version > Node.blockChain.getLastBlockVersion())
+                                {
+                                    lastUpgradeTry = Clock.getTimestamp();
+                                }
                             }
                         }
-                        if (localNewBlock.version > Node.blockChain.getLastBlockVersion())
-                        {
-                            lastUpgradeTry = Clock.getTimestamp();
-                        }
                     }
+                }catch(Exception e)
+                {
+                    Logging.error("Exception occured in blockProcessor onUpdate() {0}", e);
                 }
-
                 // Sleep until next iteration
                 if (sleep)
                 {
                     Thread.Sleep(5000);
                 }
-                else {
+                else
+                {
                     Thread.Sleep(1000);
                 }
             }
@@ -317,7 +328,7 @@ namespace DLT
                         if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
                         {
                             // we already have the correct block but the sender does not, broadcast our block
-                            endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes());
+                            endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes(), BitConverter.GetBytes(targetBlock.blockNum));
                         }
                         return false;
                     }
@@ -329,7 +340,7 @@ namespace DLT
                             pendingSigFreezingBlock = null;
                             // this is likely the correct block, update and broadcast to others
                             Node.blockChain.refreshSignatures(b, true);
-                            ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
+                            //ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
                             if (sigFreezingBlock == localNewBlock)
                             {
                                 acceptLocalNewBlock();
@@ -1162,7 +1173,7 @@ namespace DLT
                                     highestNetworkBlockNum = 0;
                                 }
 
-                                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes());
+                                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
                                 localNewBlock = null;
 
                                 if (Node.miner.searchMode != BlockSearchMode.latestBlock)
