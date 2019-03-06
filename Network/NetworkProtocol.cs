@@ -626,7 +626,7 @@ namespace DLT
                                             handleGetBlockTransactions(block_number, true, endpoint);
                                         }
 
-                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes());
+                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(), BitConverter.GetBytes(block.blockNum));
 
                                         // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
                                         if (Node.blockChain.getLastBlockNum() == block_number)
@@ -634,7 +634,7 @@ namespace DLT
                                             Block localNewBlock = Node.blockProcessor.getLocalBlock();
                                             if (localNewBlock != null)
                                             {
-                                                endpoint.sendData(ProtocolMessageCode.newBlock, localNewBlock.getBytes());
+                                                endpoint.sendData(ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
                                             }
                                         }
                                     }
@@ -1046,7 +1046,7 @@ namespace DLT
                                             Presence p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(wallet));
                                             if (p != null)
                                             {
-                                                endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes());
+                                                endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes(), wallet);
                                             }
                                             else
                                             {
