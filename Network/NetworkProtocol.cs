@@ -594,6 +594,12 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlock:
                             {
+                                if (!Node.isMasterNode())
+                                {
+                                    Logging.warn("Block data was requested, but this node isn't a master node");
+                                    return;
+                                }
+
                                 if (Node.blockSync.synchronizing)
                                 {
                                     return;
@@ -727,7 +733,7 @@ namespace DLT
                                     return;
                                 }*/
 
-                Transaction transaction = new Transaction(data);
+                                Transaction transaction = new Transaction(data);
                                 if (transaction == null)
                                     return;
                                 TransactionPool.addTransaction(transaction, false, endpoint);
@@ -853,12 +859,6 @@ namespace DLT
 
                         case ProtocolMessageCode.blockData:
                             {
-                                if (!Node.isMasterNode())
-                                {
-                                    Logging.warn("Block data was requested, but this node isn't a master node");
-                                    return;
-                                }
-
                                 Block block = new Block(data);
                                 if (endpoint.blockHeight < block.blockNum)
                                 {

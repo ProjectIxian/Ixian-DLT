@@ -28,7 +28,6 @@ namespace DLT
         public ulong firstSplitOccurence { get; private set; }
 
         Block localNewBlock; // Block being worked on currently
-        Block pendingSigFreezingBlock; // Waiting for sigfreezed target block
         public readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
 
@@ -313,10 +312,6 @@ namespace DLT
                 {
                     sigFreezingBlock = localNewBlock;
                 }
-                if (sigFreezingBlock == null && pendingSigFreezingBlock != null && pendingSigFreezingBlock.blockNum == b.blockNum + 5)
-                {
-                    sigFreezingBlock = pendingSigFreezingBlock;
-                }
                 if (sigFreezingBlock != null)
                 {
                     sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
@@ -337,7 +332,6 @@ namespace DLT
                         Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
                         {
-                            pendingSigFreezingBlock = null;
                             // this is likely the correct block, update and broadcast to others
                             Node.blockChain.refreshSignatures(b, true);
                             //ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
@@ -352,7 +346,6 @@ namespace DLT
                             // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
                             CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
                             localNewBlock = null;
-                            pendingSigFreezingBlock = null;
                         }
                         return false;
                     }
@@ -409,7 +402,7 @@ namespace DLT
                         else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
                             // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
-                            if(b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
+                            if (b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
                             {
                                 ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
                             }
@@ -535,7 +528,7 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
-            if (Node.blockChain.Count > 0 && b.blockNum + 6 <= Node.blockChain.getLastBlockNum())
+            if (Node.blockChain.Count > 0 && b.blockNum + 5 <= Node.blockChain.getLastBlockNum())
             {
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
                 if (tmpBlock == null)
@@ -611,7 +604,7 @@ namespace DLT
             }
 
             // Verify sigfreeze
-            if (b.blockNum <= lastBlockNum + 1)
+            if (b.blockNum <= lastBlockNum)
             {
                 if (!verifySignatureFreezeChecksum(b, endpoint))
                 {
@@ -968,8 +961,8 @@ namespace DLT
                         Logging.info(String.Format("Block #{0} received from the network is the block we are currently working on. Merging signatures.", b.blockNum));
                         if(localNewBlock.addSignaturesFrom(b))
                         {
-                            if (!Node.isMasterNode())
-                                return;
+                            //if (!Node.isMasterNode())
+                            //    return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
                             Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
                             //ProtocolMessage.broadcastNewBlock(localNewBlock);
@@ -1262,10 +1255,6 @@ namespace DLT
                 byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
                 if (!b.signatureFreezeChecksum.SequenceEqual(sigFreezeChecksum))
                 {
-                    lock (localBlockLock)
-                    {
-                        pendingSigFreezingBlock = b;
-                    }
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
                         b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
                     ProtocolMessage.broadcastGetBlock(b.blockNum - 5, null, endpoint);
