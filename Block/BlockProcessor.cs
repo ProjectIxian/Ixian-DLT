@@ -179,7 +179,7 @@ namespace DLT
                 // Sleep until next iteration
                 if (sleep)
                 {
-                    Thread.Sleep(5000);
+                    Thread.Sleep(2000);
                 }
                 else
                 {
@@ -328,7 +328,7 @@ namespace DLT
                         if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
                         {
                             // we already have the correct block but the sender does not, broadcast our block
-                            endpoint.sendData(ProtocolMessageCode.newBlock, targetBlock.getBytes(), BitConverter.GetBytes(targetBlock.blockNum));
+                            ProtocolMessage.broadcastNewBlock(targetBlock, null, endpoint);
                         }
                         return false;
                     }
@@ -359,7 +359,7 @@ namespace DLT
                     else
                     {
                         Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                        ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint);
+                        ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint, endpoint);
                         return false;
                     }
                 }
@@ -393,18 +393,14 @@ namespace DLT
                             {
                                 if (b.blockNum > Node.blockChain.getLastBlockNum() - 5)
                                 {
-                                    removeSignaturesWithoutPlEntry(b);
-                                    if (Node.blockChain.refreshSignatures(b))
+                                    Block block_to_update = Node.blockChain.getBlock(b.blockNum);
+                                    if (!block_to_update.calculateSignatureChecksum().SequenceEqual(b.calculateSignatureChecksum()))
                                     {
-                                        // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                        Block updatedBlock = Node.blockChain.getBlock(b.blockNum);
-                                        if(updatedBlock.calculateSignatureChecksum().SequenceEqual(b.calculateSignatureChecksum()))
+                                        removeSignaturesWithoutPlEntry(b);
+                                        if (Node.blockChain.refreshSignatures(b))
                                         {
-                                            ProtocolMessage.broadcastNewBlock(updatedBlock, endpoint);
-                                        }
-                                        else
-                                        {
-                                            ProtocolMessage.broadcastNewBlock(updatedBlock);
+                                            // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
+                                            ProtocolMessage.broadcastNewBlock(block_to_update);
                                         }
                                     }
                                 }
@@ -416,7 +412,8 @@ namespace DLT
                             if(b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
                             {
                                 ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
-                            }else
+                            }
+                            else
                             {
                                 // the block is invalid, we should disconnect the node as it is likely on a forked network
                                 CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
@@ -468,7 +465,18 @@ namespace DLT
 
             b.powField = null;
 
-            BlockVerifyStatus b_status = verifyBlock(b, false, endpoint);
+            BlockVerifyStatus b_status;
+
+            lock (localBlockLock)
+            {
+                if (localNewBlock != null && localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
+                {
+                    b_status = verifyBlockBasic(b, true, endpoint);
+                }else
+                {
+                    b_status = verifyBlock(b, false, endpoint);
+                }
+            }
 
             if(b_status == BlockVerifyStatus.Invalid)
             {
@@ -964,7 +972,7 @@ namespace DLT
                                 return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
                             Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            //ProtocolMessage.broadcastNewBlock(localNewBlock);
                             acceptLocalNewBlock();
                         }
                         else if(localNewBlock.signatures.Count != b.signatures.Count)
@@ -972,7 +980,7 @@ namespace DLT
                             if (!Node.isMasterNode())
                                 return;
                             Logging.info(String.Format("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
                         }
                     }
                     else

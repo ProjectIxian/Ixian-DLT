@@ -378,6 +378,10 @@ namespace DLT
 
             public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
+                if(!Node.isMasterNode())
+                {
+                    return true;
+                }
                 if (endpoint != null)
                 {
                     if (endpoint.isConnected())
@@ -634,7 +638,7 @@ namespace DLT
                                             Block localNewBlock = Node.blockProcessor.getLocalBlock();
                                             if (localNewBlock != null)
                                             {
-                                                endpoint.sendData(ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
+                                                ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
                                             }
                                         }
                                     }
@@ -849,6 +853,12 @@ namespace DLT
 
                         case ProtocolMessageCode.blockData:
                             {
+                                if (!Node.isMasterNode())
+                                {
+                                    Logging.warn("Block data was requested, but this node isn't a master node");
+                                    return;
+                                }
+
                                 Block block = new Block(data);
                                 if (endpoint.blockHeight < block.blockNum)
                                 {
