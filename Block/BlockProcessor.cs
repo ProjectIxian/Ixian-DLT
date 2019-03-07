@@ -380,7 +380,7 @@ namespace DLT
             // if historic block, only the sigs should be updated if not older than 5 blocks in history
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
             {
-                if (b.blockNum >= Node.blockChain.getLastBlockNum() - 5)
+                if (b.blockNum + 5 > Node.blockChain.getLastBlockNum())
                 {
                     Logging.info(String.Format("Already processed block #{0}, doing basic verification and collecting only sigs if relevant!", b.blockNum));
                     Block localBlock = Node.blockChain.getBlock(b.blockNum);
@@ -391,7 +391,7 @@ namespace DLT
                         {
                             if (handleSigFreezedBlock(b, endpoint))
                             {
-                                if (b.blockNum > Node.blockChain.getLastBlockNum() - 5)
+                                if (b.blockNum + 4 > Node.blockChain.getLastBlockNum())
                                 {
                                     Block block_to_update = Node.blockChain.getBlock(b.blockNum);
                                     if (!block_to_update.calculateSignatureChecksum().SequenceEqual(b.calculateSignatureChecksum()))
@@ -535,7 +535,7 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
-            if (Node.blockChain.Count > 0 && b.blockNum + 5 <= Node.blockChain.getLastBlockNum())
+            if (Node.blockChain.Count > 0 && b.blockNum + 6 <= Node.blockChain.getLastBlockNum())
             {
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
                 if (tmpBlock == null)
