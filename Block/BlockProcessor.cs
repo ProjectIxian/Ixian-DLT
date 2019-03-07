@@ -1091,125 +1091,129 @@ namespace DLT
             lock (localBlockLock)
             {
                 if (localNewBlock == null) return;
-                if (verifyBlock(localNewBlock) == BlockVerifyStatus.Valid)
+
+                if (!verifySignatureFreezeChecksum(localNewBlock, null))
                 {
-                    if (!verifySignatureFreezeChecksum(localNewBlock, null))
+                    Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
+                    TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+                    Random rnd = new Random();
+                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
                     {
-                        Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
-                        TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-                        Random rnd = new Random();
-                        if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
-                        {
-                            blacklistBlock(localNewBlock);
-                            localNewBlock = null;
-                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
-                        }
-                        return;
-                    }else
+                        blacklistBlock(localNewBlock);
+                        localNewBlock = null;
+                        lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
+                    }
+                    return;
+                }else
+                {
+                    if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                     {
-                        if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
+                        if (Node.isMasterNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
                         {
-                            if (Node.isMasterNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
-                            {
-                                ProtocolMessage.broadcastNewBlock(localNewBlock);
-                            }
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
                         }
                     }
-                    // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
-                    // can no longer be reached according to this number - I don't have a clean answer yet - MZ
-                    if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
+                }
+                // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
+                // can no longer be reached according to this number - I don't have a clean answer yet - MZ
+                if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
+                {
+                    if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
                     {
-                        if (localNewBlock.blockNum != Node.blockChain.getLastBlockNum() + 1)
+                        if (Node.blockChain.getBlock(localNewBlock.blockNum) == null)
                         {
-                            Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, Node.blockChain.getLastBlockNum() + 1, Environment.StackTrace));
-                            // block has already been applied or ahead, waiting for new blocks
+                            Logging.error(String.Format("We have an invalid block #{0} in verifyBlockAcceptance, requesting the block again.", localNewBlock.blockNum));
+                            requestBlockNum = localNewBlock.blockNum;
                             localNewBlock = null;
-                            return;
+                            requestBlockAgain = true;
                         }
-                        // accept this block, apply its transactions, recalc consensus, etc
-                        if (applyAcceptedBlock(localNewBlock) == true)
+                        else
                         {
-                            byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                            if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
-                            {
-                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
-                                    Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                Logging.error(String.Format("Node reports block version: {0}", Node.getLastBlockVersion()));
-                                rollBackAcceptedBlock(localNewBlock);
-                                if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
-                                {
-                                    Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
-                                    // TODO TODO TODO maybe do something else instead?
-                                    operating = false;
-                                    Node.stop();
-                                    return;
-                                }
-                                localNewBlock.logBlockDetails();
-                                requestBlockNum = localNewBlock.blockNum;
-                                localNewBlock = null;
-                                requestBlockAgain = true;
-                            }
-                            else
-                            {
-                                Node.blockChain.appendBlock(localNewBlock);
-
-                                if (Node.miner.searchMode == BlockSearchMode.latestBlock)
-                                {
-                                    Node.miner.forceSearchForBlock();
-                                }
-
-                                Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
-                                lastBlockStartTime = DateTime.UtcNow;
-                                localNewBlock.logBlockDetails();
-
-                                // Reset transaction limits
-                                //TransactionPool.resetSocketTransactionLimits();
-
-                                if (highestNetworkBlockNum > Node.blockChain.getLastBlockNum())
-                                {
-                                    ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
-                                }else
-                                {
-                                    highestNetworkBlockNum = 0;
-                                }
-
-                                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
-                                localNewBlock = null;
-
-                                if (Node.miner.searchMode != BlockSearchMode.latestBlock)
-                                {
-                                    Node.miner.checkActiveBlockSolved();
-                                }
-
-                                cleanupBlockBlacklist();
-                                if (Node.blockChain.getLastBlockNum() % Config.saveWalletStateEveryBlock == 0)
-                                {
-                                    WalletStateStorage.saveWalletState(Node.blockChain.getLastBlockNum());
-                                }
-                            }
+                            localNewBlock = null;
                         }
-                        else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
+                    }
+
+                    if (localNewBlock.blockNum != Node.blockChain.getLastBlockNum() + 1)
+                    {
+                        Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, Node.blockChain.getLastBlockNum() + 1, Environment.StackTrace));
+                        // block has already been applied or ahead, waiting for new blocks
+                        localNewBlock = null;
+                        return;
+                    }
+                    // accept this block, apply its transactions, recalc consensus, etc
+                    if (applyAcceptedBlock(localNewBlock) == true)
+                    {
+                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                        if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
                         {
-                            // TODO TODO TODO Partial rollback may be needed here
-                            Logging.error(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
+                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
+                                Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                            Logging.error(String.Format("Node reports block version: {0}", Node.getLastBlockVersion()));
+                            rollBackAcceptedBlock(localNewBlock);
+                            if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
+                            {
+                                Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
+                                // TODO TODO TODO maybe do something else instead?
+                                operating = false;
+                                Node.stop();
+                                return;
+                            }
                             localNewBlock.logBlockDetails();
                             requestBlockNum = localNewBlock.blockNum;
                             localNewBlock = null;
                             requestBlockAgain = true;
-                        }else
+                        }
+                        else
                         {
+                            Node.blockChain.appendBlock(localNewBlock);
+
+                            if (Node.miner.searchMode == BlockSearchMode.latestBlock)
+                            {
+                                Node.miner.forceSearchForBlock();
+                            }
+
+                            Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
+                            lastBlockStartTime = DateTime.UtcNow;
+                            localNewBlock.logBlockDetails();
+
+                            // Reset transaction limits
+                            //TransactionPool.resetSocketTransactionLimits();
+
+                            if (highestNetworkBlockNum > Node.blockChain.getLastBlockNum())
+                            {
+                                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
+                            }else
+                            {
+                                highestNetworkBlockNum = 0;
+                            }
+
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
                             localNewBlock = null;
+
+                            if (Node.miner.searchMode != BlockSearchMode.latestBlock)
+                            {
+                                Node.miner.checkActiveBlockSolved();
+                            }
+
+                            cleanupBlockBlacklist();
+                            if (Node.blockChain.getLastBlockNum() % Config.saveWalletStateEveryBlock == 0)
+                            {
+                                WalletStateStorage.saveWalletState(Node.blockChain.getLastBlockNum());
+                            }
                         }
                     }
-                }else if (Node.blockChain.getBlock(localNewBlock.blockNum) == null)
-                {
-                    Logging.error(String.Format("We have an invalid block #{0} in verifyBlockAcceptance, requesting the block again.", localNewBlock.blockNum));
-                    requestBlockNum = localNewBlock.blockNum;
-                    localNewBlock = null;
-                    requestBlockAgain = true;
-                }else
-                {
-                    localNewBlock = null;
+                    else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
+                    {
+                        // TODO TODO TODO Partial rollback may be needed here
+                        Logging.error(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
+                        localNewBlock.logBlockDetails();
+                        requestBlockNum = localNewBlock.blockNum;
+                        localNewBlock = null;
+                        requestBlockAgain = true;
+                    }else
+                    {
+                        localNewBlock = null;
+                    }
                 }
             }
 
@@ -1739,6 +1743,13 @@ namespace DLT
 
                 // Broadcast the new block
                 ProtocolMessage.broadcastNewBlock(localNewBlock);
+
+                if(verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
+                {
+                    Logging.error("Error occured verifying the newly generated block {0}.", localNewBlock.blockNum);
+                    localNewBlock = null;
+                    return;
+                }
 
                 if (localNewBlock.blockNum < 8)
                 {
