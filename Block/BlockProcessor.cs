@@ -193,7 +193,7 @@ namespace DLT
         public int getElectedNodeOffset()
         {
             TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
+            if(timeSinceLastBlock.TotalSeconds < 0 || timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
             {
                 return -1;
             }
