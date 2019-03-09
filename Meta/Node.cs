@@ -44,6 +44,8 @@ namespace DLT.Meta
         private static bool running = false;
 
 
+        private static bool floodPause = false;
+
         // Perform basic initialization of node
         static public void init()
         {
@@ -621,6 +623,23 @@ namespace DLT.Meta
             {
                 //running = false;
             }
+
+            // TODO TODO TODO TODO this is a global flood control and should be also done per node to detect attacks
+            // I propose getting average traffic from different types of nodes and detect a node that's sending 
+            // disproportionally more messages than the other nodes, provided thatthe network queue is over a certain limit
+            int total_queued_messages = NetworkQueue.getQueuedMessageCount() + NetworkQueue.getTxQueuedMessageCount();
+            if(total_queued_messages > 5000)
+            {
+                NetworkClientManager.stop();
+                NetworkServer.stopNetworkOperations();
+                floodPause = true;
+            }else if(floodPause == true && total_queued_messages < 100)
+            {
+                NetworkServer.beginNetworkOperations();
+                NetworkClientManager.start();
+                floodPause = false;
+            }
+
 
             return running;
         }
