@@ -132,50 +132,6 @@ namespace DLT
                 }
             }
 
-            // Adds event subscriptions for the provided endpoint
-            private static void handleAttachEvent(byte[] data, RemoteEndpoint endpoint)
-            {
-                if (data == null)
-                {
-                    Logging.warn(string.Format("Invalid protocol message event data"));
-                    return;
-                }
-
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        int type = reader.ReadInt32();
-                        int addrLen = reader.ReadInt32();
-                        byte[] addresses = reader.ReadBytes(addrLen);
-
-                        endpoint.attachEvent(type, addresses);
-                    }
-                }
-            }
-
-            // Removes event subscriptions for the provided endpoint
-            private static void handleDetachEvent(byte[] data, RemoteEndpoint endpoint)
-            {
-                if (data == null)
-                {
-                    Logging.warn(string.Format("Invalid protocol message event data"));
-                    return;
-                }
-
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        int type = reader.ReadInt32();
-                        int addrLen = reader.ReadInt32();
-                        byte[] addresses = reader.ReadBytes(addrLen);
-
-                        endpoint.detachEvent(type, addresses);
-                    }
-                }
-            }
-
             // Broadcast the current block height. Called after accepting a new block once the node is fully synced
             // Returns false when no RemoteEndpoints found to send the message to
             public static bool broadcastBlockHeight(ulong blockNum)
@@ -1138,13 +1094,13 @@ namespace DLT
 
                         case ProtocolMessageCode.attachEvent:
                             {
-                                handleAttachEvent(data, endpoint);
+                                NetworkEvents.handleAttachEventMessage(data, endpoint);
                             }
                             break;
 
                         case ProtocolMessageCode.detachEvent:
                             {
-                                handleDetachEvent(data, endpoint);
+                                NetworkEvents.handleDetachEventMessage(data, endpoint);
                             }
                             break;
 
