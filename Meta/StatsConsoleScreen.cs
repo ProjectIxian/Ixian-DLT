@@ -16,6 +16,7 @@ namespace DLT.Meta
         private bool running = false;
 
         private int consoleWidth = 50;
+        private uint drawCycle = 0; // Keep a count of screen draw cycles as a basic method of preventing visual artifacts
 
         public StatsConsoleScreen()
         {          
@@ -41,11 +42,23 @@ namespace DLT.Meta
         {
             while (running)
             {
-                if(Config.verboseConsoleOutput == false)
-                    drawScreen();
+                if (Config.verboseConsoleOutput == false)
+                {
+                    // Clear the screen every 10 seconds to prevent any persisting visual artifacts
+                    if (drawCycle > 5)
+                    {
+                        clearScreen();
+                        drawCycle = 0;
+                    }
+                    else
+                    {
+                        drawScreen();
+                        drawCycle++;
+                    }
+                }
 
                 Thread.Sleep(2000);
-                Thread.Yield();
+                Thread.Yield();               
             }
         }
 
