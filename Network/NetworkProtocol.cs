@@ -1056,7 +1056,11 @@ namespace DLT
                                             Presence p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(wallet));
                                             if (p != null)
                                             {
-                                                endpoint.sendData(ProtocolMessageCode.updatePresence, p.getBytes(), wallet);
+                                                byte[][] presence_chunks = p.getByteChunks();
+                                                foreach (byte[] presence_chunk in presence_chunks)
+                                                {
+                                                    endpoint.sendData(ProtocolMessageCode.updatePresence, presence_chunk, wallet);
+                                                }
                                             }
                                             else
                                             {

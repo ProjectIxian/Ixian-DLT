@@ -94,6 +94,15 @@ namespace DLT
 
                     // check if it is time to generate a new block
                     TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+
+                    if (timeSinceLastBlock.TotalSeconds < 0)
+                    {
+                        // edge case, system time apparently changed
+                        lastBlockStartTime = DateTime.UtcNow;
+                        timeSinceLastBlock = new TimeSpan(0);
+                    }
+
+
                     if (Node.blockChain.getLastBlockNum() < 10)
                     {
                         blockGenerationInterval = 5;
@@ -193,7 +202,13 @@ namespace DLT
         public int getElectedNodeOffset()
         {
             TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-            if(timeSinceLastBlock.TotalSeconds < 0 || timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
+            if(timeSinceLastBlock.TotalSeconds < 0)
+            {
+                // edge case, system time apparently changed
+                lastBlockStartTime = DateTime.UtcNow;
+                return -1;
+            }
+            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
             {
                 return -1;
             }
@@ -382,6 +397,7 @@ namespace DLT
                         BlockVerifyStatus block_status = verifyBlockBasic(b, true, endpoint);
                         if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
+                            Logging.info("Block is valid");
                             if (handleSigFreezedBlock(b, endpoint))
                             {
                                 if (b.blockNum + 4 > Node.blockChain.getLastBlockNum())
@@ -401,6 +417,7 @@ namespace DLT
                         }
                         else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
+                            Logging.info("Block is still valid");
                             // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
                             if (b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
                             {
@@ -414,12 +431,14 @@ namespace DLT
                         }
                         else if(block_status == BlockVerifyStatus.Invalid || block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                         {
+                            Logging.info("Block is invalid");
                             // the block is invalid, we should disconnect the node as it is likely on a forked network
                             CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                         }
                     }
                 }else // b.blockNum < Node.blockChain.getLastBlockNum() - 5
                 {
+                    Logging.info("Block is not what we're looking for");
                     BlockVerifyStatus past_block_status = verifyBlock(b, true, null);
                     if(past_block_status == BlockVerifyStatus.AlreadyProcessed || past_block_status == BlockVerifyStatus.Valid)
                     {

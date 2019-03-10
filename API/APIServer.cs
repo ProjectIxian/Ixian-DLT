@@ -1196,7 +1196,7 @@ namespace DLTNode
             if (Node.blockSync.synchronizing)
                 dltStatus = "Synchronizing";
 
-            if (Node.blockChain.getTimeSinceLastBLock() > 600) // if no block for over 600 seconds
+            if (Node.blockChain.getTimeSinceLastBLock() > 1800) // if no block for over 1800 seconds
             {
                 dltStatus = "ErrorLongTimeNoBlock";
             }

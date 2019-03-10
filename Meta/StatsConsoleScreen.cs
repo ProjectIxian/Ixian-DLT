@@ -108,10 +108,10 @@ namespace DLT.Meta
             if (connectionsIn + connectionsOut < 1)
                 dltStatus =     "connecting   ";
 
-            if (Node.blockChain.getTimeSinceLastBLock() > 600) // if no block for over 600 seconds
+            if (Node.blockChain.getTimeSinceLastBLock() > 1800) // if no block for over 1800 seconds
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                dltStatus = "No fully signed block received for over 10 minutes";
+                dltStatus = "No fully signed block received for over 30 minutes";
             }
 
             if (Node.blockProcessor.networkUpgraded)
@@ -126,6 +126,7 @@ namespace DLT.Meta
 
             writeLine("                                             ");
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
+            string lastBlockChecksum = "";
             int sigCount = 0;
             if(lastBlockNum > 0)
             {
@@ -133,9 +134,11 @@ namespace DLT.Meta
                 if(b != null)
                 {
                     sigCount = b.signatures.Count();
+                    lastBlockChecksum = Crypto.hashToString(b.blockChecksum);
                 }
             }
-            writeLine("\tBlock Height:\t\t{0} ({1} sigs)      ", lastBlockNum, sigCount);
+            writeLine("\tCurrent Block:\t\t{0} - {1} ({2} sigs)      ", lastBlockNum, lastBlockChecksum, sigCount);
+
             writeLine("\tConnections (I/O):\t{0}              ", connectionsInStr + "/" + connectionsOut);
             writeLine("\tPresences:\t\t{0}                    ", PresenceList.getTotalPresences());
             writeLine("\tTransaction Pool:\t{0}               ", TransactionPool.getUnappliedTransactions().Count());

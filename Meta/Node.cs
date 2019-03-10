@@ -630,13 +630,21 @@ namespace DLT.Meta
             int total_queued_messages = NetworkQueue.getQueuedMessageCount() + NetworkQueue.getTxQueuedMessageCount();
             if(total_queued_messages > 5000)
             {
+                Logging.warn("Flooding detected, isolating the node.");
                 NetworkClientManager.stop();
-                NetworkServer.stopNetworkOperations();
+                if (isMasterNode())
+                {
+                    NetworkServer.stopNetworkOperations();
+                }
                 floodPause = true;
             }else if(floodPause == true && total_queued_messages < 100)
             {
-                NetworkServer.beginNetworkOperations();
+                Logging.warn("Data after flooding processed, reconnecting the node.");
                 NetworkClientManager.start();
+                if (isMasterNode())
+                {
+                    NetworkServer.beginNetworkOperations();
+                }
                 floodPause = false;
             }
 
