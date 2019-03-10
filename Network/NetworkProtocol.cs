@@ -992,7 +992,10 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    CoreProtocolMessage.broadcastEventBasedMessage(ProtocolMessageCode.keepAlivePresence, data, address, address, endpoint);
+                                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'R', 'H', 'W' }, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
+                                    
+                                    // Send this keepalive message to all connected clients
+                                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
                                 }
                                 
                             }
