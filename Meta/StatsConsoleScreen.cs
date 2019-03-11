@@ -150,7 +150,7 @@ namespace DLT.Meta
                     lastBlockChecksum = Crypto.hashToString(b.blockChecksum);
                 }
             }
-            writeLine("\tCurrent Block:\t\t{0} - {1} ({2} sigs)      ", lastBlockNum, lastBlockChecksum, sigCount);
+            writeLine("\tLast Block:\t\t{0} - {1} ({2} sigs)      ", lastBlockNum, lastBlockChecksum, sigCount);
 
             writeLine("\tConnections (I/O):\t{0}              ", connectionsInStr + "/" + connectionsOut);
             writeLine("\tPresences:\t\t{0}                    ", PresenceList.getTotalPresences());

@@ -1,12 +1,9 @@
 ﻿using DLT.Meta;
-using DLT.Network;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Timers;
 using System.Runtime.InteropServices;
 using System.IO;
 using IXICore;
@@ -236,20 +233,23 @@ namespace DLT
         {
             while (!shouldStop)
             {
+                Thread.Sleep(1000);
+
                 // Wait for blockprocessor network synchronization
                 if (Node.blockProcessor.operating == false)
                 {
-                    Thread.Sleep(1000);
-                    continue;
-                }
-                
-                // Edge case for seeds
-                if (Node.blockChain.getLastBlockNum() < 10)
-                {
-                    Thread.Sleep(1000);
                     continue;
                 }
 
+                // Edge case for seeds
+                if (Node.blockChain.getLastBlockNum() > 10)
+                {
+                    break;
+                }
+            }
+
+            while (!shouldStop)
+            {               
                 if (pause)
                 {
                     lastStatTime = DateTime.UtcNow;
@@ -288,20 +288,23 @@ namespace DLT
         {
             while (!shouldStop)
             {
+                Thread.Sleep(1000);
+
                 // Wait for blockprocessor network synchronization
                 if (Node.blockProcessor.operating == false)
                 {
-                    Thread.Sleep(1000);
                     continue;
                 }
 
                 // Edge case for seeds
-                if (Node.blockChain.getLastBlockNum() < 10)
+                if (Node.blockChain.getLastBlockNum() > 10)
                 {
-                    Thread.Sleep(1000);
-                    continue;
+                    break;
                 }
+            }
 
+            while (!shouldStop)
+            {
                 if (pause)
                 {
                     Thread.Sleep(500);

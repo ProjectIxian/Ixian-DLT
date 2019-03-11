@@ -30,6 +30,7 @@ namespace DLT
         Block localNewBlock; // Block being worked on currently
         public readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
         DateTime lastBlockStartTime;
+        DateTime currentBlockStartTime;
 
         long lastUpgradeTry = 0;
 
@@ -61,7 +62,6 @@ namespace DLT
         public void resumeOperation()
         {
             Logging.info("BlockProcessor resuming normal operation.");
-            lastBlockStartTime = DateTime.UtcNow;
             operating = true;
 
             lock (localBlockLock)
@@ -98,12 +98,17 @@ namespace DLT
                     if (timeSinceLastBlock.TotalSeconds < 0)
                     {
                         // edge case, system time apparently changed
-                        lastBlockStartTime = DateTime.UtcNow;
-                        timeSinceLastBlock = new TimeSpan(0);
+                        lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                        timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+                        lock (blockBlacklist)
+                        {
+                            blockBlacklist.Clear();
+                        }
+                        // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
                     }
 
 
-                    if (Node.blockChain.getLastBlockNum() < 10)
+                        if (Node.blockChain.getLastBlockNum() < 10)
                     {
                         blockGenerationInterval = 5;
                     }
@@ -131,7 +136,7 @@ namespace DLT
                         {
                             blacklistBlock(localNewBlock);
                             localNewBlock = null;
-                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                             block_version = Node.blockChain.getLastBlockVersion();
                         }
 
@@ -204,8 +209,6 @@ namespace DLT
             TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
             if(timeSinceLastBlock.TotalSeconds < 0)
             {
-                // edge case, system time apparently changed
-                lastBlockStartTime = DateTime.UtcNow;
                 return -1;
             }
             if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
@@ -397,7 +400,6 @@ namespace DLT
                         BlockVerifyStatus block_status = verifyBlockBasic(b, true, endpoint);
                         if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
-                            Logging.info("Block is valid");
                             if (handleSigFreezedBlock(b, endpoint))
                             {
                                 if (b.blockNum + 4 > Node.blockChain.getLastBlockNum())
@@ -417,7 +419,6 @@ namespace DLT
                         }
                         else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
-                            Logging.info("Block is still valid");
                             // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
                             if (b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
                             {
@@ -438,7 +439,6 @@ namespace DLT
                     }
                 }else // b.blockNum < Node.blockChain.getLastBlockNum() - 5
                 {
-                    Logging.info("Block is not what we're looking for");
                     BlockVerifyStatus past_block_status = verifyBlock(b, true, null);
                     if(past_block_status == BlockVerifyStatus.AlreadyProcessed || past_block_status == BlockVerifyStatus.Valid)
                     {
@@ -980,6 +980,8 @@ namespace DLT
                         Logging.info(String.Format("Block #{0} received from the network is the block we are currently working on. Merging signatures.", b.blockNum));
                         if(localNewBlock.addSignaturesFrom(b))
                         {
+                            currentBlockStartTime = DateTime.UtcNow;
+                            lastBlockStartTime = DateTime.UtcNow;
                             //if (!Node.isMasterNode())
                             //    return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
@@ -1003,6 +1005,8 @@ namespace DLT
                         {
                             Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             localNewBlock = b;
+                            currentBlockStartTime = DateTime.UtcNow;
+                            lastBlockStartTime = DateTime.UtcNow;
                             acceptLocalNewBlock();
                         }
                         else
@@ -1027,6 +1031,7 @@ namespace DLT
                         || firstBlockAfterSync)
                     {
                         localNewBlock = b;
+                        currentBlockStartTime = DateTime.UtcNow;
                         firstBlockAfterSync = false;
                         acceptLocalNewBlock();
                     }
@@ -1115,13 +1120,12 @@ namespace DLT
                 if (!verifySignatureFreezeChecksum(localNewBlock, null))
                 {
                     Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
-                    TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+                    TimeSpan current_block_processing_time = DateTime.UtcNow - currentBlockStartTime;
                     Random rnd = new Random();
-                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
+                    if (current_block_processing_time.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
                     {
                         blacklistBlock(localNewBlock);
                         localNewBlock = null;
-                        lastBlockStartTime = DateTime.UtcNow.AddSeconds(blockGenerationInterval * 10);
                     }
                     return;
                 }else
@@ -1756,6 +1760,8 @@ namespace DLT
                 localNewBlock.applySignature();
 
                 localNewBlock.logBlockDetails();
+
+                currentBlockStartTime = DateTime.UtcNow;
 
                 // Broadcast the new block
                 ProtocolMessage.broadcastNewBlock(localNewBlock);

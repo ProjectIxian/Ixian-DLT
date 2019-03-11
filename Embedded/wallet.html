@@ -342,6 +342,8 @@
                 $.getJSON(dltAPI, { format: "json" })
                     .done(function (data) {
                         selectedReceiveAddress = data["result"];
+                        qrcode.clear();
+                        qrcode.makeCode(selectedReceiveAddress);
                         getMyWallet();
                     });
 

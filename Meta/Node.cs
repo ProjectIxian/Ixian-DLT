@@ -46,6 +46,8 @@ namespace DLT.Meta
 
         private static bool floodPause = false;
 
+        private static DateTime lastIsolateTime;
+
         // Perform basic initialization of node
         static public void init()
         {
@@ -624,11 +626,18 @@ namespace DLT.Meta
                 //running = false;
             }
 
+            TimeSpan last_isolate_time_diff = DateTime.UtcNow - lastIsolateTime;
+            if (Node.blockChain.getTimeSinceLastBLock() > 600 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 3000)) // if no block for over 600 seconds
+            {
+                isolate();
+                lastIsolateTime = DateTime.UtcNow;
+            }
+
             // TODO TODO TODO TODO this is a global flood control and should be also done per node to detect attacks
             // I propose getting average traffic from different types of nodes and detect a node that's sending 
             // disproportionally more messages than the other nodes, provided thatthe network queue is over a certain limit
             int total_queued_messages = NetworkQueue.getQueuedMessageCount() + NetworkQueue.getTxQueuedMessageCount();
-            if(total_queued_messages > 5000)
+            if(floodPause == false && total_queued_messages > 5000)
             {
                 Logging.warn("Flooding detected, isolating the node.");
                 NetworkClientManager.stop();
