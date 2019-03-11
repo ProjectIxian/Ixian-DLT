@@ -627,7 +627,7 @@ namespace DLT.Meta
             }
 
             TimeSpan last_isolate_time_diff = DateTime.UtcNow - lastIsolateTime;
-            if (Node.blockChain.getTimeSinceLastBLock() > 600 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 3000)) // if no block for over 600 seconds
+            if (Node.blockChain.getTimeSinceLastBLock() > 1200 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 1200 seconds with cooldown of 1800 seconds
             {
                 isolate();
                 lastIsolateTime = DateTime.UtcNow;
