@@ -985,6 +985,8 @@ namespace DLT.Meta
             if (getNodeType() == 'W')
                 return;
 
+            CoreConfig.simultaneousConnectedNeighbors = 3;
+
             PresenceList.curNodePresenceAddress.type = 'W';
 
             NetworkClientManager.restartClients();
@@ -1008,6 +1010,8 @@ namespace DLT.Meta
         {
             if (getNodeType() == 'M' || getNodeType() == 'H')
                 return;
+
+            CoreConfig.simultaneousConnectedNeighbors = 6;
 
             if (Config.storeFullHistory)
             {

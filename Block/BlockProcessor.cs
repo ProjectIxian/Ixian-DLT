@@ -108,7 +108,7 @@ namespace DLT
                     }
 
 
-                        if (Node.blockChain.getLastBlockNum() < 10)
+                    if (Node.blockChain.getLastBlockNum() < 10)
                     {
                         blockGenerationInterval = 5;
                     }
@@ -981,7 +981,7 @@ namespace DLT
                         if(localNewBlock.addSignaturesFrom(b))
                         {
                             currentBlockStartTime = DateTime.UtcNow;
-                            lastBlockStartTime = DateTime.UtcNow;
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10); // TODO TODO TODO think about this, if sigs are trickling in, the block might never get reset
                             //if (!Node.isMasterNode())
                             //    return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
@@ -1006,7 +1006,7 @@ namespace DLT
                             Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
                             localNewBlock = b;
                             currentBlockStartTime = DateTime.UtcNow;
-                            lastBlockStartTime = DateTime.UtcNow;
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                             acceptLocalNewBlock();
                         }
                         else
