@@ -147,10 +147,10 @@ namespace DLT.Meta
                 if(b != null)
                 {
                     sigCount = b.signatures.Count();
-                    lastBlockChecksum = Crypto.hashToString(b.blockChecksum);
+                    lastBlockChecksum = Crypto.hashToString(b.blockChecksum).Substring(0, 10);
                 }
             }
-            writeLine("\tLast Block:\t\t{0} ({1} sigs) - {2}...       ", lastBlockNum, sigCount, lastBlockChecksum.Take(10));
+            writeLine("\tLast Block:\t\t{0} ({1} sigs) - {2}...       ", lastBlockNum, sigCount, lastBlockChecksum);
 
             writeLine("\tConnections (I/O):\t{0}              ", connectionsInStr + "/" + connectionsOut);
             writeLine("\tPresences:\t\t{0}                    ", PresenceList.getTotalPresences());
