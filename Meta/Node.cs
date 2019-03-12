@@ -391,7 +391,6 @@ namespace DLT.Meta
                     if (primary_local == null)
                     {
                         Logging.warn("Unable to determine primary IP address.");
-                        showIPmenu();
                     }
                     else
                     {
@@ -411,7 +410,6 @@ namespace DLT.Meta
                             else
                             {
                                 Logging.warn("UPnP configuration failed.");
-                                showIPmenu();
                             }
                         }
 
@@ -769,78 +767,6 @@ namespace DLT.Meta
                 NetworkServer.restartNetworkOperations();
             }
 
-        }
-
-        // Shows an IP selector menu
-        static public void showIPmenu()
-        {
-            return;
-            Thread.Sleep(1000); // sleep a bit to allow logging to do it's thing
-            Console.WriteLine("This node needs to be reachable from the internet. Please select a valid IP address.");
-            Console.WriteLine();
-
-            List<string> ips = CoreNetworkUtils.GetAllLocalIPAddresses();
-
-            uint counter = 0;
-            foreach (string ip in ips)
-            {
-                Console.WriteLine("\t{0}) {1}", counter, ip);
-                counter++;
-            }
-            Console.WriteLine("\tM) Manual Entry");
-            Console.WriteLine();
-
-            Console.Write("Choose option [default 0]: ");
-
-            int option = 0;
-            try
-            {
-                string result = Console.ReadLine();
-                if (result.Equals("m", StringComparison.OrdinalIgnoreCase))
-                {
-                    option = -1;
-                }
-                else
-                {
-                    option = Convert.ToInt32(result);
-                }
-            }
-            catch(Exception)
-            {
-                // Handle exceptions
-                option = 0;
-            }
-
-            if (option == -1)
-            {
-                showManualIPEntry();
-            }
-            else
-            {
-                if (option > ips.Count || option < 0)
-                    option = 0;
-
-                string chosenIP = ips[option];
-                Config.publicServerIP = chosenIP;
-                Console.WriteLine("Using option {0}) {1} as the default external IP for this node.", option, chosenIP);
-            }
-        }
-
-        static public void showManualIPEntry()
-        {
-            Console.Write("Type Manual IP: ");
-            string chosenIP = Console.ReadLine();
-
-            // Validate the IP
-            if (chosenIP.Length > 255 || IxiUtils.validateIPv4(chosenIP) == false)
-            {
-                Console.WriteLine("Incorrect IP. Please try again.");
-                showManualIPEntry();
-                return;
-            }
-
-            Config.publicServerIP = chosenIP;
-            Console.WriteLine("Using option M) {0} as the default external IP for this node.", chosenIP);           
         }
 
         // Checks to see if this node can handle the block number
