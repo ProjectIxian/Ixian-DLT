@@ -21,30 +21,7 @@ namespace DLTNode
         // STD_INPUT_HANDLE (DWORD): -10 is the standard input device.
         const int STD_INPUT_HANDLE = -10;
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        static extern IntPtr GetStdHandle(int nStdHandle);
-
-        [DllImport("kernel32.dll")]
-        static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
-
-        [DllImport("kernel32.dll")]
-        static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
-
-        [DllImport("Kernel32")]
-        static extern bool SetConsoleCtrlHandler(HandlerRoutine Handler, bool Add);
-
-        delegate bool HandlerRoutine(CtrlTypes CtrlType);
-
-        enum CtrlTypes
-        {
-            CTRL_C_EVENT = 0,
-            CTRL_BREAK_EVENT,
-            CTRL_CLOSE_EVENT,
-            CTRL_LOGOFF_EVENT = 5,
-            CTRL_SHUTDOWN_EVENT
-        }
-
-        static void CheckRequiredFiles()
+        static void checkRequiredFiles()
         {
             string[] critical_dlls =
             {
@@ -91,7 +68,7 @@ namespace DLTNode
             }
 
         }
-        static void CheckVCRedist()
+        static void checkVCRedist()
         {
             object installed_vc_redist = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64", "Installed", 0);
             object installed_vc_redist_debug = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\debug\\x64", "Installed", 0);
@@ -184,10 +161,10 @@ namespace DLTNode
         [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
         static void installUnhandledExceptionHandler()
         {
-            System.AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+            System.AppDomain.CurrentDomain.UnhandledException += currentDomain_UnhandledException;
         }
 
-        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        private static void currentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             Logging.error(String.Format("Exception was triggered and not handled. Please send this log to the Ixian developers!"));
             Logging.error(e.ExceptionObject.ToString());
@@ -206,11 +183,11 @@ namespace DLTNode
 
             installUnhandledExceptionHandler();
 
-            IntPtr consoleHandle = GetStdHandle(STD_INPUT_HANDLE);
+            IntPtr consoleHandle = NativeMethods.GetStdHandle(STD_INPUT_HANDLE);
 
             // get current console mode
             uint consoleMode;
-            if (!GetConsoleMode(consoleHandle, out consoleMode))
+            if (!NativeMethods.GetConsoleMode(consoleHandle, out consoleMode))
             {
                 // ERROR: Unable to get console mode.
                 return;
@@ -220,13 +197,13 @@ namespace DLTNode
             consoleMode &= ~(uint)0x0040; // quick edit
 
             // set the new mode
-            if (!SetConsoleMode(consoleHandle, consoleMode))
+            if (!NativeMethods.SetConsoleMode(consoleHandle, consoleMode))
             {
                 // ERROR: Unable to set console mode
             }
 
             // Hook a handler for force close
-            SetConsoleCtrlHandler(new HandlerRoutine(HandleConsoleClose), true);
+            NativeMethods.SetConsoleCtrlHandler(new NativeMethods.HandlerRoutine(HandleConsoleClose), true);
         }
 
         static void Main(string[] args)
@@ -283,7 +260,7 @@ namespace DLTNode
             Console.WriteLine(string.Format("IXIAN DLT {0}", Config.version));
 
             // Check for critical files in the exe dir
-            CheckRequiredFiles();
+            checkRequiredFiles();
 
             // Read configuration from command line
             Config.readFromCommandLine(args);
@@ -348,7 +325,7 @@ namespace DLTNode
             // Ignore if we're on Mono
             if (IXICore.Platform.onMono() == false)
             {
-                CheckVCRedist();
+                checkVCRedist();
             }
 
             // Log the parameters to notice any changes
@@ -394,10 +371,6 @@ namespace DLTNode
             if (Console.KeyAvailable)
             {
                 ConsoleKeyInfo key = Console.ReadKey();
-                /*if(key.Key == ConsoleKey.B)
-                {
-                    Node.forceNextBlock = true;
-                }*/
                 if (key.Key == ConsoleKey.W)
                 {
                     string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
@@ -492,15 +465,15 @@ namespace DLTNode
             }
         }
 
-        static bool HandleConsoleClose(CtrlTypes type)
+        static bool HandleConsoleClose(NativeMethods.CtrlTypes type)
         {
             switch(type)
             {
-                case CtrlTypes.CTRL_C_EVENT:
-                case CtrlTypes.CTRL_BREAK_EVENT:
-                case CtrlTypes.CTRL_CLOSE_EVENT:
-                case CtrlTypes.CTRL_LOGOFF_EVENT:
-                case CtrlTypes.CTRL_SHUTDOWN_EVENT:
+                case NativeMethods.CtrlTypes.CTRL_C_EVENT:
+                case NativeMethods.CtrlTypes.CTRL_BREAK_EVENT:
+                case NativeMethods.CtrlTypes.CTRL_CLOSE_EVENT:
+                case NativeMethods.CtrlTypes.CTRL_LOGOFF_EVENT:
+                case NativeMethods.CtrlTypes.CTRL_SHUTDOWN_EVENT:
                     Config.verboseConsoleOutput = true;
                     Logging.consoleOutput = Config.verboseConsoleOutput;
                     Console.WriteLine();

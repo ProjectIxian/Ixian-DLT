@@ -21,13 +21,6 @@ namespace DLT
 
     class Miner
     {
-        // Import the libargon2 shared library
-        [DllImport("libargon2", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
-        static extern int argon2id_hash_raw(UInt32 time_cost, UInt32 mem_cost, UInt32 parallelism,
-                                 IntPtr data, UIntPtr data_len,
-                                 IntPtr salt, UIntPtr salt_len,
-                                 IntPtr output, UIntPtr output_len);
-
         public bool pause = false; // Flag to toggle miner activity
 
         public long lastHashRate = 0; // Last reported hash rate
@@ -786,7 +779,7 @@ namespace DLT
                 UIntPtr data_len = (UIntPtr)data.Length;
                 UIntPtr salt_len = (UIntPtr)salt.Length;
                 IntPtr result_ptr = Marshal.AllocHGlobal(32);
-                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)4, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
+                int result = NativeMethods.argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)4, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
                 Marshal.Copy(result_ptr, hash, 0, 32);
                 ret = BitConverter.ToString(hash).Replace("-", string.Empty);
                 Marshal.FreeHGlobal(data_ptr);
@@ -812,7 +805,7 @@ namespace DLT
                 UIntPtr data_len = (UIntPtr)data.Length;
                 UIntPtr salt_len = (UIntPtr)salt.Length;
                 IntPtr result_ptr = Marshal.AllocHGlobal(32);
-                int result = argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)2, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
+                int result = NativeMethods.argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)2, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
                 Marshal.Copy(result_ptr, hash, 0, 32);
                 Marshal.FreeHGlobal(data_ptr);
                 Marshal.FreeHGlobal(result_ptr);
