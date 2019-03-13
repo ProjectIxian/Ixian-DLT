@@ -325,7 +325,12 @@ namespace DLTNode
             // Ignore if we're on Mono
             if (IXICore.Platform.onMono() == false)
             {
+                Logging.info("Runtime environment is .NET");
                 checkVCRedist();
+            }
+            else
+            {
+                Logging.info("Runtime environment is Mono");
             }
 
             // Log the parameters to notice any changes
