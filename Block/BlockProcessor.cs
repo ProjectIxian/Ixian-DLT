@@ -1132,9 +1132,14 @@ namespace DLT
                 {
                     if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                     {
-                        if (Node.isMasterNode() && localNewBlock.applySignature()) // applySignature() will return true, if signature was applied and false, if signature was already present from before
+                        if (Node.isMasterNode())
                         {
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            byte[][] signature_data = localNewBlock.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
+                            if (signature_data != null) 
+                            {
+                                //ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                ProtocolMessage.broadcastNewBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1]);
+                            }
                         }
                     }
                 }

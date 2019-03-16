@@ -205,6 +205,37 @@ namespace DLT
             }
 
 
+            public static bool broadcastNewBlockSignature(ulong block_num, byte[] block_checksum, byte[] signature, byte[] signer_address, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            {
+                byte[] signature_data = null;
+
+                using (MemoryStream m = new MemoryStream())
+                {
+                    using (BinaryWriter writer = new BinaryWriter(m))
+                    {
+                        writer.Write(block_num);
+
+                        writer.Write(block_checksum.Length);
+                        writer.Write(block_checksum);
+
+                        writer.Write(signature.Length);
+                        writer.Write(signature);
+
+                        writer.Write(signer_address.Length);
+                        writer.Write(signer_address);
+
+                        signature_data = m.ToArray();
+                    }
+                }
+                if (signature_data != null)
+                {
+                    return broadcastNewBlockSignature(signature_data, skipEndpoint, endpoint);
+                }
+
+                return false;
+            }
+
+
             // Removes event subscriptions for the provided endpoint
             private static void handleNewBlockSignature(byte[] data, RemoteEndpoint endpoint)
             {
