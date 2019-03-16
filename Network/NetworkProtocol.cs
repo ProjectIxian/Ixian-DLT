@@ -540,6 +540,20 @@ namespace DLT
                                         int bcLen = reader.ReadInt32();
                                         byte[] block_checksum = reader.ReadBytes(bcLen);
                                         int wsLen = reader.ReadInt32();
+
+                                        if(last_block_num <= Node.getLastBlockHeight())
+                                        {
+                                            Block b = Node.blockChain.getBlock(last_block_num);
+                                            if(b != null)
+                                            {
+                                                if(!b.blockChecksum.SequenceEqual(block_checksum))
+                                                {
+                                                    CoreProtocolMessage.sendBye(endpoint, 500, string.Format("This node is on a forked network on block {0}, disconnecting.", last_block_num), last_block_num.ToString(), true);
+                                                    return;
+                                                }
+                                            }
+                                        }
+
                                         byte[] walletstate_checksum = reader.ReadBytes(wsLen);
                                         int consensus = reader.ReadInt32();
 
@@ -547,14 +561,7 @@ namespace DLT
 
                                         if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                         {
-                                            using (MemoryStream m2 = new MemoryStream())
-                                            {
-                                                using (BinaryWriter writer = new BinaryWriter(m2))
-                                                {
-                                                    writer.Write(string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.compileTimeBlockNumber + Config.deprecationBlockOffset, last_block_num));
-                                                    endpoint.sendData(ProtocolMessageCode.bye, m2.ToArray());
-                                                }
-                                            }
+                                            CoreProtocolMessage.sendBye(endpoint, 500, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.compileTimeBlockNumber + Config.deprecationBlockOffset, last_block_num), last_block_num.ToString(), true);
                                             return;
                                         }
 
@@ -777,7 +784,11 @@ namespace DLT
                                                 Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
                                             }
 
-                                            if (byeCode == 600)
+                                            if (byeCode == 500) // forked
+                                            {
+                                                Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+                                            }
+                                            else if (byeCode == 600) // incorrect IP
                                             {
                                                 if (IxiUtils.validateIPv4(byeData))
                                                 {
@@ -787,7 +798,7 @@ namespace DLT
                                                         Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
                                                     }
                                                 }
-                                            }else if(byeCode == 601)
+                                            }else if(byeCode == 601) // not connectable from the internet
                                             {
                                                 Logging.error("This node must be connectable from the internet, to connect to the network.");
                                                 Logging.error("Please setup uPNP and/or port forwarding on your router for port "+Config.serverPort+".");
