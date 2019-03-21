@@ -274,10 +274,16 @@ namespace DLT
 
                         if(Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr))
                         {
-                            broadcastNewBlockSignature(data, endpoint);
+                            if (!Node.blockProcessor.acceptLocalNewBlock())
+                            {
+                                if (Node.isMasterNode())
+                                {
+                                    broadcastNewBlockSignature(data, endpoint);
+                                }
+                            }
                         }else
                         {
-                            Logging.warn("Received an invalid signature for block {0}", block_num);
+                            // discard - it might have already been applied
                         }
                     }
                 }
@@ -561,7 +567,7 @@ namespace DLT
 
                                         if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                         {
-                                            CoreProtocolMessage.sendBye(endpoint, 500, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.compileTimeBlockNumber + Config.deprecationBlockOffset, last_block_num), last_block_num.ToString(), true);
+                                            CoreProtocolMessage.sendBye(endpoint, 501, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.compileTimeBlockNumber + Config.deprecationBlockOffset, last_block_num), last_block_num.ToString(), true);
                                             return;
                                         }
 
@@ -779,31 +785,39 @@ namespace DLT
 
                                             byeV1 = true;
 
-                                            if (byeCode != 200)
+                                            switch(byeCode)
                                             {
-                                                Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
-                                            }
+                                                case 200: // all good
+                                                    break;
 
-                                            if (byeCode == 500) // forked
-                                            {
-                                                Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
-                                            }
-                                            else if (byeCode == 600) // incorrect IP
-                                            {
-                                                if (IxiUtils.validateIPv4(byeData))
-                                                {
-                                                    if (NetworkClientManager.getConnectedClients().Length < 2)
+                                                case 500: // forked node disconnected
+                                                    Logging.info(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+                                                    break;
+
+                                                case 501: // deprecated node disconnected
+                                                    Logging.info(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+                                                    break;
+
+                                                case 600: // incorrect IP
+                                                    if (IxiUtils.validateIPv4(byeData))
                                                     {
-                                                        Config.publicServerIP = byeData;
-                                                        Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
+                                                        if (NetworkClientManager.getConnectedClients().Length < 2)
+                                                        {
+                                                            Config.publicServerIP = byeData;
+                                                            Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
+                                                        }
                                                     }
-                                                }
-                                            }else if(byeCode == 601) // not connectable from the internet
-                                            {
-                                                Logging.error("This node must be connectable from the internet, to connect to the network.");
-                                                Logging.error("Please setup uPNP and/or port forwarding on your router for port "+Config.serverPort+".");
-                                            }
+                                                    break;
 
+                                                case 601: // not connectable from the internet
+                                                    Logging.error("This node must be connectable from the internet, to connect to the network.");
+                                                    Logging.error("Please setup uPNP and/or port forwarding on your router for port " + Config.serverPort + ".");
+                                                    break;
+
+                                                default:
+                                                    Logging.warn(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
+                                                    break;
+                                            }
                                         }
                                         catch (Exception)
                                         {

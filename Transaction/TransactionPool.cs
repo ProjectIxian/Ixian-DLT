@@ -977,7 +977,7 @@ namespace DLT
                 if (block.version == 0)
                 {
                     // Verify the nonce
-                    if (Miner.verifyNonce_v0(nonce, blocknum, primary_address, block.difficulty))
+                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v0(nonce, blocknum, primary_address, block.difficulty))
                     {
                         return true;
                     }
@@ -985,7 +985,7 @@ namespace DLT
                 else if (block.version == 1)
                 {
                     // Verify the nonce
-                    if (Miner.verifyNonce_v1(nonce, blocknum, primary_address, block.difficulty))
+                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v1(nonce, blocknum, primary_address, block.difficulty))
                     {
                         return true;
                     }
@@ -993,7 +993,7 @@ namespace DLT
                 else // >= 2
                 {
                     // Verify the nonce
-                    if (Miner.verifyNonce_v2(nonce, blocknum, primary_address, block.difficulty))
+                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v2(nonce, blocknum, primary_address, block.difficulty))
                     {
                         return true;
                     }
@@ -1058,7 +1058,7 @@ namespace DLT
             List<Transaction> staking_txs = null;
             if (ws_snapshot)
             {
-                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, block.version, ws_snapshot);
+                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, block.version, ws_snapshot, block.timestamp);
             }
             else
             {

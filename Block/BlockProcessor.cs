@@ -1105,8 +1105,9 @@ namespace DLT
             }
         }
 
-        private void acceptLocalNewBlock()
+        public bool acceptLocalNewBlock()
         {
+            bool block_accepted = false;
             bool requestBlockAgain = false;
             ulong requestBlockNum = 0;
 
@@ -1115,7 +1116,7 @@ namespace DLT
 
             lock (localBlockLock)
             {
-                if (localNewBlock == null) return;
+                if (localNewBlock == null) return false;
 
                 if (!verifySignatureFreezeChecksum(localNewBlock, null))
                 {
@@ -1127,7 +1128,7 @@ namespace DLT
                         blacklistBlock(localNewBlock);
                         localNewBlock = null;
                     }
-                    return;
+                    return false;
                 }else
                 {
                     if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
@@ -1167,7 +1168,7 @@ namespace DLT
                         Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, Node.blockChain.getLastBlockNum() + 1, Environment.StackTrace));
                         // block has already been applied or ahead, waiting for new blocks
                         localNewBlock = null;
-                        return;
+                        return false;
                     }
                     // accept this block, apply its transactions, recalc consensus, etc
                     if (applyAcceptedBlock(localNewBlock) == true)
@@ -1185,7 +1186,7 @@ namespace DLT
                                 // TODO TODO TODO maybe do something else instead?
                                 operating = false;
                                 Node.stop();
-                                return;
+                                return false;
                             }
                             localNewBlock.logBlockDetails();
                             requestBlockNum = localNewBlock.blockNum;
@@ -1195,6 +1196,8 @@ namespace DLT
                         else
                         {
                             Node.blockChain.appendBlock(localNewBlock);
+
+                            block_accepted = true;
 
                             if (Node.miner.searchMode == BlockSearchMode.latestBlock)
                             {
@@ -1260,8 +1263,8 @@ namespace DLT
                 // Request the block again
                 ProtocolMessage.broadcastGetBlock(requestBlockNum);
             }
-            return;
 
+            return block_accepted;
         }
 
         public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint)
@@ -1613,7 +1616,7 @@ namespace DLT
                 IxiNumber total_amount = 0;
 
                 // Apply staking transactions to block. 
-                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version);
+                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version, false, localNewBlock.timestamp);
                 foreach (Transaction transaction in staking_transactions)
                 {
                     localNewBlock.addTransaction(transaction.id);
@@ -2125,7 +2128,7 @@ namespace DLT
         }
 
         // Generate all the staking transactions for this block
-        public List<Transaction> generateStakingTransactions(ulong targetBlockNum, int block_version, bool ws_snapshot = false)
+        public List<Transaction> generateStakingTransactions(ulong targetBlockNum, int block_version, bool ws_snapshot = false, long block_timestamp = 0)
         {
             List<Transaction> transactions = new List<Transaction>();
             /// WARNING WARNING WARNING
@@ -2244,7 +2247,7 @@ namespace DLT
                         byte[] wallet_addr = stakeWallets[i];
                         //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
 
-                        Transaction tx = new Transaction((int)Transaction.Type.StakingReward, award, new IxiNumber(0), wallet_addr, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0);
+                        Transaction tx = new Transaction((int)Transaction.Type.StakingReward, award, new IxiNumber(0), wallet_addr, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0, block_timestamp);
 
                         transactions.Add(tx);
 
@@ -2267,7 +2270,7 @@ namespace DLT
                     }
 
                 }
-                Transaction tx = new Transaction((int)Transaction.Type.StakingReward, new IxiNumber(0), to_list, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0);
+                Transaction tx = new Transaction((int)Transaction.Type.StakingReward, new IxiNumber(0), to_list, CoreConfig.ixianInfiniMineAddress, BitConverter.GetBytes(targetBlock.blockNum), null, Node.blockChain.getLastBlockNum(), 0, block_timestamp);
 
                 transactions.Add(tx);
             }
@@ -2290,7 +2293,7 @@ namespace DLT
 
             if (ws_snapshot == false)
             {
-                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, block_version, ws_snapshot);
+                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, block_version, ws_snapshot, b.timestamp);
                 foreach (Transaction transaction in transactions)
                 {
                     TransactionPool.addTransaction(transaction, true);
