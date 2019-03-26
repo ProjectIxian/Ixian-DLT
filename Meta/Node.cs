@@ -47,6 +47,7 @@ namespace DLT.Meta
         private static bool floodPause = false;
 
         private static DateTime lastIsolateTime;
+        private static ThreadLiveCheck TLC;
 
         // Perform basic initialization of node
         static public void init()
@@ -575,8 +576,10 @@ namespace DLT.Meta
 
             PresenceList.startKeepAlive();
 
+            TLC = new ThreadLiveCheck();
             // Start the maintenance thread
             maintenanceThread = new Thread(performMaintenance);
+            maintenanceThread.Name = "Node_Maintenance_Thread";
             maintenanceThread.Start();
         }
 
@@ -887,6 +890,7 @@ namespace DLT.Meta
         {
             while (running)
             {
+                TLC.Report();
                 // Sleep a while to prevent cpu usage
                 Thread.Sleep(1000);
 

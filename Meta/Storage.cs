@@ -25,6 +25,7 @@ namespace DLT
             // Threading
             private static Thread thread = null;
             private static bool running = false;
+            private static ThreadLiveCheck TLC;
 
             // Storage cache
             private static ulong cached_lastBlockNum = 0;
@@ -105,8 +106,10 @@ namespace DLT
                 Logging.info(string.Format("Last storage block number is: #{0}", last_block));
 
                 // Start thread
+                TLC = new ThreadLiveCheck();
                 running = true;
                 thread = new Thread(new ThreadStart(threadLoop));
+                thread.Name = "Storage_Thread";
                 thread.Start();
 
                 return true;
@@ -909,6 +912,7 @@ namespace DLT
 
                 while (running)
                 {
+                    TLC.Report();
                     try
                     {
                         bool message_found = false;

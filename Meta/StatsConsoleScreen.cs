@@ -17,6 +17,7 @@ namespace DLT.Meta
 
         private int consoleWidth = 50;
         private uint drawCycle = 0; // Keep a count of screen draw cycles as a basic method of preventing visual artifacts
+        private ThreadLiveCheck TLC;
 
         public StatsConsoleScreen()
         {          
@@ -25,8 +26,10 @@ namespace DLT.Meta
             Console.CursorVisible = Config.verboseConsoleOutput;
 
             // Start thread
+            TLC = new ThreadLiveCheck();
             running = true;
             thread = new Thread(new ThreadStart(threadLoop));
+            thread.Name = "Stats_Console_Thread";
             thread.Start();
 
             startTime = DateTime.UtcNow;
@@ -42,6 +45,7 @@ namespace DLT.Meta
         {
             while (running)
             {
+                TLC.Report();
                 if (Config.verboseConsoleOutput == false)
                 {
                     // Clear the screen every 10 seconds to prevent any persisting visual artifacts

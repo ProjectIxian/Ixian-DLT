@@ -45,6 +45,7 @@ namespace DLT
         private bool noNetworkSynchronization = false; // Flag to determine if it ever started a network sync
 
         private bool syncDone = false;
+        private ThreadLiveCheck TLC;
 
         public BlockSync()
         {
@@ -52,8 +53,10 @@ namespace DLT
             receivedAllMissingBlocks = false;
 
             running = true;
+            TLC = new ThreadLiveCheck();
             // Start the thread
             sync_thread = new Thread(onUpdate);
+            sync_thread.Name = "Block_Sync_Update_Thread";
             sync_thread.Start();
         }
 
@@ -62,6 +65,7 @@ namespace DLT
             
             while (running)
             {
+                TLC.Report();
                 if (synchronizing == false || syncDone == true)
                 {
                     Thread.Sleep(1000);

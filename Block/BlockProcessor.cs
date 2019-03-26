@@ -51,6 +51,8 @@ namespace DLT
 
         public bool networkUpgraded = false;
 
+        private ThreadLiveCheck TLC;
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.UtcNow;
@@ -71,8 +73,10 @@ namespace DLT
                 if (block_thread != null)
                     block_thread.Abort();
 
+                TLC = new ThreadLiveCheck();
                 // Start the thread
                 block_thread = new Thread(onUpdate);
+                block_thread.Name = "Block_Processor_Update_Thread";
                 block_thread.Start();
             }
         }
@@ -88,6 +92,7 @@ namespace DLT
         {
             while (operating)
             {
+                TLC.Report();
                 bool sleep = false;
                 try
                 {

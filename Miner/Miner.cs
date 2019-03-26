@@ -35,6 +35,7 @@ namespace DLT
         private long hashesPerSecond = 0; // Total number of hashes per second
         private DateTime lastStatTime; // Last statistics output time
         private bool shouldStop = false; // flag to signal shutdown of threads
+        private ThreadLiveCheck TLC;
 
 
         Block activeBlock = null;
@@ -67,14 +68,17 @@ namespace DLT
 
             shouldStop = false;
 
+            TLC = new ThreadLiveCheck();
             // Start primary mining thread
             Thread miner_thread = new Thread(threadLoop);
+            miner_thread.Name = "Miner_Main_Thread";
             miner_thread.Start();
 
             // Start secondary worker threads
             for (int i = 0; i < Config.miningThreads - 1; i++)
             {
                 Thread worker_thread = new Thread(secondaryThreadLoop);
+                worker_thread.Name = "Miner_Worker_Thread_#" + i.ToString();
                 worker_thread.Start();
             }
 
@@ -226,6 +230,7 @@ namespace DLT
         {
             while (!shouldStop)
             {
+                TLC.Report();
                 Thread.Sleep(1000);
 
                 // Wait for blockprocessor network synchronization
@@ -281,6 +286,7 @@ namespace DLT
         {
             while (!shouldStop)
             {
+                TLC.Report();
                 Thread.Sleep(1000);
 
                 // Wait for blockprocessor network synchronization
