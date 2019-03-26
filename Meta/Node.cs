@@ -664,6 +664,22 @@ namespace DLT.Meta
 
         static public void stop()
         {
+
+            // Stop the block processor
+            blockProcessor.stopOperation();
+
+            // Stop the block storage
+            Storage.stopStorage();
+
+            // stop activity storage
+            ActivityStorage.stopStorage();
+
+            // Stop the block sync
+            blockSync.stop();
+
+            // Stop the keepalive thread
+            PresenceList.stopKeepAlive();
+
             // Stop the API server
             if (apiServer != null)
             {
@@ -678,9 +694,6 @@ namespace DLT.Meta
                 miner = null;
             }
 
-            // Stop the keepalive thread
-            PresenceList.stopKeepAlive();
-
             if (maintenanceThread != null)
             {
                 maintenanceThread.Abort();
@@ -690,22 +703,11 @@ namespace DLT.Meta
             // Stop the network queue
             NetworkQueue.stop();
 
-            // Stop the block processor
-            blockProcessor.stopOperation();
-
-            // Stop the block sync
-            blockSync.stop();
-
             // Stop all network clients
             NetworkClientManager.stop();
             
             // Stop the network server
             NetworkServer.stopNetworkOperations();
-
-            // Stop the storage thread
-            Storage.stopStorage();
-
-            ActivityStorage.stopStorage();
 
             // Stop the console stats screen
             // Console screen has a thread running even if we are in verbose mode
