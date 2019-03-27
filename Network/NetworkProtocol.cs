@@ -589,6 +589,14 @@ namespace DLT
                                             //endpoint.setLegacy(true);
                                         }
 
+
+                                        ulong highest_block_height = Node.getHighestKnownNetworkBlockHeight();
+                                        if (last_block_num + 10 < highest_block_height)
+                                        {
+                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is to far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
+                                            return;
+                                        }
+
                                         // Process the hello data
                                         Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, walletstate_checksum, consensus, 0, true);
                                         endpoint.helloReceived = true;
