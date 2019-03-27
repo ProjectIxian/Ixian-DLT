@@ -509,7 +509,7 @@ namespace DLT
 
 
             // remove signatures without PL entry but not if we're catching up with the network
-            if (b.blockNum > highestNetworkBlockNum - 5 && removeSignaturesWithoutPlEntry(b))
+            if (b.blockNum > Node.getHighestKnownNetworkBlockHeight() - 5 && removeSignaturesWithoutPlEntry(b))
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
