@@ -377,7 +377,7 @@ namespace DLT
             else if (searchMode == BlockSearchMode.randomLowestDifficulty)
             {
                 Random rnd = new Random();
-                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(25)).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(500)).ToList();
             }
             else if (searchMode == BlockSearchMode.latestBlock)
             {

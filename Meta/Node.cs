@@ -917,7 +917,7 @@ namespace DLT.Meta
             if (getNodeType() == 'W')
                 return;
 
-            CoreConfig.simultaneousConnectedNeighbors = 3;
+            CoreConfig.simultaneousConnectedNeighbors = 4;
 
             PresenceList.curNodePresenceAddress.type = 'W';
 
