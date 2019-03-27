@@ -542,6 +542,12 @@ namespace DLT
                                 {
                                     if (CoreProtocolMessage.processHelloMessage(endpoint, reader))
                                     {
+                                        char node_type = endpoint.presenceAddress.type;
+                                        if (node_type != 'M' && node_type != 'H')
+                                        {
+                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.expectingMaster, string.Format("Expecting master node."), "", true);
+                                            return;
+                                        }
                                         ulong last_block_num = reader.ReadUInt64();
                                         int bcLen = reader.ReadInt32();
                                         byte[] block_checksum = reader.ReadBytes(bcLen);
@@ -554,7 +560,7 @@ namespace DLT
                                             {
                                                 if(!b.blockChecksum.SequenceEqual(block_checksum))
                                                 {
-                                                    CoreProtocolMessage.sendBye(endpoint, 500, string.Format("This node is on a forked network on block {0}, disconnecting.", last_block_num), last_block_num.ToString(), true);
+                                                    CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.forked, string.Format("This node is on a forked network on block {0}, disconnecting.", last_block_num), last_block_num.ToString(), true);
                                                     return;
                                                 }
                                             }
@@ -567,7 +573,7 @@ namespace DLT
 
                                         if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
                                         {
-                                            CoreProtocolMessage.sendBye(endpoint, 501, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.compileTimeBlockNumber + Config.deprecationBlockOffset, last_block_num), last_block_num.ToString(), true);
+                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.deprecated, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.compileTimeBlockNumber + Config.deprecationBlockOffset, last_block_num), last_block_num.ToString(), true);
                                             return;
                                         }
 
@@ -779,7 +785,7 @@ namespace DLT
                                         bool byeV1 = false;
                                         try
                                         {
-                                            int byeCode = reader.ReadInt32();
+                                            ProtocolByeCode byeCode = (ProtocolByeCode) reader.ReadInt32();
                                             string byeMessage = reader.ReadString();
                                             string byeData = reader.ReadString();
 
@@ -787,18 +793,18 @@ namespace DLT
 
                                             switch(byeCode)
                                             {
-                                                case 200: // all good
+                                                case ProtocolByeCode.bye: // all good
                                                     break;
 
-                                                case 500: // forked node disconnected
+                                                case ProtocolByeCode.forked: // forked node disconnected
                                                     Logging.info(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
                                                     break;
 
-                                                case 501: // deprecated node disconnected
+                                                case ProtocolByeCode.deprecated: // deprecated node disconnected
                                                     Logging.info(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
                                                     break;
 
-                                                case 600: // incorrect IP
+                                                case ProtocolByeCode.incorrectIp: // incorrect IP
                                                     if (IxiUtils.validateIPv4(byeData))
                                                     {
                                                         if (NetworkClientManager.getConnectedClients().Length < 2)
@@ -809,9 +815,17 @@ namespace DLT
                                                     }
                                                     break;
 
-                                                case 601: // not connectable from the internet
+                                                case ProtocolByeCode.notConnectable: // not connectable from the internet
                                                     Logging.error("This node must be connectable from the internet, to connect to the network.");
                                                     Logging.error("Please setup uPNP and/or port forwarding on your router for port " + Config.serverPort + ".");
+                                                    break;
+
+                                                case ProtocolByeCode.insufficientFunds:
+                                                    if (Config.disableMiner == false)
+                                                    {
+                                                        Logging.info("Reconnecting in Worker mode.");
+                                                        Node.convertToWorkerNode();
+                                                    }
                                                     break;
 
                                                 default:

@@ -367,7 +367,7 @@ namespace DLT
                         {
                             Logging.warn("Target block " + b.blockNum + " does not have the required consensus.");
                             // the block is invalid, we should disconnect, most likely a malformed block - somebody removed signatures
-                            CoreProtocolMessage.sendBye(endpoint, 102, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
+                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidNoConsensus, "Block #" + b.blockNum + " is invalid", b.blockNum.ToString());
                             localNewBlock = null;
                         }
                         return false;
@@ -432,14 +432,14 @@ namespace DLT
                             else
                             {
                                 // the block is invalid, we should disconnect the node as it is likely on a forked network
-                                CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                             }
                         }
                         else if(block_status == BlockVerifyStatus.Invalid || block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                         {
                             Logging.info("Block is invalid");
                             // the block is invalid, we should disconnect the node as it is likely on a forked network
-                            CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                         }
                     }
                 }else // b.blockNum < Node.blockChain.getLastBlockNum() - 5
@@ -468,13 +468,13 @@ namespace DLT
                         }else
                         {
                             // the block is different than our own, we should disconnect the node as it is likely on a forked network
-                            CoreProtocolMessage.sendBye(endpoint, 100, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
+                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidChecksum, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
                         }
                     }
                     else
                     {
                         // the block is invalid, we should disconnect the node as it is likely on a forked network
-                        CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                        CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                     }
                 }
                 return;
@@ -498,7 +498,7 @@ namespace DLT
             if(b_status == BlockVerifyStatus.Invalid)
             {
                 // the block is invalid, we should disconnect the node as it is likely on a forked network
-                CoreProtocolMessage.sendBye(endpoint, 101, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                 return;
             }else if (b_status != BlockVerifyStatus.Valid)
             {
