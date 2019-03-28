@@ -982,7 +982,7 @@ namespace DLT
                 {
                     if(localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                     {
-                        Logging.info(String.Format("Block #{0} received from the network is the block we are currently working on. Merging signatures.", b.blockNum));
+                        Logging.info(String.Format("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count()));
                         if(localNewBlock.addSignaturesFrom(b))
                         {
                             currentBlockStartTime = DateTime.UtcNow;
