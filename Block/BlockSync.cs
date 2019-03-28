@@ -980,7 +980,7 @@ namespace DLT
                 return;
             }
 
-            if (forceWsUpdate || (DateTime.UtcNow - watchDogTime).TotalSeconds > 240) // stuck on the same block for 240 seconds
+            if (forceWsUpdate || (DateTime.UtcNow - watchDogTime).TotalSeconds > 1200) // stuck on the same block for 1200 seconds
             {
                 wsSyncConfirmedBlockNum = 0;
                 if (Config.fullStorageDataVerification == false)
