@@ -1218,7 +1218,7 @@ namespace DLT
 
                             if (highestNetworkBlockNum > Node.blockChain.getLastBlockNum())
                             {
-                                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1);
+                                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null, 1);
                             }else
                             {
                                 highestNetworkBlockNum = 0;

@@ -448,6 +448,7 @@ namespace DLT.Meta
                 // Enable miner
                 Config.disableMiner = false;
                 node_type = 'W';
+                CoreConfig.simultaneousConnectedNeighbors = 4;
             }
 
             // Generate presence list
