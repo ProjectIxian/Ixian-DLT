@@ -348,6 +348,7 @@ namespace DLT
                             // we already have the correct block but the sender does not, broadcast our block
                             ProtocolMessage.broadcastNewBlock(targetBlock, null, endpoint);
                         }
+                        acceptLocalNewBlock();
                         return false;
                     }
                     if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
