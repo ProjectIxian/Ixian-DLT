@@ -384,6 +384,32 @@ namespace DLT
             return true;
         }
 
+        public bool verifySigFreezedBlock(Block b)
+        {
+            Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
+            byte[] sigFreezeChecksum = null;
+            lock (localBlockLock)
+            {
+                if (sigFreezingBlock == null && localNewBlock != null && localNewBlock.blockNum == b.blockNum + 5)
+                {
+                    sigFreezingBlock = localNewBlock;
+                }
+                if (sigFreezingBlock != null)
+                {
+                    sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
+                    if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
         public void onBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
             if (operating == false) return;

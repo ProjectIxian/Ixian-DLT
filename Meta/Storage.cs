@@ -293,6 +293,11 @@ namespace DLT
                     signatures = string.Format("{0}||{1}:{2}", signatures, Convert.ToBase64String(sig[0]), Convert.ToBase64String(sig[1]));
                 }
 
+                if (!Node.blockProcessor.verifySigFreezedBlock(block))
+                {
+                    return false;
+                }
+
                 bool result = false;
                 lock (storageLock)
                 {
