@@ -1236,7 +1236,7 @@ namespace DLT
                                 Block tmp_block = Node.blockChain.getBlock(localNewBlock.blockNum - 5);
                                 if (tmp_block != null)
                                 {
-                                    Node.blockChain.appendBlock(tmp_block);
+                                    Meta.Storage.insertBlock(tmp_block);
                                 }
                             }
 
