@@ -1227,7 +1227,18 @@ namespace DLT
                         }
                         else
                         {
+                            // append current block
                             Node.blockChain.appendBlock(localNewBlock);
+
+                            if (localNewBlock.blockNum > 5)
+                            {
+                                // append sigfreezed block
+                                Block tmp_block = Node.blockChain.getBlock(localNewBlock.blockNum - 5);
+                                if (tmp_block != null)
+                                {
+                                    Node.blockChain.appendBlock(tmp_block);
+                                }
+                            }
 
                             block_accepted = true;
 
