@@ -239,6 +239,10 @@ namespace DLT
                     }
                     else
                     {
+                        if (readFromStorage)
+                        {
+                            Logging.warn("Expecting block {0} in storage but had to request it from network.", blockNum);
+                        }
                         // Didn't find the block in storage, request it from the network
                         if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1) == false)
                         {
