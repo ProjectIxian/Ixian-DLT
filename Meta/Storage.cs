@@ -915,8 +915,11 @@ namespace DLT
                 // Prepare an special message object to use, without locking up the queue messages
                 QueueStorageMessage active_message = new QueueStorageMessage();
 
-                while (running)
+                bool pending_statements = false;
+
+                while (running || pending_statements == true)
                 {
+                    pending_statements = false;
                     TLC.Report();
                     try
                     {
@@ -924,8 +927,13 @@ namespace DLT
 
                         lock (queueStatements)
                         {
-                            if (queueStatements.Count() > 0)
+                            int statements_count = queueStatements.Count();
+                            if (statements_count > 0)
                             {
+                                if(statements_count > 1)
+                                {
+                                    pending_statements = true;
+                                }
                                 QueueStorageMessage candidate = queueStatements[0];
                                 active_message = candidate;
                                 queueStatements.Remove(candidate);
