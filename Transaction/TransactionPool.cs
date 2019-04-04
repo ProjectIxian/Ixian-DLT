@@ -806,8 +806,40 @@ namespace DLT
             if (no_broadcast == false)
                 CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), null, skipEndpoint);
 
+            // Send transaction events to all subscribed clients
+            // TODO: optimize this further to decrease cpu time in the current thread
+            broadcastAddTransactionEvent(transaction);
+
 
             return true;
+        }
+
+        // Send transaction events to all subscribed clients
+        public static void broadcastAddTransactionEvent(Transaction transaction)
+        {
+            // Send transaction FROM event
+            if (transaction.fromList.Count < 2)
+            {
+                byte[] addr = new Address(transaction.pubKey).address;
+                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(), null);
+            }
+            else
+            {
+                foreach (var entry in transaction.fromList)
+                {
+                    byte[] addr = new byte[entry.Key.Length];
+                    Array.Copy(entry.Key, addr, addr.Length);
+                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(), null);
+                }
+            }
+
+            // Send transaction TO event
+            foreach (var entry in transaction.toList)
+            {
+                byte[] addr = new byte[entry.Key.Length];
+                Array.Copy(entry.Key, addr, addr.Length);
+                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(), null);
+            }
         }
 
         // Attempts to retrieve a transaction from memory or from storage
