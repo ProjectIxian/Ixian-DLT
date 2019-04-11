@@ -2198,15 +2198,25 @@ namespace DLT
                 inflationPA = new IxiNumber("5");
             }
 
-            // Set the anual inflation to 1% after 50bn IXIs in circulation 
-            if (totalIxis > new IxiNumber("50000000000"))
+            IxiNumber newIxis = 0;
+
+            // Set the annual inflation to 1% after 50bn IXIs in circulation 
+            if (totalIxis > new IxiNumber("50000000000") && totalIxis <= new IxiNumber("100000000000"))
             {
                 inflationPA = new IxiNumber("1");
+                newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
+            }
+            else if(totalIxis > new IxiNumber("100000000000"))
+            {
+                newIxis = 1000;
+            }
+            else
+            {
+                // Calculate the amount of new IXIs to be minted
+                newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
             }
             //Logging.info(String.Format("inflationPA = {0}", inflationPA.ToString()));
 
-            // Calculate the amount of new IXIs to be minted
-            IxiNumber newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
             //Logging.info(String.Format("newIxis = {0}", newIxis.ToString()));
             //Console.ForegroundColor = ConsoleColor.Magenta;
             //Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
