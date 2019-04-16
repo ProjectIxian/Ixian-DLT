@@ -346,6 +346,82 @@ namespace DLT
                 }
             }
 
+            private static void handleGetNextSuperBlock(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong include_segments = reader.ReadUInt64();
+
+                        char type = reader.ReadChar();
+
+                        Block block = null;
+
+                        if (type == 0) // blocknum was passed
+                        {
+                            ulong block_num = reader.ReadUInt64();
+
+                            block = Storage.getNextSuperBlock(block_num);
+
+                            endpoint.sendData(ProtocolMessageCode.newBlock, block.getBytes(), BitConverter.GetBytes(block.blockNum));
+                        }
+                        else if (type == 1) // checksum was passed
+                        {
+                            int checksum_len = reader.ReadInt32();
+                            byte[] checksum = reader.ReadBytes(checksum_len);
+
+                            block = Storage.getNextSuperBlock(checksum);
+
+                            endpoint.sendData(ProtocolMessageCode.newBlock, block.getBytes(), BitConverter.GetBytes(block.blockNum));
+                        }
+                        else
+                        {
+                            Logging.warn("Super block request was received with unknown type: {0}", (int)type);
+                            return;
+                        }
+
+                        if (block != null && include_segments > 0)
+                        {
+                            block.superBlockSegments.OrderBy(x => x.Key);
+                            foreach (var entry in block.superBlockSegments)
+                            {
+                                SuperBlockSegment segment = entry.Value;
+                                if (segment.blockNum < include_segments)
+                                {
+                                    continue;
+                                }
+                                endpoint.sendData(ProtocolMessageCode.superBlockSegmentData, segment.getBytes(), BitConverter.GetBytes(segment.blockNum));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Requests block with specified block height from the network, include_segments_from_block value can be 0 for no segments, and a positive value for segments bigger than the specified value
+            public static bool broadcastGetNextSuperBlock(ulong block_num, ulong include_segments = 0, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            {
+                using (MemoryStream mw = new MemoryStream())
+                {
+                    using (BinaryWriter writerw = new BinaryWriter(mw))
+                    {
+                        writerw.Write(include_segments);
+                        writerw.Write((char)0);
+                        writerw.Write(block_num);
+
+                        if (endpoint != null)
+                        {
+                            if (endpoint.isConnected())
+                            {
+                                endpoint.sendData(ProtocolMessageCode.getNextSuperBlock, mw.ToArray());
+                                return true;
+                            }
+                        }
+                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getNextSuperBlock, mw.ToArray(), block_num, skipEndpoint);
+                    }
+                }
+            }
+
             // Requests block with specified block height from the network, include_transactions value can be 0 - don't include transactions, 1 - include all but staking transactions or 2 - include all, including staking transactions
             public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0)
             {
@@ -593,7 +669,7 @@ namespace DLT
                                         ulong highest_block_height = Node.getHighestKnownNetworkBlockHeight();
                                         if (last_block_num + 10 < highest_block_height)
                                         {
-                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is to far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
+                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is too far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
                                             return;
                                         }
 
@@ -1207,6 +1283,46 @@ namespace DLT
                                         byte[] checksum = reader.ReadBytes(checksum_len);
 
                                         handleGetBlockSignatures(block_num, checksum, endpoint);
+                                    }
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getNextSuperBlock:
+                            {
+                                handleGetNextSuperBlock(data, endpoint);
+                            }
+                            break;
+
+                        case ProtocolMessageCode.superBlockSegmentData:
+                            {
+                                SuperBlockSegment segment = new SuperBlockSegment(data);
+
+                                Block super_block = Node.blockChain.getPendingSuperBlock(segment.blockNum);
+
+                                super_block.superBlockSegments.Add(segment.blockNum, segment);
+
+                                if ((ulong)super_block.superBlockSegments.Count == CoreConfig.superblockInterval)
+                                {
+                                    // TODO TODO TODO TODO TODO TODO verify and apply superblock
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getSuperBlockSegment:
+                            {
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        ulong block_num = reader.ReadUInt64();
+                                        ulong segment_num = reader.ReadUInt64();
+
+                                        Block b = Node.blockChain.getSuperBlock(block_num);
+
+                                        SuperBlockSegment segment = b.superBlockSegments[segment_num];
+
+                                        endpoint.sendData(ProtocolMessageCode.superBlockSegmentData, segment.getBytes(), BitConverter.GetBytes(segment.blockNum));
                                     }
                                 }
                             }

@@ -11,6 +11,8 @@ namespace DLT
     {
         List<Block> blocks = new List<Block>((int)CoreConfig.getRedactedWindowSize());
 
+        List<Block> pendingSuperBlocks = new List<Block>();
+
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
 
         long lastBlockReceivedTime = Clock.getTimestamp();
@@ -415,6 +417,16 @@ namespace DLT
         public long getTimeSinceLastBLock()
         {
             return Clock.getTimestamp() - lastBlockReceivedTime;
+        }
+
+        public Block getPendingSuperBlock(ulong block_num)
+        {
+            return pendingSuperBlocks.Find(x => x.blockNum == block_num);
+        }
+
+        public Block getSuperBlock(ulong block_num)
+        {
+            return Storage.getSuperBlock(block_num);
         }
 
         // Clears all the transactions in the pool

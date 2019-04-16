@@ -52,7 +52,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.3e"; // DLT Node version
+            public static readonly string version = "xdc-0.6.4-dev"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
@@ -122,7 +122,7 @@ namespace DLT
                 Console.WriteLine("    --walletPassword\t Specify the password for the wallet. [TESTNET ONLY!]");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
-                Console.WriteLine(" Config file options should use parameterName = parameterValue semantics.");
+                Console.WriteLine(" Config file options should use parameterName = parameterValue syntax.");
                 Console.WriteLine(" Each option should be specified in its own line. Example:");
                 Console.WriteLine("    dltPort = 10234");
                 Console.WriteLine("    apiPort = 8081");

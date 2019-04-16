@@ -122,7 +122,7 @@ namespace DLT
                         blockGenerationInterval = 30;
                     }
 
-                    int block_version = Block.maxVersion;
+                    int block_version = 3;
 
                     bool forceNextBlock = Node.forceNextBlock;
                     Random rnd = new Random();
@@ -410,6 +410,25 @@ namespace DLT
             return true;
         }
 
+        private bool onSuperBlockReceived(Block b, RemoteEndpoint endpoint = null)
+        {
+            if(b.version < 4) // super blocks were supported with block v4
+            {
+                return true;
+            }
+
+            if(b.lastSuperBlockChecksum == null)
+            {
+                // block is not a superblock
+                if(b.blockNum % CoreConfig.superblockInterval == 0)
+                {
+                    // block was supposed to be a superblock
+                }
+            }
+
+            return false;
+        }
+
         public void onBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
             if (operating == false) return;
@@ -508,6 +527,11 @@ namespace DLT
             }
 
             b.powField = null;
+
+            if(!onSuperBlockReceived(b, endpoint))
+            {
+                return;
+            }
 
             BlockVerifyStatus b_status;
 
@@ -1054,7 +1078,7 @@ namespace DLT
                 else // localNewBlock == null
                 {
                     bool hasNodeSig = true;
-                    if(getElectedNodeOffset() != -1)
+                    if(getElectedNodeOffset() != -1 && Node.getLastBlockHeight() + 2 > Node.getHighestKnownNetworkBlockHeight())
                     {
                         hasNodeSig = b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()));
                     }
@@ -1631,6 +1655,184 @@ namespace DLT
             return true;
         }
 
+        private void generateNewBlockTransactions(int block_version)
+        {
+            ulong total_transactions = 1;
+            IxiNumber total_amount = 0;
+
+            List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
+            pool_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
+
+            ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
+
+            Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
+
+            Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
+
+            foreach (var transaction in pool_transactions)
+            {
+                // Check if we reached the transaction limit for this block
+                if (normal_transactions >= CoreConfig.maximumTransactionsPerBlock)
+                {
+                    // Limit all other transactions
+                    break;
+                }
+
+                // lock transaction v2 with block v3
+                if (block_version >= 3 && transaction.version < 2)
+                {
+                    if (Node.blockChain.getLastBlockVersion() >= 3)
+                    {
+                        TransactionPool.removeTransaction(transaction.id);
+                    }
+                    continue;
+                }
+
+                // Verify that the transaction is actually valid at this point
+                // no need as the tx is already in the pool and was verified when received
+                //if (TransactionPool.verifyTransaction(transaction) == false)
+                //    continue;
+
+                // Skip adding staking rewards
+                if (transaction.type == (int)Transaction.Type.StakingReward)
+                {
+                    TransactionPool.removeTransaction(transaction.id);
+                    continue;
+                }
+
+                ulong minBh = 0;
+                if (localNewBlock.blockNum > CoreConfig.getRedactedWindowSize(localNewBlock.version))
+                {
+                    minBh = localNewBlock.blockNum - CoreConfig.getRedactedWindowSize(localNewBlock.version);
+                }
+                // Check the block height
+                if (minBh > transaction.blockHeight || transaction.blockHeight > localNewBlock.blockNum)
+                {
+                    TransactionPool.removeTransaction(transaction.id);
+                    continue;
+                }
+
+                // Special case for PoWSolution transactions
+                if (transaction.type == (int)Transaction.Type.PoWSolution)
+                {
+                    // TODO: pre-validate the transaction in such a way it doesn't affect performance
+                    ulong powBlockNum = 0;
+                    string nonce = "";
+                    if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce, block_version))
+                    {
+                        TransactionPool.removeTransaction(transaction.id);
+                        continue;
+                    }
+                    else
+                    {
+                        // Check if we already have a key matching the block number
+                        if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
+                        {
+                            blockSolutionsDictionary[powBlockNum] = new List<object[]>();
+                        }
+                        if (block_version >= 2)
+                        {
+                            byte[] tmp_address = (new Address(transaction.pubKey)).address;
+                            if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && (string)x[1] == nonce))
+                            {
+                                // Add the miner to the block number dictionary reward list
+                                blockSolutionsDictionary[powBlockNum].Add(new object[3] { tmp_address, nonce, transaction });
+                            }
+                            else
+                            {
+                                TransactionPool.removeTransaction(transaction.id);
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                if (!verifyFromListBalance(transaction, minusBalances))
+                {
+                    continue;
+                }
+
+                IxiNumber total_tx_amount = transaction.amount + transaction.fee;
+
+                if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
+                {
+                    if (normal_transactions > 1500)
+                    {
+                        continue;
+                    }
+                    ulong ms_transactions = includeMultisigTransactions(transaction, minusBalances);
+                    if (ms_transactions == 0)
+                    {
+                        continue;
+                    }
+                    total_transactions += ms_transactions;
+                    normal_transactions += ms_transactions;
+                }
+                else if (transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
+                {
+                    localNewBlock.addTransaction(transaction.id);
+                    total_transactions++;
+                    normal_transactions++;
+                }
+
+                total_amount += total_tx_amount;
+            }
+
+
+            Logging.info(String.Format("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount));
+        }
+
+        public bool generateSuperBlockTransactions()
+        {
+            ulong cur_block_height = localNewBlock.blockNum;
+            for (ulong i = cur_block_height; i > 0; i--)
+            {
+                Block b = Node.blockChain.getBlock(i, true);
+                if (b == null)
+                {
+                    Logging.error("Unable to find block {0} while creating superblock {1}.", i, localNewBlock.blockNum);
+                    return false;
+                }
+
+                if(b.version > 3 && b.lastSuperBlockChecksum != null)
+                {
+                    localNewBlock.lastSuperBlockNum = b.blockNum;
+                    localNewBlock.lastSuperBlockChecksum = b.blockChecksum;
+                    break;
+                }
+
+                List<byte[]> signature_freeze_signers = null;
+                List<byte[][]> legacy_signature_freeze_signers = null;
+
+                if (b.signatureFreezeChecksum != null && i > 6)
+                {
+                    Block target_block = Node.blockChain.getBlock(i - 6, true);
+                    if (target_block == null)
+                    {
+                        Logging.error("Unable to find target block {0} while creating superblock {1}.", i - 6, localNewBlock.blockNum);
+                        return false;
+                    }
+                    if (b.version < 4)
+                    {
+                        legacy_signature_freeze_signers = target_block.signatures;
+                    }else
+                    {
+                        signature_freeze_signers = target_block.getSignaturesWalletAddresses(false);
+                    }
+                }
+
+
+                SuperBlockSegment seg = new SuperBlockSegment() { signatureFreezeChecksum = b.signatureFreezeChecksum, signatureFreezeSigners = signature_freeze_signers, legacySignatureFreezeSigners = legacy_signature_freeze_signers, transactions = b.transactions, version = b.version, blockNum = b.blockNum };
+
+                localNewBlock.superBlockSegments.Add(b.blockNum, seg);
+
+            }
+
+            localNewBlock.superBlockSegments.OrderBy(x => x.Key);
+
+            return true;
+        }
+
         // Generate a new block
         public void generateNewBlock(int block_version)
         {
@@ -1652,142 +1854,45 @@ namespace DLT
 
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
 
-                // Apply signature freeze
-                localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
-
-                ulong total_transactions = 0;
-                IxiNumber total_amount = 0;
-
                 // Apply staking transactions to block. 
                 List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version, false, localNewBlock.timestamp);
                 foreach (Transaction transaction in staking_transactions)
                 {
                     localNewBlock.addTransaction(transaction.id);
-                    total_amount += transaction.amount;
-                    total_transactions++;
                 }
                 staking_transactions.Clear();
 
-                List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
-                pool_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
-
-                ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
-
-                Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
-
-                Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
-
-                foreach (var transaction in pool_transactions)
+                if (localNewBlock.version > 3 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
                 {
-                    // Check if we reached the transaction limit for this block
-                    if(normal_transactions >= CoreConfig.maximumTransactionsPerBlock)
+                    // superblock
+
+                    // collect all txids up to last superblock (or genesis block if no superblock yet exists)
+                    if(!generateSuperBlockTransactions())
                     {
-                        // Limit all other transactions
-                        break;
+                        Logging.error("Error generating transactions for superblock {0}.", localNewBlock.blockNum);
+                        localNewBlock = null;
+                        return;
                     }
 
-                    // lock transaction v2 with block v3
-                    if (block_version >= 3 && transaction.version < 2)
+                    if (localNewBlock.lastSuperBlockChecksum == null)
                     {
-                        if(Node.blockChain.getLastBlockVersion() >= 3)
+                        Block b = Node.blockChain.getBlock(1);
+                        if(b == null)
                         {
-                            TransactionPool.removeTransaction(transaction.id);
+                            Logging.error("Unable to find genesis block for superblock {0}.", localNewBlock.blockNum);
+                            localNewBlock = null;
+                            return;
                         }
-                        continue;
+                        localNewBlock.lastSuperBlockNum = b.blockNum;
+                        localNewBlock.lastSuperBlockChecksum = b.blockChecksum;
                     }
+                }else
+                {
+                    // Apply signature freeze
+                    localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
 
-                    // Verify that the transaction is actually valid at this point
-                    // no need as the tx is already in the pool and was verified when received
-                    //if (TransactionPool.verifyTransaction(transaction) == false)
-                    //    continue;
-
-                    // Skip adding staking rewards
-                    if (transaction.type == (int)Transaction.Type.StakingReward)
-                    {
-                        TransactionPool.removeTransaction(transaction.id);
-                        continue;
-                    }
-
-                    ulong minBh = 0;
-                    if (localNewBlock.blockNum > CoreConfig.getRedactedWindowSize(localNewBlock.version))
-                    {
-                        minBh = localNewBlock.blockNum - CoreConfig.getRedactedWindowSize(localNewBlock.version);
-                    }
-                    // Check the block height
-                    if (minBh > transaction.blockHeight || transaction.blockHeight > localNewBlock.blockNum)
-                    {
-                        TransactionPool.removeTransaction(transaction.id);
-                        continue;
-                    }
-
-                    // Special case for PoWSolution transactions
-                    if (transaction.type == (int)Transaction.Type.PoWSolution)
-                    {
-                        // TODO: pre-validate the transaction in such a way it doesn't affect performance
-                        ulong powBlockNum = 0;
-                        string nonce = "";
-                        if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce, block_version))
-                        {
-                            TransactionPool.removeTransaction(transaction.id);
-                            continue;
-                        }else
-                        {
-                            // Check if we already have a key matching the block number
-                            if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
-                            {
-                                blockSolutionsDictionary[powBlockNum] = new List<object[]>();
-                            }
-                            if (block_version >= 2)
-                            {
-                                byte[] tmp_address = (new Address(transaction.pubKey)).address;
-                                if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && (string)x[1] == nonce))
-                                {
-                                    // Add the miner to the block number dictionary reward list
-                                    blockSolutionsDictionary[powBlockNum].Add(new object[3] { tmp_address, nonce, transaction });
-                                }
-                                else
-                                {
-                                    TransactionPool.removeTransaction(transaction.id);
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-
-                    if (!verifyFromListBalance(transaction, minusBalances))
-                    {
-                        continue;
-                    }
-
-                    IxiNumber total_tx_amount = transaction.amount + transaction.fee;
-
-                    if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
-                    {
-                        if(normal_transactions > 1500)
-                        {
-                            continue;
-                        }
-                        ulong ms_transactions = includeMultisigTransactions(transaction, minusBalances);
-                        if (ms_transactions == 0)
-                        {
-                            continue;
-                        }
-                        total_transactions += ms_transactions;
-                        normal_transactions += ms_transactions;
-                    }
-                    else if (transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
-                    {
-                        localNewBlock.addTransaction(transaction.id);
-                        total_transactions++;
-                        normal_transactions++;
-                    }
-
-                    total_amount += total_tx_amount;
+                    generateNewBlockTransactions(block_version);
                 }
-
-
-                Logging.info(String.Format("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount));
-
 
                 // Calculate mining difficulty
                 localNewBlock.difficulty = calculateDifficulty(block_version);
