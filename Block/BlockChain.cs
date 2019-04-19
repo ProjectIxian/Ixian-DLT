@@ -11,14 +11,17 @@ namespace DLT
     {
         List<Block> blocks = new List<Block>((int)CoreConfig.getRedactedWindowSize());
 
-        List<Block> pendingSuperBlocks = new List<Block>();
-
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
 
         long lastBlockReceivedTime = Clock.getTimestamp();
 
         ulong lastBlockNum = 0;
         int lastBlockVersion = 0;
+
+        ulong lastSuperBlockNum = 0;
+        byte[] lastSuperBlockChecksum = null;
+        Dictionary<ulong, Block> pendingSuperBlocks = new Dictionary<ulong, Block>();
+
 
         public long Count
         {
@@ -77,6 +80,15 @@ namespace DLT
                         lastBlockVersion = b.version;
                     }
                 }
+
+                if (b.lastSuperBlockChecksum != null || b.blockNum == 1)
+                {
+                    pendingSuperBlocks.Remove(b.blockNum);
+
+                    lastSuperBlockNum = b.blockNum;
+                    lastSuperBlockChecksum = b.blockChecksum;
+                }
+
                 // special case when we are starting up and have an empty chain
                 if (blocks.Count == 0)
                 {
@@ -221,6 +233,16 @@ namespace DLT
         public int getLastBlockVersion()
         {
             return lastBlockVersion;
+        }
+
+        public ulong getLastSuperBlockNum()
+        {
+            return lastSuperBlockNum;
+        }
+
+        public byte[] getLastSuperBlockChecksum()
+        {
+            return lastSuperBlockChecksum;
         }
 
         public int getRequiredConsensus()
@@ -421,12 +443,26 @@ namespace DLT
 
         public Block getPendingSuperBlock(ulong block_num)
         {
-            return pendingSuperBlocks.Find(x => x.blockNum == block_num);
+            lock(pendingSuperBlocks)
+            {
+                if (pendingSuperBlocks.ContainsKey(block_num))
+                {
+                    return pendingSuperBlocks[block_num];
+                }else
+                {
+                    return null;
+                }
+            }
         }
 
         public Block getSuperBlock(ulong block_num)
         {
-            return Storage.getSuperBlock(block_num);
+            return getBlock(block_num, true);
+        }
+
+        public Block getSuperBlock(byte[] block_checksum)
+        {
+            return getBlockByHash(block_checksum, true);
         }
 
         // Clears all the transactions in the pool

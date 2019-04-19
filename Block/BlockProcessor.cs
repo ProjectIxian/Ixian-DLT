@@ -49,6 +49,8 @@ namespace DLT
 
         Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
 
+        List<Block> pendingSuperBlocks = new List<Block>();
+
         public bool networkUpgraded = false;
 
         private ThreadLiveCheck TLC;
@@ -410,6 +412,11 @@ namespace DLT
             return true;
         }
 
+        public Block getPendingSuperBlock(byte[] block_checksum)
+        {
+            return pendingSuperBlocks.Find(x => x.blockChecksum.SequenceEqual(block_checksum));
+        }
+
         private bool onSuperBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
             if(b.version < 4) // super blocks were supported with block v4
@@ -417,16 +424,60 @@ namespace DLT
                 return true;
             }
 
-            if(b.lastSuperBlockChecksum == null)
+            Block local_block = pendingSuperBlocks.Find(x => x.blockChecksum == b.blockChecksum);
+            if (local_block == null)
+            {
+                pendingSuperBlocks.Add(b);
+            }else
+            {
+                b = local_block;
+            }
+
+            if (b.lastSuperBlockChecksum == null)
             {
                 // block is not a superblock
                 if(b.blockNum % CoreConfig.superblockInterval == 0)
                 {
                     // block was supposed to be a superblock
+                    Logging.warn("Received a normal block {0}, which was supposed to be a super block.", b.blockNum);
+                    return false;
                 }
+                return true;
             }
 
-            return false;
+            // block is a superblock
+            if (b.blockNum % CoreConfig.superblockInterval != 0)
+            {
+                // block was not supposed to be a superblock
+                Logging.warn("Received a super block {0}, which was supposed to be a normal block.", b.blockNum);
+                return false;
+            }
+
+            Block last_super_block = Node.blockChain.getSuperBlock(b.lastSuperBlockNum);
+            if(last_super_block != null)
+            {
+                if (!last_super_block.blockChecksum.SequenceEqual(b.lastSuperBlockChecksum))
+                {
+                    Logging.warn("Received a forked super block {0}.", b.blockNum);
+                    return false;
+                }
+
+                if (!generateSuperBlockTransactions(b, endpoint))
+                {
+                    return false;
+                }
+            }else
+            {
+                byte[] last_accepted_super_block_checksum = Node.blockChain.getLastSuperBlockChecksum();
+                if (getPendingSuperBlock(last_accepted_super_block_checksum) == null)
+                {
+                    Logging.info("Received a future super block {0}.", b.blockNum);
+                    ProtocolMessage.broadcastGetNextSuperBlock(Node.blockChain.getLastSuperBlockNum(), last_accepted_super_block_checksum, 0, null, null);
+                }
+                return false;
+            }
+
+            return true;
         }
 
         public void onBlockReceived(Block b, RemoteEndpoint endpoint = null)
@@ -435,6 +486,11 @@ namespace DLT
             //Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getUniqueSignatureCount()));
 
             if(isBlockBlacklisted(b))
+            {
+                return;
+            }
+
+            if (!onSuperBlockReceived(b, endpoint))
             {
                 return;
             }
@@ -527,11 +583,6 @@ namespace DLT
             }
 
             b.powField = null;
-
-            if(!onSuperBlockReceived(b, endpoint))
-            {
-                return;
-            }
 
             BlockVerifyStatus b_status;
 
@@ -1782,22 +1833,23 @@ namespace DLT
             Logging.info(String.Format("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount));
         }
 
-        public bool generateSuperBlockTransactions()
+        public bool generateSuperBlockTransactions(Block super_block, RemoteEndpoint endpoint = null)
         {
-            ulong cur_block_height = localNewBlock.blockNum;
+            ulong cur_block_height = super_block.blockNum;
             for (ulong i = cur_block_height; i > 0; i--)
             {
                 Block b = Node.blockChain.getBlock(i, true);
                 if (b == null)
                 {
-                    Logging.error("Unable to find block {0} while creating superblock {1}.", i, localNewBlock.blockNum);
+                    ProtocolMessage.broadcastGetSuperBlockSegment(super_block.blockNum, i, endpoint);
+                    Logging.error("Unable to find block {0} while creating superblock {1}.", i, super_block.blockNum);
                     return false;
                 }
 
                 if(b.version > 3 && b.lastSuperBlockChecksum != null)
                 {
-                    localNewBlock.lastSuperBlockNum = b.blockNum;
-                    localNewBlock.lastSuperBlockChecksum = b.blockChecksum;
+                    super_block.lastSuperBlockNum = b.blockNum;
+                    super_block.lastSuperBlockChecksum = b.blockChecksum;
                     break;
                 }
 
@@ -1809,7 +1861,8 @@ namespace DLT
                     Block target_block = Node.blockChain.getBlock(i - 6, true);
                     if (target_block == null)
                     {
-                        Logging.error("Unable to find target block {0} while creating superblock {1}.", i - 6, localNewBlock.blockNum);
+                        ProtocolMessage.broadcastGetSuperBlockSegment(super_block.blockNum, i - 6, endpoint);
+                        Logging.error("Unable to find target block {0} while creating superblock {1}.", i - 6, super_block.blockNum);
                         return false;
                     }
                     if (b.version < 4)
@@ -1824,11 +1877,9 @@ namespace DLT
 
                 SuperBlockSegment seg = new SuperBlockSegment() { signatureFreezeChecksum = b.signatureFreezeChecksum, signatureFreezeSigners = signature_freeze_signers, legacySignatureFreezeSigners = legacy_signature_freeze_signers, transactions = b.transactions, version = b.version, blockNum = b.blockNum };
 
-                localNewBlock.superBlockSegments.Add(b.blockNum, seg);
+                super_block.superBlockSegments.Add(b.blockNum, seg);
 
             }
-
-            localNewBlock.superBlockSegments.OrderBy(x => x.Key);
 
             return true;
         }
@@ -1867,7 +1918,7 @@ namespace DLT
                     // superblock
 
                     // collect all txids up to last superblock (or genesis block if no superblock yet exists)
-                    if(!generateSuperBlockTransactions())
+                    if(!generateSuperBlockTransactions(localNewBlock))
                     {
                         Logging.error("Error generating transactions for superblock {0}.", localNewBlock.blockNum);
                         localNewBlock = null;
