@@ -809,6 +809,7 @@ namespace DLTNode
             JsonError error = null;
 
             string blocknum_string = request.QueryString["num"];
+            string bytes = request.QueryString["bytes"];
             ulong block_num = 0;
             try
             {
@@ -823,7 +824,13 @@ namespace DLTNode
             if (block == null)
             {
                 return new JsonResponse { result = null, error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Block not found." } };
-            }else
+            }
+
+            if(bytes == "1")
+            {
+                return new JsonResponse { result = Crypto.hashToString(block.getBytes()), error = error };
+            }
+            else
             {
                 blockData = new Dictionary<string, string>();
 
@@ -841,10 +848,8 @@ namespace DLTNode
                 blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
                 blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
                 blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
+                return new JsonResponse { result = blockData, error = error };
             }
-
-
-            return new JsonResponse { result = blockData, error = error };
         }
 
         public JsonResponse onGetLastBlocks()

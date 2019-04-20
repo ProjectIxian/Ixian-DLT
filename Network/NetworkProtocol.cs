@@ -305,42 +305,113 @@ namespace DLT
 
                 int sig_count = b.signatures.Count();
 
-                int num_chunks = sig_count / CoreConfig.maximumTransactionsPerChunk + 1;
-                // Go through each chunk
-                for (int i = 0; i < num_chunks; i++)
+                if (sig_count == 0)
                 {
-                    using (MemoryStream mOut = new MemoryStream())
+                    return;
+                }
+
+                using (MemoryStream mOut = new MemoryStream())
+                {
+                    using (BinaryWriter writer = new BinaryWriter(mOut))
                     {
-                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        writer.Write(b.blockNum);
+
+                        writer.Write(b.blockChecksum.Length);
+                        writer.Write(b.blockChecksum);
+
+                        writer.Write(sig_count);
+
+                        for (int i = 0; i < sig_count; i++)
                         {
-                            int sigs_in_chunk = 0;
-                            // Generate a chunk of transactions
-                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk; j++)
+                            byte[][] sig = b.signatures[i];
+                            if (sig != null)
                             {
-                                int sig_index = i * CoreConfig.maximumTransactionsPerChunk + j;
-                                if (sig_index > sig_count - 1)
-                                    break;
+                                // sig
+                                writer.Write(sig[0].Length);
+                                writer.Write(sig[0]);
 
-                                byte[][] sig = b.signatures[i];
-                                if (sig != null)
-                                {
-                                    // sig
-                                    writer.Write(sig[0].Length);
-                                    writer.Write(sig[0]);
-
-                                    // address/pubkey
-                                    writer.Write(sig[1].Length);
-                                    writer.Write(sig[1]);
-
-                                    sigs_in_chunk++;
-                                }
+                                // address/pubkey
+                                writer.Write(sig[1].Length);
+                                writer.Write(sig[1]);
                             }
+                        }
 
-                            if (sigs_in_chunk > 0)
+                        // Send a chunk
+                        endpoint.sendData(ProtocolMessageCode.blockSignatures, mOut.ToArray());
+                    }
+                }
+            }
+
+            private static void handleBlockSignatures(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_num = reader.ReadUInt64();
+
+                        int checksum_len = reader.ReadInt32();
+                        byte[] checksum = reader.ReadBytes(checksum_len);
+
+                        Block target_block = Node.blockChain.getBlock(block_num, true);
+                        if(target_block == null)
+                        {
+                            // target block missing
+                            Logging.warn("Target block {0} missing", block_num);
+                            return;
+                        }else if(!target_block.blockChecksum.SequenceEqual(checksum))
+                        {
+                            // incorrect target block
+                            Logging.warn("Incorrect target block {0} - {1}", block_num, checksum);
+                            return;
+                        }
+
+                        Block sf_block = Node.blockChain.getBlock(block_num + 6, true);
+                        if (target_block != null && sf_block != null)
+                        {
+                            if(target_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
                             {
-                                // Send a chunk
-                                endpoint.sendData(ProtocolMessageCode.blockSignatureChunk, mOut.ToArray());
+                                // we already have the correct sigfreeze
+                                return;
                             }
+                        }else
+                        {
+                            // sf_block missing
+                            Logging.warn("Sigfreezing block {0} missing", block_num + 6);
+                            return;
+                        }
+
+
+                        int sig_count = reader.ReadInt32();
+
+                        Block dummy_block = new Block();
+                        dummy_block.blockNum = block_num;
+                        dummy_block.blockChecksum = checksum;
+
+                        for(int i = 0; i < sig_count; i++)
+                        {
+                            int sig_len = reader.ReadInt32();
+                            byte[] sig = reader.ReadBytes(sig_len);
+
+                            int addr_len = reader.ReadInt32();
+                            byte[] addr = reader.ReadBytes(addr_len);
+
+                            dummy_block.addSignature(sig, addr);
+                        }
+
+                        sf_block = Node.blockChain.getBlock(block_num + 6, true);
+
+                        if(dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
+                        {
+                            Node.blockChain.refreshSignatures(dummy_block, true);
+                        }
+
+
+                        if (!dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
+                        {
+                            // signatures checksum don't match SF checksum
+                            Logging.warn("Incorrect signatures chunk for block {0}", block_num);
+                            return;
                         }
                     }
                 }
@@ -372,7 +443,10 @@ namespace DLT
                                 {
                                     continue;
                                 }
-                                endpoint.sendData(ProtocolMessageCode.superBlockSegmentData, segment.getBytes(), BitConverter.GetBytes(segment.blockNum));
+
+                                Block segment_block = Node.blockChain.getBlock(segment.blockNum, true);
+
+                                endpoint.sendData(ProtocolMessageCode.newBlock, segment_block.getBytes(), BitConverter.GetBytes(segment.blockNum));
                             }
                         }
                     }
@@ -492,26 +566,26 @@ namespace DLT
                 }
             }
 
-            public static bool broadcastGetSuperBlockSegment(byte[] block_checksum, ulong segment_num, RemoteEndpoint endpoint)
+            public static bool broadcastGetBlockSignatures(ulong block_num, byte[] block_checksum, RemoteEndpoint endpoint)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
                     using (BinaryWriter writerw = new BinaryWriter(mw))
                     {
+                        writerw.Write(block_num);
+
                         writerw.Write(block_checksum.Length);
                         writerw.Write(block_checksum);
-
-                        writerw.Write(segment_num);
 
                         if (endpoint != null)
                         {
                             if (endpoint.isConnected())
                             {
-                                endpoint.sendData(ProtocolMessageCode.getSuperBlockSegment, mw.ToArray());
+                                endpoint.sendData(ProtocolMessageCode.getBlockSignatures, mw.ToArray());
                                 return true;
                             }
                         }
-                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getSuperBlockSegment, mw.ToArray(), blockNum);
+                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlockSignatures, mw.ToArray(), block_num);
                     }
                 }
             }
@@ -1293,52 +1367,15 @@ namespace DLT
                             }
                             break;
 
+                        case ProtocolMessageCode.blockSignatures:
+                            {
+                                handleBlockSignatures(data, endpoint);
+                            }
+                            break;
+
                         case ProtocolMessageCode.getNextSuperBlock:
                             {
                                 handleGetNextSuperBlock(data, endpoint);
-                            }
-                            break;
-
-                        case ProtocolMessageCode.superBlockSegmentData:
-                            {
-                                SuperBlockSegment segment = new SuperBlockSegment(data);
-
-                                Block super_block = Node.blockChain.getPendingSuperBlock(segment.blockNum);
-
-                                if (!super_block.superBlockSegments.ContainsKey(segment.blockNum))
-                                {
-                                    super_block.superBlockSegments.Add(segment.blockNum, segment);
-                                }
-
-                                if ((ulong)super_block.superBlockSegments.Count == CoreConfig.superblockInterval)
-                                {
-                                    Node.blockProcessor.onBlockReceived(super_block);
-                                }
-                            }
-                            break;
-
-                        case ProtocolMessageCode.getSuperBlockSegment:
-                            {
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        int block_checksum_len = reader.ReadInt32();
-                                        byte[] block_checksum = reader.ReadBytes(block_checksum_len);
-
-                                        ulong segment_num = reader.ReadUInt64();
-
-                                        Block b = Node.blockChain.getSuperBlock(block_checksum);
-                                        if(b == null)
-                                        {
-                                            Logging.warn("Receieved a request for superblock {0}, which I don't have.", block_checksum);
-                                            return;
-                                        }
-                                        SuperBlockSegment segment = b.superBlockSegments[segment_num];
-
-                                        endpoint.sendData(ProtocolMessageCode.superBlockSegmentData, segment.getBytes(), BitConverter.GetBytes(segment.blockNum));
-                                    }
-                                }
                             }
                             break;
 

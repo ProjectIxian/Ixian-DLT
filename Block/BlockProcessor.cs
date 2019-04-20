@@ -49,7 +49,7 @@ namespace DLT
 
         Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
 
-        List<Block> pendingSuperBlocks = new List<Block>();
+        Dictionary<ulong, Block> pendingSuperBlocks = new Dictionary<ulong, Block>();
 
         public bool networkUpgraded = false;
 
@@ -414,7 +414,7 @@ namespace DLT
 
         public Block getPendingSuperBlock(byte[] block_checksum)
         {
-            return pendingSuperBlocks.Find(x => x.blockChecksum.SequenceEqual(block_checksum));
+            return pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(block_checksum)).First().Value;
         }
 
         private bool onSuperBlockReceived(Block b, RemoteEndpoint endpoint = null)
@@ -424,11 +424,8 @@ namespace DLT
                 return true;
             }
 
-            Block local_block = pendingSuperBlocks.Find(x => x.blockChecksum == b.blockChecksum);
-            if (local_block == null)
-            {
-                pendingSuperBlocks.Add(b);
-            }else
+            Block local_block = pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(b.blockChecksum)).First().Value;
+            if (local_block != null)
             {
                 b = local_block;
             }
@@ -461,12 +458,8 @@ namespace DLT
                     Logging.warn("Received a forked super block {0}.", b.blockNum);
                     return false;
                 }
-
-                if (!generateSuperBlockTransactions(b, endpoint))
-                {
-                    return false;
-                }
-            }else
+            }
+            else
             {
                 byte[] last_accepted_super_block_checksum = Node.blockChain.getLastSuperBlockChecksum();
                 if (getPendingSuperBlock(last_accepted_super_block_checksum) == null)
@@ -476,6 +469,7 @@ namespace DLT
                 }
                 return false;
             }
+
 
             return true;
         }
@@ -682,8 +676,13 @@ namespace DLT
 
             if (verify_sig)
             {
+                bool skip_sig_verification = false;
+                if(pendingSuperBlocks.Count() > 0 && pendingSuperBlocks.OrderBy(x=> x.Key).Last().Key > b.blockNum)
+                {
+                    skip_sig_verification = true;
+                }
                 // Verify signatures
-                if (!b.verifySignatures())
+                if (!b.verifySignatures(skip_sig_verification))
                 {
                     Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
                     return BlockVerifyStatus.Invalid;
@@ -711,6 +710,10 @@ namespace DLT
                         if (b.blockNum > lastBlockNum + 1 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
+                            if (b.lastSuperBlockChecksum != null && !generateSuperBlockTransactions(b, endpoint))
+                            {
+                                pendingSuperBlocks.AddOrReplace(b.blockNum, b);
+                            }
                         }
                     }
                 }
@@ -1305,6 +1308,8 @@ namespace DLT
                             // append current block
                             Node.blockChain.appendBlock(localNewBlock);
 
+                            pendingSuperBlocks.Remove(localNewBlock.blockNum);
+
                             if (localNewBlock.blockNum > 5)
                             {
                                 // append sigfreezed block
@@ -1841,7 +1846,7 @@ namespace DLT
                 Block b = Node.blockChain.getBlock(i, true);
                 if (b == null)
                 {
-                    ProtocolMessage.broadcastGetSuperBlockSegment(super_block.blockNum, i, endpoint);
+                    ProtocolMessage.broadcastGetBlock(i, endpoint);
                     Logging.error("Unable to find block {0} while creating superblock {1}.", i, super_block.blockNum);
                     return false;
                 }
@@ -1853,29 +1858,24 @@ namespace DLT
                     break;
                 }
 
-                List<byte[]> signature_freeze_signers = null;
-                List<byte[][]> legacy_signature_freeze_signers = null;
-
                 if (b.signatureFreezeChecksum != null && i > 6)
                 {
                     Block target_block = Node.blockChain.getBlock(i - 6, true);
                     if (target_block == null)
                     {
-                        ProtocolMessage.broadcastGetSuperBlockSegment(super_block.blockNum, i - 6, endpoint);
+                        ProtocolMessage.broadcastGetBlock(i - 6, endpoint);
                         Logging.error("Unable to find target block {0} while creating superblock {1}.", i - 6, super_block.blockNum);
                         return false;
-                    }
-                    if (b.version < 4)
+                    }else if(!target_block.calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
                     {
-                        legacy_signature_freeze_signers = target_block.signatures;
-                    }else
-                    {
-                        signature_freeze_signers = target_block.getSignaturesWalletAddresses(false);
+                        ProtocolMessage.broadcastGetBlockSignatures(target_block.blockNum, target_block.blockChecksum, endpoint);
+                        Logging.error("Target block's {0} signatures don't match sigfreeze, while creating superblock {1}.", i - 6, super_block.blockNum);
+                        return false;
                     }
                 }
 
 
-                SuperBlockSegment seg = new SuperBlockSegment() { signatureFreezeChecksum = b.signatureFreezeChecksum, signatureFreezeSigners = signature_freeze_signers, legacySignatureFreezeSigners = legacy_signature_freeze_signers, transactions = b.transactions, version = b.version, blockNum = b.blockNum };
+                SuperBlockSegment seg = new SuperBlockSegment(b.blockNum, b.blockChecksum);
 
                 super_block.superBlockSegments.Add(b.blockNum, seg);
 

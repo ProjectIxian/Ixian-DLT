@@ -67,6 +67,9 @@ namespace DLT
                 public string transactions { get; set; }
                 public long timestamp { get; set; }
                 public int version { get; set; }
+                public byte[] lastSuperBlockChecksum { get; set; }
+                public long lastSuperBlockNum { get; set; }
+                public byte[] superBlockSegments { get; set; }
             }
 
             public class _storage_Transaction
@@ -331,9 +334,9 @@ namespace DLT
                         List<byte> super_block_segments = new List<byte>();
                         foreach(var entry in block.superBlockSegments)
                         {
-                            byte[] entry_bytes = entry.Value.getBytes();
-                            super_block_segments.AddRange(BitConverter.GetBytes(entry_bytes.Count()));
-                            super_block_segments.AddRange(entry_bytes);
+                            super_block_segments.AddRange(BitConverter.GetBytes(entry.Value.blockNum));
+                            super_block_segments.AddRange(BitConverter.GetBytes(entry.Value.blockChecksum.Length));
+                            super_block_segments.AddRange(entry.Value.blockChecksum);
                         }
 
                         if (getSuperBlock(block.blockNum) == null)
@@ -567,7 +570,9 @@ namespace DLT
                     transactions = new List<string>(),
                     signatures = new List<byte[][]>(),
                     timestamp = blk.timestamp,
-                    version = blk.version
+                    version = blk.version,
+                    lastSuperBlockChecksum = blk.lastSuperBlockChecksum,
+                    lastSuperBlockNum = (ulong)blk.lastSuperBlockNum
                 };
 
                 // Add signatures
@@ -603,6 +608,21 @@ namespace DLT
                         continue;
 
                     block.transactions.Add(s1);
+                }
+
+                if (blk.superBlockSegments != null)
+                {
+                    for (int i = 0; i < blk.superBlockSegments.Length;)
+                    {
+                        ulong seg_block_num = BitConverter.ToUInt64(blk.superBlockSegments, i);
+                        i += 8;
+                        int seg_bc_len = BitConverter.ToInt32(blk.superBlockSegments, i);
+                        i += 4;
+                        byte[] seg_bc = blk.superBlockSegments.Skip(i).Take(seg_bc_len).ToArray();
+                        i += seg_bc_len;
+
+                        block.superBlockSegments.Add(seg_block_num, new SuperBlockSegment(seg_block_num, seg_bc));
+                    }
                 }
 
                 block.fromLocalStorage = true;
