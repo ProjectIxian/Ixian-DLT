@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text;
 
 namespace DLTNode
 {
@@ -361,6 +362,22 @@ namespace DLTNode
             {
                 response = onSetBlockSelectionAlgorithm(request);
             }
+
+            if (methodName.Equals("verifyminingsolution", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onVerifyMiningSolution(request);
+            }
+
+            if (methodName.Equals("submitminingsolution", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onSubmitMiningSolution(request);
+            }
+
+            if (methodName.Equals("getminingblock", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetMiningBlock(request);
+            }
+
 
             bool resources = false;
 
@@ -1458,6 +1475,111 @@ namespace DLTNode
             return new JsonResponse { result = "", error = null };
         }
 
+
+        // Verifies a mining solution based on the block's difficulty
+        // It does not submit it to the network.
+        private JsonResponse onVerifyMiningSolution(HttpListenerRequest request)
+        {
+            string nonce = request.QueryString["nonce"];
+            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
+            }
+
+            ulong blocknum = ulong.Parse(request.QueryString["blocknum"]);
+            Block block = Node.blockChain.getBlock(blocknum);
+            if (block == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid block number specified" } };
+            }
+
+            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+
+            return new JsonResponse { result = verify_result, error = null };
+        }
+
+        // Verifies and submits a mining solution to the network
+        private JsonResponse onSubmitMiningSolution(HttpListenerRequest request)
+        {
+            string nonce = request.QueryString["nonce"];
+            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
+            }
+
+            ulong blocknum = ulong.Parse(request.QueryString["blocknum"]);
+            Block block = Node.blockChain.getBlock(blocknum);
+            if (block == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid block number specified" } };
+            }
+
+            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+            bool send_result = false;
+
+            // Solution is valid, try to submit it to network
+            if(verify_result == true)
+            {
+                if(Miner.sendSolution(ASCIIEncoding.ASCII.GetBytes(nonce), blocknum))
+                {
+                    send_result = true;
+                }
+            }
+
+            return new JsonResponse { result = send_result, error = null };
+        }
+
+        // Returns an empty PoW block based on the search algorithm provided as a parameter
+        private JsonResponse onGetMiningBlock(HttpListenerRequest request)
+        {
+            int algo = int.Parse(request.QueryString["algo"]);
+            BlockSearchMode searchMode = BlockSearchMode.randomLowestDifficulty;
+
+            if (algo == (int)BlockSearchMode.lowestDifficulty)
+            {
+                searchMode = BlockSearchMode.lowestDifficulty;
+            }
+            else if (algo == (int)BlockSearchMode.randomLowestDifficulty)
+            {
+                searchMode = BlockSearchMode.randomLowestDifficulty;
+            }
+            else if (algo == (int)BlockSearchMode.latestBlock)
+            {
+                searchMode = BlockSearchMode.latestBlock;
+            }
+            else if (algo == (int)BlockSearchMode.random)
+            {
+                searchMode = BlockSearchMode.random;
+            }
+            else
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid algorithm was specified" } };
+            }
+
+            Block block = Miner.getMiningBlock(searchMode);
+            if(block == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Cannot retrieve mining block" } };
+            }
+
+            JsonError error = null;
+            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+
+            Dictionary<string, Object> resultArray = new Dictionary<string, Object>
+            {
+                { "num", block.blockNum }, // Block number
+                { "ver", block.version }, // Block version
+                { "dif", block.difficulty }, // Block difficulty
+                { "chk", block.blockChecksum }, // Block checksum
+                { "adr", solver_address } // Solver address
+            };
+
+            return new JsonResponse { result = resultArray, error = error };
+        }
+
+  
         // This is a bit hacky way to return useful error values
         // returns either Transaction or JsonResponse
         private object createTransactionHelper(HttpListenerRequest request, bool sign_transaction = true)

@@ -344,6 +344,72 @@ namespace DLT
             }
         }
 
+        // Static function used by the getMiningBlock API call
+        public static Block getMiningBlock(BlockSearchMode searchMode)
+        {
+            Block candidate_block = null;
+
+            List<Block> blockList = null;
+
+            int block_offset = 1;
+            if (Node.blockChain.Count > (long)CoreConfig.getRedactedWindowSize())
+            {
+                block_offset = 1000;
+            }
+
+            if (searchMode == BlockSearchMode.lowestDifficulty)
+            {
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).ToList();
+            }
+            else if (searchMode == BlockSearchMode.randomLowestDifficulty)
+            {
+                Random rnd = new Random();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(500)).ToList();
+            }
+            else if (searchMode == BlockSearchMode.latestBlock)
+            {
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderByDescending(x => x.blockNum).ToList();
+            }
+            else if (searchMode == BlockSearchMode.random)
+            {
+                Random rnd = new Random();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => rnd.Next()).ToList();
+            }
+            // Check if the block list exists
+            if (blockList == null)
+            {
+                Logging.error("No block list found while searching.");
+                return null;
+            }
+
+            // Go through each block in the list
+            foreach (Block block in blockList)
+            {
+                if (block.powField == null)
+                {
+                    ulong solved = 0;
+                    lock (solvedBlocks)
+                    {
+                        solved = solvedBlocks.Find(x => x == block.blockNum);
+                    }
+
+                    // Check if this block is in the solved list
+                    if (solved > 0)
+                    {
+                        // Do nothing at this point
+                    }
+                    else
+                    {
+                        // Block is not solved, select it
+                        candidate_block = block;
+                        break;
+                    }
+                }
+            }
+
+            return candidate_block;
+        }
+
         // Returns the most recent block without a PoW flag in the redacted blockchain
         private void searchForBlock()
         {
@@ -727,6 +793,46 @@ namespace DLT
             }
 
             return false;
+        }
+
+        // Submit solution with a provided blocknum
+        // This is normally called from the API, as it is a static function
+        public static bool sendSolution(byte[] nonce, ulong blocknum)
+        {
+            byte[] pubkey = Node.walletStorage.getPrimaryPublicKey();
+            // Check if this wallet's public key is already in the WalletState
+            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getPrimaryAddress());
+            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
+            {
+                // Walletstate public key matches, we don't need to send the public key in the transaction
+                pubkey = null;
+            }
+
+            byte[] data = null;
+
+            using (MemoryStream mw = new MemoryStream())
+            {
+                using (BinaryWriter writerw = new BinaryWriter(mw))
+                {
+                    writerw.Write(blocknum);
+                    writerw.Write(Crypto.hashToString(nonce));                   
+                    data = mw.ToArray();
+                }
+            }
+
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+
+            if (TransactionPool.addTransaction(tx))
+            {
+                TransactionPool.addPendingLocalTransaction(tx);
+            }
+            else
+            {
+                Logging.error("An unknown error occured while sending API PoW solution.");
+                return false;
+            }
+
+            return true;
         }
 
         // Broadcasts the solution to the network
