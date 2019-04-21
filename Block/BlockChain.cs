@@ -22,6 +22,7 @@ namespace DLT
         byte[] lastSuperBlockChecksum = null;
         Dictionary<ulong, Block> pendingSuperBlocks = new Dictionary<ulong, Block>();
 
+        Block genesisBlock = null;
 
         public long Count
         {
@@ -235,6 +236,11 @@ namespace DLT
             return lastBlockVersion;
         }
 
+        public void  setLastBlockVersion(int version)
+        {
+            lastBlockVersion = version;
+        }
+
         public ulong getLastSuperBlockNum()
         {
             return lastSuperBlockNum;
@@ -243,6 +249,11 @@ namespace DLT
         public byte[] getLastSuperBlockChecksum()
         {
             return lastSuperBlockChecksum;
+        }
+
+        public void setGenesisBlock(Block genesis)
+        {
+            genesisBlock = genesis;
         }
 
         public int getRequiredConsensus()

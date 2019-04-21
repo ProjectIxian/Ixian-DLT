@@ -319,6 +319,8 @@ namespace DLT.Meta
 
         static private void distributeGenesisFunds(IxiNumber genesisFunds)
         {
+            blockChain.setLastBlockVersion(Block.maxVersion);
+
             byte[] from = CoreConfig.ixianInfiniMineAddress;
 
             int tx_type = (int)Transaction.Type.Genesis;
@@ -515,6 +517,11 @@ namespace DLT.Meta
             }
             else
             {
+                if(File.Exists(Config.genesisFile))
+                {
+                    Block genesis = new Block(File.ReadAllBytes(Config.genesisFile));
+                    blockChain.setGenesisBlock(genesis);
+                }
                 ulong lastLocalBlockNum = Meta.Storage.getLastBlockNum();
                 if(lastLocalBlockNum > 6)
                 {
@@ -802,7 +809,7 @@ namespace DLT.Meta
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.getPrimaryAddress());
                     if(!isMasterNode())
                     {
-                        if (nodeBalance > CoreConfig.minimumMasterNodeFunds)
+                        if (nodeBalance >= CoreConfig.minimumMasterNodeFunds)
                         {
                             Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", CoreConfig.minimumMasterNodeFunds));
                             convertToMasterNode();

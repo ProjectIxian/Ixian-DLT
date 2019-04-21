@@ -92,6 +92,8 @@ namespace DLT
         // Check passed time since last block generation and if needed generate a new block
         public void onUpdate()
         {
+            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+
             while (operating)
             {
                 TLC.Report();
@@ -145,11 +147,6 @@ namespace DLT
                             localNewBlock = null;
                             lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                             block_version = Node.blockChain.getLastBlockVersion();
-                        }
-
-                        if (Node.getLastBlockHeight() == 0)
-                        {
-                            block_version = 2; // TODO TODO TODO TODO for now force this to block version 2 due to checksum changes if anyone will create his own genesis block, later we'll fix this, once genesis is included in file
                         }
 
                         //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
@@ -1031,7 +1028,7 @@ namespace DLT
                     }
                     else if (b.blockNum == Node.blockChain.getLastBlockNum())
                     {
-                        ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                        ws_checksum = Node.walletState.calculateWalletStateChecksum(b.version);
                         // this should always be the same anyway, but just in case
                         if (!b.walletStateChecksum.SequenceEqual(ws_checksum))
                         {
@@ -1044,7 +1041,7 @@ namespace DLT
                         Node.walletState.snapshot();
                         if (applyAcceptedBlock(b, true))
                         {
-                            ws_checksum = Node.walletState.calculateWalletStateChecksum(0, true);
+                            ws_checksum = Node.walletState.calculateWalletStateChecksum(b.version, true);
                         }
                         Node.walletState.revert();
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
@@ -1283,14 +1280,14 @@ namespace DLT
                     // accept this block, apply its transactions, recalc consensus, etc
                     if (applyAcceptedBlock(localNewBlock) == true)
                     {
-                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum(localNewBlock.version);
                         if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
                         {
                             Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
                                 Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                             Logging.error(String.Format("Node reports block version: {0}", Node.getLastBlockVersion()));
                             rollBackAcceptedBlock(localNewBlock);
-                            if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
+                            if (!Node.walletState.calculateWalletStateChecksum(localNewBlock.version).SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
                             {
                                 Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
                                 // TODO TODO TODO maybe do something else instead?
@@ -1957,7 +1954,7 @@ namespace DLT
                     Node.walletState.revert();
                     return;
                 }
-                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(0, true));
+                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(localNewBlock.version, true));
                 Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
                 Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
                 Node.walletState.revert();
@@ -2540,7 +2537,12 @@ namespace DLT
                     Block b = Node.blockProcessor.getLocalBlock();
                     if (b != null && b.blockChecksum.SequenceEqual(checksum))
                     {
-                        return b.addSignature(signature, address_or_pub_key);
+                        bool sig_added = b.addSignature(signature, address_or_pub_key);
+                        if (sig_added)
+                        {
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                        }
+                        return sig_added;
                     }
                 }
             }

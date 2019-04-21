@@ -511,7 +511,7 @@ namespace DLT
                             if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                             {
                                 Node.blockProcessor.applyAcceptedBlock(b);
-                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum(b.version);
                                 if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                 {
                                     Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
@@ -528,7 +528,7 @@ namespace DLT
                         {
                             if (syncToBlock == b.blockNum)
                             {
-                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum(b.version);
                                 if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                 {
                                     Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
@@ -614,7 +614,7 @@ namespace DLT
         private bool verifyLastBlock()
         {
             Block b = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
-            if(!b.walletStateChecksum.SequenceEqual(Node.walletState.calculateWalletStateChecksum()))
+            if(!b.walletStateChecksum.SequenceEqual(Node.walletState.calculateWalletStateChecksum(b.version)))
             {
                 // TODO TODO TODO resync?
                 Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum())));
