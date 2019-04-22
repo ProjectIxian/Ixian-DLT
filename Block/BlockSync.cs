@@ -15,6 +15,7 @@ namespace DLT
         public bool synchronizing { get; private set; }
         List<Block> pendingBlocks = new List<Block>();
         List<ulong> missingBlocks = null;
+        
         public ulong pendingWsBlockNum { get; private set; }
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
         int wsSyncCount = 0;

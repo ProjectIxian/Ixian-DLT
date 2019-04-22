@@ -421,10 +421,10 @@ namespace DLT
                 return true;
             }
 
-            Block local_block = pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(b.blockChecksum)).First().Value;
-            if (local_block != null)
+            var local_block_list = pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(b.blockChecksum));
+            if (local_block_list.Count() > 0)
             {
-                b = local_block;
+                b = local_block_list.First().Value;
             }
 
             if (b.lastSuperBlockChecksum == null)
@@ -634,6 +634,11 @@ namespace DLT
                     networkUpgraded = true;
                 }
                 return BlockVerifyStatus.IndeterminateVersionUpgradeBlock;
+            }
+
+            if(b.version < Node.getLastBlockVersion())
+            {
+                return BlockVerifyStatus.PotentiallyForkedBlock;
             }
 
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
@@ -1088,7 +1093,7 @@ namespace DLT
                         if(localNewBlock.addSignaturesFrom(b))
                         {
                             currentBlockStartTime = DateTime.UtcNow;
-                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10); // TODO TODO TODO think about this, if sigs are trickling in, the block might never get reset
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                             //if (!Node.isMasterNode())
                             //    return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
@@ -1838,7 +1843,7 @@ namespace DLT
         public bool generateSuperBlockTransactions(Block super_block, RemoteEndpoint endpoint = null)
         {
             ulong cur_block_height = super_block.blockNum;
-            for (ulong i = cur_block_height; i > 0; i--)
+            for (ulong i = cur_block_height - 1; i > 0; i--)
             {
                 Block b = Node.blockChain.getBlock(i, true);
                 if (b == null)
@@ -2540,6 +2545,7 @@ namespace DLT
                         bool sig_added = b.addSignature(signature, address_or_pub_key);
                         if (sig_added)
                         {
+                            currentBlockStartTime = DateTime.UtcNow;
                             lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                         }
                         return sig_added;

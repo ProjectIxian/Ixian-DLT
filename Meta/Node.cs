@@ -519,7 +519,7 @@ namespace DLT.Meta
             {
                 if(File.Exists(Config.genesisFile))
                 {
-                    Block genesis = new Block(File.ReadAllBytes(Config.genesisFile));
+                    Block genesis = new Block(Crypto.stringToHash(File.ReadAllText(Config.genesisFile)));
                     blockChain.setGenesisBlock(genesis);
                 }
                 ulong lastLocalBlockNum = Meta.Storage.getLastBlockNum();
