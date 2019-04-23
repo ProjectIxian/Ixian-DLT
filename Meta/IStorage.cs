@@ -290,7 +290,7 @@ namespace DLT
                 switch(name)
                 {
                     //case "SQLite": return new SQLiteStorage();
-                    //case "RocksDB": return new RocksDBStorage();
+                    case "RocksDB": return new RocksDBStorage();
                     default: throw new Exception(String.Format("Unknown blocks storage provider: {0}", name));
                 }
             }

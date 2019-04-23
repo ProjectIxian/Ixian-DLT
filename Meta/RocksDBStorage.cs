@@ -615,7 +615,7 @@ namespace DLT
                 }
             }
 
-            private string dbPath = "";
+            public string dbPath { get; private set; }
             private DbOptions rocksOptions;
             private RocksDb database = null;
             // global column families
@@ -645,6 +645,7 @@ namespace DLT
                     return database != null;
                 }
             }
+            public DateTime lastUsedTime { get; private set; }
 
             public RocksDBInternal(string db_path)
             {
@@ -726,6 +727,7 @@ namespace DLT
                     {
                         maxBlockNumber = ulong.Parse(max_block_str);
                     }
+                    lastUsedTime = DateTime.Now;
                 }
             }
 
@@ -758,6 +760,7 @@ namespace DLT
                     idxBlocksLastSBChecksum.addIndexEntry(sb.lastSuperblockChecksum, block_num_bytes);
                     idxBlocksLastSBChecksum.updateDBIndex(database);
                 }
+                lastUsedTime = DateTime.Now;
             }
 
             private void updateTXIndexes(_storage_Transaction st)
@@ -787,6 +790,8 @@ namespace DLT
 
                 idxTXApplied.addIndexEntry(BitConverter.GetBytes(st.applied), tx_id_bytes);
                 idxTXApplied.updateDBIndex(database);
+                
+                lastUsedTime = DateTime.Now;
             }
 
             private void updateMinMax(ulong blocknum)
@@ -801,6 +806,8 @@ namespace DLT
                     maxBlockNumber = blocknum;
                     database.Put("max_block", maxBlockNumber.ToString(), rocksCFMeta);
                 }
+
+                lastUsedTime = DateTime.Now;
             }
 
             public bool insertBlock(Block block)
@@ -813,6 +820,7 @@ namespace DLT
                     updateBlockIndexes(sb);
                     updateMinMax(sb.blockNum);
                 }
+                lastUsedTime = DateTime.Now;
                 return true;
             }
 
@@ -825,12 +833,14 @@ namespace DLT
                     database.Put(ASCIIEncoding.ASCII.GetBytes(st.id), st.asBytes(), rocksCFTransactions);
                     updateTXIndexes(st);
                 }
+                lastUsedTime = DateTime.Now;
                 return true;
             }
 
             private Block getBlockInternal(byte[] block_num_bytes)
             {
                 byte[] block_bytes = database.Get(block_num_bytes, rocksCFBlocks);
+                lastUsedTime = DateTime.Now;
                 if (block_bytes != null)
                 {
                     var sb = new _storage_Block(block_bytes);
@@ -854,6 +864,7 @@ namespace DLT
                 lock (rockLock)
                 {
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     var e = idxBlocksChecksum.getEntriesForKey(checksum);
                     if (e.Any())
                     {
@@ -868,6 +879,7 @@ namespace DLT
                 lock (rockLock)
                 {
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     var e = idxBlocksLastSBChecksum.getEntriesForKey(checksum);
                     if (e.Any())
                     {
@@ -882,6 +894,7 @@ namespace DLT
                 lock (rockLock)
                 {
                     var blocks = new List<Block>();
+                    lastUsedTime = DateTime.Now;
                     Iterator iter = database.NewIterator(rocksCFBlocks);
                     iter.SeekToFirst();
                     while (iter.Valid())
@@ -900,6 +913,7 @@ namespace DLT
             {
                 lock (rockLock)
                 {
+                    lastUsedTime = DateTime.Now;
                     var tx_bytes = database.Get(txid_bytes, rocksCFTransactions);
                     if (tx_bytes != null)
                     {
@@ -924,6 +938,7 @@ namespace DLT
                 {
                     List<Transaction> txs = new List<Transaction>();
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXType.getEntriesForKey(BitConverter.GetBytes((int)type)))
                     {
                         txs.Add(getTransactionInternal(i));
@@ -938,6 +953,7 @@ namespace DLT
                 {
                     List<Transaction> txs = new List<Transaction>();
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXFrom.getEntriesForKey(from_addr))
                     {
                         txs.Add(getTransactionInternal(i));
@@ -952,6 +968,7 @@ namespace DLT
                 {
                     List<Transaction> txs = new List<Transaction>();
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXFrom.getEntriesForKey(to_addr))
                     {
                         txs.Add(getTransactionInternal(i));
@@ -966,6 +983,7 @@ namespace DLT
                 {
                     List<Transaction> txs = new List<Transaction>();
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXFrom.getEntriesForKey(BitConverter.GetBytes(block_num)))
                     {
                         txs.Add(getTransactionInternal(i));
@@ -980,6 +998,7 @@ namespace DLT
                 {
                     List<Transaction> txs = new List<Transaction>();
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     foreach (var ts_bytes in idxTXTimestamp.getAllKeys())
                     {
                         long timestamp = BitConverter.ToInt64(ts_bytes, 0);
@@ -1001,6 +1020,7 @@ namespace DLT
                 {
                     List<Transaction> txs = new List<Transaction>();
                     if (database == null) return null;
+                    lastUsedTime = DateTime.Now;
                     foreach (var bh_bytes in idxTXApplied.getAllKeys())
                     {
                         ulong blockheight = BitConverter.ToUInt64(bh_bytes, 0);
@@ -1026,8 +1046,223 @@ namespace DLT
             }
         }
 
-        //public class RocksDBStorage : IStorage
-        //{
-        //}
+        public class RocksDBStorage : IStorage
+        {
+            private readonly Dictionary<ulong, RocksDBInternal> openDatabases = new Dictionary<ulong, RocksDBInternal>();
+            public uint closeAfterSeconds = 60;
+            public ulong maxBlocksPerDB = 10000;
+            
+
+            private RocksDBInternal getDatabase(ulong blockNum)
+            {
+                // open or create the db which should contain blockNum
+                ulong baseBlockNum = blockNum / maxBlocksPerDB;
+                RocksDBInternal db = null;
+                lock (openDatabases)
+                {
+                    if (openDatabases.ContainsKey(baseBlockNum))
+                    {
+                        db = openDatabases[baseBlockNum];
+                    }
+                    else
+                    {
+                        db = new RocksDBInternal(pathBase + Path.DirectorySeparatorChar + baseBlockNum.ToString());
+                    }
+                }
+                if (!db.isOpen)
+                {
+                    db.openDatabase();
+                }
+                return db;
+            }
+
+            protected override bool prepareStorageInternal()
+            {
+                // Files structured like:
+                //  'pathBase\<startOffset>', where <startOffset> is the nominal lowest block number in that database
+                //  the actual lowest block in that database may be higher than <startOffset>
+                // <startOffset> is aligned to `maxBlocksPerDB` blocks
+
+                // check that the base path exists, or create it
+                if(!Directory.Exists(pathBase))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(pathBase);
+                    } catch(Exception e)
+                    {
+                        Logging.error(String.Format("Unable to prepare block database path '{0}': {1}", pathBase, e.Message));
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            protected override void cleanupCache()
+            {
+                lock (openDatabases)
+                {
+                    foreach (var db in openDatabases.Values)
+                    {
+                        if ((DateTime.Now - db.lastUsedTime).TotalSeconds >= closeAfterSeconds)
+                        {
+                            Logging.info("RocksDB: Closing '{0}' due to inactivity.", db.dbPath);
+                            db.closeDatabase();
+                        }
+                    }
+                }
+            }
+
+            public override void deleteData()
+            {
+                lock (openDatabases)
+                {
+                    while (openDatabases.Count > 0)
+                    {
+                        ulong d = openDatabases.Keys.First();
+                        var db = openDatabases[d];
+                        db.closeDatabase();
+                        string path = db.dbPath;
+                        Logging.info(String.Format("RocksDB: Deleting '{0}'", path));
+                        openDatabases.Remove(d);
+                        try
+                        {
+                            Directory.Delete(path);
+                        }
+                        catch (Exception e)
+                        {
+                            Logging.warn(String.Format("RocksDB: Delete data - failed removing directory '{0}'.", path));
+                        }
+                    }
+                }
+            }
+
+            protected override void shutdown()
+            {
+                lock(openDatabases)
+                {
+                    foreach(var db in openDatabases.Values)
+                    {
+                        Logging.info(String.Format("RocksDB: Shutdown, closing '{0}'", db.dbPath));
+                        db.closeDatabase();
+                    }
+                }
+            }
+
+            public override ulong getHighestBlockInStorage()
+            {
+                // find our absolute highest block db
+                ulong latest_db = 0;
+                foreach(var d in Directory.EnumerateDirectories(pathBase))
+                {
+                    string final_dir = Path.GetDirectoryName(d);
+                    if(ulong.TryParse(final_dir, out ulong db_base))
+                    {
+                        if(db_base > latest_db)
+                        {
+                            latest_db = db_base;
+                        }
+                    }
+                }
+                if (latest_db == 0) return 0; // empty db
+                var db = getDatabase(latest_db);
+                return db.maxBlockNumber;
+            }
+
+            public override ulong getLowestBlockInStorage()
+            {
+                // find our absolute highest block db
+                ulong oldest_db = 0;
+                foreach (var d in Directory.EnumerateDirectories(pathBase))
+                {
+                    string final_dir = Path.GetDirectoryName(d);
+                    if (ulong.TryParse(final_dir, out ulong db_base))
+                    {
+                        if (db_base > oldest_db)
+                        {
+                            oldest_db = db_base;
+                        }
+                    }
+                }
+                if (oldest_db == 0) return 0; // empty db
+                var db = getDatabase(oldest_db);
+                return db.minBlockNumber;
+            }
+
+            protected override bool insertBlockInternal(Block block)
+            {
+                throw new NotImplementedException();
+            }
+
+            protected override bool insertTransactionInternal(Transaction transaction)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override Block getBlock(ulong blocknum)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override Block getBlockByHash(byte[] checksum)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override Block getBlocksByLastSBHash(byte[] checksum)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IEnumerable<Block> getBlocksByRange(ulong from, ulong to)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override Transaction getTransaction(string txid, ulong block_num = 0)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IEnumerable<Transaction> getTransactionsByType(Transaction.Type type, ulong block_from = 0, ulong block_to = 0)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IEnumerable<Transaction> getTransactionsFromAddress(byte[] from_addr, ulong block_from = 0, ulong block_to = 0)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IEnumerable<Transaction> getTransactionsToAddress(byte[] to_addr, ulong block_from = 0, ulong block_to = 0)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IEnumerable<Transaction> getTransactionsByTime(long time_from, long time_to)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override bool removeBlock(ulong blockNum, bool removeTransactions)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override bool removeTransaction(string txid)
+            {
+                throw new NotImplementedException();
+            }
+        }
     }
 }
