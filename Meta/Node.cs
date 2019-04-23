@@ -23,6 +23,7 @@ namespace DLT.Meta
         public static WalletStorage walletStorage = null;
         public static Miner miner = null;
         public static WalletState walletState = null;
+        public static IStorage storage = null;
 
         public static StatsConsoleScreen statsConsoleScreen = null;
 
@@ -881,6 +882,11 @@ namespace DLT.Meta
         public static bool cleanCacheAndLogs()
         {
             ActivityStorage.deleteCache();
+
+            // deleting block storage is a special case
+            // we have to instantiate whatever implementation we are using and remove its data files
+            /*storage = IStorage.create(Config.blockStorageProvider);
+            storage.deleteData();*/
 
             Storage.deleteCache();
 

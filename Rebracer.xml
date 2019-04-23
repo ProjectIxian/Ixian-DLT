@@ -431,7 +431,7 @@
         <PropertyValue name="IndentPreprocessor">2</PropertyValue>
         <PropertyValue name="IndentationReference">2</PropertyValue>
         <PropertyValue name="MacroToConstexprErrorTagType">1</PropertyValue>
-        <PropertyValue name="MaximumFindReferencesThreads">7</PropertyValue>
+        <PropertyValue name="MaximumFindReferencesThreads">3</PropertyValue>
         <PropertyValue name="MemberListDotToArrow">false</PropertyValue>
         <PropertyValue name="MemberListDotToArrow_1">true</PropertyValue>
         <PropertyValue name="MemberListFilterHeuristic">false</PropertyValue>

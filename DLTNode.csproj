@@ -51,6 +51,12 @@
     <Reference Include="Open.Nat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=f22a6a4582336c76, processorArchitecture=MSIL">
       <HintPath>packages\Open.NAT.2.1.0.0\lib\net45\Open.Nat.dll</HintPath>
     </Reference>
+    <Reference Include="RocksDbNative, Version=5.17.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\RocksDbNative.5.17.2\lib\net45\RocksDbNative.dll</HintPath>
+    </Reference>
+    <Reference Include="RocksDbSharp, Version=5.17.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\RocksDbSharp.5.17.2\lib\net45\RocksDbSharp.dll</HintPath>
+    </Reference>
     <Reference Include="SQLite-net, Version=1.5.231.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\sqlite-net-pcl.1.5.231\lib\netstandard1.1\SQLite-net.dll</HintPath>
     </Reference>
@@ -90,7 +96,9 @@
     <Compile Include="Block\BlockSync.cs" />
     <Compile Include="Legacy\NodeLegacy.cs" />
     <Compile Include="Meta\Config.cs" />
+    <Compile Include="Meta\IStorage.cs" />
     <Compile Include="Meta\Node.cs" />
+    <Compile Include="Meta\RocksDBStorage.cs" />
     <Compile Include="Meta\StatsConsoleScreen.cs" />
     <Compile Include="Meta\Storage.cs" />
     <Compile Include="Meta\WalletStateStorage.cs" />
@@ -123,7 +131,9 @@
     <Error Condition="!Exists('packages\SQLitePCLRaw.lib.e_sqlite3.linux.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.linux.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\SQLitePCLRaw.lib.e_sqlite3.linux.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.linux.targets'))" />
     <Error Condition="!Exists('packages\SQLitePCLRaw.lib.e_sqlite3.osx.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.osx.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\SQLitePCLRaw.lib.e_sqlite3.osx.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.osx.targets'))" />
     <Error Condition="!Exists('packages\SQLitePCLRaw.lib.e_sqlite3.v110_xp.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.v110_xp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\SQLitePCLRaw.lib.e_sqlite3.v110_xp.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.v110_xp.targets'))" />
+    <Error Condition="!Exists('packages\RocksDbNative.5.17.2\build\RocksDbNative.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\RocksDbNative.5.17.2\build\RocksDbNative.targets'))" />
   </Target>
   <Import Project="packages\SQLitePCLRaw.lib.e_sqlite3.osx.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.osx.targets" Condition="Exists('packages\SQLitePCLRaw.lib.e_sqlite3.osx.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.osx.targets')" />
   <Import Project="packages\SQLitePCLRaw.lib.e_sqlite3.v110_xp.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.v110_xp.targets" Condition="Exists('packages\SQLitePCLRaw.lib.e_sqlite3.v110_xp.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.v110_xp.targets')" />
+  <Import Project="packages\RocksDbNative.5.17.2\build\RocksDbNative.targets" Condition="Exists('packages\RocksDbNative.5.17.2\build\RocksDbNative.targets')" />
 </Project>

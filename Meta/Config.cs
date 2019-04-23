@@ -34,6 +34,14 @@ namespace DLT
             public static uint miningThreads = 1;
 
             public static string dataFolderPath = "data";
+            public static string blockStorageProvider = "SQLite";
+            public static string dataFolderBlocks
+            {
+                get
+                {
+                    return dataFolderPath + Path.DirectorySeparatorChar + "blocks";
+                }
+            }
             public static string configFilename = "ixian.cfg";
             public static string walletFile = "ixian.wal";
             public static string genesisFile = "genesis.dat";
@@ -228,6 +236,9 @@ namespace DLT
                             break;
                         case "forceTimeOffset":
                             forceTimeOffset = int.Parse(value);
+                            break;
+                        case "blockStorage":
+                            blockStorageProvider = value;
                             break;
                         default:
                             // unknown key
