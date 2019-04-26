@@ -1493,8 +1493,9 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid block number specified" } };
             }
 
+            string nonce_prep = Crypto.hashToString(Convert.FromBase64String(nonce));
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+            bool verify_result = Miner.verifyNonce_v2(nonce_prep, blocknum, solver_address, block.difficulty);
 
             return new JsonResponse { result = verify_result, error = null };
         }
@@ -1516,13 +1517,15 @@ namespace DLTNode
             }
 
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+
+            string nonce_prep = Crypto.hashToString(Convert.FromBase64String(nonce));
+            bool verify_result = Miner.verifyNonce_v2(nonce_prep, blocknum, solver_address, block.difficulty);
             bool send_result = false;
 
             // Solution is valid, try to submit it to network
             if(verify_result == true)
             {
-                if(Miner.sendSolution(ASCIIEncoding.ASCII.GetBytes(nonce), blocknum))
+                if(Miner.sendSolution(Convert.FromBase64String(nonce), blocknum))
                 {
                     send_result = true;
                 }
