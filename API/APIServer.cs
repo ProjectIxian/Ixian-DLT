@@ -1483,6 +1483,7 @@ namespace DLTNode
             string nonce = request.QueryString["nonce"];
             if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
             {
+                Logging.info("Received incorrect verify nonce from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
             }
 
@@ -1490,12 +1491,22 @@ namespace DLTNode
             Block block = Node.blockChain.getBlock(blocknum);
             if (block == null)
             {
+                Logging.info("Received incorrect verify block number from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid block number specified" } };
             }
 
-            string nonce_prep = Crypto.hashToString(Convert.FromBase64String(nonce));
+
+
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-            bool verify_result = Miner.verifyNonce_v2(nonce_prep, blocknum, solver_address, block.difficulty);
+            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+            if(verify_result)
+            {
+                Logging.info("Received verify share: {0} #{1} - PASSED", nonce, blocknum);
+            }
+            else
+            {
+                Logging.info("Received verify share: {0} #{1} - REJECTED", nonce, blocknum);
+            }
 
             return new JsonResponse { result = verify_result, error = null };
         }
@@ -1506,6 +1517,7 @@ namespace DLTNode
             string nonce = request.QueryString["nonce"];
             if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
             {
+                Logging.info("Received incorrect nonce from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
             }
 
@@ -1513,22 +1525,29 @@ namespace DLTNode
             Block block = Node.blockChain.getBlock(blocknum);
             if (block == null)
             {
+                Logging.info("Received incorrect block number from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid block number specified" } };
             }
 
+            Logging.info("Received miner share: {0} #{1}", nonce, blocknum);
+
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
 
-            string nonce_prep = Crypto.hashToString(Convert.FromBase64String(nonce));
-            bool verify_result = Miner.verifyNonce_v2(nonce_prep, blocknum, solver_address, block.difficulty);
+            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
             bool send_result = false;
 
             // Solution is valid, try to submit it to network
-            if(verify_result == true)
+            if (verify_result == true)
             {
-                if(Miner.sendSolution(Convert.FromBase64String(nonce), blocknum))
+                if (Miner.sendSolution(Crypto.stringToHash(nonce), blocknum))
                 {
+                    Logging.info("Miner share {0} ACCEPTED.", nonce);
                     send_result = true;
                 }
+            }
+            else
+            {
+                Logging.warn("Miner share {0} REJECTED.", nonce);
             }
 
             return new JsonResponse { result = send_result, error = null };
