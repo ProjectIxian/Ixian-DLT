@@ -1318,7 +1318,7 @@ namespace DLT
                                 Block tmp_block = Node.blockChain.getBlock(localNewBlock.blockNum - 5);
                                 if (tmp_block != null)
                                 {
-                                    Meta.Storage.insertBlock(tmp_block);
+                                    Node.blockChain.updateBlock(tmp_block);
                                 }
                             }
 
@@ -1848,8 +1848,8 @@ namespace DLT
                 Block b = Node.blockChain.getBlock(i, true);
                 if (b == null)
                 {
-                    ProtocolMessage.broadcastGetBlock(i, endpoint);
                     Logging.error("Unable to find block {0} while creating superblock {1}.", i, super_block.blockNum);
+                    ProtocolMessage.broadcastGetBlock(i, endpoint);
                     return false;
                 }
 
@@ -1860,18 +1860,18 @@ namespace DLT
                     break;
                 }
 
-                if (b.signatureFreezeChecksum != null && i > 6)
+                if (b.signatureFreezeChecksum != null && i > 5)
                 {
-                    Block target_block = Node.blockChain.getBlock(i - 6, true);
+                    Block target_block = Node.blockChain.getBlock(i - 5, true);
                     if (target_block == null)
                     {
-                        ProtocolMessage.broadcastGetBlock(i - 6, endpoint);
-                        Logging.error("Unable to find target block {0} while creating superblock {1}.", i - 6, super_block.blockNum);
+                        Logging.error("Unable to find target block {0} while creating superblock {1}.", i - 5, super_block.blockNum);
+                        ProtocolMessage.broadcastGetBlock(i - 5, endpoint);
                         return false;
                     }else if(!target_block.calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
                     {
+                        Logging.error("Target block's {0} signatures don't match sigfreeze, while creating superblock {1}.", i - 5, super_block.blockNum);
                         ProtocolMessage.broadcastGetBlockSignatures(target_block.blockNum, target_block.blockChecksum, endpoint);
-                        Logging.error("Target block's {0} signatures don't match sigfreeze, while creating superblock {1}.", i - 6, super_block.blockNum);
                         return false;
                     }
                 }
@@ -1914,6 +1914,9 @@ namespace DLT
                     localNewBlock.addTransaction(transaction.id);
                 }
                 staking_transactions.Clear();
+                
+                // Apply signature freeze
+                localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
 
                 if (localNewBlock.version > 3 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
                 {
@@ -1941,9 +1944,6 @@ namespace DLT
                     }
                 }else
                 {
-                    // Apply signature freeze
-                    localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
-
                     generateNewBlockTransactions(block_version);
                 }
 
@@ -2186,11 +2186,11 @@ namespace DLT
             uint i = 0;
             for (i = 0; i < 10; i++)
             {
-                Block b = Node.blockChain.getBlock(last_block_num - i);
+                Block b = Node.blockChain.getBlock(last_block_num - i, false, true);
                 List<Transaction> b_txs = TransactionPool.getFullBlockTransactions(b).FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
                 foreach (Transaction tx in b_txs)
                 {
-                    Block pow_b = Node.blockChain.getBlock(BitConverter.ToUInt64(tx.data, 0));
+                    Block pow_b = Node.blockChain.getBlock(BitConverter.ToUInt64(tx.data, 0), false, false);
                     if(pow_b == null)
                     {
                         continue;
@@ -2209,7 +2209,7 @@ namespace DLT
         // returns number of different solved blocks via PoW in last block
         private static long countLastBlockPowSolutions()
         {
-            Block b = Node.blockChain.getBlock(Node.getLastBlockHeight());
+            Block b = Node.blockChain.getLastBlock();
             List<Transaction> b_txs = TransactionPool.getFullBlockTransactions(b).FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
             Dictionary<ulong, ulong> solved_blocks = new Dictionary<ulong, ulong>();
             foreach (Transaction tx in b_txs)
@@ -2229,7 +2229,7 @@ namespace DLT
             {
                 return current_difficulty;
             }
-            Block previous_block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
+            Block previous_block = Node.blockChain.getLastBlock();
             if (previous_block != null)
                 current_difficulty = previous_block.difficulty;
 
@@ -2529,7 +2529,7 @@ namespace DLT
             ulong last_block_num = Node.blockChain.getLastBlockNum();
             if (block_num > last_block_num - 4 && block_num <= last_block_num)
             {
-                Block b = Node.blockChain.getBlock(block_num);
+                Block b = Node.blockChain.getBlock(block_num, false, false);
                 if (b != null && b.blockChecksum.SequenceEqual(checksum))
                 {
                     return b.addSignature(signature, address_or_pub_key);

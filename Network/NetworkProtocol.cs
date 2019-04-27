@@ -350,6 +350,8 @@ namespace DLT
                     {
                         ulong block_num = reader.ReadUInt64();
 
+                        // TODO TODO TODO rewrite this function to only accept block sigs that were requested - blacklisting point
+
                         int checksum_len = reader.ReadInt32();
                         byte[] checksum = reader.ReadBytes(checksum_len);
 
@@ -366,52 +368,69 @@ namespace DLT
                             return;
                         }
 
-                        Block sf_block = Node.blockChain.getBlock(block_num + 6, true);
-                        if (target_block != null && sf_block != null)
+
+                        Block sf_block = null;
+                        ulong last_block_height = Node.getLastBlockHeight();
+                        if (block_num + 5 == last_block_height)
                         {
-                            if(target_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
-                            {
-                                // we already have the correct sigfreeze
-                                return;
-                            }
+                            sf_block = Node.blockProcessor.getLocalBlock();
+                        }else if(block_num + 5 > last_block_height)
+                        {
+                            Logging.warn("Sigfreezing block {0} missing", block_num);
+                            return;
                         }else
                         {
-                            // sf_block missing
-                            Logging.warn("Sigfreezing block {0} missing", block_num + 6);
-                            return;
+                            sf_block = Node.blockChain.getBlock(block_num + 5, true);
                         }
 
-
-                        int sig_count = reader.ReadInt32();
-
-                        Block dummy_block = new Block();
-                        dummy_block.blockNum = block_num;
-                        dummy_block.blockChecksum = checksum;
-
-                        for(int i = 0; i < sig_count; i++)
+                        lock (target_block)
                         {
-                            int sig_len = reader.ReadInt32();
-                            byte[] sig = reader.ReadBytes(sig_len);
 
-                            int addr_len = reader.ReadInt32();
-                            byte[] addr = reader.ReadBytes(addr_len);
+                            if (target_block != null && sf_block != null)
+                            {
+                                if (target_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
+                                {
+                                    // we already have the correct sigfreeze
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                // sf_block missing
+                                Logging.warn("Sigfreezing block {0} missing", block_num + 5);
+                                return;
+                            }
 
-                            dummy_block.addSignature(sig, addr);
-                        }
 
-                        sf_block = Node.blockChain.getBlock(block_num + 6, true);
+                            int sig_count = reader.ReadInt32();
 
-                        if(dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
-                        {
-                            Node.blockChain.refreshSignatures(dummy_block, true);
-                        }
+                            Block dummy_block = new Block();
+                            dummy_block.blockNum = block_num;
+                            dummy_block.blockChecksum = checksum;
+
+                            for (int i = 0; i < sig_count; i++)
+                            {
+                                int sig_len = reader.ReadInt32();
+                                byte[] sig = reader.ReadBytes(sig_len);
+
+                                int addr_len = reader.ReadInt32();
+                                byte[] addr = reader.ReadBytes(addr_len);
+
+                                dummy_block.addSignature(sig, addr);
+                            }
+
+                            if (dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
+                            {
+                                Node.blockChain.refreshSignatures(dummy_block, true);
+                            }
 
 
-                        if (!dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
-                        {
-                            // signatures checksum don't match SF checksum
-                            Logging.warn("Incorrect signatures chunk for block {0}", block_num);
-                            return;
+                            if (!dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
+                            {
+                                // signatures checksum don't match SF checksum
+                                Logging.warn("Incorrect signatures chunk for block {0}", block_num);
+                                return;
+                            }
                         }
                     }
                 }

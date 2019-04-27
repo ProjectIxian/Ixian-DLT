@@ -336,7 +336,7 @@ namespace DLT
         {
             if (currentBlockNum > 0)
             {
-                Block tmpBlock = Node.blockChain.getBlock(currentBlockNum);
+                Block tmpBlock = Node.blockChain.getBlock(currentBlockNum, false, false);
                 if (tmpBlock == null || tmpBlock.powField != null)
                 {
                     blockFound = false;
@@ -418,7 +418,7 @@ namespace DLT
                 List<ulong> tmpSolvedBlocks = new List<ulong>(solvedBlocks);
                 foreach (ulong blockNum in tmpSolvedBlocks)
                 {
-                    Block b = Node.blockChain.getBlock(blockNum);
+                    Block b = Node.blockChain.getBlock(blockNum, false, false);
                     if (b == null || b.powField != null)
                     {
                         solvedBlocks.Remove(blockNum);
@@ -713,7 +713,7 @@ namespace DLT
                 return false;
             }
 
-            Block block = Node.blockChain.getBlock(block_num);
+            Block block = Node.blockChain.getBlock(block_num, false, false);
             if (block == null)
                 return false;
 
@@ -743,7 +743,7 @@ namespace DLT
                 return false;
             }
 
-            Block block = Node.blockChain.getBlock(block_num);
+            Block block = Node.blockChain.getBlock(block_num, false, false);
             if (block == null)
                 return false;
 
@@ -773,7 +773,7 @@ namespace DLT
                 return false;
             }
 
-            Block block = Node.blockChain.getBlock(block_num);
+            Block block = Node.blockChain.getBlock(block_num, false, false);
             if (block == null)
                 return false;
 
@@ -962,7 +962,7 @@ namespace DLT
 
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {
-                Block block = Node.blockChain.getBlock(i);
+                Block block = Node.blockChain.getBlock(i, false, false);
                 if(block == null)
                 {
                     continue;

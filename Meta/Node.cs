@@ -1054,7 +1054,7 @@ namespace DLT.Meta
 
         public static Block getLastBlock()
         {
-            return blockChain.getBlock(blockChain.getLastBlockNum());
+            return blockChain.getLastBlock();
         }
 
         public static bool isAcceptingConnections()

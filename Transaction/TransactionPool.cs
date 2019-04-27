@@ -1076,7 +1076,7 @@ namespace DLT
                         continue;
                     }
 
-                    Block block = Node.blockChain.getBlock(blockNum);
+                    Block block = Node.blockChain.getBlock(blockNum, false, false);
                     // Check if the block is valid
                     if (block == null)
                         continue;
@@ -2034,7 +2034,10 @@ namespace DLT
                 Block block = Node.blockChain.getBlock(blockNum);
                 // Check if the block is valid
                 if (block == null)
+                {
+                    Logging.error("PoW target block {0} not found", blockNum);
                     continue;
+                }
 
                 List<object[]> miners_to_reward = blockSolutionsDictionary[blockNum];
 
@@ -2066,7 +2069,7 @@ namespace DLT
                 {
                     // Set the powField as a checksum of all miners for this block
                     block.powField = BitConverter.GetBytes(sent_block_num);
-                    Meta.Storage.insertBlock(block);
+                    Node.blockChain.updateBlock(block);
                 }
 
             }
@@ -2301,18 +2304,7 @@ namespace DLT
                 }
             }
         }
-
-        public static void addTxIdsFromBlock(Block b)
-        {
-            lock (transactions)
-            {
-                foreach (var entry in b.transactions)
-                {
-                    transactions.Add(entry, null);
-                }
-            }
-        }
-
+        
         public static long getTransactionCount()
         {
             lock(transactions)

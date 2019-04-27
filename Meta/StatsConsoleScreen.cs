@@ -142,18 +142,17 @@ namespace DLT.Meta
             Console.ResetColor();
 
             writeLine("                                             ");
-            ulong lastBlockNum = Node.blockChain.getLastBlockNum();
+            ulong lastBlockNum = 0;
             string lastBlockChecksum = "";
             int sigCount = 0;
-            if(lastBlockNum > 0)
+            Block b = Node.blockChain.getLastBlock();
+            if(b != null)
             {
-                Block b = Node.blockChain.getBlock(lastBlockNum);
-                if(b != null)
-                {
-                    sigCount = b.signatures.Count();
-                    lastBlockChecksum = Crypto.hashToString(b.blockChecksum).Substring(0, 10);
-                }
+                lastBlockNum = b.blockNum;
+                sigCount = b.signatures.Count();
+                lastBlockChecksum = Crypto.hashToString(b.blockChecksum).Substring(0, 10);
             }
+
             writeLine("\tLast Block:\t\t{0} ({1} sigs) - {2}...       ", lastBlockNum, sigCount, lastBlockChecksum);
 
             writeLine("\tConnections (I/O):\t{0}              ", connectionsInStr + "/" + connectionsOut);

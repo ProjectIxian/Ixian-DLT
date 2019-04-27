@@ -15,6 +15,7 @@ namespace DLT
 
         long lastBlockReceivedTime = Clock.getTimestamp();
 
+        Block lastBlock = null;
         ulong lastBlockNum = 0;
         int lastBlockVersion = 0;
 
@@ -48,16 +49,18 @@ namespace DLT
                 int begin_size = blocks.Count();
                 while ((ulong)blocks.Count() > CoreConfig.redactedWindowSize)
                 {
-                    TransactionPool.redactTransactionsForBlock(blocks[0]); // Remove from Transaction Pool
+                    Block block = getBlock(blocks[0].blockNum);
+
+                    TransactionPool.redactTransactionsForBlock(block); // Remove from Transaction Pool
 
                     // Check if this is a full history node
                     if (Config.storeFullHistory == false)
                     {
-                        Storage.removeBlock(blocks[0]); // Remove from storage
+                        Storage.removeBlock(block); // Remove from storage
                     }
                     lock (blocksDictionary)
                     {
-                        blocksDictionary.Remove(blocks[0].blockNum);
+                        blocksDictionary.Remove(block.blockNum);
                     }
                     blocks.RemoveAt(0); // Remove from memory
                 }
@@ -75,6 +78,7 @@ namespace DLT
             {
                 if (b.blockNum > lastBlockNum)
                 {
+                    lastBlock = b;
                     lastBlockNum = b.blockNum;
                     if (b.version != lastBlockVersion)
                     {
@@ -144,9 +148,11 @@ namespace DLT
                     if (tmp_block != null)
                     {
                         TransactionPool.compactTransactionsForBlock(tmp_block);
+                        tmp_block.compact();
                     }
                 }
             }
+            compactBlockSigs();
 
             lastBlockReceivedTime = Clock.getTimestamp();
 
@@ -155,23 +161,42 @@ namespace DLT
 
         // Attempts to retrieve a block from memory or from storage
         // Returns null if no block is found
-        public Block getBlock(ulong blocknum, bool search_in_storage = false)
+        public Block getBlock(ulong blocknum, bool search_in_storage = false, bool return_full_block = true)
         {
             Block block = null;
+
+            bool compacted_block = false;
+
+            byte[] pow_field = null;
 
             // Search memory
             lock (blocksDictionary)
             {
                 if (blocksDictionary.ContainsKey(blocknum))
+                {
                     block = blocksDictionary[blocknum];
+                    pow_field = block.powField;
+
+                    if (block.compacted && return_full_block)
+                    {
+                        compacted_block = true;
+                        block = null;
+                    }
+                }
             }
 
             if (block != null)
                 return block;
 
             // Search storage
-            if (search_in_storage)
+            if (search_in_storage || compacted_block)
+            {
                 block = Storage.getBlock(blocknum);
+                if (block != null && compacted_block)
+                {
+                    block.powField = pow_field;
+                }
+            }
 
             return block;
         }
@@ -206,22 +231,42 @@ namespace DLT
 
         // Attempts to retrieve a block from memory or from storage
         // Returns null if no block is found
-        public Block getBlockByHash(byte[] hash, bool search_in_storage = false)
+        public Block getBlockByHash(byte[] hash, bool search_in_storage = false, bool return_full_block = true)
         {
             Block block = null;
+
+            bool compacted_block = false;
+
+            byte[] pow_field = null;
 
             // Search memory
             lock (blocks)
             {
                 block = blocks.Find(x => x.blockChecksum.SequenceEqual(hash));
+
+                if (block != null)
+                {
+                    pow_field = block.powField;
+                    if (block.compacted && return_full_block)
+                    {
+                        compacted_block = true;
+                        block = null;
+                    }
+                }
             }
 
             if (block != null)
                 return block;
 
             // Search storage
-            if (search_in_storage)
+            if (search_in_storage || compacted_block)
+            {
                 block = Storage.getBlockByHash(hash);
+                if (block != null && compacted_block)
+                {
+                    block.powField = pow_field;
+                }
+            }
 
             return block;
         }
@@ -267,7 +312,7 @@ namespace DLT
                 int blockCount = blocks.Count - blockOffset < 10 ? blocks.Count - blockOffset : 10;
                 for (int i = 0; i < blockCount; i++)
                 {
-                    totalConsensus += blocks[blocks.Count - i - blockOffset - 1].signatures.Count;
+                    totalConsensus += blocks[blocks.Count - i - blockOffset - 1].getSignatureCount();
                 }
                 int consensus = (int)Math.Ceiling(totalConsensus / blockCount * CoreConfig.networkConsensusRatio);
                 if (consensus < 2)
@@ -294,7 +339,7 @@ namespace DLT
                     {
                         break;
                     }
-                    total_consensus += b.signatures.Count;
+                    total_consensus += b.getSignatureCount();
                     block_count++;
                 }
                 int consensus = (int)Math.Ceiling(total_consensus / block_count * CoreConfig.networkConsensusRatio);
@@ -308,32 +353,34 @@ namespace DLT
 
         public byte[] getLastBlockChecksum()
         {
-            // TODO TODO TODO TODO cache
-            lock (blocks)
+            if(lastBlock != null)
             {
-                if (blocks.Count == 0) return null;
-                return blocks[blocks.Count - 1].blockChecksum;
+                return lastBlock.blockChecksum;
             }
+            return null;
+        }
+
+        public Block getLastBlock()
+        {
+            return lastBlock;
         }
 
         public byte[] getCurrentWalletState()
         {
-            // TODO TODO TODO TODO cache
-            lock (blocks)
+            if (lastBlock != null)
             {
-                if (blocks.Count == 0) return null;
-                return blocks[blocks.Count - 1].walletStateChecksum;
+                return lastBlock.walletStateChecksum;
             }
+            return null;
         }
 
         public int getBlockSignaturesReverse(int index)
         {
-            // TODO TODO TODO TODO cache
-            lock (blocks)
+            if (lastBlock != null)
             {
-                if (blocks.Count - index - 1 < 0) return 0;
-                return blocks[blocks.Count - index - 1].signatures.Count();
+                return lastBlock.getSignatureCount();
             }
+            return 0;
         }
 
         public bool refreshSignatures(Block b, bool forceRefresh = false)
@@ -356,8 +403,14 @@ namespace DLT
                 int idx = blocks.FindIndex(x => x.blockNum == b.blockNum && x.blockChecksum.SequenceEqual(b.blockChecksum));
                 if (idx > 0)
                 {
+                    if(blocks[idx].compacted)
+                    {
+                        Logging.error("Trying to refresh signatures on compacted block {0}", blocks[idx].blockNum);
+                        return false;
+                    }
+
                     byte[] beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
-                    beforeSigs = blocks[idx].signatures.Count;
+                    beforeSigs = blocks[idx].getSignatureCount();
                     if (forceRefresh)
                     {
                         blocks[idx].signatures = b.signatures;
@@ -378,7 +431,7 @@ namespace DLT
             // Check if the block needs to be refreshed
             if (updatestorage_block != null)
             {
-                Storage.insertBlock(updatestorage_block); // Update the block
+                Node.blockChain.updateBlock(updatestorage_block);
 
                 Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
                 return true;
@@ -479,6 +532,7 @@ namespace DLT
         // Clears all the transactions in the pool
         public void clear()
         {
+            lastBlock = null;
             lastBlockNum = 0;
             lastBlockVersion = 0;
             lock (blocksDictionary)
@@ -488,6 +542,75 @@ namespace DLT
             lock (blocks)
             {
                 blocks.Clear();
+            }
+        }
+
+        // this function prunes un-needed sigs from blocks
+        private void compactBlockSigs()
+        {
+            if(Node.getLastBlockVersion() < 4)
+            {
+                return;
+            }
+
+
+
+        }
+
+        public void updateBlock(Block block)
+        {
+            Meta.Storage.insertBlock(block);
+
+            bool compacted = false;
+            bool compacted_sigs = false;
+
+            lock (blocksDictionary)
+            {
+                if(blocksDictionary.ContainsKey(block.blockNum))
+                {
+                    Block old_block = blocksDictionary[block.blockNum];
+                    if (old_block.compacted)
+                    {
+                        compacted = true;
+                    }
+                    if (old_block.compactedSigs)
+                    {
+                        compacted_sigs = true;
+                    }
+                }
+            }
+
+            if (compacted)
+            {
+                Block new_block = new Block(block);
+
+                if (compacted_sigs)
+                {
+                    new_block.compactSignatures();
+                }
+
+                new_block.compact();
+
+                lock(blocks)
+                {
+                    int block_idx = blocks.FindIndex(x => x.blockNum == new_block.blockNum);
+                    if (block_idx >= 0)
+                    {
+                        blocks[block_idx] = new_block;
+                        lock (blocksDictionary)
+                        {
+                            blocksDictionary[new_block.blockNum] = new_block;
+                        }
+                    }
+                    else
+                    {
+                        Logging.error("Error updating block {0}", new_block.blockNum);
+                    }
+                }
+            }
+            else if (compacted_sigs)
+            {
+                block.compactSignatures();
             }
         }
     }
