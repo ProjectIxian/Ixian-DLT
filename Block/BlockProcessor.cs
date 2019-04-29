@@ -522,6 +522,9 @@ namespace DLT
                                         {
                                             // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
                                             ProtocolMessage.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
+                                        }else if (b.getUniqueSignatureCount() < block_to_update.getUniqueSignatureCount())
+                                        {
+                                            ProtocolMessage.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
                                         }
                                     }
                                 }
@@ -2371,15 +2374,15 @@ namespace DLT
             IxiNumber newIxis = 0;
             if (!Config.isTestNet)
             {
-                // Set the annual inflation to 1% after 50bn IXIs in circulation 
-                if (totalIxis > new IxiNumber("50000000000") && totalIxis <= new IxiNumber("100000000000"))
-                {
-                    inflationPA = new IxiNumber("1");
-                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
-                }
-                else if (totalIxis > new IxiNumber("100000000000"))
+                if (totalIxis > new IxiNumber("100000000000"))
                 {
                     newIxis = 1000;
+                }
+                else if (totalIxis > new IxiNumber("50000000000"))
+                {
+                    // Set the annual inflation to 1% after 50bn IXIs in circulation 
+                    inflationPA = new IxiNumber("1");
+                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
                 }
                 else
                 {
@@ -2388,15 +2391,14 @@ namespace DLT
                 }
             }else
             {
-                // Set the annual inflation to 1% after 50bn IXIs in circulation 
-                if (totalIxis > new IxiNumber("50000000000") && totalIxis <= new IxiNumber("200000000000"))
-                {
-                    inflationPA = new IxiNumber("1");
-                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
-                }
-                else if (totalIxis > new IxiNumber("200000000000"))
+                if (totalIxis > new IxiNumber("200000000000"))
                 {
                     newIxis = 1000;
+                }else if (totalIxis > new IxiNumber("50000000000"))
+                {
+                    // Set the annual inflation to 1% after 50bn IXIs in circulation
+                    inflationPA = new IxiNumber("1");
+                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
                 }
                 else
                 {
