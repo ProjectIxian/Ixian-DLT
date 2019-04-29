@@ -264,8 +264,9 @@ namespace DLT
 
                         lock (Node.blockProcessor.localBlockLock)
                         {
-                            if (last_bh < block_num || (last_bh + 1 == block_num && Node.blockProcessor.getLocalBlock() == null))
+                            if (last_bh + 1 < block_num || (last_bh + 1 == block_num && Node.blockProcessor.getLocalBlock() == null))
                             {
+                                Logging.info("Received signature for block {0} which is missing", block_num);
                                 // future block, request the next block
                                 broadcastGetBlock(last_bh + 1, null, endpoint);
                                 return;
@@ -274,12 +275,10 @@ namespace DLT
 
                         if(Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr, endpoint))
                         {
-                            if (!Node.blockProcessor.acceptLocalNewBlock())
+                            Node.blockProcessor.acceptLocalNewBlock();
+                            if (Node.isMasterNode())
                             {
-                                if (Node.isMasterNode())
-                                {
-                                    broadcastNewBlockSignature(data, endpoint);
-                                }
+                                broadcastNewBlockSignature(data, endpoint);
                             }
                         }else
                         {
@@ -289,21 +288,9 @@ namespace DLT
                 }
             }
 
-            // Handle the getBlockTransactions message
-            // This is called from NetworkProtocol
-            private static void handleGetBlockSignatures(ulong blockNum, byte[] checksum, RemoteEndpoint endpoint)
+            public static void broadcastBlockSignatures(ulong block_num, byte[] block_checksum, List<byte[][]> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
-                //Logging.info(String.Format("Received request for signatures in block {0}.", blockNum));
-
-                // Get the requested block and corresponding signatures
-                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
-
-                if(b == null || !b.blockChecksum.SequenceEqual(checksum))
-                {
-                    return;
-                }
-
-                int sig_count = b.signatures.Count();
+                int sig_count = signatures.Count();
 
                 if (sig_count == 0)
                 {
@@ -314,16 +301,16 @@ namespace DLT
                 {
                     using (BinaryWriter writer = new BinaryWriter(mOut))
                     {
-                        writer.Write(b.blockNum);
+                        writer.Write(block_num);
 
-                        writer.Write(b.blockChecksum.Length);
-                        writer.Write(b.blockChecksum);
+                        writer.Write(block_checksum.Length);
+                        writer.Write(block_checksum);
 
                         writer.Write(sig_count);
 
                         for (int i = 0; i < sig_count; i++)
                         {
-                            byte[][] sig = b.signatures[i];
+                            byte[][] sig = signatures[i];
                             if (sig != null)
                             {
                                 // sig
@@ -337,9 +324,42 @@ namespace DLT
                         }
 
                         // Send a chunk
-                        endpoint.sendData(ProtocolMessageCode.blockSignatures, mOut.ToArray());
+                        if (endpoint != null)
+                        {
+                            if (endpoint.isConnected())
+                            {
+                                endpoint.sendData(ProtocolMessageCode.blockSignatures, mOut.ToArray());
+                                return;
+                            }
+                            return;
+                        }
+                        else
+                        {
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockSignatures, mOut.ToArray(), BitConverter.GetBytes(block_num), skip_endpoint);
+                        }
                     }
                 }
+            }
+
+            public static void broadcastBlockSignatures(Block b, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
+            {
+                broadcastBlockSignatures(b.blockNum, b.blockChecksum, b.signatures, skip_endpoint, endpoint);
+            }
+
+            private static void handleGetBlockSignatures(ulong blockNum, byte[] checksum, RemoteEndpoint endpoint)
+            {
+                //Logging.info(String.Format("Received request for signatures in block {0}.", blockNum));
+
+                // Get the requested block and corresponding signatures
+                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+
+                if(b == null || !b.blockChecksum.SequenceEqual(checksum))
+                {
+                    // likely forked
+                    return;
+                }
+
+                broadcastBlockSignatures(b, null, endpoint);
             }
 
             private static void handleBlockSignatures(byte[] data, RemoteEndpoint endpoint)
@@ -355,11 +375,22 @@ namespace DLT
                         int checksum_len = reader.ReadInt32();
                         byte[] checksum = reader.ReadBytes(checksum_len);
 
+                        ulong last_block_height = Node.getLastBlockHeight();
+
                         Block target_block = Node.blockChain.getBlock(block_num, true);
                         if(target_block == null)
                         {
-                            // target block missing
-                            Logging.warn("Target block {0} missing", block_num);
+                            if (block_num == last_block_height + 1)
+                            {
+                                // target block missing, request the next block
+                                Logging.warn("Target block {0} missing, requesting...", block_num);
+                                broadcastGetBlock(block_num, null, endpoint);
+                            }
+                            else
+                            {
+                                // target block missing
+                                Logging.warn("Target block {0} missing", block_num);
+                            }
                             return;
                         }else if(!target_block.blockChecksum.SequenceEqual(checksum))
                         {
@@ -370,15 +401,16 @@ namespace DLT
 
 
                         Block sf_block = null;
-                        ulong last_block_height = Node.getLastBlockHeight();
-                        if (block_num + 5 == last_block_height)
+                        if (block_num + 4 == last_block_height)
                         {
                             sf_block = Node.blockProcessor.getLocalBlock();
-                        }else if(block_num + 5 > last_block_height)
+                        }
+                        else if (block_num + 4 > last_block_height)
                         {
-                            Logging.warn("Sigfreezing block {0} missing", block_num);
+                            Logging.warn("Sigfreezing block {0} missing", block_num + 5);
                             return;
-                        }else
+                        }
+                        else
                         {
                             sf_block = Node.blockChain.getBlock(block_num + 5, true);
                         }
@@ -386,7 +418,7 @@ namespace DLT
                         lock (target_block)
                         {
 
-                            if (target_block != null && sf_block != null)
+                            if (sf_block != null)
                             {
                                 if (target_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
                                 {
@@ -418,6 +450,8 @@ namespace DLT
 
                                 dummy_block.addSignature(sig, addr);
                             }
+
+                            dummy_block.verifySignatures();
 
                             if (dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
                             {

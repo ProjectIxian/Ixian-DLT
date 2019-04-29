@@ -355,7 +355,6 @@ namespace DLT
                             // we already have the correct block but the sender does not, broadcast our block
                             ProtocolMessage.broadcastNewBlock(targetBlock, null, endpoint);
                         }
-                        acceptLocalNewBlock();
                         return false;
                     }
                     if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
@@ -382,7 +381,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed but is different than our own block (probably forked), re-requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed but has an incorrect sigfreeze checksum, re-requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint, endpoint);
                         return false;
                     }
@@ -1105,7 +1104,8 @@ namespace DLT
                     if(localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                     {
                         Logging.info(String.Format("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count()));
-                        if(localNewBlock.addSignaturesFrom(b))
+                        List<byte[][]> added_signatures = localNewBlock.addSignaturesFrom(b);
+                        if (added_signatures != null)
                         {
                             currentBlockStartTime = DateTime.UtcNow;
                             lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
@@ -1113,7 +1113,10 @@ namespace DLT
                             //    return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
                             Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
-                            //ProtocolMessage.broadcastNewBlock(localNewBlock);
+
+                            // TODO TODO TODO send only added sigs
+                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+
                             acceptLocalNewBlock();
                         }
                         else if(localNewBlock.signatures.Count != b.signatures.Count)
@@ -1135,6 +1138,7 @@ namespace DLT
                             currentBlockStartTime = DateTime.UtcNow;
                             lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                             acceptLocalNewBlock();
+                            ProtocolMessage.broadcastNewBlock(b, endpoint, null);
                         }
                         else
                         {
@@ -1161,6 +1165,7 @@ namespace DLT
                         currentBlockStartTime = DateTime.UtcNow;
                         firstBlockAfterSync = false;
                         acceptLocalNewBlock();
+                        ProtocolMessage.broadcastNewBlock(b, endpoint, null);
                     }
                     else
                     {
@@ -1241,6 +1246,13 @@ namespace DLT
             var sw = new System.Diagnostics.Stopwatch();
             sw.Start();
 
+            Block last_block = Node.getLastBlock();
+            ulong last_block_num = 0;
+            if (last_block != null)
+            {
+                last_block_num = last_block.blockNum;
+            }
+
             lock (localBlockLock)
             {
                 if (localNewBlock == null) return false;
@@ -1265,7 +1277,7 @@ namespace DLT
                             byte[][] signature_data = localNewBlock.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                             if (signature_data != null) 
                             {
-                                //ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                // ProtocolMessage.broadcastNewBlock(localNewBlock);
                                 ProtocolMessage.broadcastNewBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1]);
                             }
                         }
@@ -1290,9 +1302,9 @@ namespace DLT
                         }
                     }
 
-                    if (localNewBlock.blockNum != Node.blockChain.getLastBlockNum() + 1)
+                    if (localNewBlock.blockNum != last_block_num + 1)
                     {
-                        Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, Node.blockChain.getLastBlockNum() + 1, Environment.StackTrace));
+                        Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, last_block_num + 1, Environment.StackTrace));
                         // block has already been applied or ahead, waiting for new blocks
                         localNewBlock = null;
                         return false;
@@ -1307,7 +1319,7 @@ namespace DLT
                                 Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                             Logging.error(String.Format("Node reports block version: {0}", Node.getLastBlockVersion()));
                             rollBackAcceptedBlock(localNewBlock);
-                            if (!Node.walletState.calculateWalletStateChecksum(localNewBlock.version).SequenceEqual(Node.blockChain.getBlock(Node.blockChain.getLastBlockNum()).walletStateChecksum))
+                            if (!Node.walletState.calculateWalletStateChecksum(localNewBlock.version).SequenceEqual(last_block.walletStateChecksum))
                             {
                                 Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
                                 // TODO TODO TODO maybe do something else instead?
@@ -1324,6 +1336,9 @@ namespace DLT
                         {
                             // append current block
                             Node.blockChain.appendBlock(localNewBlock);
+
+                            last_block = localNewBlock;
+                            last_block_num = localNewBlock.blockNum;
 
                             pendingSuperBlocks.Remove(localNewBlock.blockNum);
 
@@ -1351,9 +1366,9 @@ namespace DLT
                             // Reset transaction limits
                             //TransactionPool.resetSocketTransactionLimits();
 
-                            if (highestNetworkBlockNum > Node.blockChain.getLastBlockNum())
+                            if (highestNetworkBlockNum > last_block_num)
                             {
-                                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null, 1);
+                                ProtocolMessage.broadcastGetBlock(last_block_num + 1, null, null, 1);
                             }else
                             {
                                 highestNetworkBlockNum = 0;
@@ -1368,9 +1383,9 @@ namespace DLT
                             }
 
                             cleanupBlockBlacklist();
-                            if (Node.blockChain.getLastBlockNum() % Config.saveWalletStateEveryBlock == 0)
+                            if (last_block_num % Config.saveWalletStateEveryBlock == 0)
                             {
-                                WalletStateStorage.saveWalletState(Node.blockChain.getLastBlockNum());
+                                WalletStateStorage.saveWalletState(last_block_num);
                             }
                         }
                     }
@@ -1916,7 +1931,9 @@ namespace DLT
                 // Create a new block and add all the transactions in the pool
                 localNewBlock = new Block();
                 localNewBlock.timestamp = Core.getCurrentTimestamp();
-                localNewBlock.blockNum = Node.blockChain.getLastBlockNum() + 1;
+                Block last_block = Node.blockChain.getLastBlock();
+                localNewBlock.blockNum = last_block.blockNum + 1;
+                localNewBlock.lastBlockChecksum = last_block.blockChecksum;
 
                 localNewBlock.version = block_version;
 
@@ -1929,9 +1946,13 @@ namespace DLT
                     localNewBlock.addTransaction(transaction.id);
                 }
                 staking_transactions.Clear();
-                
-                // Apply signature freeze
-                localNewBlock.signatureFreezeChecksum = getSignatureFreeze();
+
+                // Prevent calculations if we don't have 5 fully generated blocks yet
+                if (localNewBlock.blockNum > 5)
+                {
+                    // Apply signature freeze
+                    localNewBlock.signatureFreezeChecksum = getSignatureFreeze(localNewBlock.blockNum - 5);
+                }
 
                 if (localNewBlock.version > 3 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
                 {
@@ -1979,7 +2000,6 @@ namespace DLT
                 Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
                 Node.walletState.revert();
 
-                localNewBlock.lastBlockChecksum = Node.blockChain.getLastBlockChecksum();
                 localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
                 localNewBlock.applySignature();
 
@@ -2323,16 +2343,9 @@ namespace DLT
         }
 
         // Retrieve the signature freeze of the 5th last block
-        public byte[] getSignatureFreeze()
+        public byte[] getSignatureFreeze(ulong target_block_num)
         {
-            // Prevent calculations if we don't have 5 fully generated blocks yet
-            if(Node.blockChain.getLastBlockNum() < 5)
-            {
-                return null;
-            }
-
-            // Last block num - 4 gets us the 5th last block
-            Block targetBlock = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - 4);
+            Block targetBlock = Node.blockChain.getBlock(target_block_num);
             if (targetBlock == null)
             {
                 return null;
