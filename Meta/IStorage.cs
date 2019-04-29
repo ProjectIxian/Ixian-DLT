@@ -203,7 +203,7 @@ namespace DLT
             /// <returns>Null if the bloud could not be found in storage.</returns>
             public abstract Block getBlocksByLastSBHash(byte[] checksum);
             /// <summary>
-            /// Retrieves all Blocks between two block heights.
+            /// Retrieves all Blocks between two block heights, inclusive on both ends.
             /// Note: If `from` is larger than `to`, or both parameters are 0, an empty collection is returned.
             /// </summary>
             /// <param name="from">Minimum block height.</param>
@@ -273,8 +273,8 @@ namespace DLT
             public abstract IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to);
             //
             // Remove
-            public abstract bool removeBlock(ulong blockNum, bool removeTransactions);
-            public abstract bool removeTransaction(string txid);
+            public abstract bool removeBlock(ulong block_num, bool remove_transactions);
+            public abstract bool removeTransaction(string txid, ulong block_num = 0);
             //
             // Prepare and cleanup
             protected abstract bool prepareStorageInternal();

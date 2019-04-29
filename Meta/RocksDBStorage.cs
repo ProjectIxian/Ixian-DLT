@@ -470,6 +470,43 @@ namespace DLT
                 }
             }
 
+            public class _applied_tx_idx_entry
+            {
+                public ulong tx_original_bh;
+                public string tx_id;
+
+                public _applied_tx_idx_entry(ulong orig_bh, string txid)
+                {
+                    tx_original_bh = orig_bh;
+                    tx_id = txid;
+                }
+
+                public _applied_tx_idx_entry(byte[] from_bytes)
+                {
+                    using (MemoryStream ms = new MemoryStream(from_bytes))
+                    {
+                        using (BinaryReader br = new BinaryReader(ms))
+                        {
+                            tx_original_bh = br.ReadUInt64();
+                            tx_id = br.ReadString();
+                        }
+                    }
+                }
+
+                public byte[] asBytes()
+                {
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        using (BinaryWriter bw = new BinaryWriter(ms))
+                        {
+                            bw.Write(tx_original_bh);
+                            bw.Write(tx_id);
+                        }
+                        return ms.ToArray();
+                    }
+                }
+            }
+
             class _storage_Index
             {
                 private Dictionary<byte[], List<byte[]>> indexMap = new Dictionary<byte[], List<byte[]>>();
@@ -788,9 +825,6 @@ namespace DLT
                 idxTXTimestamp.addIndexEntry(BitConverter.GetBytes(st.timestamp), tx_id_bytes);
                 idxTXTimestamp.updateDBIndex(database);
 
-                idxTXApplied.addIndexEntry(BitConverter.GetBytes(st.applied), tx_id_bytes);
-                idxTXApplied.updateDBIndex(database);
-                
                 lastUsedTime = DateTime.Now;
             }
 
@@ -835,6 +869,17 @@ namespace DLT
                 }
                 lastUsedTime = DateTime.Now;
                 return true;
+            }
+
+            public bool insertTXApplied(Transaction transaction)
+            {
+                lock(rockLock)
+                {
+                    if (database == null) return false;
+                    idxTXApplied.addIndexEntry(BitConverter.GetBytes(transaction.applied), new _applied_tx_idx_entry(transaction.blockHeight, transaction.id).asBytes());
+                    idxTXApplied.updateDBIndex(database);
+                    return true;
+                }
             }
 
             private Block getBlockInternal(byte[] block_num_bytes)
@@ -1014,11 +1059,11 @@ namespace DLT
                 }
             }
 
-            public IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to)
+            public IEnumerable<_applied_tx_idx_entry> getTransactionsApplied(ulong block_from, ulong block_to)
             {
                 lock (rockLock)
                 {
-                    List<Transaction> txs = new List<Transaction>();
+                    List<_applied_tx_idx_entry> txs = new List<_applied_tx_idx_entry>();
                     if (database == null) return null;
                     lastUsedTime = DateTime.Now;
                     foreach (var bh_bytes in idxTXApplied.getAllKeys())
@@ -1028,7 +1073,7 @@ namespace DLT
                         {
                             foreach (var i in idxTXApplied.getEntriesForKey(bh_bytes))
                             {
-                                txs.Add(getTransactionInternal(i));
+                                txs.Add(new _applied_tx_idx_entry(i));
                             }
                         }
                     }
@@ -1038,11 +1083,64 @@ namespace DLT
 
             public bool removeBlock(ulong blockNum, bool removeTransactions)
             {
-                return false;
+                lock(rockLock)
+                {
+                    Block b = getBlock(blockNum);
+                    if(b != null)
+                    {
+                        var block_num_bytes = BitConverter.GetBytes(blockNum);
+                        database.Remove(block_num_bytes, rocksCFBlocks);
+                        // remove it from indexes
+                        idxBlocksChecksum.delIndexEntry(b.blockChecksum, block_num_bytes);
+                        idxBlocksLastSBChecksum.delIndexEntry(b.lastSuperBlockChecksum, block_num_bytes);
+                        //
+                        if(removeTransactions)
+                        {
+                            foreach(var tx_id_bytes in idxTXBlockHeight.getEntriesForKey(block_num_bytes))
+                            {
+                                removeTransactionInternal(tx_id_bytes);
+                            }
+                        }
+                        return true;
+                    }
+                    return false;
+                }
             }
+
+            private bool removeTransactionInternal(byte[] tx_id_bytes)
+            {
+                lock(rockLock)
+                {
+                    Transaction tx = getTransactionInternal(tx_id_bytes);
+                    if(tx != null)
+                    {
+                        database.Remove(tx_id_bytes, rocksCFTransactions);
+                        // remove it from indexes
+                        idxTXApplied.delIndexEntry(BitConverter.GetBytes(tx.applied), tx_id_bytes);
+                        idxTXBlockHeight.delIndexEntry(BitConverter.GetBytes(tx.blockHeight), tx_id_bytes);
+                        foreach(var f in tx.fromList.Keys)
+                        {
+                            idxTXFrom.delIndexEntry(f, tx_id_bytes);
+                        }
+                        foreach(var t in tx.toList.Keys)
+                        {
+                            idxTXTo.delIndexEntry(t, tx_id_bytes);
+                        }
+                        idxTXTimestamp.delIndexEntry(BitConverter.GetBytes(tx.timeStamp), tx_id_bytes);
+                        idxTXType.delIndexEntry(BitConverter.GetBytes(tx.type), tx_id_bytes);
+                        return true;
+                    }
+                    return false;
+                }
+            }
+
             public bool removeTransaction(string txid)
             {
-                return false;
+                lock(rockLock)
+                {
+                    var tx_id_bytes = ASCIIEncoding.ASCII.GetBytes(txid);
+                    return removeTransactionInternal(tx_id_bytes);
+                }
             }
         }
 
@@ -1131,7 +1229,7 @@ namespace DLT
                         }
                         catch (Exception e)
                         {
-                            Logging.warn(String.Format("RocksDB: Delete data - failed removing directory '{0}'.", path));
+                            Logging.warn(String.Format("RocksDB: Delete data - failed removing directory '{0}': {1}", path, e));
                         }
                     }
                 }
@@ -1165,8 +1263,11 @@ namespace DLT
                     }
                 }
                 if (latest_db == 0) return 0; // empty db
-                var db = getDatabase(latest_db);
-                return db.maxBlockNumber;
+                lock (openDatabases)
+                {
+                    var db = getDatabase(latest_db);
+                    return db.maxBlockNumber;
+                }
             }
 
             public override ulong getLowestBlockInStorage()
@@ -1185,83 +1286,274 @@ namespace DLT
                     }
                 }
                 if (oldest_db == 0) return 0; // empty db
-                var db = getDatabase(oldest_db);
-                return db.minBlockNumber;
+                lock (openDatabases)
+                {
+                    var db = getDatabase(oldest_db);
+                    return db.minBlockNumber;
+                }
             }
 
             protected override bool insertBlockInternal(Block block)
             {
-                throw new NotImplementedException();
+                lock (openDatabases)
+                {
+                    var db = getDatabase(block.blockNum);
+                    return db.insertBlock(block);
+                }
             }
 
             protected override bool insertTransactionInternal(Transaction transaction)
             {
-                throw new NotImplementedException();
+                lock (openDatabases)
+                {
+                    var db = getDatabase(transaction.blockHeight);
+                    return db.insertTransaction(transaction);
+                }
             }
 
             public override Block getBlock(ulong blocknum)
             {
-                throw new NotImplementedException();
+                lock(openDatabases)
+                {
+                    var db = getDatabase(blocknum);
+                    return db.getBlock(blocknum);
+                }
             }
 
             public override Block getBlockByHash(byte[] checksum)
             {
-                throw new NotImplementedException();
+                lock(openDatabases)
+                {
+                    foreach (var db in openDatabases.Values)
+                    {
+                        if (!db.isOpen)
+                        {
+                            db.openDatabase();
+                        }
+                        Block b = db.getBlockByHash(checksum);
+                        if (b != null) return b;
+                    }
+                    //
+                    return null;
+                }
             }
 
             public override Block getBlocksByLastSBHash(byte[] checksum)
             {
-                throw new NotImplementedException();
+                lock (openDatabases)
+                {
+                    foreach (var db in openDatabases.Values)
+                    {
+                        if (!db.isOpen)
+                        {
+                            db.openDatabase();
+                        }
+                        Block b = db.getBlockByLastSBHash(checksum);
+                        if (b != null) return b;
+                    }
+                    //
+                    return null;
+                }
             }
 
             public override IEnumerable<Block> getBlocksByRange(ulong from, ulong to)
             {
-                throw new NotImplementedException();
+                IEnumerable<Block> combined = Enumerable.Empty<Block>();
+                if(to < from || (to+from == 0))
+                {
+                    return combined;
+                }
+                lock(openDatabases)
+                {
+                    for(ulong i = from; i <= to; i++)
+                    {
+                        var db = getDatabase(i);
+                        var matching_blocks = db.getBlocksByRange(from, to);
+                        combined = Enumerable.Concat(combined, matching_blocks);
+                    }
+                    return combined;
+                }
             }
 
             public override Transaction getTransaction(string txid, ulong block_num = 0)
             {
-                throw new NotImplementedException();
+                lock(openDatabases)
+                {
+                    if(block_num != 0)
+                    {
+                        var db = getDatabase(block_num);
+                        return db.getTransaction(txid);
+                    } else
+                    {
+                        foreach(var db in openDatabases.Values)
+                        {
+                            if(!db.isOpen)
+                            {
+                                db.openDatabase();
+                            }
+                            Transaction t = db.getTransaction(txid);
+                            if (t != null) return t;
+                        }
+                    }
+                    return null;
+                }
             }
 
             public override IEnumerable<Transaction> getTransactionsByType(Transaction.Type type, ulong block_from = 0, ulong block_to = 0)
             {
-                throw new NotImplementedException();
+                lock(openDatabases)
+                {
+                    IEnumerable<Transaction> combined = Enumerable.Empty<Transaction>();
+                    IEnumerable<RocksDBInternal> dbs_to_search = openDatabases.Values.Where(x => true); // all databases
+                    if(block_from + block_to > 0)
+                    {
+                        dbs_to_search = openDatabases.Where(kvp => kvp.Key >= block_from && kvp.Key <= block_to).Select(kvp => kvp.Value);
+                    }
+                    foreach(var db in dbs_to_search)
+                    {
+                        if(!db.isOpen)
+                        {
+                            db.openDatabase();
+                        }
+                        var matching_txs = db.getTransactionsByType(type);
+                        combined = Enumerable.Concat(combined, matching_txs);
+                    }
+                    return combined;
+                }
             }
 
             public override IEnumerable<Transaction> getTransactionsFromAddress(byte[] from_addr, ulong block_from = 0, ulong block_to = 0)
             {
-                throw new NotImplementedException();
+                lock (openDatabases)
+                {
+                    IEnumerable<Transaction> combined = Enumerable.Empty<Transaction>();
+                    IEnumerable<RocksDBInternal> dbs_to_search = openDatabases.Values.Where(x => true); // all databases
+                    if (block_from + block_to > 0)
+                    {
+                        dbs_to_search = openDatabases.Where(kvp => kvp.Key >= block_from && kvp.Key <= block_to).Select(kvp => kvp.Value);
+                    }
+                    foreach (var db in dbs_to_search)
+                    {
+                        if (!db.isOpen)
+                        {
+                            db.openDatabase();
+                        }
+                        var matching_txs = db.getTransactionsFromAddress(from_addr);
+                        combined = Enumerable.Concat(combined, matching_txs);
+                    }
+                    return combined;
+                }
             }
 
             public override IEnumerable<Transaction> getTransactionsToAddress(byte[] to_addr, ulong block_from = 0, ulong block_to = 0)
             {
-                throw new NotImplementedException();
+                lock (openDatabases)
+                {
+                    IEnumerable<Transaction> combined = Enumerable.Empty<Transaction>();
+                    IEnumerable<RocksDBInternal> dbs_to_search = openDatabases.Values.Where(x => true); // all databases
+                    if (block_from + block_to > 0)
+                    {
+                        dbs_to_search = openDatabases.Where(kvp => kvp.Key >= block_from && kvp.Key <= block_to).Select(kvp => kvp.Value);
+                    }
+                    foreach (var db in dbs_to_search)
+                    {
+                        if (!db.isOpen)
+                        {
+                            db.openDatabase();
+                        }
+                        var matching_txs = db.getTransactionsToAddress(to_addr);
+                        combined = Enumerable.Concat(combined, matching_txs);
+                    }
+                    return combined;
+                }
             }
 
             public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num)
             {
-                throw new NotImplementedException();
+                lock(openDatabases)
+                {
+                    var db = getDatabase(block_num);
+                    return db.getTransactionsInBlock(block_num);
+                }
             }
 
             public override IEnumerable<Transaction> getTransactionsByTime(long time_from, long time_to)
             {
-                throw new NotImplementedException();
+                IEnumerable<Transaction> combined = Enumerable.Empty<Transaction>();
+                if(time_to < time_from || (time_to == 0 && time_from == 0))
+                {
+                    return combined;
+                }
+                lock(openDatabases)
+                {
+                    foreach(var db in openDatabases.Values)
+                    {
+                        if(!db.isOpen)
+                        {
+                            db.openDatabase();
+                        }
+                        var matching_txs = db.getTransactionsByTime(time_from, time_to);
+                        combined = Enumerable.Concat(combined, matching_txs);
+                    }
+                    return combined;
+                }
             }
 
             public override IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to)
             {
-                throw new NotImplementedException();
+                List<Transaction> combined = new List<Transaction>();
+                if(block_to < block_from || (block_from+block_to == 0))
+                {
+                    return combined;
+                }
+                lock(openDatabases)
+                {
+                    for(ulong i = block_from; i <= block_to; i++)
+                    {
+                        var db = getDatabase(i);
+                        foreach (var appidx in db.getTransactionsApplied(block_from, block_to))
+                        {
+                            var t = getTransaction(appidx.tx_id, appidx.tx_original_bh);
+                            if (t != null) combined.Add(t);
+                        }
+                    }
+                    return combined;
+                }
             }
 
-            public override bool removeBlock(ulong blockNum, bool removeTransactions)
+            public override bool removeBlock(ulong block_num, bool remove_transactions)
             {
-                throw new NotImplementedException();
+                lock(openDatabases)
+                {
+                    var db = getDatabase(block_num);
+                    return db.removeBlock(block_num, remove_transactions);
+                }
             }
 
-            public override bool removeTransaction(string txid)
+            public override bool removeTransaction(string txid, ulong block_num = 0)
             {
-                throw new NotImplementedException();
+                lock(openDatabases)
+                {
+                    if(block_num > 0)
+                    {
+                        var db = getDatabase(block_num);
+                        return db.removeTransaction(txid);
+                    } else
+                    {
+                        foreach(var db in openDatabases.Values)
+                        {
+                            if(!db.isOpen)
+                            {
+                                db.openDatabase();
+                            }
+                            if (db.removeTransaction(txid))
+                            {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                }
             }
         }
     }
