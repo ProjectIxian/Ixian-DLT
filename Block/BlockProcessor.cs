@@ -183,7 +183,7 @@ namespace DLT
                             {
                                 if (Node.isMasterNode())
                                 {
-                                    if (localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                                    if ((DateTime.UtcNow - currentBlockStartTime).TotalSeconds > 15 && localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
                                     {
                                         ProtocolMessage.broadcastNewBlock(localNewBlock);
                                         Logging.info(String.Format("Local block #{0} hasn't reached consensus yet {1}/{2}, resending.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
@@ -521,7 +521,7 @@ namespace DLT
                                         if (Node.blockChain.refreshSignatures(b))
                                         {
                                             // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                            ProtocolMessage.broadcastNewBlock(block_to_update);
+                                            ProtocolMessage.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
                                         }
                                     }
                                 }
@@ -1356,7 +1356,7 @@ namespace DLT
                                 highestNetworkBlockNum = 0;
                             }
 
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
                             localNewBlock = null;
 
                             if (Node.miner.searchMode != BlockSearchMode.latestBlock)
