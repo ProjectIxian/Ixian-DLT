@@ -34,7 +34,7 @@ namespace DLT
 
         long lastUpgradeTry = 0;
 
-        int blockGenerationInterval = 30; // in seconds
+        int blockGenerationInterval = CoreConfig.blockGenerationInterval;
 
         public bool firstBlockAfterSync;
 
@@ -116,41 +116,49 @@ namespace DLT
                         // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
                     }
 
-
-                    if (Node.blockChain.getLastBlockNum() < 10)
-                    {
-                        blockGenerationInterval = 5;
-                    }
-                    else
-                    {
-                        blockGenerationInterval = 30;
-                    }
-
                     int block_version = 3;
 
-                    bool forceNextBlock = Node.forceNextBlock;
+                    bool generateNextBlock = Node.forceNextBlock;
                     Random rnd = new Random();
 
                     lock (localBlockLock)
                     {
-
-                        if (localNewBlock == null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(30)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
+                        if (generateNextBlock)
                         {
-                            forceNextBlock = true;
-                            block_version = Node.blockChain.getLastBlockVersion();
-                        }
-
-                        // if the node is stuck on the same block for too long, discard the block
-                        if (localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20))
-                        {
-                            blacklistBlock(localNewBlock);
                             localNewBlock = null;
-                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                            block_version = Node.blockChain.getLastBlockVersion();
                         }
+                        else
+                        {
+                            if (localNewBlock == null)
+                            {
+                                if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(1000)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
+                                {
+                                    generateNextBlock = true;
+                                    block_version = Node.blockChain.getLastBlockVersion();
+                                }
+                                else
+                                {
+                                    if ((Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval) || Node.blockChain.getLastBlockNum() < 10)
+                                    {
+                                        generateNextBlock = true;
+                                    }
+                                }
+                            }
+
+                            // if the node is stuck on the same block for too long, discard the block
+                            if (localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20))
+                            {
+                                blacklistBlock(localNewBlock);
+                                localNewBlock = null;
+                                lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                                block_version = Node.blockChain.getLastBlockVersion();
+                                generateNextBlock = true;
+                            }
+                        }
+
 
                         //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
-                        if ((localNewBlock == null && (Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)) || forceNextBlock)
+                        if (generateNextBlock)
                         {
                             if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
                             {
@@ -215,7 +223,7 @@ namespace DLT
             {
                 return -1;
             }
-            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return 0 as the node offset.
+            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return -1 as the node offset.
             {
                 return -1;
             }
@@ -374,7 +382,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed and had an incorrect number of signatures, requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed but is different than our own block (probably forked), re-requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint, endpoint);
                         return false;
                     }
@@ -453,6 +461,10 @@ namespace DLT
                 if (!last_super_block.blockChecksum.SequenceEqual(b.lastSuperBlockChecksum))
                 {
                     Logging.warn("Received a forked super block {0}.", b.blockNum);
+                    return false;
+                }else if(last_super_block.lastSuperBlockChecksum == null && last_super_block.blockNum > 1)
+                {
+                    Logging.warn("Received a forked superblock that points to a last superblock, which isn't a superblock {0}.", b.blockNum);
                     return false;
                 }
             }
@@ -2524,7 +2536,7 @@ namespace DLT
             return localNewBlock;
         }
 
-        public bool addSignatureToBlock(ulong block_num, byte[] checksum, byte[] signature, byte[] address_or_pub_key)
+        public bool addSignatureToBlock(ulong block_num, byte[] checksum, byte[] signature, byte[] address_or_pub_key, RemoteEndpoint endpoint)
         {
             ulong last_block_num = Node.blockChain.getLastBlockNum();
             if (block_num > last_block_num - 4 && block_num <= last_block_num)
@@ -2533,6 +2545,9 @@ namespace DLT
                 if (b != null && b.blockChecksum.SequenceEqual(checksum))
                 {
                     return b.addSignature(signature, address_or_pub_key);
+                }else
+                {
+                    ProtocolMessage.broadcastGetBlock(block_num, null, endpoint);
                 }
             }
             else if (block_num == last_block_num + 1)
@@ -2549,6 +2564,10 @@ namespace DLT
                             lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                         }
                         return sig_added;
+                    }
+                    else
+                    {
+                        ProtocolMessage.broadcastGetBlock(block_num, null, endpoint);
                     }
                 }
             }

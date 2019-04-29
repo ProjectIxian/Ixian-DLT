@@ -869,8 +869,13 @@ namespace DLT.Meta
 
         public static bool isElectedToGenerateNextBlock(int offset = 0)
         {
+            if(offset == -1)
+            {
+                return false;
+            }
+
             byte[] pubKey = blockChain.getLastElectedNodePubKey(offset);
-            if(pubKey == null || pubKey.SequenceEqual(walletStorage.getPrimaryPublicKey()))
+            if(pubKey != null && pubKey.SequenceEqual(walletStorage.getPrimaryPublicKey()))
             {
                 return true;
             }

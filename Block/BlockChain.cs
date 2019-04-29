@@ -151,8 +151,8 @@ namespace DLT
                         tmp_block.compact();
                     }
                 }
+                compactBlockSigs();
             }
-            compactBlockSigs();
 
             lastBlockReceivedTime = Clock.getTimestamp();
 
@@ -548,19 +548,44 @@ namespace DLT
         // this function prunes un-needed sigs from blocks
         private void compactBlockSigs()
         {
-            if(Node.getLastBlockVersion() < 4)
+            Block last_block = Node.getLastBlock();
+
+            if(last_block.version < 4)
             {
                 return;
             }
 
+            if(last_block.lastSuperBlockChecksum != null)
+            {
+                // superblock was just generated, prune all block sigs, except the last 200
+                for(ulong block_num = last_block.blockNum - (CoreConfig.superblockInterval / 10); block_num > 1; block_num--)
+                {
+                    Block block = getBlock(block_num, true, true);
 
+                    if (block == null)
+                    {
+                        Logging.error("Block {0} was null while compacting sigs", block_num);
+                        break;
+                    }
 
+                    if (block.version < 4)
+                    {
+                        break;
+                    }
+
+                    if (block.compactedSigs == true)
+                    {
+                        break;
+                    }
+
+                    block.pruneSignatures();
+                    updateBlock(block);
+                }
+            }
         }
 
         public void updateBlock(Block block)
         {
-            Meta.Storage.insertBlock(block);
-
             bool compacted = false;
             bool compacted_sigs = false;
 
@@ -580,14 +605,16 @@ namespace DLT
                 }
             }
 
+            if (compacted_sigs)
+            {
+                block.pruneSignatures();
+            }
+
+            Meta.Storage.insertBlock(block);
+
             if (compacted)
             {
                 Block new_block = new Block(block);
-
-                if (compacted_sigs)
-                {
-                    new_block.compactSignatures();
-                }
 
                 new_block.compact();
 
@@ -607,10 +634,6 @@ namespace DLT
                         Logging.error("Error updating block {0}", new_block.blockNum);
                     }
                 }
-            }
-            else if (compacted_sigs)
-            {
-                block.compactSignatures();
             }
         }
     }

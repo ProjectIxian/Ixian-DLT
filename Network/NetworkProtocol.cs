@@ -272,7 +272,7 @@ namespace DLT
                             }
                         }
 
-                        if(Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr))
+                        if(Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr, endpoint))
                         {
                             if (!Node.blockProcessor.acceptLocalNewBlock())
                             {
