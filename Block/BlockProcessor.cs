@@ -332,7 +332,7 @@ namespace DLT
         }
 
         // Checks if the block has been sigFreezed and if all the hashes match, returns false if the block shouldn't be processed further
-        public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null, RemoteEndpoint skipEndpoint = null)
+        public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null)
         {
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
             byte[] sigFreezeChecksum = null;
@@ -382,7 +382,7 @@ namespace DLT
                     else
                     {
                         Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed but has an incorrect sigfreeze checksum, re-requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                        ProtocolMessage.broadcastGetBlock(b.blockNum, skipEndpoint, endpoint);
+                        ProtocolMessage.broadcastGetBlock(b.blockNum, endpoint, null);
                         return false;
                     }
                 }
