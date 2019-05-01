@@ -557,7 +557,7 @@ namespace DLT
 
             if(last_block.lastSuperBlockChecksum != null)
             {
-                // superblock was just generated, prune all block sigs, except the last 200
+                // superblock was just generated, prune all block sigs, except the last 10%
                 for(ulong block_num = last_block.blockNum - (CoreConfig.superblockInterval / 10); block_num > 1; block_num--)
                 {
                     Block block = getBlock(block_num, true, true);

@@ -101,28 +101,28 @@ namespace DLT
                 try
                 {
 
-                    // check if it is time to generate a new block
-                    TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-
-                    if (timeSinceLastBlock.TotalSeconds < 0)
-                    {
-                        // edge case, system time apparently changed
-                        lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                        timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-                        lock (blockBlacklist)
-                        {
-                            blockBlacklist.Clear();
-                        }
-                        // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
-                    }
-
-                    int block_version = 3;
-
-                    bool generateNextBlock = Node.forceNextBlock;
-                    Random rnd = new Random();
-
                     lock (localBlockLock)
                     {
+                        // check if it is time to generate a new block
+                        TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+
+                        if (timeSinceLastBlock.TotalSeconds < 0)
+                        {
+                            // edge case, system time apparently changed
+                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                            timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+                            lock (blockBlacklist)
+                            {
+                                blockBlacklist.Clear();
+                            }
+                            // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
+                        }
+
+                        int block_version = 3;
+
+                        bool generateNextBlock = Node.forceNextBlock;
+                        Random rnd = new Random();
+
                         if (generateNextBlock)
                         {
                             localNewBlock = null;
@@ -700,8 +700,8 @@ namespace DLT
                 // Verify signatures
                 if (!b.verifySignatures(skip_sig_verification))
                 {
-                    Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are invalid signatures on the block.", b.blockNum));
-                    return BlockVerifyStatus.Invalid;
+                    Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are no valid signatures on the block.", b.blockNum));
+                    return BlockVerifyStatus.Indeterminate;
                 }
             }
 
@@ -1337,15 +1337,19 @@ namespace DLT
                             // append current block
                             Node.blockChain.appendBlock(localNewBlock);
 
+                            currentBlockStartTime = DateTime.UtcNow;
+                            lastBlockStartTime = DateTime.UtcNow;
                             last_block = localNewBlock;
                             last_block_num = localNewBlock.blockNum;
+                            Block current_block = localNewBlock;
+                            localNewBlock = null;
 
-                            pendingSuperBlocks.Remove(localNewBlock.blockNum);
+                            pendingSuperBlocks.Remove(current_block.blockNum);
 
-                            if (localNewBlock.blockNum > 5)
+                            if (current_block.blockNum > 5)
                             {
                                 // append sigfreezed block
-                                Block tmp_block = Node.blockChain.getBlock(localNewBlock.blockNum - 5);
+                                Block tmp_block = Node.blockChain.getBlock(current_block.blockNum - 5);
                                 if (tmp_block != null)
                                 {
                                     Node.blockChain.updateBlock(tmp_block);
@@ -1359,9 +1363,8 @@ namespace DLT
                                 Node.miner.forceSearchForBlock();
                             }
 
-                            Logging.info(String.Format("Accepted block #{0}.", localNewBlock.blockNum));
-                            lastBlockStartTime = DateTime.UtcNow;
-                            localNewBlock.logBlockDetails();
+                            Logging.info(String.Format("Accepted block #{0}.", current_block.blockNum));
+                            current_block.logBlockDetails();
 
                             // Reset transaction limits
                             //TransactionPool.resetSocketTransactionLimits();
@@ -1374,8 +1377,7 @@ namespace DLT
                                 highestNetworkBlockNum = 0;
                             }
 
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.newBlock, localNewBlock.getBytes(), BitConverter.GetBytes(localNewBlock.blockNum));
-                            localNewBlock = null;
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.newBlock, current_block.getBytes(), BitConverter.GetBytes(current_block.blockNum));
 
                             if (Node.miner.searchMode != BlockSearchMode.latestBlock)
                             {
@@ -1931,9 +1933,18 @@ namespace DLT
                 // Create a new block and add all the transactions in the pool
                 localNewBlock = new Block();
                 localNewBlock.timestamp = Core.getCurrentTimestamp();
+
                 Block last_block = Node.blockChain.getLastBlock();
-                localNewBlock.blockNum = last_block.blockNum + 1;
-                localNewBlock.lastBlockChecksum = last_block.blockChecksum;
+                if (last_block != null)
+                {
+                    localNewBlock.blockNum = last_block.blockNum + 1;
+                    localNewBlock.lastBlockChecksum = last_block.blockChecksum;
+                }else
+                {
+                    // genesis block
+                    localNewBlock.blockNum = 1;
+                    localNewBlock.lastBlockChecksum = null;
+                }
 
                 localNewBlock.version = block_version;
 

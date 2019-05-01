@@ -319,7 +319,12 @@ namespace DLT
                 string signatures = "";
                 foreach (byte[][] sig in block.signatures)
                 {
-                    signatures = string.Format("{0}||{1}:{2}", signatures, Convert.ToBase64String(sig[0]), Convert.ToBase64String(sig[1]));
+                    string str_sig = "0";
+                    if(sig[0] != null)
+                    {
+                        str_sig = Convert.ToBase64String(sig[0]);
+                    }
+                    signatures = string.Format("{0}||{1}:{2}", signatures, str_sig, Convert.ToBase64String(sig[1]));
                 }
 
                 if (!Node.blockProcessor.verifySigFreezedBlock(block))
@@ -596,7 +601,10 @@ namespace DLT
                         continue;
                     }
                     byte[][] newSig = new byte[2][];
-                    newSig[0] = Convert.FromBase64String(split_sig[0]);
+                    if (split_sig[0] != "0")
+                    {
+                        newSig[0] = Convert.FromBase64String(split_sig[0]);
+                    }
                     newSig[1] = Convert.FromBase64String(split_sig[1]);
                     if (!block.containsSignature(newSig[1]))
                     {
