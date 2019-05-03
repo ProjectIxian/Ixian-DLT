@@ -1132,6 +1132,8 @@ namespace DLT
                     }
                     connectionCache.Clear();
                 }
+
+                Logging.info("Storage thread stopped.");
             }
 
             public static int getQueuedQueryCount()

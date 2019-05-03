@@ -10,17 +10,11 @@ using System.Threading;
 using System.Diagnostics;
 using System.IO;
 using IXICore;
-using System.Runtime.InteropServices;
-using System.Security.Permissions;
 
 namespace DLTNode
 {
     class Program
     {
-
-        // STD_INPUT_HANDLE (DWORD): -10 is the standard input device.
-        const int STD_INPUT_HANDLE = -10;
-
         static void checkRequiredFiles()
         {
             string[] critical_dlls =
@@ -158,53 +152,9 @@ namespace DLTNode
             }
         }
 
-        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
-        static void installUnhandledExceptionHandler()
-        {
-            System.AppDomain.CurrentDomain.UnhandledException += currentDomain_UnhandledException;
-        }
-
-        private static void currentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            Logging.error(String.Format("Exception was triggered and not handled. Please send this log to the Ixian developers!"));
-            Logging.error(e.ExceptionObject.ToString());
-        }
-
         private static System.Timers.Timer mainLoopTimer;
 
         public static bool noStart = false;
-
-        // Handle Windows OS-specific calls
-        static void prepareWindowsConsole()
-        {
-            // Ignore if we're on Mono
-            if (IXICore.Platform.onMono())
-                return;
-
-            installUnhandledExceptionHandler();
-
-            IntPtr consoleHandle = NativeMethods.GetStdHandle(STD_INPUT_HANDLE);
-
-            // get current console mode
-            uint consoleMode;
-            if (!NativeMethods.GetConsoleMode(consoleHandle, out consoleMode))
-            {
-                // ERROR: Unable to get console mode.
-                return;
-            }
-
-            // Clear the quick edit bit in the mode flags
-            consoleMode &= ~(uint)0x0040; // quick edit
-
-            // set the new mode
-            if (!NativeMethods.SetConsoleMode(consoleHandle, consoleMode))
-            {
-                // ERROR: Unable to set console mode
-            }
-
-            // Hook a handler for force close
-            NativeMethods.SetConsoleCtrlHandler(new NativeMethods.HandlerRoutine(HandleConsoleClose), true);
-        }
 
         static void Main(string[] args)
         {
@@ -215,7 +165,10 @@ namespace DLTNode
                 Console.Clear();
             }
 
-            prepareWindowsConsole();
+            IXICore.Utils.ConsoleHelpers.prepareWindowsConsole();
+
+            // Hook a handler for force close
+            NativeMethods.SetConsoleCtrlHandler(new NativeMethods.HandlerRoutine(IXICore.Utils.ConsoleHelpers.HandleConsoleClose), true);
 
             // Start logging
             Logging.start();
@@ -469,51 +422,6 @@ namespace DLTNode
                 Console.WriteLine("Ixian DLT Node stopped.");
             }
         }
-
-        static bool HandleConsoleClose(NativeMethods.CtrlTypes type)
-        {
-            switch(type)
-            {
-                case NativeMethods.CtrlTypes.CTRL_C_EVENT:
-                case NativeMethods.CtrlTypes.CTRL_BREAK_EVENT:
-                case NativeMethods.CtrlTypes.CTRL_CLOSE_EVENT:
-                case NativeMethods.CtrlTypes.CTRL_LOGOFF_EVENT:
-                case NativeMethods.CtrlTypes.CTRL_SHUTDOWN_EVENT:
-                    Config.verboseConsoleOutput = true;
-                    Logging.consoleOutput = Config.verboseConsoleOutput;
-                    Console.WriteLine();
-                    Console.WriteLine("Application is being closed!");
-                    Logging.info("Shutting down...");
-                    Logging.flush();
-                    noStart = true;
-                    Node.forceShutdown = true;
-                    // Wait (max 5 seconds) for everything to die
-                    DateTime waitStart = DateTime.Now;
-                    while(true)
-                    {
-                        if(Process.GetCurrentProcess().Threads.Count > 1)
-                        {
-                            Thread.Sleep(50);
-                        } else
-                        {
-                            Console.WriteLine(String.Format("Graceful shutdown achieved in {0} seconds.", (DateTime.Now - waitStart).TotalSeconds));
-                            break;
-                        }
-                        if((DateTime.Now - waitStart).TotalSeconds > 30)
-                        {
-                            Console.WriteLine("Unable to gracefully shutdown. Aborting. Threads that are still alive: ");
-                            foreach(Thread t in Process.GetCurrentProcess().Threads)
-                            {
-                                Console.WriteLine(String.Format("Thread {0}: {1}.", t.ManagedThreadId, t.Name));
-                            }
-                            break;
-                        }
-                    }
-                    return true;
-            }
-            return true;
-        }
-
 
         static bool runTests(string[] args)
         {
