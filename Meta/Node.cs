@@ -674,20 +674,14 @@ namespace DLT.Meta
         static public void stop()
         {
 
+            // Stop the keepalive thread
+            PresenceList.stopKeepAlive();
+
             // Stop the block processor
             blockProcessor.stopOperation();
 
-            // Stop the block storage
-            Storage.stopStorage();
-
-            // stop activity storage
-            ActivityStorage.stopStorage();
-
             // Stop the block sync
             blockSync.stop();
-
-            // Stop the keepalive thread
-            PresenceList.stopKeepAlive();
 
             // Stop the API server
             if (apiServer != null)
@@ -708,6 +702,12 @@ namespace DLT.Meta
                 maintenanceThread.Abort();
                 maintenanceThread = null;
             }
+
+            // Stop the block storage
+            Storage.stopStorage();
+
+            // stop activity storage
+            ActivityStorage.stopStorage();
 
             // Stop the network queue
             NetworkQueue.stop();

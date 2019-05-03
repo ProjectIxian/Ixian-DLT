@@ -454,6 +454,11 @@ namespace DLT
                             bool missing = false;
                             foreach (string txid in b.transactions)
                             {
+                                if(!running)
+                                {
+                                    break;
+                                }
+
                                 Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
                                 if (t != null)
                                 {
@@ -574,7 +579,7 @@ namespace DLT
 
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
 
-                } while (pendingBlocks.Count > 0);
+                } while (pendingBlocks.Count > 0 && running);
             }
             if (!sleep && Node.blockChain.getLastBlockNum() >= syncToBlock)
             {
