@@ -167,9 +167,6 @@ namespace DLTNode
 
             IXICore.Utils.ConsoleHelpers.prepareWindowsConsole();
 
-            // Hook a handler for force close
-            NativeMethods.SetConsoleCtrlHandler(new NativeMethods.HandlerRoutine(IXICore.Utils.ConsoleHelpers.HandleConsoleClose), true);
-
             // Start logging
             Logging.start();
 
