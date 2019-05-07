@@ -1449,8 +1449,14 @@ namespace DLTNode
         // It does not submit it to the network.
         private JsonResponse onVerifyMiningSolution(HttpListenerRequest request)
         {
+            // Check that all the required query parameters are sent
+            if (request.QueryString["nonce"] == null || request.QueryString["blocknum"] == null || request.QueryString["diff"] == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Missing query parameters" } };
+            }
+
             string nonce = request.QueryString["nonce"];
-            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
+            if (nonce.Length < 1 || nonce.Length > 128)
             {
                 Logging.info("Received incorrect verify nonce from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
@@ -1464,17 +1470,17 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid block number specified" } };
             }
 
-
+            ulong blockdiff = ulong.Parse(request.QueryString["diff"]);
 
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, blockdiff);
             if(verify_result)
             {
-                Logging.info("Received verify share: {0} #{1} - PASSED", nonce, blocknum);
+                Logging.info("Received verify share: {0} #{1} - PASSED with diff {2}", nonce, blocknum, blockdiff);
             }
             else
             {
-                Logging.info("Received verify share: {0} #{1} - REJECTED", nonce, blocknum);
+                Logging.info("Received verify share: {0} #{1} - REJECTED with diff {2}", nonce, blocknum, blockdiff);
             }
 
             return new JsonResponse { result = verify_result, error = null };
@@ -1483,8 +1489,14 @@ namespace DLTNode
         // Verifies and submits a mining solution to the network
         private JsonResponse onSubmitMiningSolution(HttpListenerRequest request)
         {
+            // Check that all the required query parameters are sent
+            if (request.QueryString["nonce"] == null || request.QueryString["blocknum"] == null)
+            {
+                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Missing query parameters" } };
+            }
+
             string nonce = request.QueryString["nonce"];
-            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
+            if (nonce.Length < 1 || nonce.Length > 128)
             {
                 Logging.info("Received incorrect nonce from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
@@ -1501,7 +1513,6 @@ namespace DLTNode
             Logging.info("Received miner share: {0} #{1}", nonce, blocknum);
 
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-
             bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
             bool send_result = false;
 
