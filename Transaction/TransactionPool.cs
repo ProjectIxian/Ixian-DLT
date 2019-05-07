@@ -893,9 +893,38 @@ namespace DLT
 
         public static Transaction[] getLastTransactions()
         {
-            lock(transactions)
+            lock (transactions)
             {
-                return transactions.Select(e => e.Value).Where(x => x != null).ToArray();
+                List<Transaction> full_tx_list = new List<Transaction>();
+                foreach (var entry in transactions)
+                {
+                    Transaction tx = entry.Value;
+                    if (tx == null)
+                    {
+                        tx = getTransaction(entry.Key);
+                    }
+                    full_tx_list.Add(tx);
+                }
+                return full_tx_list.ToArray();
+            }
+        }
+
+        public static Transaction[] getAppliedTransactions()
+        {
+            lock (transactions)
+            {
+                List<Transaction> full_tx_list = new List<Transaction>();
+                var tx_list =  transactions.Where(x => x.Value == null || x.Value.applied != 0).ToArray();
+                foreach(var entry in tx_list)
+                {
+                    Transaction tx = entry.Value;
+                    if(tx == null)
+                    {
+                        tx = getTransaction(entry.Key);
+                    }
+                    full_tx_list.Add(tx);
+                }
+                return full_tx_list.ToArray();
             }
         }
 

@@ -295,6 +295,11 @@ namespace DLTNode
                 response = onTxu();
             }
 
+            if (methodName.Equals("txa", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onTxa();
+            }
+
             if (methodName.Equals("status", StringComparison.OrdinalIgnoreCase))
             {
                 response = onStatus();
@@ -1167,11 +1172,27 @@ namespace DLTNode
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
-            foreach(Transaction t in transactions)
+            foreach (Transaction t in transactions)
             {
                 tx_list.Add(t.id, t.toDictionary());
             }
-            
+
+            return new JsonResponse { result = tx_list, error = error };
+        }
+
+        public JsonResponse onTxa()
+        {
+            JsonError error = null;
+
+            Transaction[] transactions = TransactionPool.getAppliedTransactions();
+
+            Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
+
+            foreach (Transaction t in transactions)
+            {
+                tx_list.Add(t.id, t.toDictionary());
+            }
+
             return new JsonResponse { result = tx_list, error = error };
         }
 
