@@ -294,7 +294,7 @@ namespace DLT
                 // third pass
                 cmd_parser = new FluentCommandLineParser();
 
-                bool start_clean = false; // Flag to determine if node should delete cache+logs
+                int start_clean = 0; // Flag to determine if node should delete cache+logs
 
                 // version
                 cmd_parser.Setup<bool>('v', "version").Callback(text => outputVersion());
@@ -312,7 +312,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("recover").Callback(value => recoverFromFile = value).Required();
 
                 // Check for clean parameter
-                cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = value).Required();
+                cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = 1);
+                cmd_parser.Setup<bool>('f', "force").Callback(value => { if (start_clean > 0) { start_clean += 1; } });
 
 
                 cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
@@ -365,10 +366,35 @@ namespace DLT
                 Storage.path = dataFolderPath + Path.DirectorySeparatorChar + "blocks";
                 WalletStateStorage.path = dataFolderPath + Path.DirectorySeparatorChar + "ws";
 
-                if (start_clean)
+                if (start_clean > 0)
                 {
-                    Node.checkDataFolder();
-                    Node.cleanCacheAndLogs();
+                    bool do_clean = false;
+                    if (start_clean > 1)
+                    {
+                        Logging.warn("Ixian DLT node started with the forced clean parameter (-c -c).");
+                        do_clean = true;
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Magenta;
+                        Console.WriteLine("You have started the Ixian DLT node with the '-c' parameter, indicating that you wish to clear all cache and log files.");
+                        Console.Write("This will cause the node to re-download any neccessary data, which may take some time. Are you sure? (Y/N)");
+                        Console.ResetColor();
+                        var k = Console.ReadKey();
+                        if (k.Key == ConsoleKey.Y)
+                        {
+                            do_clean = true;
+                        }
+                    }
+                    if(do_clean)
+                    {
+                        Node.checkDataFolder();
+                        Node.cleanCacheAndLogs();
+                    } else
+                    {
+                        DLTNode.Program.noStart = true;
+                        return;
+                    }
                 }
 
                 if (miningThreads < 1)
