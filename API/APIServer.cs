@@ -1248,6 +1248,8 @@ namespace DLTNode
             networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
             networkArray.Add("Applied TX Count", TransactionPool.getTransactionCount() - TransactionPool.getUnappliedTransactions().Count());
             networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
+            networkArray.Add("Node Type", Node.getNodeType());
+            networkArray.Add("Connectable", NetworkServer.isConnectable());
 
             networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
             networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(0, true)));
@@ -1275,7 +1277,7 @@ namespace DLTNode
             // Last hashrate
             minerArray.Add("Hashrate", Node.miner.lastHashRate);
 
-            // Last hashrate
+            // Mining block search mode
             minerArray.Add("Search Mode", Node.miner.searchMode.ToString());
 
             // Current block

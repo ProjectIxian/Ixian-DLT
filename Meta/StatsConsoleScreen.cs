@@ -116,9 +116,16 @@ namespace DLT.Meta
             string connectionsInStr = "-";  // Default to no inbound connections accepted
             if (NetworkServer.isRunning())
             {
-                // If there server is running, show the number of inbound connections
+                // If the server is running, show the number of inbound connections
                 connectionsIn = NetworkServer.getConnectedClients().Count();
-                connectionsInStr = String.Format("{0}", connectionsIn);
+                if (!NetworkServer.isConnectable())
+                {
+                    connectionsInStr = "Not connectable";
+                }
+                else
+                {
+                    connectionsInStr = String.Format("{0}", connectionsIn);
+                }
             }
 
             int connectionsOut = NetworkClientManager.getConnectedClients().Count();
