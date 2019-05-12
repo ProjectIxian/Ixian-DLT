@@ -365,6 +365,10 @@ namespace DLTNode
                 response = onGetMiningBlock(request);
             }
 
+            if(methodName.Equals("getwalletbackup", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetWalletBackup(request);
+            }
 
             bool resources = false;
 
@@ -453,7 +457,7 @@ namespace DLTNode
             }
             if (TransactionPool.addTransaction(transaction))
             {
-                TransactionPool.addPendingLocalTransaction(transaction);
+                PendingTransactions.addPendingLocalTransaction(transaction);
                 return new JsonResponse { result = transaction.toDictionary(), error = null };
             }
 
@@ -550,7 +554,7 @@ namespace DLTNode
 
             if (TransactionPool.addTransaction(raw_transaction))
             {
-                TransactionPool.addPendingLocalTransaction(raw_transaction);
+                PendingTransactions.addPendingLocalTransaction(raw_transaction);
                 return new JsonResponse { result = raw_transaction.toDictionary(), error = null };
             }
 
@@ -615,7 +619,7 @@ namespace DLTNode
             Transaction transaction = Transaction.multisigAddTxSignature(orig_txid, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
-                TransactionPool.addPendingLocalTransaction(transaction);
+                PendingTransactions.addPendingLocalTransaction(transaction);
                 res = transaction.toDictionary();
             }
             else
@@ -693,7 +697,7 @@ namespace DLTNode
                 {
                     if (TransactionPool.addTransaction(transaction))
                     {
-                        TransactionPool.addPendingLocalTransaction(transaction);
+                        PendingTransactions.addPendingLocalTransaction(transaction);
                         res = transaction.toDictionary();
                     }
                     else
@@ -727,7 +731,7 @@ namespace DLTNode
             Transaction transaction = Transaction.multisigAddKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
-                TransactionPool.addPendingLocalTransaction(transaction);
+                PendingTransactions.addPendingLocalTransaction(transaction);
                 return new JsonResponse { result = transaction.toDictionary(), error = null };
             }
             return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Error while creating the transaction." } };
@@ -756,7 +760,7 @@ namespace DLTNode
             Transaction transaction = Transaction.multisigDelKeyTransaction(signer_address, fee, destWallet, Node.blockChain.getLastBlockNum());
             if (TransactionPool.addTransaction(transaction))
             {
-                TransactionPool.addPendingLocalTransaction(transaction);
+                PendingTransactions.addPendingLocalTransaction(transaction);
                 return new JsonResponse { result = transaction.toDictionary(), error = null };
             }
             return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Error while creating the transaction." } };
@@ -786,7 +790,7 @@ namespace DLTNode
                 Transaction transaction = Transaction.multisigChangeReqSigs(reqSigs, fee, destWallet, Node.blockChain.getLastBlockNum());
                 if (TransactionPool.addTransaction(transaction))
                 {
-                    TransactionPool.addPendingLocalTransaction(transaction);
+                    PendingTransactions.addPendingLocalTransaction(transaction);
                     return new JsonResponse { result = transaction.toDictionary(), error = null };
                 }
             } else
@@ -956,7 +960,7 @@ namespace DLTNode
         {
             IxiNumber balance = Node.walletStorage.getMyTotalBalance(Node.walletStorage.getPrimaryAddress());
             // TODO TODO TODO TODO adapt the following line for v3 wallets
-            balance -= TransactionPool.getPendingSendingTransactionsAmount(null);
+            balance -= PendingTransactions.getPendingSendingTransactionsAmount(null);
             return new JsonResponse { result = balance.ToString(), error = null };
         }
 
@@ -1215,7 +1219,7 @@ namespace DLTNode
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
             networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
                 + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount() + ", Pending Transactions: " + TransactionPool.pendingTransactionCount());
+                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount() + ", Pending Transactions: " + PendingTransactions.pendingTransactionCount());
             networkArray.Add("Node Deprecation Block Limit", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
 
             string dltStatus = "Active";
@@ -1689,9 +1693,9 @@ namespace DLTNode
             bool adjust_amount = false;
             if (fromList.Count == 0)
             {
-                lock (TransactionPool.pendingTransactions)
+                lock (PendingTransactions.pendingTransactions)
                 {
-                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList(), TransactionPool.pendingTransactions.Select(x => (Transaction)x[0]).ToList());
+                    fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + fee, toList.Keys.ToList(), PendingTransactions.pendingTransactions.Select(x => (Transaction)x[0]).ToList());
                 }
                 adjust_amount = true;
             }
@@ -1710,9 +1714,9 @@ namespace DLTNode
                 for (int i = 0; i < 2 && transaction.fee != total_tx_fee; i++)
                 {
                     total_tx_fee = transaction.fee;
-                    lock (TransactionPool.pendingTransactions)
+                    lock (PendingTransactions.pendingTransactions)
                     {
-                        fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList(), TransactionPool.pendingTransactions.Select(x => (Transaction)x[0]).ToList());
+                        fromList = Node.walletStorage.generateFromList(primary_address_bytes, to_amount + total_tx_fee, toList.Keys.ToList(), PendingTransactions.pendingTransactions.Select(x => (Transaction)x[0]).ToList());
                     }
                     if (fromList == null || fromList.Count == 0)
                     {
@@ -1744,6 +1748,14 @@ namespace DLTNode
 
             // the transaction appears valid
             return transaction;
+        }
+
+        // Returns an empty PoW block based on the search algorithm provided as a parameter
+        private JsonResponse onGetWalletBackup(HttpListenerRequest request)
+        {
+            List<byte> wallet = new List<byte>();
+            wallet.AddRange(Node.walletStorage.getRawWallet());
+            return new JsonResponse { result = "IXIHEX" + Crypto.hashToString(wallet.ToArray()), error = null };
         }
     }
 }

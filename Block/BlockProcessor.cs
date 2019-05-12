@@ -423,7 +423,7 @@ namespace DLT
 
         private bool onSuperBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
-            if(b.version < 4) // super blocks were supported with block v4
+            if(b.version < 5) // super blocks were supported with block v5
             {
                 return true;
             }
@@ -1885,7 +1885,7 @@ namespace DLT
                     return false;
                 }
 
-                if(b.version > 3 && b.lastSuperBlockChecksum != null)
+                if(b.version > 4 && b.lastSuperBlockChecksum != null)
                 {
                     super_block.lastSuperBlockNum = b.blockNum;
                     super_block.lastSuperBlockChecksum = b.blockChecksum;
@@ -1965,7 +1965,7 @@ namespace DLT
                     localNewBlock.signatureFreezeChecksum = getSignatureFreeze(localNewBlock.blockNum - 5);
                 }
 
-                if (localNewBlock.version > 3 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
+                if (localNewBlock.version > 4 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
                 {
                     // superblock
 

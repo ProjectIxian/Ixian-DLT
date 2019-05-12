@@ -815,12 +815,19 @@ namespace DLT
                                             //endpoint.setLegacy(true);
                                         }
 
-                                        int challenge_response_len = reader.ReadInt32();
-                                        byte[] challenge_response = reader.ReadBytes(challenge_response_len);
-                                        if(!CryptoManager.lib.verifySignature(endpoint.challenge, endpoint.serverPubKey, challenge_response))
+                                        try
                                         {
-                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.authFailed, string.Format("Invalid challenge response."), "", true);
-                                            return;
+                                            // TODO TODO TODO TODO TODO try/catch wrapper will be removed when everybody upgrades
+                                            int challenge_response_len = reader.ReadInt32();
+                                            byte[] challenge_response = reader.ReadBytes(challenge_response_len);
+                                            if (!CryptoManager.lib.verifySignature(endpoint.challenge, endpoint.serverPubKey, challenge_response))
+                                            {
+                                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.authFailed, string.Format("Invalid challenge response."), "", true);
+                                                return;
+                                            }
+                                        }catch(Exception e)
+                                        {
+
                                         }
 
 

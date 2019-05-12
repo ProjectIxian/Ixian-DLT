@@ -550,7 +550,7 @@ namespace DLT
         {
             Block last_block = Node.getLastBlock();
 
-            if(last_block.version < 4)
+            if(last_block.version < 5)
             {
                 return;
             }

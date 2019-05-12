@@ -15,8 +15,6 @@ namespace DLT
     {
         public static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
 
-        public static List<object[]> pendingTransactions = new List<object[]>();
-
         static TransactionPool()
         {
         }
@@ -233,14 +231,7 @@ namespace DLT
                 return false;
             }
 
-            lock (pendingTransactions)
-            {
-                object[] pending = pendingTransactions.Find(x => ((Transaction)x[0]).id.SequenceEqual(transaction.id));
-                if (pending != null)
-                {
-                    pending[2] = (int)pending[2] + 1;
-                }
-            }
+            PendingTransactions.increaseReceivedCount(transaction.id);
 
             lock (transactions)
             {
@@ -503,10 +494,7 @@ namespace DLT
                         {
                             ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
                         }
-                        lock (pendingTransactions)
-                        {
-                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
-                        }
+                        PendingTransactions.remove(t.id);
                     }
 
                     if (t.applied == 0)
@@ -515,10 +503,7 @@ namespace DLT
                         return false;
                     }
 
-                    lock(pendingTransactions)
-                    {
-                        pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
-                    }
+                    PendingTransactions.remove(t.id);
 
                     if (add_to_storage)
                     {
@@ -2249,26 +2234,17 @@ namespace DLT
             }
         }
 
-        public static void addPendingLocalTransaction(Transaction t)
-        {
-            lock (pendingTransactions)
-            {
-                if (!pendingTransactions.Exists(x => ((Transaction)x[0]).id.SequenceEqual(t.id)))
-                {
-                    pendingTransactions.Add(new object[4] { t, Clock.getTimestamp(), 0, false });
-                }
-            }
-        }
 
         public static void processPendingTransactions()
         {
+            // TODO TODO this has to be refactored and moved to PendingTransactions
             ulong last_block_height = Node.getLastBlockHeight();
             lock (transactions) // this lock must be here to prevent deadlocks TODO: improve this at some point
             {
-                lock (pendingTransactions)
+                lock (PendingTransactions.pendingTransactions)
                 {
                     long cur_time = Clock.getTimestamp();
-                    List<object[]> tmp_pending_transactions = new List<object[]>(pendingTransactions);
+                    List<object[]> tmp_pending_transactions = new List<object[]>(PendingTransactions.pendingTransactions);
                     int idx = 0;
                     foreach (var entry in tmp_pending_transactions)
                     {
@@ -2281,7 +2257,7 @@ namespace DLT
 
                         if (t.applied != 0)
                         {
-                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                             continue;
                         }
 
@@ -2289,7 +2265,7 @@ namespace DLT
                         if (last_block_height > CoreConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - CoreConfig.getRedactedWindowSize())
                         {
                             ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                            pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                             continue;
                         }
 
@@ -2302,7 +2278,7 @@ namespace DLT
                             if (tmpBlock == null || tmpBlock.powField != null)
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                                pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                                PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                                 continue;
                             }
                         }
@@ -2312,28 +2288,28 @@ namespace DLT
                             if (getTransaction(t.id) == null && !verifyTransaction(t))
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                                pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                                PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
                                 continue;
                             }
                         }
 
-                        if ((bool)pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
+                        if ((bool)PendingTransactions.pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
                         {
                             ProtocolMessage.broadcastGetTransaction(t.id, 0);
-                            pendingTransactions[idx][3] = true;
+                            PendingTransactions.pendingTransactions[idx][3] = true;
                         }
 
                         if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                         {
                             CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes(), null);
-                            pendingTransactions[idx][1] = cur_time;
+                            PendingTransactions.pendingTransactions[idx][1] = cur_time;
                         }
                         idx++;
                     }
                 }
             }
         }
-        
+
         public static long getTransactionCount()
         {
             lock(transactions)
@@ -2360,33 +2336,6 @@ namespace DLT
                 return transactions.Remove(txid);
             }
         }
-
-        public static long pendingTransactionCount()
-        {
-            lock(pendingTransactions)
-            {
-                return pendingTransactions.LongCount();
-            }
-        }
-
-        public static IxiNumber getPendingSendingTransactionsAmount(byte[] primary_address)
-        {
-            IxiNumber amount = 0;
-            lock (pendingTransactions)
-            {
-                List<object[]> txs = pendingTransactions.FindAll(x => ((Transaction)x[0]).type == (int)Transaction.Type.Normal);
-                foreach (var entry in txs)
-                {
-                    Transaction tx = (Transaction)entry[0];
-                    if (primary_address == null || (new Address(tx.pubKey)).address.SequenceEqual(primary_address))
-                    {
-                        amount += tx.amount;
-                    }
-                }
-            }
-            return amount;
-        }
-
 
         // Returns a list of transactions connected to this block 
         public static List<Transaction> getFullBlockTransactions(Block block)
