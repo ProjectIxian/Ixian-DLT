@@ -412,7 +412,7 @@ namespace DLTNode
 
             string to = request.QueryString["to"];
 
-            NetworkClientManager.connectTo(to);
+            NetworkClientManager.connectTo(to, null);
 
             return new JsonResponse { result = string.Format("Connecting to node {0}", to), error = error };
         }

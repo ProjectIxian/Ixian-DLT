@@ -735,7 +735,22 @@ namespace DLT
                                 {
                                     if (CoreProtocolMessage.processHelloMessage(endpoint, reader))
                                     {
-                                        CoreProtocolMessage.sendHelloMessage(endpoint, true);
+                                        byte[] challenge_response = null;
+                                        try
+                                        {
+                                            // TODO TODO TODO TODO TODO try/catch wrapper will be removed when everybody upgrades
+                                            int challenge_len = reader.ReadInt32();
+                                            byte[] challenge = reader.ReadBytes(challenge_len);
+
+                                            challenge_response = CryptoManager.lib.getSignature(challenge, Node.walletStorage.getPrimaryPrivateKey());
+                                        }
+                                        catch (Exception e)
+                                        {
+
+                                        }
+
+
+                                        CoreProtocolMessage.sendHelloMessage(endpoint, true, challenge_response);
                                         endpoint.helloReceived = true;
                                         return;
                                     }
@@ -756,9 +771,12 @@ namespace DLT
                                             CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.expectingMaster, string.Format("Expecting master node."), "", true);
                                             return;
                                         }
+
                                         ulong last_block_num = reader.ReadUInt64();
+
                                         int bcLen = reader.ReadInt32();
                                         byte[] block_checksum = reader.ReadBytes(bcLen);
+
                                         int wsLen = reader.ReadInt32();
 
                                         if(last_block_num <= Node.getLastBlockHeight())
@@ -795,6 +813,14 @@ namespace DLT
                                         {
                                             // TODO TODO TODO TODO check this out
                                             //endpoint.setLegacy(true);
+                                        }
+
+                                        int challenge_response_len = reader.ReadInt32();
+                                        byte[] challenge_response = reader.ReadBytes(challenge_response_len);
+                                        if(!CryptoManager.lib.verifySignature(endpoint.challenge, endpoint.serverPubKey, challenge_response))
+                                        {
+                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.authFailed, string.Format("Invalid challenge response."), "", true);
+                                            return;
                                         }
 
 
