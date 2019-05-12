@@ -1750,8 +1750,13 @@ namespace DLT
             ulong total_transactions = 1;
             IxiNumber total_amount = 0;
 
-            List<Transaction> pool_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
-            pool_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
+            List<Transaction> unapplied_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
+            unapplied_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
+
+            List<Transaction> pool_transactions = unapplied_transactions.Where(x => x.type == (int)Transaction.Type.PoWSolution).ToList<Transaction>(); // add PoW first
+            pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.ChangeMultisigWallet)); // then add MS wallet changes
+            pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.MultisigTX)); // then add MS TXs
+            pool_transactions.AddRange(unapplied_transactions.Where(x => x.type != (int)Transaction.Type.PoWSolution && x.type != (int)Transaction.Type.ChangeMultisigWallet && x.type != (int)Transaction.Type.MultisigTX)); // finally add all other TXs
 
             ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
 

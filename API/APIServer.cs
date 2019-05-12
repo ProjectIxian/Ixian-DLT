@@ -287,17 +287,17 @@ namespace DLTNode
 
             if (methodName.Equals("tx", StringComparison.OrdinalIgnoreCase))
             {
-                response = onTx();
+                response = onTx(request);
             }
 
             if (methodName.Equals("txu", StringComparison.OrdinalIgnoreCase))
             {
-                response = onTxu();
+                response = onTxu(request);
             }
 
             if (methodName.Equals("txa", StringComparison.OrdinalIgnoreCase))
             {
-                response = onTxa();
+                response = onTxa(request);
             }
 
             if (methodName.Equals("status", StringComparison.OrdinalIgnoreCase))
@@ -1152,11 +1152,23 @@ namespace DLTNode
             return new JsonResponse { result = res, error = error };
         }
 
-        public JsonResponse onTx()
+        public JsonResponse onTx(HttpListenerRequest request)
         {
             JsonError error = null;
 
-            Transaction[] transactions = TransactionPool.getLastTransactions();
+            string fromIndex = request.QueryString["fromIndex"];
+            if (fromIndex == null)
+            {
+                fromIndex = "0";
+            }
+
+            string count = request.QueryString["count"];
+            if (count == null)
+            {
+                count = "50";
+            }
+
+            Transaction[] transactions = TransactionPool.getLastTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -1168,11 +1180,23 @@ namespace DLTNode
             return new JsonResponse { result = tx_list, error = error };
         }
 
-        public JsonResponse onTxu()
+        public JsonResponse onTxu(HttpListenerRequest request)
         {
             JsonError error = null;
 
-            Transaction[] transactions = TransactionPool.getUnappliedTransactions();
+            string fromIndex = request.QueryString["fromIndex"];
+            if (fromIndex == null)
+            {
+                fromIndex = "0";
+            }
+
+            string count = request.QueryString["count"];
+            if (count == null)
+            {
+                count = "50";
+            }
+
+            Transaction[] transactions = TransactionPool.getUnappliedTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -1184,11 +1208,23 @@ namespace DLTNode
             return new JsonResponse { result = tx_list, error = error };
         }
 
-        public JsonResponse onTxa()
+        public JsonResponse onTxa(HttpListenerRequest request)
         {
             JsonError error = null;
 
-            Transaction[] transactions = TransactionPool.getAppliedTransactions();
+            string fromIndex = request.QueryString["fromIndex"];
+            if (fromIndex == null)
+            {
+                fromIndex = "0";
+            }
+
+            string count = request.QueryString["count"];
+            if (count == null)
+            {
+                count = "50";
+            }
+
+            Transaction[] transactions = TransactionPool.getAppliedTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
