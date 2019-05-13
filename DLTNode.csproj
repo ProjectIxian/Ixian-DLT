@@ -133,6 +133,25 @@
   <Import Project="packages\SQLitePCLRaw.lib.e_sqlite3.v110_xp.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.v110_xp.targets" Condition="Exists('packages\SQLitePCLRaw.lib.e_sqlite3.v110_xp.1.1.11\build\net35\SQLitePCLRaw.lib.e_sqlite3.v110_xp.targets')" />
   <Import Project="packages\RocksDbNative.5.17.2\build\RocksDbNative.targets" Condition="Exists('packages\RocksDbNative.5.17.2\build\RocksDbNative.targets')" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /E /Y $(SolutionDir)\..\IxianCore\html html\</PostBuildEvent>
+    <PostBuildEvent></PostBuildEvent>
   </PropertyGroup>
+<Target Name="AfterBuild">
+    <ItemGroup>
+        <IXIPB1 Include="$(SolutionDir)\..\IxianCore\html\*.*" />
+    </ItemGroup>
+    <ItemGroup>
+        <IXIPB2 Include="$(SolutionDir)\..\IxianCore\html\img\*.*" />
+    </ItemGroup>
+    <ItemGroup>
+        <IXIPB3 Include="$(SolutionDir)\..\IxianCore\html\css\*.*" />
+    </ItemGroup>
+    <ItemGroup>
+        <IXIPB4 Include="$(SolutionDir)\..\IxianCore\html\js\*.*" />
+    </ItemGroup>
+
+     	<Copy SourceFiles="@(IXIPB1)" DestinationFolder="$(OutputPath)\html" ContinueOnError="true" />
+	<Copy SourceFiles="@(IXIPB2)" DestinationFolder="$(OutputPath)\html\img" ContinueOnError="true" />
+	<Copy SourceFiles="@(IXIPB3)" DestinationFolder="$(OutputPath)\html\css" ContinueOnError="true" />
+	<Copy SourceFiles="@(IXIPB4)" DestinationFolder="$(OutputPath)\html\js" ContinueOnError="true" />
+</Target>
 </Project>
