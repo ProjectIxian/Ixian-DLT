@@ -211,10 +211,10 @@ namespace DLT
                             publicServerIP = value;
                             break;
                         case "addPeer":
-                            Network.CoreNetworkUtils.seedNodes.Add(value);
+                            Network.CoreNetworkUtils.seedNodes.Add(new string[2] { value, null });
                             break;
                         case "addTestnetPeer":
-                            Network.CoreNetworkUtils.seedTestNetNodes.Add(value);
+                            Network.CoreNetworkUtils.seedTestNetNodes.Add(new string[2] { value, null });
                             break;
                         case "maxLogSize":
                             maxLogSize = int.Parse(value);
@@ -404,16 +404,16 @@ namespace DLT
                 {
                     if (isTestNet)
                     {
-                        Network.CoreNetworkUtils.seedTestNetNodes = new List<string>
+                        Network.CoreNetworkUtils.seedTestNetNodes = new List<string[]>
                         {
-                            seedNode
+                            new string[2] { seedNode, null }
                         };
                     }
                     else
                     {
-                        Network.CoreNetworkUtils.seedNodes = new List<string>
+                        Network.CoreNetworkUtils.seedNodes = new List<string[]>
                         {
-                            seedNode
+                            new string[2] { seedNode, null }
                         };
                     }
                 }
