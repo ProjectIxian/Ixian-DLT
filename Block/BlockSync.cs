@@ -407,6 +407,18 @@ namespace DLT
                     }
                     b = new Block(b);
 
+                    if (b.version > Block.maxVersion)
+                    {
+                        Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
+                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                        Node.blockProcessor.networkUpgraded = true;
+                        sleep = true;
+                        break;
+                    }else
+                    {
+                        Node.blockProcessor.networkUpgraded = false;
+                    }
+
 
                     if (next_to_apply > 5)
                     {

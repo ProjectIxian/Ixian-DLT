@@ -1780,6 +1780,10 @@ namespace DLTNode
                 // fee is taken from the first specified address
                 byte[] first_address = fromList.Keys.First();
                 fromList[first_address] = fromList[first_address] + transaction.fee;
+                if (fromList[first_address] > Node.walletState.getWalletBalance((new Address(transaction.pubKey, first_address)).address))
+                {
+                    return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_WALLET_INSUFFICIENT_FUNDS, message = "Balance is too low" } };
+                }
                 transaction = new Transaction((int)Transaction.Type.Normal, fee, toList, fromList, null, pubKey, Node.getHighestKnownNetworkBlockHeight(), -1, sign_transaction);
             }
             //Logging.info(String.Format("Transaction size after automatic adjustments: {0}.", transaction.getBytes().Length));

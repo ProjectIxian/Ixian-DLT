@@ -226,7 +226,7 @@ namespace DLT.Meta
 
         static private void distributeGenesisFunds(IxiNumber genesisFunds)
         {
-            blockChain.setLastBlockVersion(Block.maxVersion);
+            blockChain.setLastBlockVersion(Config.maxBlockVersionToGenerate);
 
             byte[] from = CoreConfig.ixianInfiniMineAddress;
 

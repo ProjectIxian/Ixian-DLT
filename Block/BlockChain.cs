@@ -342,6 +342,10 @@ namespace DLT
                     total_consensus += b.getSignatureCount();
                     block_count++;
                 }
+                if(block_count == 0)
+                {
+                    return 1000;
+                }
                 int consensus = (int)Math.Ceiling(total_consensus / block_count * CoreConfig.networkConsensusRatio);
                 if (consensus < 2)
                 {

@@ -61,12 +61,12 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.4-dev"; // DLT Node version
+            public static readonly string version = "xdc-0.6.4RC1"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
             public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
-            public static readonly ulong compileTimeBlockNumber = 413600;
+            public static readonly ulong compileTimeBlockNumber = 513600;
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
@@ -82,6 +82,8 @@ namespace DLT
 
             // internal
             public static bool changePass = false;
+
+            public static int maxBlockVersionToGenerate = 3;
 
             private Config()
             {

@@ -118,7 +118,7 @@ namespace DLT
                             // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
                         }
 
-                        int block_version = 3;
+                        int block_version = Config.maxBlockVersionToGenerate;
 
                         bool generateNextBlock = Node.forceNextBlock;
                         Random rnd = new Random();
@@ -643,16 +643,8 @@ namespace DLT
             if(b.version > Block.maxVersion)
             {
                 Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
-                if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus())
-                {
-                    networkUpgraded = true;
-                }
+                networkUpgraded = true;
                 return BlockVerifyStatus.IndeterminateVersionUpgradeBlock;
-            }
-
-            if(b.version < Node.getLastBlockVersion())
-            {
-                return BlockVerifyStatus.PotentiallyForkedBlock;
             }
 
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
@@ -757,10 +749,18 @@ namespace DLT
                 }
             }
 
-            // verify difficulty
             if (lastBlockNum + 1 == b.blockNum)
             {
-                if(Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0 || Node.blockChain.Count >= (long)CoreConfig.getRedactedWindowSize())
+                networkUpgraded = false;
+
+                // verify block version, it should never be lower than the previous block
+                if (b.version < Node.getLastBlockVersion())
+                {
+                    return BlockVerifyStatus.PotentiallyForkedBlock;
+                }
+
+                // verify difficulty
+                if (Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0 || Node.blockChain.Count >= (long)CoreConfig.getRedactedWindowSize())
                 {
                     //Logging.info("Verifying difficulty for #" + b.blockNum);
                     ulong expectedDifficulty = calculateDifficulty(b.version);
