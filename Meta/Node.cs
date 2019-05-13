@@ -44,6 +44,8 @@ namespace DLT.Meta
         private static DateTime lastIsolateTime;
         private static ThreadLiveCheck TLC;
 
+        public static string shutdownMessage = "";
+
         // Perform basic initialization of node
         static public void init()
         {
@@ -475,7 +477,8 @@ namespace DLT.Meta
             {
                 Config.verboseConsoleOutput = true;
                 Logging.consoleOutput = true;
-                Logging.error(string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.compileTimeBlockNumber + Config.deprecationBlockOffset));
+                shutdownMessage = string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
+                Logging.error(shutdownMessage);
                 forceShutdown = true;
                 running = false;
                 return running;

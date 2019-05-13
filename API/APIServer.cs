@@ -1402,7 +1402,21 @@ namespace DLTNode
                 count = "50";
             }
 
-            List<Activity> res = ActivityStorage.getActivitiesBySeedHash(Node.walletStorage.getSeedHash(), Int32.Parse(fromIndex), Int32.Parse(count), true);
+            int type = -1;
+            if(request.QueryString["type"] != null)
+            {
+                type = Int32.Parse(request.QueryString["type"]);
+            }
+
+            List<Activity> res = null;
+
+            if (type == -1)
+            {
+                res = ActivityStorage.getActivitiesBySeedHash(Node.walletStorage.getSeedHash(), Int32.Parse(fromIndex), Int32.Parse(count), true);
+            }else
+            {
+                res = ActivityStorage.getActivitiesBySeedHashAndType(Node.walletStorage.getSeedHash(), (ActivityType) type, Int32.Parse(fromIndex), Int32.Parse(count), true);
+            }
 
             return new JsonResponse { result = res, error = error };
         }

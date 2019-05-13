@@ -1753,6 +1753,7 @@ namespace DLT
             List<Transaction> unapplied_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
             unapplied_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
 
+            // TODO TODO optimize this
             List<Transaction> pool_transactions = unapplied_transactions.Where(x => x.type == (int)Transaction.Type.PoWSolution).ToList<Transaction>(); // add PoW first
             pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.ChangeMultisigWallet)); // then add MS wallet changes
             pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.MultisigTX)); // then add MS TXs

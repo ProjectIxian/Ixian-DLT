@@ -151,6 +151,62 @@ namespace DLT
             return true;
         }
 
+        public static bool verifyPremineTransaction(Transaction transaction)
+        {
+            ulong block_height = Node.getLastBlockHeight();
+            if(block_height > 5256000)
+            {
+                return true;
+            }
+
+            List<byte[]> premine_addresses = new List<byte[]>();
+            premine_addresses.Add(Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"));
+            premine_addresses.Add(Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"));
+            byte[] tx_address = (new Address(transaction.pubKey)).address;
+            foreach (byte[] premine_address in premine_addresses)
+            {
+                if (tx_address.SequenceEqual(premine_address))
+                {
+                    IxiNumber cur_balance = Node.walletState.getWalletBalance(premine_address);
+                    if (block_height < 1051200)
+                    {
+                        if(cur_balance - transaction.amount - transaction.fee < new IxiNumber("900000000"))
+                        {
+                            return false;
+                        }
+                    }else if(block_height < 2102400)
+                    {
+                        if (cur_balance - transaction.amount - transaction.fee < new IxiNumber("800000000"))
+                        {
+                            return false;
+                        }
+                    }
+                    else if (block_height < 3153600)
+                    {
+                        if (cur_balance - transaction.amount - transaction.fee < new IxiNumber("600000000"))
+                        {
+                            return false;
+                        }
+                    }
+                    else if (block_height < 4204800)
+                    {
+                        if (cur_balance - transaction.amount - transaction.fee < new IxiNumber("400000000"))
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        if (cur_balance - transaction.amount - transaction.fee < new IxiNumber("200000000"))
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
         public static bool verifyTransaction(Transaction transaction)
         {
             ulong blocknum = Node.blockChain.getLastBlockNum();
@@ -469,6 +525,12 @@ namespace DLT
             {
                 // Transaction signature is invalid
                 Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
+                return false;
+            }
+
+            if(!verifyPremineTransaction(transaction))
+            {
+                Logging.warn("Cannot spend so much premine yet, txid: {0}", transaction.id);
                 return false;
             }
             /*sw.Stop();
@@ -1953,6 +2015,13 @@ namespace DLT
             if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
             {
                 Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                failed_transactions.Add(tx);
+                return false;
+            }
+
+            if(!verifyPremineTransaction(tx))
+            {
+                Logging.warn(String.Format("Tried to spent too much premine, too early - transaction {0}.", tx.id));
                 failed_transactions.Add(tx);
                 return false;
             }

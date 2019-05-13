@@ -198,8 +198,8 @@ namespace DLTNode
             {
                 Console.WriteLine("Ixian DLT is stopping...");
             }
-            onStop();
 
+            onStop();
         }
 
         static void onStart(string[] args)
@@ -417,6 +417,11 @@ namespace DLTNode
             {
                 Console.WriteLine("");
                 Console.WriteLine("Ixian DLT Node stopped.");
+                Console.WriteLine("");
+
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(Node.shutdownMessage);
+                Console.ResetColor();
             }
         }
 
