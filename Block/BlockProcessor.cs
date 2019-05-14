@@ -118,7 +118,11 @@ namespace DLT
                             // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
                         }
 
-                        int block_version = Config.maxBlockVersionToGenerate;
+                        int block_version = Node.blockChain.getLastBlockVersion();
+                        if(block_version < Config.maxBlockVersionToGenerate)
+                        {
+                            block_version = Config.maxBlockVersionToGenerate;
+                        }
 
                         bool generateNextBlock = Node.forceNextBlock;
                         Random rnd = new Random();
