@@ -45,7 +45,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(ProjectDir)include;$(IncludePath)</IncludePath>
     <TargetExt>.dll</TargetExt>
-    <OutDir>$(SolutionDir)bin\Debug</OutDir>
+    <OutDir>$(SolutionDir)IxianDLT\bin\Debug</OutDir>
     <TargetName>libargon2</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
