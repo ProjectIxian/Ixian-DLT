@@ -26,8 +26,6 @@ namespace DLT
             public static bool disableMiner = false; // Flag to disable miner
             public static bool workerOnly = false; // Flag to disable masternode capability
 
-            public static bool verboseConsoleOutput = false; // Flag for verbose console output
-
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
             public static string genesis2Address = ""; // For a secondary genesis node
            

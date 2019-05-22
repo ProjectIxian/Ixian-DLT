@@ -10,6 +10,7 @@ using System.Threading;
 using System.Diagnostics;
 using System.IO;
 using IXICore;
+using IXICore.Utils;
 
 namespace DLTNode
 {
@@ -171,8 +172,8 @@ namespace DLTNode
             Logging.start();
 
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
-                Config.verboseConsoleOutput = true;
-                Logging.consoleOutput = Config.verboseConsoleOutput;
+                ConsoleHelpers.verboseConsoleOutput = true;
+                Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
                 e.Cancel = true;
                 Node.forceShutdown = true;
             };
@@ -204,8 +205,8 @@ namespace DLTNode
 
         static void onStart(string[] args)
         {
-            bool verboseConsoleOutputSetting = Config.verboseConsoleOutput;
-            Config.verboseConsoleOutput = true;
+            bool verboseConsoleOutputSetting = ConsoleHelpers.verboseConsoleOutput;
+            ConsoleHelpers.verboseConsoleOutput = true;
 
             Console.WriteLine(string.Format("IXIAN DLT {0}", Config.version));
 
@@ -316,7 +317,7 @@ namespace DLTNode
             mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
             mainLoopTimer.Start();
 
-            if (Config.verboseConsoleOutput)
+            if (ConsoleHelpers.verboseConsoleOutput)
                 Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
 
         }
@@ -334,10 +335,10 @@ namespace DLTNode
                 }
                 else if (key.Key == ConsoleKey.V)
                 {
-                    Config.verboseConsoleOutput = !Config.verboseConsoleOutput;
-                    Logging.consoleOutput = Config.verboseConsoleOutput;
-                    Console.CursorVisible = Config.verboseConsoleOutput;
-                    if (Config.verboseConsoleOutput == false)
+                    ConsoleHelpers.verboseConsoleOutput = !ConsoleHelpers.verboseConsoleOutput;
+                    Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
+                    Console.CursorVisible = ConsoleHelpers.verboseConsoleOutput;
+                    if (ConsoleHelpers.verboseConsoleOutput == false)
                         Node.statsConsoleScreen.clearScreen();
                 }               
                 else if (key.Key == ConsoleKey.H)
@@ -358,8 +359,8 @@ namespace DLTNode
                 }
                 else if(key.Key == ConsoleKey.Escape)
                 {
-                    Config.verboseConsoleOutput = true;
-                    Logging.consoleOutput = Config.verboseConsoleOutput;
+                    ConsoleHelpers.verboseConsoleOutput = true;
+                    Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
                     Node.forceShutdown = true;
                 }
                 else if (key.Key == ConsoleKey.M)
@@ -367,7 +368,7 @@ namespace DLTNode
                     if (Node.miner != null)
                         Node.miner.pause = !Node.miner.pause;
 
-                    if (Config.verboseConsoleOutput == false)
+                    if (ConsoleHelpers.verboseConsoleOutput == false)
                         Node.statsConsoleScreen.clearScreen();
                 }
                 else if (key.Key == ConsoleKey.N)

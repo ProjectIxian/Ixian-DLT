@@ -1,4 +1,5 @@
 ﻿using DLT.Network;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +24,7 @@ namespace DLT.Meta
         {          
             Console.Clear();
 
-            Console.CursorVisible = Config.verboseConsoleOutput;
+            Console.CursorVisible = ConsoleHelpers.verboseConsoleOutput;
 
             // Start thread
             TLC = new ThreadLiveCheck();
@@ -46,7 +47,7 @@ namespace DLT.Meta
             while (running)
             {
                 TLC.Report();
-                if (Config.verboseConsoleOutput == false)
+                if (ConsoleHelpers.verboseConsoleOutput == false)
                 {
                     // Clear the screen every 10 seconds to prevent any persisting visual artifacts
                     if (drawCycle > 5)
@@ -119,7 +120,7 @@ namespace DLT.Meta
             {
                 // If the server is running, show the number of inbound connections
                 connectionsIn = NetworkServer.getConnectedClients().Count();
-                if (!NetworkServer.isConnectable() && connectionsOut <= 1)
+                if (!NetworkServer.isConnectable() && connectionsOut == 0)
                 {
                     connectionsInStr = "Not connectable";
                 }

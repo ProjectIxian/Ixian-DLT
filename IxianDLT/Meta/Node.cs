@@ -339,10 +339,10 @@ namespace DLT.Meta
             NetworkQueue.start();
 
             // prepare stats screen
-            Config.verboseConsoleOutput = verboseConsoleOutput;
+            ConsoleHelpers.verboseConsoleOutput = verboseConsoleOutput;
             Logging.consoleOutput = verboseConsoleOutput;
             Logging.flush();
-            if (Config.verboseConsoleOutput == false)
+            if (ConsoleHelpers.verboseConsoleOutput == false)
             {
                 statsConsoleScreen.clearScreen();
             }
@@ -475,7 +475,7 @@ namespace DLT.Meta
             // Check for node deprecation
             if (checkCurrentBlockDeprecation(Node.blockChain.getLastBlockNum()) == false)
             {
-                Config.verboseConsoleOutput = true;
+                ConsoleHelpers.verboseConsoleOutput = true;
                 Logging.consoleOutput = true;
                 shutdownMessage = string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
                 Logging.error(shutdownMessage);

@@ -841,7 +841,7 @@ namespace DLT
 
             //   Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
             //Console.WriteLine("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount);
-            if (Config.verboseConsoleOutput)
+            if (ConsoleHelpers.verboseConsoleOutput)
                 Console.Write("$");
 
             if (Node.blockSync.synchronizing == true)
