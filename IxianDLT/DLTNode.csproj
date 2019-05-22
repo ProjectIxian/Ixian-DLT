@@ -117,7 +117,7 @@
   <ItemGroup>
     <Content Include="IxianDLT.ico" />
   </ItemGroup>
-  <Import Project="..\IxianCore\IXICore.projitems" Label="Shared" />
+  <Import Project="..\..\Ixian-Core\IXICore.projitems" Label="Shared" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>

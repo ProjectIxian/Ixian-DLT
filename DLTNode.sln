@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DLTNode", "IxianDLT\DLTNode.csproj", "{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "IXICore", "IxianCore\IXICore.shproj", "{80487C64-619A-4B60-97BD-ED7670BF45B3}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "IXICore", "..\Ixian-Core\IXICore.shproj", "{80487C64-619A-4B60-97BD-ED7670BF45B3}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4C02EBEA-117F-47BC-ABD6-375DD2985E9C}"
 	ProjectSection(SolutionItems) = preProject
@@ -16,8 +16,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Argon2_C", "Argon2_C\Argon2
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		IxianCore\IXICore.projitems*{80487c64-619a-4b60-97bd-ed7670bf45b3}*SharedItemsImports = 13
-		IxianCore\IXICore.projitems*{8c63d6b0-5544-4f24-b3b7-818e3a5d896f}*SharedItemsImports = 4
+		..\Ixian-Core\IXICore.projitems*{80487c64-619a-4b60-97bd-ed7670bf45b3}*SharedItemsImports = 13
+		..\Ixian-Core\IXICore.projitems*{8c63d6b0-5544-4f24-b3b7-818e3a5d896f}*SharedItemsImports = 4
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
