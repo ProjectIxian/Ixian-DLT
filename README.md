@@ -77,7 +77,8 @@ sudo yum install mono-complete nuget msbuild git gcc
 
 Next you'll need to build the Ixian solution. You can do this by typing the following commands in the terminal:
 ```
-git clone --recurse-submodules https://github.com/ProjectIxian/Ixian-DLT.git
+git clone https://github.com/ProjectIxian/Ixian-Core.git
+git clone https://github.com/ProjectIxian/Ixian-DLT.git
 cd Ixian-DLT
 nuget restore DLTNode.sln
 msbuild DLTNode.sln /p:Configuration=Release
