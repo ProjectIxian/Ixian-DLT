@@ -112,13 +112,14 @@ namespace DLT.Meta
 
 
             int connectionsIn = 0;
+            int connectionsOut = NetworkClientManager.getConnectedClients().Count();
 
             string connectionsInStr = "-";  // Default to no inbound connections accepted
             if (NetworkServer.isRunning())
             {
                 // If the server is running, show the number of inbound connections
                 connectionsIn = NetworkServer.getConnectedClients().Count();
-                if (!NetworkServer.isConnectable())
+                if (!NetworkServer.isConnectable() && connectionsOut <= 1)
                 {
                     connectionsInStr = "Not connectable";
                 }
@@ -128,7 +129,6 @@ namespace DLT.Meta
                 }
             }
 
-            int connectionsOut = NetworkClientManager.getConnectedClients().Count();
             if (connectionsIn + connectionsOut < 1)
                 dltStatus =     "connecting   ";
 

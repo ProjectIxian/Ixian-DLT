@@ -61,7 +61,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.4"; // DLT Node version
+            public static readonly string version = "xdc-0.6.5-dev"; // DLT Node version
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
@@ -83,7 +83,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 3;
+            public static int maxBlockVersionToGenerate = 4;
 
             private Config()
             {
