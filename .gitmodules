@@ -1,3 +1,3 @@
 [submodule "IxianCore"]
 	path = IxianCore
-	url = git@github.com:ProjectIxian/Ixian-Core.git
+	url = https://github.com/ProjectIxian/Ixian-Core.git
