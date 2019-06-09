@@ -1292,7 +1292,7 @@ namespace DLTNode
             networkArray.Add("Connectable", NetworkServer.isConnectable());
 
             networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
-            networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(0, true)));
+            networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
 
             networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
             networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());

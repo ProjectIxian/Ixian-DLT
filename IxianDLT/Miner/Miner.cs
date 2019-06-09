@@ -263,14 +263,7 @@ namespace DLT
                 }
                 else
                 {
-                    if (activeBlock.version == 1)
-                    {
-                        calculatePow_v1(currentHashCeil);
-                    }
-                    else
-                    {
-                        calculatePow_v2(currentHashCeil);
-                    }
+                    calculatePow_v2(currentHashCeil);
                 }
 
                 // Output mining stats
@@ -316,14 +309,7 @@ namespace DLT
                     continue;
                 }
 
-                if (activeBlock.version == 1)
-                {
-                    calculatePow_v1(currentHashCeil);
-                }
-                else
-                {
-                    calculatePow_v2(currentHashCeil);
-                }
+                calculatePow_v2(currentHashCeil);
             }
         }
 
@@ -854,14 +840,7 @@ namespace DLT
                 using (BinaryWriter writerw = new BinaryWriter(mw))
                 {
                     writerw.Write(activeBlock.blockNum);
-                    if (activeBlock.version == 1)
-                    {
-                        string nonce_hex = ASCIIEncoding.ASCII.GetString(nonce);
-                        writerw.Write(nonce_hex);
-                    }else
-                    {
-                        writerw.Write(Crypto.hashToString(nonce));
-                    }
+                    writerw.Write(Crypto.hashToString(nonce));
                     data = mw.ToArray();
                 }
             }

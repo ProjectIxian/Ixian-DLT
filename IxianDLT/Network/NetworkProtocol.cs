@@ -736,19 +736,11 @@ namespace DLT
                                     if (CoreProtocolMessage.processHelloMessage(endpoint, reader))
                                     {
                                         byte[] challenge_response = null;
-                                        try
-                                        {
-                                            // TODO TODO TODO TODO TODO try/catch wrapper will be removed when everybody upgrades
-                                            int challenge_len = reader.ReadInt32();
-                                            byte[] challenge = reader.ReadBytes(challenge_len);
 
-                                            challenge_response = CryptoManager.lib.getSignature(challenge, Node.walletStorage.getPrimaryPrivateKey());
-                                        }
-                                        catch (Exception e)
-                                        {
+                                        int challenge_len = reader.ReadInt32();
+                                        byte[] challenge = reader.ReadBytes(challenge_len);
 
-                                        }
-
+                                        challenge_response = CryptoManager.lib.getSignature(challenge, Node.walletStorage.getPrimaryPrivateKey());
 
                                         CoreProtocolMessage.sendHelloMessage(endpoint, true, challenge_response);
                                         endpoint.helloReceived = true;
@@ -806,30 +798,16 @@ namespace DLT
                                         int block_version = reader.ReadInt32();
 
                                         // Check for legacy level
-                                        ulong legacy_level = reader.ReadUInt64();
+                                        ulong legacy_level = reader.ReadUInt64(); // deprecated
 
-                                        // Check for legacy node
-                                        if (Legacy.isLegacy(legacy_level))
+
+                                        int challenge_response_len = reader.ReadInt32();
+                                        byte[] challenge_response = reader.ReadBytes(challenge_response_len);
+                                        if (!CryptoManager.lib.verifySignature(endpoint.challenge, endpoint.serverPubKey, challenge_response))
                                         {
-                                            // TODO TODO TODO TODO check this out
-                                            //endpoint.setLegacy(true);
+                                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.authFailed, string.Format("Invalid challenge response."), "", true);
+                                            return;
                                         }
-
-                                        try
-                                        {
-                                            // TODO TODO TODO TODO TODO try/catch wrapper will be removed when everybody upgrades
-                                            int challenge_response_len = reader.ReadInt32();
-                                            byte[] challenge_response = reader.ReadBytes(challenge_response_len);
-                                            if (!CryptoManager.lib.verifySignature(endpoint.challenge, endpoint.serverPubKey, challenge_response))
-                                            {
-                                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.authFailed, string.Format("Invalid challenge response."), "", true);
-                                                return;
-                                            }
-                                        }catch(Exception e)
-                                        {
-
-                                        }
-
 
                                         ulong highest_block_height = Node.getHighestKnownNetworkBlockHeight();
                                         if (last_block_num + 10 < highest_block_height)

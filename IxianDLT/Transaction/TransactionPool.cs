@@ -1087,7 +1087,7 @@ namespace DLT
 
                 byte[] primary_address = (new Address(tx.pubKey)).address;
 
-                if (block.version == 0)
+                if (block.version == BlockVer.v0)
                 {
                     // Verify the nonce
                     if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v0(nonce, blocknum, primary_address, block.difficulty))
@@ -1095,7 +1095,7 @@ namespace DLT
                         return true;
                     }
                 }
-                else if (block.version == 1)
+                else if (block.version == BlockVer.v1)
                 {
                     // Verify the nonce
                     if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v1(nonce, blocknum, primary_address, block.difficulty))
@@ -1332,7 +1332,7 @@ namespace DLT
                     }
 
 
-                    if(block.version >= 3)
+                    if(block.version >= BlockVer.v3)
                     {
                         byte[] tmp_address = (new Address(tx.pubKey)).address;
                         // Update the walletstate public key
@@ -1366,7 +1366,7 @@ namespace DLT
                         continue;
                     }
 
-                    if (block.version < 3)
+                    if (block.version < BlockVer.v3)
                     {
                         byte[] tmp_address = (new Address(tx.pubKey)).address;
                         // Update the walletstate public key
@@ -1517,7 +1517,7 @@ namespace DLT
                     blockSolutionsDictionary[powBlockNum] = new List<object[]>();
                 }
                 byte[] primary_address = (new Address(tx.pubKey)).address;
-                if (block.version < 2)
+                if (block.version < BlockVer.v2)
                 {
                     blockSolutionsDictionary[powBlockNum].Add(new object[3] { primary_address, nonce, tx });
                 }

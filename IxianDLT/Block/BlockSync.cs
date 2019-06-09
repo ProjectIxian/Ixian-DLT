@@ -529,12 +529,20 @@ namespace DLT
                             if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                             {
                                 Node.blockProcessor.applyAcceptedBlock(b);
-                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum(b.version);
-                                if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+
+                                if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                                 {
-                                    Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                    handleWatchDog(true);
-                                    return;
+                                    // skip WS checksum check
+                                }
+                                else
+                                {
+                                    byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                    if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                    {
+                                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                        handleWatchDog(true);
+                                        return;
+                                    }
                                 }
                                 if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
                                 {
@@ -546,14 +554,21 @@ namespace DLT
                         {
                             if (syncToBlock == b.blockNum)
                             {
-                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum(b.version);
-                                if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                                 {
-                                    Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
-                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                    requestBlockAgain(b.blockNum);
-                                    handleWatchDog(true);
-                                    return;
+                                    // skip WS checksum check
+                                }
+                                else
+                                {
+                                    byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                    if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                    {
+                                        Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
+                                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                        requestBlockAgain(b.blockNum);
+                                        handleWatchDog(true);
+                                        return;
+                                    }
                                 }
                             }
                         }
@@ -632,11 +647,18 @@ namespace DLT
         private bool verifyLastBlock()
         {
             Block b = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
-            if(!b.walletStateChecksum.SequenceEqual(Node.walletState.calculateWalletStateChecksum(b.version)))
+            if (b != null && b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
             {
-                // TODO TODO TODO resync?
-                Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum())));
-                return false;
+                // skip WS checksum check
+            }
+            else
+            {
+                if (!b.walletStateChecksum.SequenceEqual(Node.walletState.calculateWalletStateChecksum()))
+                {
+                    // TODO TODO TODO resync?
+                    Logging.error(String.Format("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum())));
+                    return false;
+                }
             }
 
             resetWatchDog(0);
@@ -951,15 +973,10 @@ namespace DLT
                     {
                         Node.walletState.clear();
                         wsSynced = true;
-                    }
-                    else
+                    }else
                     {
-                        int tmp_block_version = block_version;
-                        if(walletstate_checksum.Length == 32)
-                        {
-                            tmp_block_version = 2;
-                        }
-                        if (Node.walletState.calculateWalletStateChecksum(tmp_block_version).SequenceEqual(walletstate_checksum))
+                        Node.walletState.setCachedBlockVersion(block_version);
+                        if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
                         {
                             wsSyncConfirmedBlockNum = block_height;
                             wsSynced = true;
@@ -1023,16 +1040,22 @@ namespace DLT
                 else
                 {
                     Block b = Node.blockChain.getBlock(wsSyncConfirmedBlockNum, true);
-                    int block_version = Block.maxVersion;
                     if (b != null)
                     {
-                        block_version = b.version;
-                        if (b.walletStateChecksum.Length == 32)
+                        if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                         {
-                            block_version = 2;
+                            // skip WS checksum check
+                        }else
+                        {
+                            int block_version = b.version;
+                            Node.walletState.setCachedBlockVersion(block_version);
+                            if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
+                            {
+                                b = null;
+                            }
                         }
                     }
-                    if (b == null || !Node.walletState.calculateWalletStateChecksum(block_version).SequenceEqual(b.walletStateChecksum))
+                    if(b == null)
                     {
                         Logging.error("BlockSync WatchDog: Wallet state mismatch");
                         return;

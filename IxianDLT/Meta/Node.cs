@@ -51,9 +51,6 @@ namespace DLT.Meta
         {
             running = true;
             
-            // Upgrade any legacy files
-            NodeLegacy.upgrade();
-
             // Load or Generate the wallet
             if(!initWallet())
             {

@@ -427,7 +427,7 @@ namespace DLT
 
         private bool onSuperBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
-            if(b.version < 5) // super blocks were supported with block v5
+            if(b.version < BlockVer.v5) // super blocks were supported with block v5
             {
                 return true;
             }
@@ -836,7 +836,7 @@ namespace DLT
                 }
 
                 // lock transaction v1 with block v2
-                if (b.version < 2)
+                if (b.version < BlockVer.v2)
                 {
                     if (t.version > 1)
                     {
@@ -844,7 +844,7 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version == 2)
+                else if (b.version == BlockVer.v2)
                 {
                     if (t.version < 1 || t.version > 2)
                     {
@@ -852,7 +852,7 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version > 2)
+                else if (b.version > BlockVer.v2)
                 {
                     if (t.version < 2 || t.version > 3)
                     {
@@ -1044,27 +1044,26 @@ namespace DLT
 
                 lock (localBlockLock)
                 {
+                    ulong last_block_num = Node.blockChain.getLastBlockNum();
                     // ignore wallet state check if it isn't the current block
-                    if (b.blockNum < Node.blockChain.getLastBlockNum())
+                    if (b.blockNum <= last_block_num)
                     {
                         Logging.info(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
                     }
-                    else if (b.blockNum == Node.blockChain.getLastBlockNum())
+                    else if(b.blockNum == last_block_num + 1)
                     {
-                        ws_checksum = Node.walletState.calculateWalletStateChecksum(b.version);
-                        // this should always be the same anyway, but just in case
-                        if (!b.walletStateChecksum.SequenceEqual(ws_checksum))
-                        {
-                            Logging.error(String.Format("Incorrect current wallet state checksum for the last block #{0} Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
-                            return BlockVerifyStatus.Invalid;
-                        }
-                    }
-                    else
-                    {
+                        Node.walletState.setCachedBlockVersion(b.version);
                         Node.walletState.snapshot();
                         if (applyAcceptedBlock(b, true))
                         {
-                            ws_checksum = Node.walletState.calculateWalletStateChecksum(b.version, true);
+                            if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
+                            {
+                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum();
+                            }
+                            else
+                            {
+                                ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                            }
                         }
                         Node.walletState.revert();
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
@@ -1072,6 +1071,11 @@ namespace DLT
                             Logging.error(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
                             return BlockVerifyStatus.Invalid;
                         }
+                    }else
+                    {
+                        // this should never happen
+                        Logging.error("Block #{0} failed while verifying transactions, this is a future block", b.blockNum);
+                        return BlockVerifyStatus.Invalid;
                     }
                 }
             }
@@ -1313,17 +1317,33 @@ namespace DLT
                         localNewBlock = null;
                         return false;
                     }
+
                     // accept this block, apply its transactions, recalc consensus, etc
                     if (applyAcceptedBlock(localNewBlock) == true)
                     {
-                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum(localNewBlock.version);
-                        if (!wsChecksum.SequenceEqual(localNewBlock.walletStateChecksum))
+                        bool ws_checksum_ok = false;
+                        byte[] ws_checksum = null;
+                        if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
+                        {
+                            // no need to re-verify as verifyBlock already does this
+                            ws_checksum_ok = true;
+                        }
+                        else
+                        {
+                            ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                            if (ws_checksum.SequenceEqual(localNewBlock.walletStateChecksum))
+                            {
+                                ws_checksum_ok = true;
+                            }
+                        }
+                        if (!ws_checksum_ok)
                         {
                             Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
-                                Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(ws_checksum)));
                             Logging.error(String.Format("Node reports block version: {0}", Node.getLastBlockVersion()));
+                            // TODO TODO TODO TODO TODO Connect this with WSJ
                             rollBackAcceptedBlock(localNewBlock);
-                            if (!Node.walletState.calculateWalletStateChecksum(localNewBlock.version).SequenceEqual(last_block.walletStateChecksum))
+                            if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(last_block.walletStateChecksum))
                             {
                                 Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
                                 // TODO TODO TODO maybe do something else instead?
@@ -1376,7 +1396,8 @@ namespace DLT
                             if (highestNetworkBlockNum > last_block_num)
                             {
                                 ProtocolMessage.broadcastGetBlock(last_block_num + 1, null, null, 1);
-                            }else
+                            }
+                            else
                             {
                                 highestNetworkBlockNum = 0;
                             }
@@ -1895,7 +1916,7 @@ namespace DLT
                     return false;
                 }
 
-                if(b.version > 4 && b.lastSuperBlockChecksum != null)
+                if(b.version > BlockVer.v4 && b.lastSuperBlockChecksum != null)
                 {
                     super_block.lastSuperBlockNum = b.blockNum;
                     super_block.lastSuperBlockChecksum = b.blockChecksum;
@@ -1958,6 +1979,8 @@ namespace DLT
 
                 localNewBlock.version = block_version;
 
+                Node.walletState.setCachedBlockVersion(block_version);
+
                 Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
 
                 // Apply staking transactions to block. 
@@ -1975,7 +1998,7 @@ namespace DLT
                     localNewBlock.signatureFreezeChecksum = getSignatureFreeze(localNewBlock.blockNum - 5);
                 }
 
-                if (localNewBlock.version > 4 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
+                if (localNewBlock.version > BlockVer.v4 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
                 {
                     // superblock
 
@@ -2016,7 +2039,14 @@ namespace DLT
                     Node.walletState.revert();
                     return;
                 }
-                localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(localNewBlock.version, true));
+                if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
+                {
+                    localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum());
+                }
+                else
+                {
+                    localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
+                }
                 Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
                 Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
                 Node.walletState.revert();
