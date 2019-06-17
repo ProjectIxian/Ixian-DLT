@@ -364,7 +364,7 @@ namespace DLT
                     if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
                     {
                         Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                        if (b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
+                        if (verifyBlockSignatures(b))
                         {
                             // this is likely the correct block, update and broadcast to others
                             Node.blockChain.refreshSignatures(b, true);
@@ -536,7 +536,7 @@ namespace DLT
                         else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
                             // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
-                            if (b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
+                            if (!verifyBlockSignatures(b))
                             {
                                 ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
                             }
@@ -573,7 +573,7 @@ namespace DLT
                     }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
                         Block localBlock = Node.blockChain.getBlock(b.blockNum);
-                        if (localBlock != null && b.lastBlockChecksum.SequenceEqual(localBlock.lastBlockChecksum) && b.getUniqueSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
+                        if (localBlock != null && b.lastBlockChecksum.SequenceEqual(localBlock.lastBlockChecksum) && !verifyBlockSignatures(b))
                         {
                             ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
                         }else
@@ -1245,6 +1245,119 @@ namespace DLT
             }
         }
 
+        // extracts required signatures from a block according to the election block (blockNum - 6)
+        private List<byte[]> extractRequiredSignatures(Block block)
+        {
+            Block election_block = Node.blockChain.getBlock(block.blockNum - 6);
+
+            List<byte[]> required_sigs = new List<byte[]>();
+
+            foreach(var entry in block.signatures)
+            {
+                foreach (var prev_entry in election_block.signatures)
+                {
+                    if (entry[1].SequenceEqual(prev_entry[1]))
+                    {
+                        required_sigs.Add(entry[1]);
+                        break;
+                    }
+                }
+            }
+
+            return required_sigs;
+        }
+
+        // verifies all signatures according to Block v5 consensus
+        public bool verifyBlockSignatures(Block block)
+        {
+            if (block.version >= BlockVer.v5 && block.lastSuperBlockChecksum == null)
+            {
+                int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum - 6);
+                // verify sig count
+                if (block.signatures.Count() < required_consensus_count)
+                {
+                    return false;
+                }
+
+                ulong last_block_num = Node.getLastBlockHeight();
+                if (block.blockNum == last_block_num + 1)
+                {
+                    // current block
+
+                    // verify if over half of signatures are from the election block
+                    if(extractRequiredSignatures(block).Count() <= required_consensus_count / 2)
+                    {
+                        return false;
+                    }
+
+                    return true;
+                }else if (block.blockNum == last_block_num - 5)
+                {
+                    // sigfreezed block
+
+                    int block_sig_count = block.getSignatureCount();
+
+                    // max 1000 sigs
+                    if(block_sig_count > 1000)
+                    {
+                        return false;
+                    }
+
+                    // limit sigs to 1000 and max limit to 2000
+                    if (required_consensus_count >= 1000)
+                    {
+                        // fixed to 1000 sigs - TODO TODO TODO TODO TODO will be enabled at a later point (v6 or even later), we need more than 1k MNs to do this
+                        /*if(block_sig_count != 1000)
+                        {
+                            return false;
+                        }*/
+                    }
+
+                    List<byte[]> required_sigs = extractRequiredSignatures(block);
+                    // verify if over half of signatures are from the election block
+                    if (required_sigs.Count() <= required_consensus_count / 2)
+                    {
+                        return false;
+                    }
+
+
+
+                    int valid_sig_count = 0;
+                    PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(block.blockChecksum, required_consensus_count * 2);
+                    ByteArrayComparer bac = new ByteArrayComparer();
+                    foreach(byte[] address in poe)
+                    {
+                        if(block.containsSignature(address) && !required_sigs.Contains(address, bac))
+                        {
+                            valid_sig_count++;
+                        }
+                    }
+
+                    // check if there are 90% valid signatures
+                    if(valid_sig_count + required_sigs.Count() < block_sig_count * 0.9)
+                    {
+                        return false;
+                    }
+
+                    return true;
+                }
+                else
+                {
+                    // should never happen
+                    Logging.error("Verifying signatures for block #{0} that isn't sigfreezed or the current block.", block.blockNum);
+                    return false;
+                }
+            }
+            else
+            {
+                if (block.signatures.Count() >= Node.blockChain.getRequiredConsensus(block.blockNum))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public bool acceptLocalNewBlock()
         {
             bool block_accepted = false;
@@ -1293,7 +1406,7 @@ namespace DLT
                 }
                 // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
                 // can no longer be reached according to this number - I don't have a clean answer yet - MZ
-                if (localNewBlock.signatures.Count() >= Node.blockChain.getRequiredConsensus())
+                if (verifyBlockSignatures(localNewBlock))
                 {
                     if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
                     {

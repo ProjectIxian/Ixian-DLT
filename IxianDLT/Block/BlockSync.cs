@@ -429,7 +429,7 @@ namespace DLT
                         {
                             if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                             {
-                                if (tb.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(tb.blockNum))
+                                if (Node.blockProcessor.verifyBlockSignatures(tb))
                                 {
                                     Node.blockChain.refreshSignatures(tb, true);
                                 }

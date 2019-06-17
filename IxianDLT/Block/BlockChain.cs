@@ -326,9 +326,15 @@ namespace DLT
         public int getRequiredConsensus(ulong block_num)
         {
             int block_offset = 7;
-            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-X blocks
+            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
+                // limit required consensus to 1000 sigs
+                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getSignatureCount() >= 1000)
+                {
+                    return 1000;
+                }
+
                 int total_consensus = 0;
                 int block_count = 0;
                 for (int i = 0; i < 10; i++)
