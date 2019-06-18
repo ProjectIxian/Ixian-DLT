@@ -5,7 +5,6 @@ using IXICore;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Linq;
 using System.Net;
 
@@ -19,7 +18,7 @@ namespace DLTNode
             start(String.Format("http://localhost:{0}/", Config.apiPort), Config.apiUsers);
         }
 
-        protected override bool processRequest(HttpListenerContext context, string methodName, NameValueCollection parameters)
+        protected override bool processRequest(HttpListenerContext context, string methodName, Dictionary<string, object> parameters)
         {
             JsonResponse response = null;
 
@@ -163,12 +162,12 @@ namespace DLTNode
             return new JsonResponse { result = "Synchronizing to network now.", error = error };
         }
 
-        public JsonResponse onGetBlock(NameValueCollection parameters)
+        public JsonResponse onGetBlock(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            string blocknum_string = parameters["num"];
-            string bytes = parameters["bytes"];
+            string blocknum_string = (string)parameters["num"];
+            string bytes = (string)parameters["bytes"];
             ulong block_num = 0;
             try
             {
@@ -249,11 +248,11 @@ namespace DLTNode
             return new JsonResponse { result = blocks, error = error };
         }
 
-        public JsonResponse onGetFullBlock(NameValueCollection parameters)
+        public JsonResponse onGetFullBlock(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            string blocknum_string = parameters["num"];
+            string blocknum_string = (string)parameters["num"];
             ulong block_num = 0;
             try
             {
@@ -295,9 +294,9 @@ namespace DLTNode
             return new JsonResponse { result = blockData, error = error };
         }
 
-        public JsonResponse onGetTransaction(NameValueCollection parameters)
+        public JsonResponse onGetTransaction(Dictionary<string, object> parameters)
         {
-            string txid_string = parameters["id"];
+            string txid_string = (string)parameters["id"];
             Transaction t = TransactionPool.getTransaction(txid_string, 0, Config.storeFullHistory);
             if (t == null)
             {
@@ -307,29 +306,29 @@ namespace DLTNode
             return new JsonResponse { result = t.toDictionary(), error = null };
         }
 
-        public JsonResponse onGetBalance(NameValueCollection parameters)
+        public JsonResponse onGetBalance(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(parameters["address"]);
+            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain((string)parameters["address"]);
 
             IxiNumber balance = Node.walletState.getWalletBalance(address);
 
             return new JsonResponse { result = balance.ToString(), error = error };
         }
 
-        public JsonResponse onStress(NameValueCollection parameters)
+        public JsonResponse onStress(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            string type_string = parameters["type"];
+            string type_string = (string)parameters["type"];
             if (type_string == null)
             {
                 type_string = "txspam";
             }
 
             int txnum = 0;
-            string txnumstr = parameters["num"];
+            string txnumstr = (string)parameters["num"];
             if (txnumstr != null)
             {
                 try
@@ -349,12 +348,12 @@ namespace DLTNode
             return new JsonResponse { result = "Stress test started", error = error };
         }
 
-        public JsonResponse onGetWallet(NameValueCollection parameters)
+        public JsonResponse onGetWallet(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
             // Show own address, balance and blockchain synchronization status
-            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(parameters["id"]);
+            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain((string)parameters["id"]);
             Wallet w = Node.walletState.getWallet(address);
 
             Dictionary<string, string> walletData = new Dictionary<string, string>();
@@ -465,17 +464,17 @@ namespace DLTNode
 
         }
 
-        public JsonResponse onTx(NameValueCollection parameters)
+        public JsonResponse onTx(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            string fromIndex = parameters["fromIndex"];
+            string fromIndex = (string)parameters["fromIndex"];
             if (fromIndex == null)
             {
                 fromIndex = "0";
             }
 
-            string count = parameters["count"];
+            string count = (string)parameters["count"];
             if (count == null)
             {
                 count = "50";
@@ -493,17 +492,17 @@ namespace DLTNode
             return new JsonResponse { result = tx_list, error = error };
         }
 
-        public JsonResponse onTxu(NameValueCollection parameters)
+        public JsonResponse onTxu(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            string fromIndex = parameters["fromIndex"];
+            string fromIndex = (string)parameters["fromIndex"];
             if (fromIndex == null)
             {
                 fromIndex = "0";
             }
 
-            string count = parameters["count"];
+            string count = (string)parameters["count"];
             if (count == null)
             {
                 count = "50";
@@ -521,17 +520,17 @@ namespace DLTNode
             return new JsonResponse { result = tx_list, error = error };
         }
 
-        public JsonResponse onTxa(NameValueCollection parameters)
+        public JsonResponse onTxa(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            string fromIndex = parameters["fromIndex"];
+            string fromIndex = (string)parameters["fromIndex"];
             if (fromIndex == null)
             {
                 fromIndex = "0";
             }
 
-            string count = parameters["count"];
+            string count = (string)parameters["count"];
             if (count == null)
             {
                 count = "50";
@@ -690,7 +689,7 @@ namespace DLTNode
             return new JsonResponse { result = outstring, error = error };
         }
 
-        private JsonResponse onCountNodeVersions(NameValueCollection parameters)
+        private JsonResponse onCountNodeVersions(Dictionary<string, object> parameters)
         {
             Dictionary<string, int> versions = new Dictionary<string, int>();
 
@@ -712,9 +711,9 @@ namespace DLTNode
             return new JsonResponse { result = versions, error = null };
         }
 
-        private JsonResponse onSetBlockSelectionAlgorithm(NameValueCollection parameters)
+        private JsonResponse onSetBlockSelectionAlgorithm(Dictionary<string, object> parameters)
         {
-            int algo = int.Parse(parameters["algorithm"]);
+            int algo = int.Parse((string)parameters["algorithm"]);
             if(algo == -1)
             {
                 Node.miner.pause = true;
@@ -749,7 +748,7 @@ namespace DLTNode
 
         // Verifies a mining solution based on the block's difficulty
         // It does not submit it to the network.
-        private JsonResponse onVerifyMiningSolution(NameValueCollection parameters)
+        private JsonResponse onVerifyMiningSolution(Dictionary<string, object> parameters)
         {
             // Check that all the required query parameters are sent
             if (parameters["nonce"] == null || parameters["blocknum"] == null || parameters["diff"] == null)
@@ -757,14 +756,14 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Missing query parameters" } };
             }
 
-            string nonce = parameters["nonce"];
+            string nonce = (string)parameters["nonce"];
             if (nonce.Length < 1 || nonce.Length > 128)
             {
                 Logging.info("Received incorrect verify nonce from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
             }
 
-            ulong blocknum = ulong.Parse(parameters["blocknum"]);
+            ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
             Block block = Node.blockChain.getBlock(blocknum);
             if (block == null)
             {
@@ -772,7 +771,7 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid block number specified" } };
             }
 
-            ulong blockdiff = ulong.Parse(parameters["diff"]);
+            ulong blockdiff = ulong.Parse((string)parameters["diff"]);
 
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
             bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, blockdiff);
@@ -789,7 +788,7 @@ namespace DLTNode
         }
 
         // Verifies and submits a mining solution to the network
-        private JsonResponse onSubmitMiningSolution(NameValueCollection parameters)
+        private JsonResponse onSubmitMiningSolution(Dictionary<string, object> parameters)
         {
             // Check that all the required query parameters are sent
             if (parameters["nonce"] == null || parameters["blocknum"] == null)
@@ -797,14 +796,14 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Missing query parameters" } };
             }
 
-            string nonce = parameters["nonce"];
+            string nonce = (string)parameters["nonce"];
             if (nonce.Length < 1 || nonce.Length > 128)
             {
                 Logging.info("Received incorrect nonce from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
             }
 
-            ulong blocknum = ulong.Parse(parameters["blocknum"]);
+            ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
             Block block = Node.blockChain.getBlock(blocknum);
             if (block == null)
             {
@@ -836,9 +835,9 @@ namespace DLTNode
         }
 
         // Returns an empty PoW block based on the search algorithm provided as a parameter
-        private JsonResponse onGetMiningBlock(NameValueCollection parameters)
+        private JsonResponse onGetMiningBlock(Dictionary<string, object> parameters)
         {
-            int algo = int.Parse(parameters["algo"]);
+            int algo = int.Parse((string)parameters["algo"]);
             BlockSearchMode searchMode = BlockSearchMode.randomLowestDifficulty;
 
             if (algo == (int)BlockSearchMode.lowestDifficulty)
