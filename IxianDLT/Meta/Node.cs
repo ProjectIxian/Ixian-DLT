@@ -490,7 +490,7 @@ namespace DLT.Meta
             TimeSpan last_isolate_time_diff = DateTime.UtcNow - lastIsolateTime;
             if (Node.blockChain.getTimeSinceLastBLock() > 900 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 900 seconds with cooldown of 1800 seconds
             {
-                isolate();
+                CoreNetworkUtils.isolate();
                 lastIsolateTime = DateTime.UtcNow;
             }
 
@@ -581,27 +581,6 @@ namespace DLT.Meta
             presenceListActive = false;
         }
 
-        static public void reconnect()
-        {
-            // Reconnect server and clients
-            presenceListActive = false;
-
-            // Reset the network receive queue
-            NetworkQueue.reset();
-
-            if (!Node.isMasterNode())
-            {
-                Logging.info("Network server is not enabled in modes other than master node.");
-                NetworkServer.stopNetworkOperations();
-            }
-            else
-            {
-                NetworkServer.restartNetworkOperations();
-            }
-
-            NetworkClientManager.restartClients();
-        }
-
         static public void synchronize()
         {
             // Clear everything and force a resynchronization
@@ -618,23 +597,7 @@ namespace DLT.Meta
             NetworkQueue.start();
 
             // Finally, reconnect to the network
-            reconnect();
-        }
-
-        // Isolates the node from the network.
-        static public void isolate()
-        {
-            NetworkClientManager.isolate();
-            if (!Node.isMasterNode())
-            {
-                Logging.info("Network server is not enabled in modes other than master node.");
-                NetworkServer.stopNetworkOperations();
-            }
-            else
-            {
-                NetworkServer.restartNetworkOperations();
-            }
-
+            CoreNetworkUtils.reconnect();
         }
 
         // Checks to see if this node can handle the block number
@@ -925,6 +888,11 @@ namespace DLT.Meta
             return false;
         }
 
+        public static bool addTransaction(Transaction transaction)
+        {
+            return TransactionPool.addTransaction(transaction);
+        }
+        
         /*static void runDiffTests()
         {
             Logging.info("Running difficulty tests");

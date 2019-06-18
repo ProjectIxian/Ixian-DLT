@@ -1476,8 +1476,11 @@ namespace DLT
                             Block current_block = localNewBlock;
                             localNewBlock = null;
 
-                            string notify_cmd = Config.blockNotifyCommand.Replace("%s", Crypto.hashToString(current_block.blockChecksum));
-                            IxiUtils.executeProcess(notify_cmd, "", false);
+                            if (CoreConfig.blockNotifyCommand != "")
+                            {
+                                string notify_cmd = CoreConfig.blockNotifyCommand.Replace("%s", Crypto.hashToString(current_block.blockChecksum));
+                                IxiUtils.executeProcess(notify_cmd, "", false);
+                            }
 
                             pendingSuperBlocks.Remove(current_block.blockNum);
 

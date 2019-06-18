@@ -1,4 +1,5 @@
 using Fclp;
+using IXICore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,9 +54,6 @@ namespace DLT
             public static bool fullStorageDataVerification = false;
 
             public static bool onlyShowAddresses = false;
-
-            public static string walletNotifyCommand = "";
-            public static string blockNotifyCommand = "";
 
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
@@ -246,10 +244,10 @@ namespace DLT
                             blockStorageProvider = value;
                             break;
                         case "walletNotify":
-                            walletNotifyCommand = value;
+                            CoreConfig.walletNotifyCommand = value;
                             break;
                         case "blockNotify":
-                            blockNotifyCommand = value;
+                            CoreConfig.blockNotifyCommand = value;
                             break;
                         default:
                             // unknown key
