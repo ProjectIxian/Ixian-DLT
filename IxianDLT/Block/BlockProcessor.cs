@@ -1279,16 +1279,20 @@ namespace DLT
                     return false;
                 }
 
+                List<byte[]> required_sigs = extractRequiredSignatures(block);
+                // verify if over half of signatures are from the election block
+                if (required_sigs.Count() <= required_consensus_count / 2)
+                {
+                    return false;
+                }
+
                 ulong last_block_num = Node.getLastBlockHeight();
                 if (block.blockNum == last_block_num + 1)
                 {
                     // current block
 
-                    // verify if over half of signatures are from the election block
-                    if(extractRequiredSignatures(block).Count() <= required_consensus_count / 2)
-                    {
-                        return false;
-                    }
+                    // it already has more sigs than the required consensus
+                    // it already includes the required signatures, so everything is good
 
                     return true;
                 }else if (block.blockNum == last_block_num - 5)
@@ -1312,15 +1316,6 @@ namespace DLT
                             return false;
                         }*/
                     }
-
-                    List<byte[]> required_sigs = extractRequiredSignatures(block);
-                    // verify if over half of signatures are from the election block
-                    if (required_sigs.Count() <= required_consensus_count / 2)
-                    {
-                        return false;
-                    }
-
-
 
                     int valid_sig_count = 0;
                     PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(block.blockChecksum, required_consensus_count * 2);
@@ -1480,6 +1475,9 @@ namespace DLT
                             last_block_num = localNewBlock.blockNum;
                             Block current_block = localNewBlock;
                             localNewBlock = null;
+
+                            string notify_cmd = Config.blockNotifyCommand.Replace("%s", Crypto.hashToString(current_block.blockChecksum));
+                            IxiUtils.executeProcess(notify_cmd, "", false);
 
                             pendingSuperBlocks.Remove(current_block.blockNum);
 

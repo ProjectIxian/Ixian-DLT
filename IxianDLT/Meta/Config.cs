@@ -54,6 +54,9 @@ namespace DLT
 
             public static bool onlyShowAddresses = false;
 
+            public static string walletNotifyCommand = "";
+            public static string blockNotifyCommand = "";
+
             // Store the device id in a cache for reuse in later instances
             public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
@@ -150,6 +153,8 @@ namespace DLT
                 Console.WriteLine("    disableMiner\t 1 to disable the miner, 0 to enable (same as --disableMiner CLI)");
                 Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
                 Console.WriteLine("    forceTimeOffset\t Forces network time offset to the specified value (same as --forceTimeOffset CLI)");
+                Console.WriteLine("    walletNotify\t Execute command when a wallet transaction changes");
+                Console.WriteLine("    blockNotify\t Execute command when the block changes");
 
                 return "";
             }
@@ -239,6 +244,12 @@ namespace DLT
                             break;
                         case "blockStorage":
                             blockStorageProvider = value;
+                            break;
+                        case "walletNotify":
+                            walletNotifyCommand = value;
+                            break;
+                        case "blockNotify":
+                            blockNotifyCommand = value;
                             break;
                         default:
                             // unknown key
