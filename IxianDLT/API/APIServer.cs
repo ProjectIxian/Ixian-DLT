@@ -89,7 +89,7 @@ namespace DLTNode
 
             if (methodName.Equals("status", StringComparison.OrdinalIgnoreCase))
             {
-                response = onStatus();
+                response = onStatus(parameters);
             }
 
             if (methodName.Equals("minerstats", StringComparison.OrdinalIgnoreCase))
@@ -114,7 +114,7 @@ namespace DLTNode
 
             if (methodName.Equals("countnodeversions", StringComparison.OrdinalIgnoreCase))
             {
-                response = onCountNodeVersions(parameters);
+                response = onCountNodeVersions();
             }
 
             if (methodName.Equals("setBlockSelectionAlgorithm", StringComparison.OrdinalIgnoreCase))
@@ -166,8 +166,11 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            string blocknum_string = (string)parameters["num"];
-            string bytes = (string)parameters["bytes"];
+            string blocknum_string = "0";
+            if (parameters.ContainsKey("num"))
+            {
+                blocknum_string = (string)parameters["num"];
+            }
             ulong block_num = 0;
             try
             {
@@ -184,7 +187,7 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Block not found." } };
             }
 
-            if(bytes == "1")
+            if(parameters.ContainsKey("bytes") && (string)parameters["bytes"] == "1")
             {
                 return new JsonResponse { result = Crypto.hashToString(block.getBytes()), error = error };
             }
@@ -252,7 +255,11 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            string blocknum_string = (string)parameters["num"];
+            string blocknum_string = "0";
+            if (parameters.ContainsKey("num"))
+            {
+                blocknum_string = (string)parameters["num"];
+            }
             ulong block_num = 0;
             try
             {
@@ -296,6 +303,12 @@ namespace DLTNode
 
         public JsonResponse onGetTransaction(Dictionary<string, object> parameters)
         {
+            if (!parameters.ContainsKey("id"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'id' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
             string txid_string = (string)parameters["id"];
             Transaction t = TransactionPool.getTransaction(txid_string, 0, Config.storeFullHistory);
             if (t == null)
@@ -308,29 +321,33 @@ namespace DLTNode
 
         public JsonResponse onGetBalance(Dictionary<string, object> parameters)
         {
-            JsonError error = null;
+            if (!parameters.ContainsKey("address"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'address' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
 
             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain((string)parameters["address"]);
 
             IxiNumber balance = Node.walletState.getWalletBalance(address);
 
-            return new JsonResponse { result = balance.ToString(), error = error };
+            return new JsonResponse { result = balance.ToString(), error = null };
         }
 
         public JsonResponse onStress(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
-            string type_string = (string)parameters["type"];
-            if (type_string == null)
+            string type_string = "txspam"; 
+            if (parameters.ContainsKey("type"))
             {
-                type_string = "txspam";
+                type_string = (string)parameters["type"];
             }
 
             int txnum = 0;
-            string txnumstr = (string)parameters["num"];
-            if (txnumstr != null)
+            if (parameters.ContainsKey("num"))
             {
+                string txnumstr = (string)parameters["num"];
                 try
                 {
                     txnum = Convert.ToInt32(txnumstr);
@@ -350,7 +367,11 @@ namespace DLTNode
 
         public JsonResponse onGetWallet(Dictionary<string, object> parameters)
         {
-            JsonError error = null;
+            if (!parameters.ContainsKey("id"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'id' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
 
             // Show own address, balance and blockchain synchronization status
             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain((string)parameters["id"]);
@@ -395,7 +416,7 @@ namespace DLTNode
                 walletData.Add("publicKey", "null");
             }
 
-            return new JsonResponse { result = walletData, error = error };
+            return new JsonResponse { result = walletData, error = null };
         }
 
         public JsonResponse onWalletList()
@@ -468,16 +489,16 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            string fromIndex = (string)parameters["fromIndex"];
-            if (fromIndex == null)
+            string fromIndex = "0";
+            if (parameters.ContainsKey("fromIndex"))
             {
-                fromIndex = "0";
+                fromIndex = (string)parameters["fromIndex"];
             }
 
-            string count = (string)parameters["count"];
-            if (count == null)
+            string count = "50";
+            if (parameters.ContainsKey("count"))
             {
-                count = "50";
+                count = (string)parameters["count"];
             }
 
             Transaction[] transactions = TransactionPool.getLastTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
@@ -496,16 +517,16 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            string fromIndex = (string)parameters["fromIndex"];
-            if (fromIndex == null)
+            string fromIndex = "0";
+            if (parameters.ContainsKey("fromIndex"))
             {
-                fromIndex = "0";
+                fromIndex = (string)parameters["fromIndex"];
             }
 
-            string count = (string)parameters["count"];
-            if (count == null)
+            string count = "50";
+            if (parameters.ContainsKey("count"))
             {
-                count = "50";
+                count = (string)parameters["count"];
             }
 
             Transaction[] transactions = TransactionPool.getUnappliedTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
@@ -524,16 +545,16 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            string fromIndex = (string)parameters["fromIndex"];
-            if (fromIndex == null)
+            string fromIndex = "0";
+            if (parameters.ContainsKey("fromIndex"))
             {
-                fromIndex = "0";
+                fromIndex = (string)parameters["fromIndex"];
             }
 
-            string count = (string)parameters["count"];
-            if (count == null)
+            string count = "50";
+            if (parameters.ContainsKey("count"))
             {
-                count = "50";
+                count = (string)parameters["count"];
             }
 
             Transaction[] transactions = TransactionPool.getAppliedTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
@@ -548,7 +569,7 @@ namespace DLTNode
             return new JsonResponse { result = tx_list, error = error };
         }
 
-        public JsonResponse onStatus()
+        public JsonResponse onStatus(Dictionary<string, object> parameters)
         {
             JsonError error = null;
 
@@ -595,16 +616,19 @@ namespace DLTNode
             networkArray.Add("Block Version", Node.blockChain.getLastBlockVersion());
             networkArray.Add("Network Block Height", Node.getHighestKnownNetworkBlockHeight());
             networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-            networkArray.Add("Wallets", Node.walletState.numWallets);
-            networkArray.Add("Presences", PresenceList.getTotalPresences());
-            networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
-            networkArray.Add("Applied TX Count", TransactionPool.getTransactionCount() - TransactionPool.getUnappliedTransactions().Count());
-            networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
             networkArray.Add("Node Type", Node.getNodeType());
             networkArray.Add("Connectable", NetworkServer.isConnectable());
 
-            networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
-            networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
+            if (parameters.ContainsKey("verbose"))
+            {
+                networkArray.Add("Wallets", Node.walletState.numWallets);
+                networkArray.Add("Presences", PresenceList.getTotalPresences());
+                networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
+                networkArray.Add("Applied TX Count", TransactionPool.getTransactionCount() - TransactionPool.getUnappliedTransactions().Count());
+                networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
+                networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
+                networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
+            }
 
             networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
             networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
@@ -689,7 +713,7 @@ namespace DLTNode
             return new JsonResponse { result = outstring, error = error };
         }
 
-        private JsonResponse onCountNodeVersions(Dictionary<string, object> parameters)
+        private JsonResponse onCountNodeVersions()
         {
             Dictionary<string, int> versions = new Dictionary<string, int>();
 
@@ -713,6 +737,12 @@ namespace DLTNode
 
         private JsonResponse onSetBlockSelectionAlgorithm(Dictionary<string, object> parameters)
         {
+            if (!parameters.ContainsKey("algorithm"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'algorithm' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
             int algo = int.Parse((string)parameters["algorithm"]);
             if(algo == -1)
             {
@@ -751,9 +781,22 @@ namespace DLTNode
         private JsonResponse onVerifyMiningSolution(Dictionary<string, object> parameters)
         {
             // Check that all the required query parameters are sent
-            if (parameters["nonce"] == null || parameters["blocknum"] == null || parameters["diff"] == null)
+            if (!parameters.ContainsKey("nonce"))
             {
-                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Missing query parameters" } };
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'nonce' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
+            if (!parameters.ContainsKey("blocknum"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'blocknum' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
+            if (!parameters.ContainsKey("diff"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'diff' is missing" };
+                return new JsonResponse { result = null, error = error };
             }
 
             string nonce = (string)parameters["nonce"];
@@ -791,10 +834,18 @@ namespace DLTNode
         private JsonResponse onSubmitMiningSolution(Dictionary<string, object> parameters)
         {
             // Check that all the required query parameters are sent
-            if (parameters["nonce"] == null || parameters["blocknum"] == null)
+            if (!parameters.ContainsKey("nonce"))
             {
-                return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Missing query parameters" } };
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'nonce' is missing" };
+                return new JsonResponse { result = null, error = error };
             }
+
+            if (!parameters.ContainsKey("blocknum"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'blocknum' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
 
             string nonce = (string)parameters["nonce"];
             if (nonce.Length < 1 || nonce.Length > 128)
@@ -837,6 +888,12 @@ namespace DLTNode
         // Returns an empty PoW block based on the search algorithm provided as a parameter
         private JsonResponse onGetMiningBlock(Dictionary<string, object> parameters)
         {
+            if (!parameters.ContainsKey("algo"))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'algo' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
             int algo = int.Parse((string)parameters["algo"]);
             BlockSearchMode searchMode = BlockSearchMode.randomLowestDifficulty;
 
@@ -867,7 +924,6 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Cannot retrieve mining block" } };
             }
 
-            JsonError error = null;
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
 
             Dictionary<string, Object> resultArray = new Dictionary<string, Object>
@@ -879,7 +935,7 @@ namespace DLTNode
                 { "adr", solver_address } // Solver address
             };
 
-            return new JsonResponse { result = resultArray, error = error };
+            return new JsonResponse { result = resultArray, error = null };
         }
     }
 }
