@@ -263,7 +263,11 @@ namespace DLT
                 }
                 else
                 {
-                    calculatePow_v2(currentHashCeil);
+                    if(currentBlockVersion < BlockVer.v5)
+                        calculatePow_v2(currentHashCeil);
+                    else
+                        calculatePow_v3(currentHashCeil);
+
                 }
 
                 // Output mining stats
@@ -309,7 +313,10 @@ namespace DLT
                     continue;
                 }
 
-                calculatePow_v2(currentHashCeil);
+                if (currentBlockVersion < BlockVer.v5)
+                    calculatePow_v2(currentHashCeil);
+                else
+                    calculatePow_v3(currentHashCeil);
             }
         }
 
@@ -599,6 +606,44 @@ namespace DLT
             }
         }
 
+
+        private void calculatePow_v3(byte[] hash_ceil)
+        {
+            // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
+            byte[] nonce = randomNonce(234234);
+            byte[] hash = findHash_v2(activeBlockChallenge, nonce);
+            if (hash.Length < 1)
+            {
+                Logging.error("Stopping miner due to invalid hash.");
+                stop();
+                return;
+            }
+
+            hashesPerSecond++;
+
+            // We have a valid hash, update the corresponding block
+            if (Miner.validateHashInternal_v2(hash, hash_ceil) == true)
+            {
+                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
+
+                // Broadcast the nonce to the network
+                sendSolution(nonce);
+
+                // Add this block number to the list of solved blocks
+                lock (solvedBlocks)
+                {
+                    solvedBlocks.Add(activeBlock.blockNum);
+                    solvedBlockCount++;
+                }
+
+                lastSolvedBlockNum = activeBlock.blockNum;
+                lastSolvedTime = DateTime.UtcNow;
+
+                // Reset the block found flag so we can search for another block
+                blockFound = false;
+            }
+        }
+
         // difficulty is number of consecutive starting bits which must be 0 in the calculated hash
         public static byte[] setDifficulty_v0(int difficulty)
         {
@@ -781,6 +826,36 @@ namespace DLT
             return false;
         }
 
+        // Verify nonce
+        public static bool verifyNonce_v3(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
+        {
+            if (nonce == null || nonce.Length < 1 || nonce.Length > 234234)
+            {
+                return false;
+            }
+
+            Block block = Node.blockChain.getBlock(block_num, false, false);
+            if (block == null)
+                return false;
+
+            // TODO checksum the solver_address just in case it's not valid
+            // also protect against spamming with invalid nonce/block_num
+            byte[] p1 = new byte[block.blockChecksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
+
+            byte[] nonce_bytes = Crypto.stringToHash(nonce);
+            byte[] hash = Miner.findHash_v2(p1, nonce_bytes);
+
+            if (Miner.validateHash_v2(hash, difficulty) == true)
+            {
+                // Hash is valid
+                return true;
+            }
+
+            return false;
+        }
+
         // Submit solution with a provided blocknum
         // This is normally called from the API, as it is a static function
         public static bool sendSolution(byte[] nonce, ulong blocknum)
@@ -904,6 +979,32 @@ namespace DLT
                 return hash;
             }
             catch(Exception e)
+            {
+                Logging.error(string.Format("Error during mining: {0}", e.Message));
+                return null;
+            }
+        }
+
+        private static byte[] findHash_v2(byte[] data, byte[] salt)
+        {
+            try
+            {
+                byte[] hash = new byte[32];
+                IntPtr data_ptr = Marshal.AllocHGlobal(data.Length);
+                IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
+                Marshal.Copy(data, 0, data_ptr, data.Length);
+                Marshal.Copy(salt, 0, salt_ptr, salt.Length);
+                UIntPtr data_len = (UIntPtr)data.Length;
+                UIntPtr salt_len = (UIntPtr)salt.Length;
+                IntPtr result_ptr = Marshal.AllocHGlobal(32);
+                int result = NativeMethods.argon2id_hash_raw((UInt32)2, (UInt32)2048, (UInt32)2, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
+                Marshal.Copy(result_ptr, hash, 0, 32);
+                Marshal.FreeHGlobal(data_ptr);
+                Marshal.FreeHGlobal(result_ptr);
+                Marshal.FreeHGlobal(salt_ptr);
+                return hash;
+            }
+            catch (Exception e)
             {
                 Logging.error(string.Format("Error during mining: {0}", e.Message));
                 return null;

@@ -1103,10 +1103,18 @@ namespace DLT
                         return true;
                     }
                 }
-                else // >= 2
+                else if (block.version <= BlockVer.v4)
                 {
                     // Verify the nonce
                     if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v2(nonce, blocknum, primary_address, block.difficulty))
+                    {
+                        return true;
+                    }
+                }
+                else // >= 5
+                {
+                    // Verify the nonce
+                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v3(nonce, blocknum, primary_address, block.difficulty))
                     {
                         return true;
                     }
