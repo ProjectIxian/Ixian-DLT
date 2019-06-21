@@ -1246,19 +1246,35 @@ namespace DLT
         }
 
         // extracts required signatures from a block according to the election block (blockNum - 6)
-        private List<byte[]> extractRequiredSignatures(Block block)
+        private List<byte[][]> extractRequiredSignatures(Block block, int max_sig_count = 0)
         {
             Block election_block = Node.blockChain.getBlock(block.blockNum - 6);
-
-            List<byte[]> required_sigs = new List<byte[]>();
-
-            foreach(var entry in block.signatures)
+            if(election_block == null)
             {
-                foreach (var prev_entry in election_block.signatures)
+                Logging.warn("Cannot extract required signatures because election block is null");
+                return null;
+            }
+
+
+            List<byte[][]> required_sigs = new List<byte[][]>();
+
+            int sig_count = 0;
+
+            lock (block.signatures)
+            {
+                foreach (var entry in block.signatures)
                 {
-                    if (entry[1].SequenceEqual(prev_entry[1]))
+                    foreach (var prev_entry in election_block.signatures)
                     {
-                        required_sigs.Add(entry[1]);
+                        if (entry[1].SequenceEqual(prev_entry[1]))
+                        {
+                            required_sigs.Add(entry);
+                            sig_count++;
+                            break;
+                        }
+                    }
+                    if (max_sig_count > 0 && sig_count == max_sig_count)
+                    {
                         break;
                     }
                 }
@@ -1270,18 +1286,20 @@ namespace DLT
         // verifies all signatures according to Block v5 consensus
         public bool verifyBlockSignatures(Block block)
         {
-            if (block.version >= BlockVer.v5 && block.lastSuperBlockChecksum == null)
+            if (block.blockNum > 6 && block.version >= BlockVer.v5 && block.lastSuperBlockChecksum == null)
             {
-                int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum - 6);
+                // TODO TODO TODO TODO TODO Check if it's necessary to check validity of the sigs here; this should be checked elsewhere though - verifyBlock or in addSig from NetworkProtocol
+
+                int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum - 5);
                 // verify sig count
                 if (block.signatures.Count() < required_consensus_count)
                 {
                     return false;
                 }
 
-                List<byte[]> required_sigs = extractRequiredSignatures(block);
-                // verify if over half of signatures are from the election block
-                if (required_sigs.Count() <= required_consensus_count / 2)
+                List<byte[][]> required_sigs = extractRequiredSignatures(block);
+                // verify if exactly 50% + 1 signatures are from the previous block
+                if (required_sigs.Count() == (required_consensus_count / 2) + 1)
                 {
                     return false;
                 }
@@ -1302,16 +1320,16 @@ namespace DLT
                     int block_sig_count = block.getSignatureCount();
 
                     // max 1000 sigs
-                    if(block_sig_count > 1000)
+                    if(block_sig_count > CoreConfig.maximumBlockSigners)
                     {
                         return false;
                     }
 
                     // limit sigs to 1000 and max limit to 2000
-                    if (required_consensus_count >= 1000)
+                    if (required_consensus_count >= CoreConfig.maximumBlockSigners)
                     {
                         // fixed to 1000 sigs - TODO TODO TODO TODO TODO will be enabled at a later point (v6 or even later), we need more than 1k MNs to do this
-                        /*if(block_sig_count != 1000)
+                        /*if(block_sig_count != CoreConfig.maximumBlockSigners)
                         {
                             return false;
                         }*/
@@ -1322,7 +1340,7 @@ namespace DLT
                     ByteArrayComparer bac = new ByteArrayComparer();
                     foreach(byte[] address in poe)
                     {
-                        if(block.containsSignature(address) && !required_sigs.Contains(address, bac))
+                        if(block.containsSignature(address) && required_sigs.Find(x => x[1].SequenceEqual(address)) == null)
                         {
                             valid_sig_count++;
                         }
@@ -1345,12 +1363,44 @@ namespace DLT
             }
             else
             {
-                if (block.signatures.Count() >= Node.blockChain.getRequiredConsensus(block.blockNum))
+                if (block.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(block.blockNum))
                 {
                     return true;
                 }
             }
             return false;
+        }
+
+        // Freezes signature for the specified target block
+        public void freezeSignatures(Block target_block)
+        {
+            int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum);
+
+            List<byte[][]> frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
+
+            PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(target_block.blockChecksum, CoreConfig.maximumBlockSigners * 2);
+
+            ByteArrayComparer bac = new ByteArrayComparer();
+
+            int sig_count = 0;
+
+            lock (target_block.signatures)
+            {
+                foreach (byte[] address in poe)
+                {
+                    byte[][] signature = target_block.signatures.Find(x => x[1].SequenceEqual(address));
+                    if (signature != null && frozen_block_sigs.Find(x => x[1].SequenceEqual(address)) == null)
+                    {
+                        frozen_block_sigs.Add(signature);
+                        sig_count++;
+                    }
+                    if (sig_count == CoreConfig.maximumBlockSigners)
+                    {
+                        break;
+                    }
+                }
+                target_block.setFrozenSignatures(frozen_block_sigs);
+            }
         }
 
         public bool acceptLocalNewBlock()
@@ -2073,118 +2123,127 @@ namespace DLT
 
             lock (localBlockLock)
             {
-                Logging.info("GENERATING NEW BLOCK");
-
-                // Create a new block and add all the transactions in the pool
-                localNewBlock = new Block();
-                localNewBlock.timestamp = Core.getCurrentTimestamp();
-
-                Block last_block = Node.blockChain.getLastBlock();
-                if (last_block != null)
+                try
                 {
-                    localNewBlock.blockNum = last_block.blockNum + 1;
-                    localNewBlock.lastBlockChecksum = last_block.blockChecksum;
-                }else
-                {
-                    // genesis block
-                    localNewBlock.blockNum = 1;
-                    localNewBlock.lastBlockChecksum = null;
-                }
+                    Logging.info("GENERATING NEW BLOCK");
 
-                localNewBlock.version = block_version;
+                    // Create a new block and add all the transactions in the pool
+                    localNewBlock = new Block();
+                    localNewBlock.timestamp = Core.getCurrentTimestamp();
 
-                Node.walletState.setCachedBlockVersion(block_version);
-
-                Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
-
-                // Apply staking transactions to block. 
-                List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version, false, localNewBlock.timestamp);
-                foreach (Transaction transaction in staking_transactions)
-                {
-                    localNewBlock.addTransaction(transaction.id);
-                }
-                staking_transactions.Clear();
-
-                // Prevent calculations if we don't have 5 fully generated blocks yet
-                if (localNewBlock.blockNum > 5)
-                {
-                    // Apply signature freeze
-                    localNewBlock.signatureFreezeChecksum = getSignatureFreeze(localNewBlock.blockNum - 5);
-                }
-
-                if (localNewBlock.version > BlockVer.v4 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
-                {
-                    // superblock
-
-                    // collect all txids up to last superblock (or genesis block if no superblock yet exists)
-                    if(!generateSuperBlockTransactions(localNewBlock))
+                    Block last_block = Node.blockChain.getLastBlock();
+                    if (last_block != null)
                     {
-                        Logging.error("Error generating transactions for superblock {0}.", localNewBlock.blockNum);
+                        localNewBlock.blockNum = last_block.blockNum + 1;
+                        localNewBlock.lastBlockChecksum = last_block.blockChecksum;
+                    }
+                    else
+                    {
+                        // genesis block
+                        localNewBlock.blockNum = 1;
+                        localNewBlock.lastBlockChecksum = null;
+                    }
+
+                    localNewBlock.version = block_version;
+
+                    Node.walletState.setCachedBlockVersion(block_version);
+
+                    Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
+
+                    // Apply staking transactions to block. 
+                    List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version, false, localNewBlock.timestamp);
+                    foreach (Transaction transaction in staking_transactions)
+                    {
+                        localNewBlock.addTransaction(transaction.id);
+                    }
+                    staking_transactions.Clear();
+
+                    // Prevent calculations if we don't have 5 fully generated blocks yet
+                    if (localNewBlock.blockNum > 5)
+                    {
+                        // Apply signature freeze
+                        localNewBlock.signatureFreezeChecksum = getSignatureFreeze(localNewBlock, localNewBlock.version);
+                    }
+
+                    if (localNewBlock.version > BlockVer.v4 && localNewBlock.blockNum % CoreConfig.superblockInterval == 0)
+                    {
+                        // superblock
+
+                        // collect all txids up to last superblock (or genesis block if no superblock yet exists)
+                        if (!generateSuperBlockTransactions(localNewBlock))
+                        {
+                            Logging.error("Error generating transactions for superblock {0}.", localNewBlock.blockNum);
+                            localNewBlock = null;
+                            return;
+                        }
+
+                        if (localNewBlock.lastSuperBlockChecksum == null)
+                        {
+                            Block b = Node.blockChain.getBlock(1);
+                            if (b == null)
+                            {
+                                Logging.error("Unable to find genesis block for superblock {0}.", localNewBlock.blockNum);
+                                localNewBlock = null;
+                                return;
+                            }
+                            localNewBlock.lastSuperBlockNum = b.blockNum;
+                            localNewBlock.lastSuperBlockChecksum = b.blockChecksum;
+                        }
+                    }
+                    else
+                    {
+                        generateNewBlockTransactions(block_version);
+                    }
+
+                    // Calculate mining difficulty
+                    localNewBlock.difficulty = calculateDifficulty(block_version);
+
+                    // Simulate applying a block to see what the walletstate would look like
+                    Node.walletState.snapshot();
+                    if (!applyAcceptedBlock(localNewBlock, true))
+                    {
+                        Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
+                        localNewBlock = null;
+                        Node.walletState.revert();
+                        return;
+                    }
+                    if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
+                    {
+                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum());
+                    }
+                    else
+                    {
+                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
+                    }
+                    Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
+                    Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
+                    Node.walletState.revert();
+
+                    localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
+                    localNewBlock.applySignature();
+
+                    localNewBlock.logBlockDetails();
+
+                    currentBlockStartTime = DateTime.UtcNow;
+
+                    // Broadcast the new block
+                    ProtocolMessage.broadcastNewBlock(localNewBlock);
+
+                    if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
+                    {
+                        Logging.error("Error occured verifying the newly generated block {0}.", localNewBlock.blockNum);
                         localNewBlock = null;
                         return;
                     }
 
-                    if (localNewBlock.lastSuperBlockChecksum == null)
+                    if (localNewBlock.blockNum < 8)
                     {
-                        Block b = Node.blockChain.getBlock(1);
-                        if(b == null)
-                        {
-                            Logging.error("Unable to find genesis block for superblock {0}.", localNewBlock.blockNum);
-                            localNewBlock = null;
-                            return;
-                        }
-                        localNewBlock.lastSuperBlockNum = b.blockNum;
-                        localNewBlock.lastSuperBlockChecksum = b.blockChecksum;
+                        acceptLocalNewBlock();
                     }
-                }else
+                }catch(Exception e)
                 {
-                    generateNewBlockTransactions(block_version);
-                }
-
-                // Calculate mining difficulty
-                localNewBlock.difficulty = calculateDifficulty(block_version);
-
-                // Simulate applying a block to see what the walletstate would look like
-                Node.walletState.snapshot();
-                if(!applyAcceptedBlock(localNewBlock, true))
-                {
-                    Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
+                    Logging.error("Exception occured while generating block {0}: {1}", localNewBlock.blockNum, e);
                     localNewBlock = null;
-                    Node.walletState.revert();
-                    return;
-                }
-                if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
-                {
-                    localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum());
-                }
-                else
-                {
-                    localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
-                }
-                Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
-                Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
-                Node.walletState.revert();
-
-                localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
-                localNewBlock.applySignature();
-
-                localNewBlock.logBlockDetails();
-
-                currentBlockStartTime = DateTime.UtcNow;
-
-                // Broadcast the new block
-                ProtocolMessage.broadcastNewBlock(localNewBlock);
-
-                if(verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
-                {
-                    Logging.error("Error occured verifying the newly generated block {0}.", localNewBlock.blockNum);
-                    localNewBlock = null;
-                    return;
-                }
-
-                if (localNewBlock.blockNum < 8)
-                {
-                    acceptLocalNewBlock();
                 }
             }
         }
@@ -2508,25 +2567,25 @@ namespace DLT
         }
 
         // Retrieve the signature freeze of the 5th last block
-        public byte[] getSignatureFreeze(ulong target_block_num)
+        public byte[] getSignatureFreeze(Block freezing_block, int block_ver)
         {
-            Block targetBlock = Node.blockChain.getBlock(target_block_num);
-            if (targetBlock == null)
+            Block target_block = Node.blockChain.getBlock(freezing_block.blockNum - 5);
+            if (target_block == null)
             {
                 return null;
             }
 
-            // Calculate the signature checksum
-            byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
-            return sigFreezeChecksum;
+            if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 10)
+            {
+                freezeSignatures(target_block);
+            }
+            return target_block.calculateSignatureChecksum();
         }
 
         // Generate all the staking transactions for this block
         public List<Transaction> generateStakingTransactions(ulong targetBlockNum, int block_version, bool ws_snapshot = false, long block_timestamp = 0)
         {
             List<Transaction> transactions = new List<Transaction>();
-            /// WARNING WARNING WARNING
-            //return transactions;
 
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)

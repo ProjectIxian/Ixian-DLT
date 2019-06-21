@@ -330,9 +330,9 @@ namespace DLT
             lock (blocks)
             {
                 // limit required consensus to 1000 sigs
-                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getSignatureCount() >= 1000)
+                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getSignatureCount() >= CoreConfig.maximumBlockSigners)
                 {
-                    return 1000;
+                    return CoreConfig.maximumBlockSigners;
                 }
 
                 int total_consensus = 0;
@@ -348,11 +348,14 @@ namespace DLT
                     total_consensus += b.getSignatureCount();
                     block_count++;
                 }
-                if(block_count == 0)
+
+                if (block_count == 0)
                 {
-                    return 1000;
+                    return CoreConfig.maximumBlockSigners;
                 }
+
                 int consensus = (int)Math.Ceiling(total_consensus / block_count * CoreConfig.networkConsensusRatio);
+
                 if (consensus < 2)
                 {
                     consensus = 2;
