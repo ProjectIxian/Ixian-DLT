@@ -532,6 +532,22 @@ namespace DLT
             return curNonce;
         }
 
+        // Expand a provided nonce up to expand_length bytes by appending a suffix of fixed-value bytes
+        private static byte[] expandNonce(byte[] nonce, int expand_length)
+        {
+            byte[] fullnonce = new byte[expand_length];
+            for (int i = 0; i < nonce.Length; i++)
+            {
+                fullnonce[i] = nonce[i];
+            }
+            for (int i = nonce.Length; i < fullnonce.Length; i++)
+            {
+                fullnonce[i] = 0x23;
+            }
+
+            return fullnonce;
+        }
+
         private void calculatePow_v1(byte[] hash_ceil)
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
@@ -610,8 +626,10 @@ namespace DLT
         private void calculatePow_v3(byte[] hash_ceil)
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
-            byte[] nonce = randomNonce(234234);
-            byte[] hash = findHash_v2(activeBlockChallenge, nonce);
+            byte[] nonce_bytes = randomNonce(64);
+            byte[] fullnonce = expandNonce(nonce_bytes, 234234);
+
+            byte[] hash = findHash_v2(activeBlockChallenge, fullnonce);
             if (hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
@@ -627,7 +645,7 @@ namespace DLT
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
 
                 // Broadcast the nonce to the network
-                sendSolution(nonce);
+                sendSolution(nonce_bytes);
 
                 // Add this block number to the list of solved blocks
                 lock (solvedBlocks)
@@ -829,7 +847,7 @@ namespace DLT
         // Verify nonce
         public static bool verifyNonce_v3(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
         {
-            if (nonce == null || nonce.Length < 1 || nonce.Length > 234234)
+            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
             {
                 return false;
             }
@@ -845,7 +863,8 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
             byte[] nonce_bytes = Crypto.stringToHash(nonce);
-            byte[] hash = Miner.findHash_v2(p1, nonce_bytes);
+            byte[] fullnonce = expandNonce(nonce_bytes, 234234);
+            byte[] hash = Miner.findHash_v2(p1, fullnonce);
 
             if (Miner.validateHash_v2(hash, difficulty) == true)
             {
