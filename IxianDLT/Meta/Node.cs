@@ -396,7 +396,7 @@ namespace DLT.Meta
                 if (Config.recoverFromFile)
                 {
                     Block b = Meta.Storage.getBlock(lastLocalBlockNum);
-                    blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
+                    blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
                 }
                 else
                 {
@@ -406,7 +406,7 @@ namespace DLT.Meta
                         Block b = blockChain.getBlock(blockNum, true);
                         if (b != null)
                         {
-                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getUniqueSignatureCount(), lastLocalBlockNum);
+                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
                         }else
                         {
                             walletState.clear();
@@ -675,7 +675,7 @@ namespace DLT.Meta
                 Block block = Node.blockChain.getBlock(blockNum);
 
                 if(block != null)
-                    Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlockSignaturesReverse(i), 
+                    Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlock(blockNum - (ulong)i).getSignatureCount(), 
                         Crypto.hashToString(block.blockChecksum), Crypto.hashToString(block.walletStateChecksum)));
             }
             Logging.trace(String.Format(" -> Block processor is operating: {0}.", Node.blockProcessor.operating));

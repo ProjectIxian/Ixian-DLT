@@ -316,8 +316,17 @@ namespace DLT
                     transactions = string.Format("{0}||{1}", transactions, tx);
                 }
 
+                List<byte[][]> tmp_sigs = null;
+                if(block.frozenSignatures != null)
+                {
+                    tmp_sigs = block.frozenSignatures;
+                }else
+                {
+                    tmp_sigs = block.signatures;
+                }
+
                 string signatures = "";
-                foreach (byte[][] sig in block.signatures)
+                foreach (byte[][] sig in tmp_sigs)
                 {
                     string str_sig = "0";
                     if(sig[0] != null)

@@ -525,7 +525,7 @@ namespace DLT
                                         {
                                             // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
                                             ProtocolMessage.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
-                                        }else if (b.getUniqueSignatureCount() < block_to_update.getUniqueSignatureCount())
+                                        }else if (b.getFrozenSignatureCount() < block_to_update.getFrozenSignatureCount())
                                         {
                                             ProtocolMessage.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
                                         }
@@ -719,7 +719,7 @@ namespace DLT
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if half of required consensus is reached on the block
-                        if (b.blockNum > lastBlockNum + 1 && b.getUniqueSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
+                        if (b.blockNum > lastBlockNum + 1 && b.getFrozenSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
                             if (b.lastSuperBlockChecksum != null && !generateSuperBlockTransactions(b, endpoint))
@@ -1056,13 +1056,13 @@ namespace DLT
                         Node.walletState.snapshot();
                         if (applyAcceptedBlock(b, true))
                         {
-                            if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
+                            if (b.version < BlockVer.v5 || b.lastSuperBlockChecksum != null)
                             {
-                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum();
+                                ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
                             }
                             else
                             {
-                                ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum();
                             }
                         }
                         Node.walletState.revert();
@@ -1120,7 +1120,7 @@ namespace DLT
                             //if (!Node.isMasterNode())
                             //    return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
-                            Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
+                            Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount()));
 
                             // TODO TODO TODO send only added sigs
                             ProtocolMessage.broadcastNewBlock(localNewBlock);
@@ -1131,14 +1131,14 @@ namespace DLT
                         {
                             if (!Node.isMasterNode())
                                 return;
-                            Logging.info(String.Format("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getUniqueSignatureCount()));
+                            Logging.info(String.Format("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount()));
                             ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
                         }
                     }
                     else
                     {
-                        int blockSigCount = b.getUniqueSignatureCount();
-                        int localBlockSigCount = localNewBlock.getUniqueSignatureCount();
+                        int blockSigCount = b.getSignatureCount();
+                        int localBlockSigCount = localNewBlock.getSignatureCount();
                         if(blockSigCount > localBlockSigCount && b.blockNum == localNewBlock.blockNum)
                         {
                             Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
@@ -1166,7 +1166,7 @@ namespace DLT
                         hasNodeSig = b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()));
                     }
                     if (hasNodeSig
-                        || b.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO TODO think about /2 thing
+                        || b.getSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO TODO think about /2 thing
                         || firstBlockAfterSync)
                     {
                         localNewBlock = b;
@@ -1288,20 +1288,24 @@ namespace DLT
         {
             if (block.blockNum > 6 && block.version >= BlockVer.v5 && block.lastSuperBlockChecksum == null)
             {
-                // TODO TODO TODO TODO TODO Check if it's necessary to check validity of the sigs here; this should be checked elsewhere though - verifyBlock or in addSig from NetworkProtocol
-
                 int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum - 5);
+
                 // verify sig count
-                if (block.signatures.Count() < required_consensus_count)
+                if (block.getFrozenSignatureCount() < required_consensus_count)
                 {
+                    Logging.warn("Block {0} has less than required signatures.", block.blockNum);
                     return false;
                 }
 
                 List<byte[][]> required_sigs = extractRequiredSignatures(block);
-                // verify if exactly 50% + 1 signatures are from the previous block
-                if (required_sigs.Count() == (required_consensus_count / 2) + 1)
+                if (required_consensus_count > 2)
                 {
-                    return false;
+                    // verify if exactly 50% + 1 signatures are from the previous block
+                    if (required_sigs.Count() == (required_consensus_count / 2) + 1)
+                    {
+                        Logging.warn("Block {0} has less than 50% + 1 signers from previous block.", block.blockNum);
+                        return false;
+                    }
                 }
 
                 ulong last_block_num = Node.getLastBlockHeight();
@@ -1317,11 +1321,12 @@ namespace DLT
                 {
                     // sigfreezed block
 
-                    int block_sig_count = block.getSignatureCount();
+                    int block_sig_count = block.getFrozenSignatureCount();
 
                     // max 1000 sigs
                     if(block_sig_count > CoreConfig.maximumBlockSigners)
                     {
+                        Logging.warn("Block {0} has too many sigs ({1}/{2}).", block.blockNum, block_sig_count, CoreConfig.maximumBlockSigners);
                         return false;
                     }
 
@@ -1349,6 +1354,7 @@ namespace DLT
                     // check if there are 90% valid signatures
                     if(valid_sig_count + required_sigs.Count() < block_sig_count * 0.9)
                     {
+                        Logging.warn("Block {0} has less than 90% valid signers.", block.blockNum);
                         return false;
                     }
 
@@ -1363,7 +1369,7 @@ namespace DLT
             }
             else
             {
-                if (block.getUniqueSignatureCount() >= Node.blockChain.getRequiredConsensus(block.blockNum))
+                if (block.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus(block.blockNum))
                 {
                     return true;
                 }
@@ -1540,6 +1546,10 @@ namespace DLT
                                 Block tmp_block = Node.blockChain.getBlock(current_block.blockNum - 5);
                                 if (tmp_block != null)
                                 {
+                                    if (tmp_block.frozenSignatures != null)
+                                    {
+                                        tmp_block.signatures = tmp_block.frozenSignatures;
+                                    }
                                     Node.blockChain.updateBlock(tmp_block);
                                 }
                             }
@@ -1597,7 +1607,7 @@ namespace DLT
 
             sw.Stop();
             TimeSpan elapsed = sw.Elapsed;
-            Logging.info(string.Format("VerifyBlockAcceptance took: {0}ms", elapsed.TotalMilliseconds));
+            Logging.info(string.Format("VerifyBlockAcceptance took: {0}ms {1}", elapsed.TotalMilliseconds, block_accepted));
 
 
 
@@ -1812,7 +1822,16 @@ namespace DLT
             // Subtract the foundation award from total fee amount
             tFeeAmount = tFeeAmount - foundationAward;
 
-            ulong numSigs = (ulong)targetBlock.signatures.Count();
+            List<byte[][]> target_block_sigs = null;
+            if(targetBlock.frozenSignatures != null)
+            {
+                target_block_sigs = targetBlock.frozenSignatures;
+            }else
+            {
+                target_block_sigs = targetBlock.signatures;
+            }
+
+            ulong numSigs = (ulong)target_block_sigs.Count();
             if(numSigs < 1)
             {
                 // Something is not right, there are no signers on this block
@@ -1834,7 +1853,7 @@ namespace DLT
             }
 
             // Go through each signature in the block
-            foreach (byte[][] sig in targetBlock.signatures)
+            foreach (byte[][] sig in target_block_sigs)
             {
                 // Generate the corresponding Ixian address
                 byte[] addressBytes =  (new Address(sig[1])).address;
@@ -2660,12 +2679,23 @@ namespace DLT
             int stakers = 0;
             foreach (byte[] wallet_addr in signatureWallets)
             {
-                Wallet wallet = Node.walletState.getWallet(wallet_addr, ws_snapshot);
-                if (wallet.balance.getAmount() > 0)
+                if(block_version < BlockVer.v5)
                 {
-                    totalIxisStaked += wallet.balance;
+                    Wallet wallet = Node.walletState.getWallet(wallet_addr, ws_snapshot);
+                    if (wallet.balance.getAmount() > 0)
+                    {
+                        totalIxisStaked += wallet.balance;
+                        //Logging.info(String.Format("wallet {0} stakes {1} IXI", Base58Check.Base58CheckEncoding.EncodePlain(wallet_addr), wallet.balance.ToString()));
+                        stakes[stakers] = wallet.balance.getAmount();
+                        stakeWallets[stakers] = wallet_addr;
+                        stakers += 1;
+                    }
+                }
+                else
+                {
+                    totalIxisStaked += 1;
                     //Logging.info(String.Format("wallet {0} stakes {1} IXI", Base58Check.Base58CheckEncoding.EncodePlain(wallet_addr), wallet.balance.ToString()));
-                    stakes[stakers] = wallet.balance.getAmount();
+                    stakes[stakers] = (new IxiNumber(1)).getAmount();
                     stakeWallets[stakers] = wallet_addr;
                     stakers += 1;
                 }
@@ -2841,7 +2871,17 @@ namespace DLT
             {
                 return false;
             }
-            List<byte[][]> sigs = targetBlock.signatures;
+
+            List<byte[][]> sigs = null;
+            if (targetBlock.frozenSignatures != null)
+            {
+                sigs = targetBlock.frozenSignatures;
+            }
+            else
+            {
+                sigs = targetBlock.signatures;
+            }
+
             foreach (byte[][] sig in sigs)
             {
                 byte[] signature = sig[0];

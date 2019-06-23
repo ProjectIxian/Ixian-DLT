@@ -343,7 +343,13 @@ namespace DLT
 
             public static void broadcastBlockSignatures(Block b, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
-                broadcastBlockSignatures(b.blockNum, b.blockChecksum, b.signatures, skip_endpoint, endpoint);
+                if (b.frozenSignatures != null)
+                {
+                    broadcastBlockSignatures(b.blockNum, b.blockChecksum, b.frozenSignatures, skip_endpoint, endpoint);
+                }else
+                {
+                    broadcastBlockSignatures(b.blockNum, b.blockChecksum, b.signatures, skip_endpoint, endpoint);
+                }
             }
 
             private static void handleGetBlockSignatures(ulong blockNum, byte[] checksum, RemoteEndpoint endpoint)

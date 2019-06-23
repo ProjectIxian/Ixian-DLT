@@ -312,7 +312,7 @@ namespace DLT
                 int blockCount = blocks.Count - blockOffset < 10 ? blocks.Count - blockOffset : 10;
                 for (int i = 0; i < blockCount; i++)
                 {
-                    totalConsensus += blocks[blocks.Count - i - blockOffset - 1].getSignatureCount();
+                    totalConsensus += blocks[blocks.Count - i - blockOffset - 1].getFrozenSignatureCount();
                 }
                 int consensus = (int)Math.Ceiling(totalConsensus / blockCount * CoreConfig.networkConsensusRatio);
                 if (consensus < 2)
@@ -330,7 +330,7 @@ namespace DLT
             lock (blocks)
             {
                 // limit required consensus to 1000 sigs
-                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getSignatureCount() >= CoreConfig.maximumBlockSigners)
+                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getFrozenSignatureCount() >= CoreConfig.maximumBlockSigners)
                 {
                     return CoreConfig.maximumBlockSigners;
                 }
@@ -345,7 +345,7 @@ namespace DLT
                     {
                         break;
                     }
-                    total_consensus += b.getSignatureCount();
+                    total_consensus += b.getFrozenSignatureCount();
                     block_count++;
                 }
 
@@ -387,15 +387,6 @@ namespace DLT
             return null;
         }
 
-        public int getBlockSignaturesReverse(int index)
-        {
-            if (lastBlock != null)
-            {
-                return lastBlock.getSignatureCount();
-            }
-            return 0;
-        }
-
         public bool refreshSignatures(Block b, bool forceRefresh = false)
         {
             if (!forceRefresh)
@@ -423,17 +414,18 @@ namespace DLT
                     }
 
                     byte[] beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
-                    beforeSigs = blocks[idx].getSignatureCount();
+                    beforeSigs = blocks[idx].getFrozenSignatureCount();
                     if (forceRefresh)
                     {
-                        blocks[idx].signatures = b.signatures;
+                        blocks[idx].setFrozenSignatures(b.signatures);
+                        afterSigs = b.signatures.Count;
                     }
                     else
                     {
                         blocks[idx].addSignaturesFrom(b);
+                        afterSigs = blocks[idx].signatures.Count;
                     }
                     byte[] afterSigsChecksum = blocks[idx].calculateSignatureChecksum();
-                    afterSigs = blocks[idx].signatures.Count;
                     if (!beforeSigsChecksum.SequenceEqual(afterSigsChecksum))
                     {
                         updatestorage_block = blocks[idx];
