@@ -875,6 +875,11 @@ namespace DLT
                                             handleGetBlockTransactions(block_number, true, endpoint);
                                         }
 
+                                        if (!Node.blockProcessor.verifySigFreezedBlock(block))
+                                        {
+                                            Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
+                                        }
+
                                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(), BitConverter.GetBytes(block.blockNum));
 
                                         // if somebody requested last block from the chain, re-broadcast the localNewBlock as well

@@ -513,7 +513,7 @@ namespace DLT
                             return;
                         }
 
-                        if (b.signatures.Count() < Node.blockChain.getRequiredConsensus() && Node.blockChain.Count > 16)
+                        if (b.getSignatureCount() < Node.blockChain.getRequiredConsensus() && Node.blockChain.Count > 16)
                         {
                             Logging.warn(String.Format("Block #{0} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
@@ -973,7 +973,7 @@ namespace DLT
                     {
                         Node.walletState.clear();
                         wsSynced = true;
-                    }else
+                    }else if(!Config.storeFullHistory)
                     {
                         Node.walletState.setCachedBlockVersion(block_version);
                         if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))

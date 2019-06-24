@@ -326,7 +326,7 @@ namespace DLT
         public int getRequiredConsensus(ulong block_num)
         {
             int block_offset = 7;
-            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
+            if (block_num < (ulong)block_offset + 2) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
                 // limit required consensus to 1000 sigs

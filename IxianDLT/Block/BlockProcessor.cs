@@ -1264,9 +1264,10 @@ namespace DLT
             {
                 foreach (var entry in block.signatures)
                 {
+                    byte[] address = (new Address(entry[1])).address;
                     foreach (var prev_entry in election_block.signatures)
                     {
-                        if (entry[1].SequenceEqual(prev_entry[1]))
+                        if (address.SequenceEqual((new Address(prev_entry[1])).address))
                         {
                             required_sigs.Add(entry);
                             sig_count++;
@@ -1290,10 +1291,12 @@ namespace DLT
             {
                 int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum - 5);
 
+                int frozen_sig_count = block.getFrozenSignatureCount();
+
                 // verify sig count
-                if (block.getFrozenSignatureCount() < required_consensus_count)
+                if (frozen_sig_count < required_consensus_count)
                 {
-                    Logging.warn("Block {0} has less than required signatures.", block.blockNum);
+                    Logging.warn("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
                     return false;
                 }
 
@@ -1303,7 +1306,7 @@ namespace DLT
                     // verify if exactly 50% + 1 signatures are from the previous block
                     if (required_sigs.Count() == (required_consensus_count / 2) + 1)
                     {
-                        Logging.warn("Block {0} has less than 50% + 1 signers from previous block.", block.blockNum);
+                        Logging.warn("Block {0} doesn't have 50% + 1 required signers from previous block.", block.blockNum);
                         return false;
                     }
                 }
@@ -1317,7 +1320,7 @@ namespace DLT
                     // it already includes the required signatures, so everything is good
 
                     return true;
-                }else if (block.blockNum == last_block_num - 5)
+                }else if (block.blockNum == last_block_num - 4)
                 {
                     // sigfreezed block
 
@@ -1345,7 +1348,7 @@ namespace DLT
                     ByteArrayComparer bac = new ByteArrayComparer();
                     foreach(byte[] address in poe)
                     {
-                        if(block.containsSignature(address) && required_sigs.Find(x => x[1].SequenceEqual(address)) == null)
+                        if(block.containsSignature(address) && required_sigs.Find(x => (new Address(x[1])).address.SequenceEqual(address)) == null)
                         {
                             valid_sig_count++;
                         }
@@ -1354,7 +1357,7 @@ namespace DLT
                     // check if there are 90% valid signatures
                     if(valid_sig_count + required_sigs.Count() < block_sig_count * 0.9)
                     {
-                        Logging.warn("Block {0} has less than 90% valid signers.", block.blockNum);
+                        Logging.warn("Block {0} has less than 90% valid signers ({1} + {2} / {3}).", block.blockNum, valid_sig_count, required_sigs.Count(), block_sig_count * 0.9);
                         return false;
                     }
 
@@ -1394,8 +1397,8 @@ namespace DLT
             {
                 foreach (byte[] address in poe)
                 {
-                    byte[][] signature = target_block.signatures.Find(x => x[1].SequenceEqual(address));
-                    if (signature != null && frozen_block_sigs.Find(x => x[1].SequenceEqual(address)) == null)
+                    byte[][] signature = target_block.signatures.Find(x => (new Address(x[1])).address.SequenceEqual(address));
+                    if (signature != null && frozen_block_sigs.Find(x => (new Address(x[1])).address.SequenceEqual(address)) == null)
                     {
                         frozen_block_sigs.Add(signature);
                         sig_count++;
@@ -1549,6 +1552,7 @@ namespace DLT
                                     if (tmp_block.frozenSignatures != null)
                                     {
                                         tmp_block.signatures = tmp_block.frozenSignatures;
+                                        tmp_block.frozenSignatures = null;
                                     }
                                     Node.blockChain.updateBlock(tmp_block);
                                 }
