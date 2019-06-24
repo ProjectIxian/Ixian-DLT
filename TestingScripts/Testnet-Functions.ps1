@@ -141,7 +141,7 @@ function Get-DLTNodeStatus {
         return $null
     }
     try {
-        $r = Invoke-DLTApi -APIPort $Clients[$NodeIdx].APIPort -Command "status"
+        $r = Invoke-DLTApi -APIPort $Clients[$NodeIdx].APIPort -Command "status?verbose=1"
     } catch {
         Write-Host -ForegroundColor Magenta "Get-DLTNodeStatus: Error calling api for client $($NodeIdx): $($_.Message)"
         return $null
