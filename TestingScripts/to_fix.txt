@@ -1,0 +1,4 @@
+getblock... -> signatures (string), should be JSON
+getblock... -> transactions (string), should be JSON
+tx, txu -> result is a JSON object with subobjects, should be list of JSON objects
+

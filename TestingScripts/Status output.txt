@@ -1,0 +1,17 @@
+Per node:
+#NodeIdx
+Block Height
+Status (Act,Conn,Sync,..)
+Connections(In/Out)
+Mode: M,H,...
+Req. Sigs
+Applied/Unapplied TX
+
+Per miner:
+Hashrate
+Solved count
+
+Global:
+Total Solved Blocks / Unsolved blocks
+#Wallets
+Difficulty

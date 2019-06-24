@@ -1,0 +1,29 @@
+- history integrity check
+- gen new addr
+- v2 multi-input + single-out
+- v2 single-input + multi-out
+- v2 multi-input + multi-out
+- v2 single-input + single-out
+- v1 single-input + multi-out
+- v1 single-input + single-out
+- v1 staking
+- v2 staking
+- v1 consensus
+- v1 redacted window
+- v2 redacted window
+- v1 transaction fee reward check/test
+- v2 transaction fee reward check/test
+ALL MS TESTS WILL BE DONE ON BLOCK v2 only
+ALL MS TESTS WILL BE DONE WITH PRIMARY AND SECONDARY ADDRESSES
+- ms add key by owner P
+- ms add key by allowed P
+- ms add key by owner + allowed
+- ms del key by owner P
+- ms del key by allowed P
+- ms del key by owner + allowed
+- ms chreqsig by owner P
+- ms chreqsig by allowed
+- ms chreqsig by owner + allowed
+- ms tx by owner
+- ms tx by allowed
+- ms tx by owner + allowed 

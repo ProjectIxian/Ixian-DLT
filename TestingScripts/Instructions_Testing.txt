@@ -1,0 +1,31 @@
+Testing procedure overview
+==========================
+
+0. Cleanup
+.\Start-Testnet -ClearState 
+(only neccessary if something crashed badly or if you messed with the wallets/client files)
+(Extreme cleanup: Delete folder 'TestClients' and file 'state.xml')
+
+1. Create the folder structure and populate Client data
+.\Start-Testnet -NumInstances X
+(X has been tested up to ~20 simultaneous nodes - without mining)
+
+2. Once clients are created:
+.\Start-Testnet -NumInstances X -StartNetwork
+(Everything is automatic. X nodes will be spun up, but only the first 13 are displayed due to length constraings and update speed.)
+(After the network is running you can add nodes as specified in the help text: N for normal node, M for miner node.)
+(If nodes die/are killed, C will cleanup the display by shifting all nodes to the left - to cover dead ones.)
+
+3. Kill network
+Press E to kill all nodes.
+Press X to stop display, but leave the nodes running
+
+
+4. Debugging
+When the network is starting up, the full start commands for new nodes are printed. You can copy them almost verbatim into Visual Studio Debug arguments.
+Once the network is running, start an additional node from VS via F5 to attach it to the existing network - debugging.
+
+
+5. Automated test:
+.\Perform-Autotest.ps1
+(If you have changed the starting API port, specify the argument -APIStartPort, otherwise the default is the same as for .\Start-Testnet.ps1
