@@ -1344,13 +1344,16 @@ namespace DLT
                     }
 
                     int valid_sig_count = 0;
-                    PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(block.blockChecksum, required_consensus_count * 2);
+                    PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(block.blockChecksum, block_sig_count * 2);
                     ByteArrayComparer bac = new ByteArrayComparer();
                     foreach(byte[] address in poe)
                     {
                         if(block.containsSignature(address) && required_sigs.Find(x => (new Address(x[1])).address.SequenceEqual(address)) == null)
                         {
                             valid_sig_count++;
+                        }else
+                        {
+                            Logging.error("Sig {0} is invalid", Crypto.hashToString(address));
                         }
                     }
 
