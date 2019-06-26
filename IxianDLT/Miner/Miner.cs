@@ -627,7 +627,7 @@ namespace DLT
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] nonce_bytes = randomNonce(64);
-            byte[] fullnonce = expandNonce(nonce_bytes, 234234);
+            byte[] fullnonce = expandNonce(nonce_bytes, 234236);
 
             byte[] hash = findHash_v2(activeBlockChallenge, fullnonce);
             if (hash.Length < 1)
@@ -863,7 +863,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
             byte[] nonce_bytes = Crypto.stringToHash(nonce);
-            byte[] fullnonce = expandNonce(nonce_bytes, 234234);
+            byte[] fullnonce = expandNonce(nonce_bytes, 234236);
             byte[] hash = Miner.findHash_v2(p1, fullnonce);
 
             if (Miner.validateHash_v2(hash, difficulty) == true)
