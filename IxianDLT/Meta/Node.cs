@@ -225,7 +225,7 @@ namespace DLT.Meta
         {
             blockChain.setLastBlockVersion(Config.maxBlockVersionToGenerate);
 
-            byte[] from = CoreConfig.ixianInfiniMineAddress;
+            byte[] from = ConsensusConfig.ixianInfiniMineAddress;
 
             int tx_type = (int)Transaction.Type.Genesis;
 
@@ -241,25 +241,25 @@ namespace DLT.Meta
             if (Config.isTestNet)
             {
                 // testnet seed2
-                Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
+                Transaction tx2 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
                 TransactionPool.addTransaction(tx2);
             }
             else
             {
                 // seed2
-                Transaction tx2 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
+                Transaction tx2 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
                 TransactionPool.addTransaction(tx2);
 
                 // seed3
-                Transaction tx3 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
+                Transaction tx3 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
                 TransactionPool.addTransaction(tx3);
 
                 // seed4
-                Transaction tx4 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
+                Transaction tx4 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
                 TransactionPool.addTransaction(tx4);
 
                 // seed5
-                Transaction tx5 = new Transaction(tx_type, CoreConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
+                Transaction tx5 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
                 TransactionPool.addTransaction(tx5);
 
                 // Team Reward
@@ -387,8 +387,8 @@ namespace DLT.Meta
                     Block b = blockChain.getBlock(lastLocalBlockNum, true);
                     if (b != null)
                     {
-                        CoreConfig.minRedactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
-                        CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
+                        ConsensusConfig.minRedactedWindowSize = ConsensusConfig.getRedactedWindowSize(b.version);
+                        ConsensusConfig.redactedWindowSize = ConsensusConfig.getRedactedWindowSize(b.version);
                     }
 
                 }
@@ -627,14 +627,14 @@ namespace DLT.Meta
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.getPrimaryAddress());
                     if(!isMasterNode())
                     {
-                        if (nodeBalance >= CoreConfig.minimumMasterNodeFunds)
+                        if (nodeBalance >= ConsensusConfig.minimumMasterNodeFunds)
                         {
-                            Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", CoreConfig.minimumMasterNodeFunds));
+                            Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", ConsensusConfig.minimumMasterNodeFunds));
                             convertToMasterNode();
                         }
                     }
                     else
-                    if (nodeBalance < CoreConfig.minimumMasterNodeFunds)
+                    if (nodeBalance < ConsensusConfig.minimumMasterNodeFunds)
                     {
                         if (Config.disableMiner == false || Config.isTestNet)
                         {
@@ -645,13 +645,13 @@ namespace DLT.Meta
                             if (!isWorkerNode())
                             {
                                 Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a worker node.",
-                                    CoreConfig.minimumMasterNodeFunds));
+                                    ConsensusConfig.minimumMasterNodeFunds));
                                 convertToWorkerNode();
                             }
                         }else
                         {
                             Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a client node.",
-                                CoreConfig.minimumMasterNodeFunds));
+                                ConsensusConfig.minimumMasterNodeFunds));
                             convertToClientNode();
                         }
                         return false;

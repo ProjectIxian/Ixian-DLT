@@ -252,9 +252,9 @@ namespace DLT
 
             // Check the block height
             ulong minBh = 0;
-            if (blocknum > CoreConfig.getRedactedWindowSize())
+            if (blocknum > ConsensusConfig.getRedactedWindowSize())
             {
-                minBh = blocknum - CoreConfig.getRedactedWindowSize();
+                minBh = blocknum - ConsensusConfig.getRedactedWindowSize();
             }
             ulong highest_block_num = Node.getLastBlockHeight() + 5;
             if(Node.blockProcessor.highestNetworkBlockNum > highest_block_num)
@@ -446,10 +446,10 @@ namespace DLT
             else
             {
 
-                IxiNumber expectedFee = transaction.calculateMinimumFee(CoreConfig.transactionPrice);
+                IxiNumber expectedFee = transaction.calculateMinimumFee(ConsensusConfig.transactionPrice);
                 if (transaction.version == 0)
                 {
-                    expectedFee = CoreConfig.transactionPrice;
+                    expectedFee = ConsensusConfig.transactionPrice;
                 }
                 // Verify if the transaction contains the minimum fee
                 if (transaction.fee < expectedFee)
@@ -1059,7 +1059,7 @@ namespace DLT
             }
 
             // ignore PoW solutions for first 100 blocks in the redacted window
-            if(block_version >= 3 && blocknum + CoreConfig.getRedactedWindowSize(block_version) - 100 < Node.getLastBlockHeight())
+            if(block_version >= 3 && blocknum + ConsensusConfig.getRedactedWindowSize(block_version) - 100 < Node.getLastBlockHeight())
             {
                 return false;
             }
@@ -1498,9 +1498,9 @@ namespace DLT
             }
 
             ulong minBh = 0;
-            if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+            if (block.blockNum > ConsensusConfig.getRedactedWindowSize(block.version))
             {
-                minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                minBh = block.blockNum - ConsensusConfig.getRedactedWindowSize(block.version);
             }
             // Check the block height
             if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
@@ -1697,9 +1697,9 @@ namespace DLT
             if (tx.type == (int)Transaction.Type.MultisigTX)
             {
                 ulong minBh = 0;
-                if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+                if (block.blockNum > ConsensusConfig.getRedactedWindowSize(block.version))
                 {
-                    minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                    minBh = block.blockNum - ConsensusConfig.getRedactedWindowSize(block.version);
                 }
                 // Check the block height
                 if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
@@ -1793,9 +1793,9 @@ namespace DLT
                 if (tx.type == (int)Transaction.Type.MultisigAddTxSignature)
                 {
                     ulong minBh = 0;
-                    if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+                    if (block.blockNum > ConsensusConfig.getRedactedWindowSize(block.version))
                     {
-                        minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                        minBh = block.blockNum - ConsensusConfig.getRedactedWindowSize(block.version);
                     }
                     // Check the block height
                     if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
@@ -1851,9 +1851,9 @@ namespace DLT
             if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
                 ulong minBh = 0;
-                if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+                if (block.blockNum > ConsensusConfig.getRedactedWindowSize(block.version))
                 {
-                    minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                    minBh = block.blockNum - ConsensusConfig.getRedactedWindowSize(block.version);
                 }
                 // Check the block height
                 if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
@@ -2015,9 +2015,9 @@ namespace DLT
         public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
         {
             ulong minBh = 0;
-            if (block.blockNum > CoreConfig.getRedactedWindowSize(block.version))
+            if (block.blockNum > ConsensusConfig.getRedactedWindowSize(block.version))
             {
-                minBh = block.blockNum - CoreConfig.getRedactedWindowSize(block.version);
+                minBh = block.blockNum - ConsensusConfig.getRedactedWindowSize(block.version);
             }
             // Check the block height
             if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
@@ -2037,10 +2037,10 @@ namespace DLT
             // Check if the fee covers the current network minimum fee
             // TODO: adjust this dynamically
 
-            IxiNumber expectedFee = tx.calculateMinimumFee(CoreConfig.transactionPrice);
+            IxiNumber expectedFee = tx.calculateMinimumFee(ConsensusConfig.transactionPrice);
             if (tx.version == 0)
             {
-                expectedFee = CoreConfig.transactionPrice;
+                expectedFee = ConsensusConfig.transactionPrice;
             }
             if (tx.fee - expectedFee < (long)0)
             {
@@ -2262,9 +2262,9 @@ namespace DLT
             }
 
             ulong minBlockHeight = 1;
-            if (Node.blockChain.getLastBlockNum() > CoreConfig.getRedactedWindowSize())
+            if (Node.blockChain.getLastBlockNum() > ConsensusConfig.getRedactedWindowSize())
             {
-                minBlockHeight = Node.blockChain.getLastBlockNum() - CoreConfig.getRedactedWindowSize();
+                minBlockHeight = Node.blockChain.getLastBlockNum() - ConsensusConfig.getRedactedWindowSize();
             }
 
             lock (transactions)
@@ -2339,7 +2339,7 @@ namespace DLT
                         }
 
                         // if transaction expired, remove it from pending transactions
-                        if (last_block_height > CoreConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - CoreConfig.getRedactedWindowSize())
+                        if (last_block_height > ConsensusConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - ConsensusConfig.getRedactedWindowSize())
                         {
                             ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                             PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));

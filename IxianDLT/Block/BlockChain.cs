@@ -9,7 +9,7 @@ namespace DLT
 {
     class BlockChain
     {
-        List<Block> blocks = new List<Block>((int)CoreConfig.getRedactedWindowSize());
+        List<Block> blocks = new List<Block>((int)ConsensusConfig.getRedactedWindowSize());
 
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
 
@@ -47,7 +47,7 @@ namespace DLT
             {
                 // redaction
                 int begin_size = blocks.Count();
-                while ((ulong)blocks.Count() > CoreConfig.redactedWindowSize)
+                while ((ulong)blocks.Count() > ConsensusConfig.redactedWindowSize)
                 {
                     Block block = getBlock(blocks[0].blockNum);
 
@@ -136,8 +136,8 @@ namespace DLT
                 Storage.insertBlock(b);
             }
 
-            CoreConfig.redactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
-            CoreConfig.minRedactedWindowSize = CoreConfig.getRedactedWindowSize(b.version);
+            ConsensusConfig.redactedWindowSize = ConsensusConfig.getRedactedWindowSize(b.version);
+            ConsensusConfig.minRedactedWindowSize = ConsensusConfig.getRedactedWindowSize(b.version);
 
             redactChain();
             lock (blocks)
@@ -314,7 +314,7 @@ namespace DLT
                 {
                     totalConsensus += blocks[blocks.Count - i - blockOffset - 1].getFrozenSignatureCount();
                 }
-                int consensus = (int)Math.Ceiling(totalConsensus / blockCount * CoreConfig.networkConsensusRatio);
+                int consensus = (int)Math.Ceiling(totalConsensus / blockCount * ConsensusConfig.networkConsensusRatio);
                 if (consensus < 2)
                 {
                     consensus = 2;
@@ -330,9 +330,9 @@ namespace DLT
             lock (blocks)
             {
                 // limit required consensus to 1000 sigs
-                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getFrozenSignatureCount() >= CoreConfig.maximumBlockSigners)
+                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getFrozenSignatureCount() >= ConsensusConfig.maximumBlockSigners)
                 {
-                    return CoreConfig.maximumBlockSigners;
+                    return ConsensusConfig.maximumBlockSigners;
                 }
 
                 int total_consensus = 0;
@@ -351,10 +351,10 @@ namespace DLT
 
                 if (block_count == 0)
                 {
-                    return CoreConfig.maximumBlockSigners;
+                    return ConsensusConfig.maximumBlockSigners;
                 }
 
-                int consensus = (int)Math.Ceiling(total_consensus / block_count * CoreConfig.networkConsensusRatio);
+                int consensus = (int)Math.Ceiling(total_consensus / block_count * ConsensusConfig.networkConsensusRatio);
 
                 if (consensus < 2)
                 {
@@ -563,7 +563,7 @@ namespace DLT
             if(last_block.lastSuperBlockChecksum != null)
             {
                 // superblock was just generated, prune all block sigs, except the last 10%
-                for(ulong block_num = last_block.blockNum - (CoreConfig.superblockInterval / 10); block_num > 1; block_num--)
+                for(ulong block_num = last_block.blockNum - (ConsensusConfig.superblockInterval / 10); block_num > 1; block_num--)
                 {
                     Block block = getBlock(block_num, true, true);
 

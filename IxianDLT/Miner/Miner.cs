@@ -345,7 +345,7 @@ namespace DLT
             List<Block> blockList = null;
 
             int block_offset = 1;
-            if (Node.blockChain.Count > (long)CoreConfig.getRedactedWindowSize())
+            if (Node.blockChain.Count > (long)ConsensusConfig.getRedactedWindowSize())
             {
                 block_offset = 1000;
             }
@@ -424,7 +424,7 @@ namespace DLT
             List<Block> blockList = null;
 
             int block_offset = 1;
-            if(Node.blockChain.Count > (long)CoreConfig.getRedactedWindowSize())
+            if(Node.blockChain.Count > (long)ConsensusConfig.getRedactedWindowSize())
             {
                 block_offset = 1000;
             }
@@ -900,7 +900,7 @@ namespace DLT
                 }
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {
@@ -939,7 +939,7 @@ namespace DLT
                 }
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), CoreConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {
@@ -1056,8 +1056,8 @@ namespace DLT
 
             ulong lastBlockNum = Node.blockChain.getLastBlockNum();
             ulong oldestRedactedBlock = 0;
-            if (lastBlockNum > CoreConfig.getRedactedWindowSize())
-                oldestRedactedBlock = lastBlockNum - CoreConfig.getRedactedWindowSize();
+            if (lastBlockNum > ConsensusConfig.getRedactedWindowSize())
+                oldestRedactedBlock = lastBlockNum - ConsensusConfig.getRedactedWindowSize();
 
             for (ulong i = lastBlockNum; i > oldestRedactedBlock; i--)
             {

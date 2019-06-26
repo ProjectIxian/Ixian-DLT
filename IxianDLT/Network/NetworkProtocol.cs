@@ -50,7 +50,7 @@ namespace DLT
                 if (tx_count == 0)
                     return;
 
-                int num_chunks = tx_count / CoreConfig.maximumTransactionsPerChunk + 1;
+                int num_chunks = tx_count / ConsensusConfig.maximumTransactionsPerChunk + 1;
                 // Go through each chunk
                 for (int i = 0; i < num_chunks; i++)
                 {
@@ -60,9 +60,9 @@ namespace DLT
                         {
                             int txs_in_chunk = 0;
                             // Generate a chunk of transactions
-                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk; j++)
+                            for (int j = 0; j < ConsensusConfig.maximumTransactionsPerChunk; j++)
                             {
-                                int tx_index = i * CoreConfig.maximumTransactionsPerChunk + j;
+                                int tx_index = i * ConsensusConfig.maximumTransactionsPerChunk + j;
                                 if (tx_index > tx_count - 1)
                                     break;
 
@@ -104,7 +104,7 @@ namespace DLT
                 if (tx_count == 0)
                     return;
 
-                int num_chunks = tx_count / CoreConfig.maximumTransactionsPerChunk + 1;
+                int num_chunks = tx_count / ConsensusConfig.maximumTransactionsPerChunk + 1;
 
                 // Go through each chunk
                 for (int i = 0; i < num_chunks; i++)
@@ -114,9 +114,9 @@ namespace DLT
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
                             // Generate a chunk of transactions
-                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk; j++)
+                            for (int j = 0; j < ConsensusConfig.maximumTransactionsPerChunk; j++)
                             {
-                                int tx_index = i * CoreConfig.maximumTransactionsPerChunk + j;
+                                int tx_index = i * ConsensusConfig.maximumTransactionsPerChunk + j;
                                 if (tx_index > tx_count - 1)
                                     break;
 

@@ -178,7 +178,7 @@ namespace DLTNode
                        }
                    }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", CoreConfig.foundationAddress, Node.walletStorage.getPrimaryAddress(), null, null, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", ConsensusConfig.foundationAddress, Node.walletStorage.getPrimaryAddress(), null, null, Node.blockChain.getLastBlockNum());
 
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
@@ -201,8 +201,8 @@ namespace DLTNode
             for (int i = 0; i < txspamNum; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
-                IxiNumber fee = CoreConfig.transactionPrice;
-                byte[] to = CoreConfig.foundationAddress;
+                IxiNumber fee = ConsensusConfig.transactionPrice;
+                byte[] to = ConsensusConfig.foundationAddress;
                 byte[] from = Node.walletStorage.getPrimaryAddress();
 
                 byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
@@ -244,8 +244,8 @@ namespace DLTNode
             for (int i = 0; i < txspamNum; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
-                IxiNumber fee = CoreConfig.transactionPrice;
-                byte[] to = CoreConfig.foundationAddress;
+                IxiNumber fee = ConsensusConfig.transactionPrice;
+                byte[] to = ConsensusConfig.foundationAddress;
                 byte[] from = Node.walletStorage.getPrimaryAddress();
 
                 byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();

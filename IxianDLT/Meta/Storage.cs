@@ -961,7 +961,7 @@ namespace DLT
                     return false;
                 }
 
-                if (blockheight < CoreConfig.redactedWindowSize)
+                if (blockheight < ConsensusConfig.redactedWindowSize)
                 {
                     // Nothing to redact yet
                     return false;
@@ -971,7 +971,7 @@ namespace DLT
                     seekDatabase(blockheight, true);
 
                     // Calculate the window
-                    ulong redactedWindow = blockheight - CoreConfig.redactedWindowSize;
+                    ulong redactedWindow = blockheight - ConsensusConfig.redactedWindowSize;
 
                     Logging.info(string.Format("Redacting storage below block #{0}", redactedWindow));
 
