@@ -81,13 +81,25 @@ namespace DLT.Meta
 
             Console.SetCursorPosition(0, 0);
 
+            string serverVersion = checkForUpdate();
+            if(!serverVersion.StartsWith("("))
+            {
+                if(serverVersion != Config.version)
+                {
+                    serverVersion = "(UPDATE!)";
+                } else
+                {
+                    serverVersion = "(ok)";
+                }
+            }
+
             writeLine(" d888888b  db    db  d888888b   .d8b.   d8b   db ");
             writeLine("   `88'    `8b  d8'    `88'    d8' `8b  888o  88 ");
             writeLine("    88      `8bd8'      88     88ooo88  88V8o 88 ");
             writeLine("    88      .dPYb.      88     88~~~88  88 V8o88 ");
             writeLine("   .88.    .8P  Y8.    .88.    88   88  88  V888 ");
             writeLine(" Y888888P  YP    YP  Y888888P  YP   YP  VP   V8P ");
-            writeLine(" {0} ", (Config.version + " BETA").PadLeft(47));
+            writeLine(" {0} ", (Config.version + " BETA " + serverVersion).PadLeft(47));
             writeLine(" http://localhost:{0}/                       ", Config.apiPort);
             writeLine("─────────────────────────────────────────────────");
             writeLine(" Thank you for running an Ixian DLT node.        ");
@@ -195,6 +207,18 @@ namespace DLT.Meta
         private void writeLine(string str, params object[] arguments)
         {
             Console.WriteLine(string.Format(str, arguments).PadRight(consoleWidth));
+        }
+
+        private string checkForUpdate()
+        {
+            UpdateVerify.checkVersion();
+            if (UpdateVerify.inProgress) return "(checking)";
+            if(UpdateVerify.ready)
+            {
+                if (UpdateVerify.error) return "(error)";
+                return UpdateVerify.serverVersion;
+            }
+            return "(not checked)";
         }
     }
 }

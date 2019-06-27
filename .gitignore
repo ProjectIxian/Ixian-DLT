@@ -334,3 +334,6 @@ ASALocalRun/
 .mfractor/
 TestingScripts/TestClients/
 /TestingScripts/state.xml
+
+VersionSigner/bin/Debug/*.xml
+VersionSigner/bin/Release/*.xml

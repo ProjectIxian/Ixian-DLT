@@ -61,6 +61,7 @@ namespace DLT
 
             // Read-only values
             public static readonly string version = "xdc-0.6.5-dev"; // DLT Node version
+            public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
             public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000;
