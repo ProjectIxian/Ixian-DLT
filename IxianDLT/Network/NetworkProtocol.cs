@@ -55,7 +55,7 @@ namespace DLT
                 // Go through each chunk
                 for (int i = 0; i < num_chunks; i++)
                 {
-                    using (MemoryStream mOut = new MemoryStream())
+                    using (MemoryStream mOut = new MemoryStream(4096))
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
@@ -85,6 +85,9 @@ namespace DLT
                                 }
                             }
 
+#if TRACE_MEMSTREAM_SIZES
+                            Logging.info(String.Format("NetworkProtocol::handleGetBlockTransactions: {0}", mOut.Length));
+#endif
                             if (txs_in_chunk > 0)
                             {
                                 // Send a chunk
@@ -127,6 +130,9 @@ namespace DLT
                             }
 
                             // Send a chunk
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::handleGetUnappliedTransactions: {0}", mOut.Length));
+#endif
                             endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
                         }
                     }
@@ -176,6 +182,9 @@ namespace DLT
                                 writerw.Write(Node.blockChain.getLastBlockNum());
 
                                 // Send the message
+#if TRACE_MEMSTREAM_SIZES
+                                Logging.info(String.Format("NetworkProtocol::broadcastBlockHeight: {0}", mw.Length));
+#endif
                                 endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
 
                                 result = true;
@@ -210,7 +219,7 @@ namespace DLT
             {
                 byte[] signature_data = null;
 
-                using (MemoryStream m = new MemoryStream())
+                using (MemoryStream m = new MemoryStream(1152))
                 {
                     using (BinaryWriter writer = new BinaryWriter(m))
                     {
@@ -224,6 +233,9 @@ namespace DLT
 
                         writer.Write(signer_address.Length);
                         writer.Write(signer_address);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastNewBlockSignature: {0}", m.Length));
+#endif
 
                         signature_data = m.ToArray();
                     }
@@ -329,6 +341,9 @@ namespace DLT
                                 writer.Write(sig[1]);
                             }
                         }
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastBlockSignatures: {0}", mOut.Length));
+#endif
 
                         // Send a chunk
                         if (endpoint != null)
@@ -611,6 +626,9 @@ namespace DLT
                         writerw.Write(include_segments);
                         writerw.Write(block_checksum.Length);
                         writerw.Write(block_checksum);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastGetNextSuperBlock: {0}", mw.Length));
+#endif
 
                         if (endpoint != null)
                         {
@@ -634,6 +652,9 @@ namespace DLT
                     {
                         writerw.Write(block_num);
                         writerw.Write(include_transactions);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastGetBlock: {0}", mw.Length));
+#endif
 
                         if (endpoint != null)
                         {
@@ -677,6 +698,9 @@ namespace DLT
                     {
                         writerw.Write(txid);
                         writerw.Write(block_num);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastGetTransaction: {0}", mw.Length));
+#endif
 
                         if (endpoint != null)
                         {
@@ -700,6 +724,9 @@ namespace DLT
                     {
                         writerw.Write(blockNum);
                         writerw.Write(requestAllTransactions);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastGetBlockTransactions: {0}", mw.Length));
+#endif
 
                         if (endpoint != null)
                         {
@@ -724,6 +751,9 @@ namespace DLT
 
                         writerw.Write(block_checksum.Length);
                         writerw.Write(block_checksum);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastGetBlockSignatures: {0}", mw.Length));
+#endif
 
                         if (endpoint != null)
                         {
@@ -755,6 +785,9 @@ namespace DLT
                     using (BinaryWriter writer = new BinaryWriter(m))
                     {
                         writer.Write(chunk);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::getWalletStateChunkNeighbor: {0}", m.Length));
+#endif
 
                         if (NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.getWalletStateChunk, m.ToArray(), null) == false)
                         {
@@ -801,7 +834,10 @@ namespace DLT
                                 writer.Write((int)0);
                             }
                         }
-                        //
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::sendWalletStateChunk: {0}", m.Length));
+#endif
+
                         endpoint.sendData(ProtocolMessageCode.walletStateChunk, m.ToArray());
                     }
                 }
@@ -1009,7 +1045,10 @@ namespace DLT
                                                 writerw.Write(balance.ToString());
                                                 // Send the block height for this balance
                                                 writerw.Write(Node.blockChain.getLastBlockNum());
- 
+#if TRACE_MEMSTREAM_SIZES
+                                                Logging.info(String.Format("NetworkProtocol::parseProtocolMessage: {0}", mw.Length));
+#endif
+
                                                 endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
                                             }
                                         }
@@ -1246,6 +1285,9 @@ namespace DLT
                                         writer.Write(walletstate_version);
                                         writer.Write(walletstate_block);
                                         writer.Write(walletstate_count);
+#if TRACE_MEMSTREAM_SIZES
+                                        Logging.info(String.Format("NetworkProtocol::parseProtocolMessage2: {0}", m.Length));
+#endif
 
                                         endpoint.sendData(ProtocolMessageCode.walletState, m.ToArray());
                                     }

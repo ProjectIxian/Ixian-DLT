@@ -2192,6 +2192,9 @@ namespace DLT
                             writer.Write(transaction_data_size);
                             writer.Write(transaction_data);
                         }
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("TransactionPool::getBytes: {0}", m.Length));
+#endif
                     }
                     return m.ToArray();
                 }
