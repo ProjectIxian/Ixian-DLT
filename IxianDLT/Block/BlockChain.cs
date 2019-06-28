@@ -151,7 +151,7 @@ namespace DLT
                         tmp_block.compact();
                     }
                 }
-                compactBlockSigs();
+                compactBlockSigs(b);
             }
 
             lastBlockReceivedTime = Clock.getTimestamp();
@@ -551,41 +551,44 @@ namespace DLT
         }
 
         // this function prunes un-needed sigs from blocks
-        private void compactBlockSigs()
+        private void compactBlockSigs(Block last_block)
         {
-            Block last_block = Node.getLastBlock();
-
             if(last_block.version < BlockVer.v5)
             {
                 return;
             }
 
-            if(last_block.lastSuperBlockChecksum != null)
+            if (last_block.lastSuperBlockChecksum == null)
             {
-                // superblock was just generated, prune all block sigs, except the last 10%
-                for(ulong block_num = last_block.blockNum - (ConsensusConfig.superblockInterval / 10); block_num > 1; block_num--)
+                return;
+            }
+
+            // superblock was just generated, prune all block sigs, except sigs within the superblock window
+
+            ulong prev_superblock_num = last_block.lastSuperBlockNum;
+
+            for(ulong block_num = prev_superblock_num; block_num > 1; block_num--)
+            {
+                Block block = getBlock(block_num, true, true);
+
+                if (block == null)
                 {
-                    Block block = getBlock(block_num, true, true);
-
-                    if (block == null)
-                    {
-                        Logging.error("Block {0} was null while compacting sigs", block_num);
-                        break;
-                    }
-
-                    if (block.version < BlockVer.v4)
-                    {
-                        break;
-                    }
-
-                    if (block.compactedSigs == true)
-                    {
-                        break;
-                    }
-
-                    block.pruneSignatures();
-                    updateBlock(block);
+                    Logging.error("Block {0} was null while compacting sigs", block_num);
+                    break;
                 }
+
+                if (block.version < BlockVer.v4)
+                {
+                    break;
+                }
+
+                if (block.compactedSigs == true)
+                {
+                    break;
+                }
+
+                block.pruneSignatures();
+                updateBlock(block);
             }
         }
 

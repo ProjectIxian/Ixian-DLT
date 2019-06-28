@@ -297,44 +297,6 @@ namespace DLT
             return false;
         }
 
-        public List<byte[][]> getSignaturesWithLowBalance(Block b)
-        {
-            List<byte[][]> sigs = new List<byte[][]>();
-
-            for (int i = 0; i < b.signatures.Count; i++)
-            {
-                byte[] address = b.signatures[i][1];
-                // Check if we have a public key instead of an address
-                if (address.Length > 70)
-                {
-                    address = (new Address(address)).address;
-                }
-
-                if (Node.walletState.getWalletBalance(address) < ConsensusConfig.minimumMasterNodeFunds)
-                {
-                    Logging.error(String.Format("LOW BALANCE ADDRESS: {0} FUNDS: {1}", Base58Check.Base58CheckEncoding.EncodePlain(address), Node.walletState.getWalletBalance(address)));
-                    sigs.Add(b.signatures[i]);
-                    continue;
-                }
-                
-            }
-            return sigs;
-        }
-
-        public bool removeSignaturesWithLowBalance(Block b)
-        {
-            List<byte[][]> sigs = getSignaturesWithLowBalance(b);
-            for (int i = 0; i < sigs.Count; i++)
-            {
-                b.signatures.Remove(sigs[i]);
-            }
-            if (sigs.Count > 0)
-            {
-                return true;
-            }
-            return false;
-        }
-
         // Checks if the block has been sigFreezed and if all the hashes match, returns false if the block shouldn't be processed further
         public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null)
         {
@@ -707,10 +669,6 @@ namespace DLT
 
             if (prevBlock == null && lastBlockNum > 1) // block not found but blockChain is not empty, request the missing blocks
             {
-                if (removeSignaturesWithLowBalance(b))
-                {
-                    Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that had too low balance!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                }
                 if (!Node.blockSync.synchronizing)
                 {
                     // Don't request block 0
@@ -1324,6 +1282,16 @@ namespace DLT
                     return true;
                 }else if (block.blockNum == last_block_num - 4)
                 {
+                    if(highestNetworkBlockNum > last_block_num + 5)
+                    {
+                        // catching up
+
+                        // it already has more sigs than the required consensus
+                        // it already includes the required signatures, don't check elected signatures, since the node is catching up
+
+                        return true;
+                    }
+
                     // sigfreezed block
 
                     int block_sig_count = block.getFrozenSignatureCount();
@@ -1460,8 +1428,7 @@ namespace DLT
                         }
                     }
                 }
-                // TODO: we will need an edge case here in the event that too many nodes dropped and consensus
-                // can no longer be reached according to this number - I don't have a clean answer yet - MZ
+
                 if (verifyBlockSignatures(localNewBlock))
                 {
                     if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)

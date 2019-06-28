@@ -273,7 +273,13 @@ namespace DLT
                             }
                         }
 
-                        if(Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr, endpoint))
+                        if(PresenceList.getPresenceByAddress(sig_addr) == null)
+                        {
+                            Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
+                            return;
+                        }
+
+                        if (Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr, endpoint))
                         {
                             Node.blockProcessor.acceptLocalNewBlock();
                             if (Node.isMasterNode())
@@ -368,15 +374,14 @@ namespace DLT
                 broadcastBlockSignatures(b, null, endpoint);
             }
 
-            private static void handleBlockSignatures(byte[] data, RemoteEndpoint endpoint)
+            
+            private static void handleSigfreezedBlockSignatures(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         ulong block_num = reader.ReadUInt64();
-
-                        // TODO TODO TODO rewrite this function to only accept block sigs that were requested - blacklisting point
 
                         int checksum_len = reader.ReadInt32();
                         byte[] checksum = reader.ReadBytes(checksum_len);
@@ -401,7 +406,7 @@ namespace DLT
                         }else if(!target_block.blockChecksum.SequenceEqual(checksum))
                         {
                             // incorrect target block
-                            Logging.warn("Incorrect target block {0} - {1}", block_num, checksum);
+                            Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, checksum);
                             return;
                         }
 
@@ -418,7 +423,8 @@ namespace DLT
                         }
                         else
                         {
-                            sf_block = Node.blockChain.getBlock(block_num + 5, true);
+                            // block already sigfreezed, do nothing
+                            return;
                         }
 
                         lock (target_block)
@@ -457,20 +463,7 @@ namespace DLT
                                 dummy_block.addSignature(sig, addr);
                             }
 
-                            dummy_block.verifySignatures();
-
-                            if (dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
-                            {
-                                Node.blockChain.refreshSignatures(dummy_block, true);
-                            }
-
-
-                            if (!dummy_block.calculateSignatureChecksum().SequenceEqual(sf_block.signatureFreezeChecksum))
-                            {
-                                // signatures checksum don't match SF checksum
-                                Logging.warn("Incorrect signatures chunk for block {0}", block_num);
-                                return;
-                            }
+                            Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
                         }
                     }
                 }
@@ -1445,7 +1438,7 @@ namespace DLT
 
                         case ProtocolMessageCode.blockSignatures:
                             {
-                                handleBlockSignatures(data, endpoint);
+                                handleSigfreezedBlockSignatures(data, endpoint);
                             }
                             break;
 
