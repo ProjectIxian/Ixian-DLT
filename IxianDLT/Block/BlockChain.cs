@@ -337,12 +337,19 @@ namespace DLT
                 if (consensus > ConsensusConfig.maximumBlockSigners)
                 {
                     consensus = ConsensusConfig.maximumBlockSigners;
+                    if (adjusted_to_ratio)
+                    {
+                        consensus = (int)Math.Ceiling(consensus * ConsensusConfig.networkConsensusRatio);
+                    }
+                }
+                else
+                {
+                    if (adjusted_to_ratio)
+                    {
+                        consensus = (int)Math.Ceiling(total_consensus / block_count * ConsensusConfig.networkConsensusRatio);
+                    }
                 }
 
-                if (adjusted_to_ratio)
-                {
-                    consensus = (int)Math.Ceiling(consensus * ConsensusConfig.networkConsensusRatio);
-                }
 
 
                 if (consensus < 2)
