@@ -422,7 +422,7 @@ namespace DLT
             {
                 ulong tmp = 0;
                 string tmp2 = "";
-                if (!verifyPoWTransaction(transaction, out tmp, out tmp2))
+                if (!verifyPoWTransaction(transaction, out tmp, out tmp2, -1, !Node.blockSync.synchronizing))
                 {
                     return false;
                 }
@@ -1146,7 +1146,7 @@ namespace DLT
                             b.blockNum, Crypto.hashToString(b.blockChecksum), txid));
                         return false;
                     }
-                    applyPowTransaction(tx, b, blockSolutionsDictionary, null, true, false);
+                    applyPowTransaction(tx, b, blockSolutionsDictionary, null, true, !tx.fromLocalStorage);
                     setAppliedFlag(txid, b.blockNum, !tx.fromLocalStorage);
                 }
                 // set PoW fields

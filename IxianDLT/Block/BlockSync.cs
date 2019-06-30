@@ -840,7 +840,7 @@ namespace DLT
 
                 if (missingBlocks != null)
                 {
-                    missingBlocks.RemoveAll(x => x == b.blockNum);
+                    missingBlocks.Remove(b.blockNum);
                 }
 
                 if (b.blockNum > syncTargetBlockNum)
@@ -973,7 +973,7 @@ namespace DLT
                     {
                         Node.walletState.clear();
                         wsSynced = true;
-                    }else if(!Config.storeFullHistory)
+                    }else if(Config.storeFullHistory)
                     {
                         Node.walletState.setCachedBlockVersion(block_version);
                         if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
