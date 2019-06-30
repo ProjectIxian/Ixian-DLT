@@ -304,37 +304,15 @@ namespace DLT
         public int getRequiredConsensus()
         {
             // TODO TODO TODO cache
-            int blockOffset = 6;
-            lock (blocks)
-            {
-                if (blocks.Count < blockOffset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-X blocks
-                int totalConsensus = 0;
-                int blockCount = blocks.Count - blockOffset < 10 ? blocks.Count - blockOffset : 10;
-                for (int i = 0; i < blockCount; i++)
-                {
-                    totalConsensus += blocks[blocks.Count - i - blockOffset - 1].getFrozenSignatureCount();
-                }
-                int consensus = (int)Math.Ceiling(totalConsensus / blockCount * ConsensusConfig.networkConsensusRatio);
-                if (consensus < 2)
-                {
-                    consensus = 2;
-                }
-                return consensus;
-            }
+            return getRequiredConsensus(lastBlockNum + 1);
         }
 
-        public int getRequiredConsensus(ulong block_num)
+        public int getRequiredConsensus(ulong block_num, bool adjusted_to_ratio = true)
         {
-            int block_offset = 7;
+            int block_offset = 6;
             if (block_num < (ulong)block_offset + 2) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
-                // limit required consensus to 1000 sigs
-                if(blocks.Find(x=> x.blockNum == (block_num - 6)).getFrozenSignatureCount() >= ConsensusConfig.maximumBlockSigners)
-                {
-                    return ConsensusConfig.maximumBlockSigners;
-                }
-
                 int total_consensus = 0;
                 int block_count = 0;
                 for (int i = 0; i < 10; i++)
@@ -354,12 +332,24 @@ namespace DLT
                     return ConsensusConfig.maximumBlockSigners;
                 }
 
-                int consensus = (int)Math.Ceiling(total_consensus / block_count * ConsensusConfig.networkConsensusRatio);
+                int consensus = (int)Math.Ceiling((double)total_consensus / block_count);
+
+                if (consensus > ConsensusConfig.maximumBlockSigners)
+                {
+                    consensus = ConsensusConfig.maximumBlockSigners;
+                }
+
+                if (adjusted_to_ratio)
+                {
+                    consensus = (int)Math.Ceiling(consensus * ConsensusConfig.networkConsensusRatio);
+                }
+
 
                 if (consensus < 2)
                 {
                     consensus = 2;
                 }
+
                 return consensus;
             }
         }
@@ -415,6 +405,9 @@ namespace DLT
 
                     byte[] beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     beforeSigs = blocks[idx].getFrozenSignatureCount();
+
+                    blocks[idx].addSignaturesFrom(b);
+
                     if (forceRefresh)
                     {
                         blocks[idx].setFrozenSignatures(b.signatures);
@@ -422,9 +415,9 @@ namespace DLT
                     }
                     else
                     {
-                        blocks[idx].addSignaturesFrom(b);
                         afterSigs = blocks[idx].signatures.Count;
                     }
+
                     byte[] afterSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     if (!beforeSigsChecksum.SequenceEqual(afterSigsChecksum))
                     {

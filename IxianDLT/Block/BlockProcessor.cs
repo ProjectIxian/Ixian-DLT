@@ -1220,24 +1220,30 @@ namespace DLT
 
             int sig_count = 0;
 
+            // Sort the signatures first
+            List<byte[][]> sorted_sigs = null;
             lock (block.signatures)
             {
-                foreach (var entry in block.signatures)
+                sorted_sigs = new List<byte[][]>(block.signatures);
+            }
+            sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x[1], y[1]));
+
+
+            foreach (var entry in sorted_sigs)
+            {
+                byte[] address = (new Address(entry[1])).address;
+                foreach (var prev_entry in election_block.signatures)
                 {
-                    byte[] address = (new Address(entry[1])).address;
-                    foreach (var prev_entry in election_block.signatures)
+                    if (address.SequenceEqual((new Address(prev_entry[1])).address))
                     {
-                        if (address.SequenceEqual((new Address(prev_entry[1])).address))
-                        {
-                            required_sigs.Add(entry);
-                            sig_count++;
-                            break;
-                        }
-                    }
-                    if (max_sig_count > 0 && sig_count == max_sig_count)
-                    {
+                        required_sigs.Add(entry);
+                        sig_count++;
                         break;
                     }
+                }
+                if (max_sig_count > 0 && sig_count == max_sig_count)
+                {
+                    break;
                 }
             }
 
@@ -1249,7 +1255,7 @@ namespace DLT
         {
             if (block.blockNum > 6 && block.version >= BlockVer.v5 && block.lastSuperBlockChecksum == null)
             {
-                int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum - 5);
+                int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum);
 
                 int frozen_sig_count = block.getFrozenSignatureCount();
 
@@ -1261,12 +1267,13 @@ namespace DLT
                 }
 
                 List<byte[][]> required_sigs = extractRequiredSignatures(block);
+
                 if (required_consensus_count > 2)
                 {
-                    // verify if exactly 50% + 1 signatures are from the previous block
-                    if (required_sigs.Count() == (required_consensus_count / 2) + 1)
+                    // verify if over 50% signatures are from the previous block
+                    if (required_sigs.Count() < (required_consensus_count / 2) + 1)
                     {
-                        Logging.warn("Block {0} doesn't have 50% + 1 required signers from previous block.", block.blockNum);
+                        Logging.warn("Block {0} has less than 50% + 1 required signers from previous block.", block.blockNum);
                         return false;
                     }
                 }
@@ -1277,12 +1284,15 @@ namespace DLT
                     // current block
 
                     // it already has more sigs than the required consensus
-                    // it already includes the required signatures, so everything is good
+                    // it already includes the required signatures
 
                     return true;
                 }else if (block.blockNum == last_block_num - 4)
                 {
-                    if(highestNetworkBlockNum > last_block_num + 5)
+                    // sigfreezed block
+
+
+                    if (highestNetworkBlockNum > last_block_num + 5)
                     {
                         // catching up
 
@@ -1292,42 +1302,36 @@ namespace DLT
                         return true;
                     }
 
-                    // sigfreezed block
-
                     int block_sig_count = block.getFrozenSignatureCount();
 
-                    // max 1000 sigs
                     if(block_sig_count > ConsensusConfig.maximumBlockSigners)
                     {
-                        Logging.warn("Block {0} has too many sigs ({1}/{2}).", block.blockNum, block_sig_count, ConsensusConfig.maximumBlockSigners);
-                        return false;
+                        block_sig_count = ConsensusConfig.maximumBlockSigners;
                     }
 
-                    // limit sigs to 1000 and max limit to 2000
-                    if (required_consensus_count >= ConsensusConfig.maximumBlockSigners)
-                    {
-                        // fixed to 1000 sigs - TODO TODO TODO TODO TODO will be enabled at a later point (v6 or even later), we need more than 1k MNs to do this
-                        /*if(block_sig_count != CoreConfig.maximumBlockSigners)
-                        {
-                            return false;
-                        }*/
-                    }
+                    Block local_block = new Block(Node.blockChain.getBlock(block.blockNum));
+
+                    local_block.addSignaturesFrom(block);
+
+                    freezeSignatures(local_block);
 
                     int valid_sig_count = 0;
-                    PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(block.blockChecksum, block_sig_count * 2);
-                    ByteArrayComparer bac = new ByteArrayComparer();
-                    foreach(byte[] address in poe)
+
+                    lock (local_block.signatures)
                     {
-                        if(block.containsSignature(address) && required_sigs.Find(x => (new Address(x[1])).address.SequenceEqual(address)) == null)
+                        foreach (var sig in local_block.frozenSignatures)
                         {
-                            valid_sig_count++;
+                            if(block.containsSignature(sig[1]))
+                            {
+                                valid_sig_count++;
+                            }
                         }
                     }
 
                     // check if there are 90% valid signatures
-                    if(valid_sig_count + required_sigs.Count() < block_sig_count * 0.9)
+                    if (valid_sig_count < Math.Floor(block_sig_count * 0.9))
                     {
-                        Logging.warn("Block {0} has less than 90% valid signers ({1} + {2} / {3}).", block.blockNum, valid_sig_count, required_sigs.Count(), block_sig_count * 0.9);
+                        Logging.warn("Block {0} has less than 90% valid signers ({1} / {2}).", block.blockNum, valid_sig_count, Math.Floor(block_sig_count * 0.9));
                         return false;
                     }
 
@@ -1353,7 +1357,7 @@ namespace DLT
         // Freezes signature for the specified target block
         public void freezeSignatures(Block target_block)
         {
-            int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum);
+            int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
 
             List<byte[][]> frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
 
@@ -1361,7 +1365,7 @@ namespace DLT
 
             ByteArrayComparer bac = new ByteArrayComparer();
 
-            int sig_count = 0;
+            int sig_count = frozen_block_sigs.Count;
 
             lock (target_block.signatures)
             {
@@ -1401,6 +1405,15 @@ namespace DLT
             lock (localBlockLock)
             {
                 if (localNewBlock == null) return false;
+
+                if (localNewBlock.blockNum > 11)
+                {
+                    Block target_block = Node.blockChain.getBlock(localNewBlock.blockNum - 5);
+                    if (target_block.frozenSignatures == null || !verifySignatureFreezeChecksum(localNewBlock, null))
+                    {
+                        freezeSignatures(target_block);
+                    }
+                }
 
                 if (!verifySignatureFreezeChecksum(localNewBlock, null))
                 {
@@ -1717,7 +1730,7 @@ namespace DLT
 
             if (sigfreezechecksum == null)
             {
-                Logging.warn("Current block does not have sigfreeze checksum.");
+                Logging.warn("Block {0} does not have sigfreeze checksum.", b.blockNum);
                 return;
             }
 
@@ -2567,7 +2580,7 @@ namespace DLT
                 return null;
             }
 
-            if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 10)
+            if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 11)
             {
                 freezeSignatures(target_block);
             }
