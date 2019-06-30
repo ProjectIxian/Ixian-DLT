@@ -137,6 +137,22 @@ namespace DLTNode
                 response = onGetMiningBlock(parameters);
             }
 
+            if (methodName.Equals("getblockcount", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetBlockCount();
+            }
+
+            if (methodName.Equals("getbestblockhash", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetBestBlockHash();
+            }
+
+            if (methodName.Equals("gettxoutsetinfo", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetTxOutsetInfo();
+            }
+           
+
             if (response == null)
             {
                 return false;
@@ -938,6 +954,45 @@ namespace DLTNode
             };
 
             return new JsonResponse { result = resultArray, error = null };
+        }
+
+        // returns highest local blockheight
+        private JsonResponse onGetBlockCount()
+        {
+            return new JsonResponse { result = Node.getLastBlockHeight(), error = null };
+        }
+
+        // returns highest local blockheight
+        private JsonResponse onGetBestBlockHash()
+        {
+            return new JsonResponse { result = Node.getLastBlock().blockChecksum, error = null };
+        }
+
+        // returns statistics about the unspent transactions
+        private JsonResponse onGetTxOutsetInfo()
+        {
+            Block block = Node.getLastBlock();
+            Transaction[] unapplied_txs = TransactionPool.getUnappliedTransactions();
+
+            long txouts = 0;
+            IxiNumber total_amount = new IxiNumber(0);
+
+            foreach(Transaction tx in unapplied_txs)
+            {
+                txouts += tx.toList.Count();
+                total_amount += tx.amount + tx.fee;
+            }
+
+            Dictionary<string, Object> result_array = new Dictionary<string, Object>
+            {
+                { "height", block.blockNum }, // Block height
+                { "bestblock", block.blockChecksum }, // Block checksum
+                { "transactions", unapplied_txs.LongCount() }, // Number of transactions
+                { "txouts", txouts }, // Number of transaction outputs
+                { "total_amount", total_amount } // Total amount
+            };
+
+            return new JsonResponse { result = result_array, error = null };
         }
 
         private string checkUpdate()
