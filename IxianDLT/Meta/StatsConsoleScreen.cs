@@ -1,11 +1,8 @@
 ﻿using DLT.Network;
 using IXICore.Utils;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace DLT.Meta
 {
@@ -16,7 +13,7 @@ namespace DLT.Meta
         private Thread thread = null;
         private bool running = false;
 
-        private int consoleWidth = 50;
+        private int consoleWidth = 55;
         private uint drawCycle = 0; // Keep a count of screen draw cycles as a basic method of preventing visual artifacts
         private ThreadLiveCheck TLC;
 
@@ -81,34 +78,42 @@ namespace DLT.Meta
 
             Console.SetCursorPosition(0, 0);
 
-            string serverVersion = checkForUpdate();
-            if(!serverVersion.StartsWith("("))
+            string server_version = checkForUpdate();
+            bool update_avail = false;
+            if(!server_version.StartsWith("("))
             {
-                if(serverVersion != Config.version)
+                if(server_version != Config.version)
                 {
-                    serverVersion = "(UPDATE!)";
-                } else
-                {
-                    serverVersion = "(ok)";
-                }
+                    update_avail = true;
+                } 
             }
 
-            writeLine(" d888888b  db    db  d888888b   .d8b.   d8b   db ");
-            writeLine("   `88'    `8b  d8'    `88'    d8' `8b  888o  88 ");
-            writeLine("    88      `8bd8'      88     88ooo88  88V8o 88 ");
-            writeLine("    88      .dPYb.      88     88~~~88  88 V8o88 ");
-            writeLine("   .88.    .8P  Y8.    .88.    88   88  88  V888 ");
-            writeLine(" Y888888P  YP    YP  Y888888P  YP   YP  VP   V8P ");
-            writeLine(" {0} ", (Config.version + " BETA " + serverVersion).PadLeft(47));
-            writeLine(" http://localhost:{0}/                       ", Config.apiPort);
-            writeLine("─────────────────────────────────────────────────");
-            writeLine(" Thank you for running an Ixian DLT node.        ");
-            writeLine(" For help please visit https://www.ixian.io      ");
-            writeLine("─────────────────────────────────────────────────");
+            writeLine(" d888888b   db    db   d888888b    .d88b.    d8b   db ");
+            writeLine("   `88'     `8b  d8'     `88'     d8'  `8b   888o  88 ");
+            writeLine("    88       `8bd8'       88      88oooo88   88V8o 88 ");
+            writeLine("    88       .dPYb.       88      88~~~~88   88 V8o88 ");
+            writeLine("   .88.     .8P  Y8.     .88.     88    88   88  V888 ");
+            writeLine(" Y888888P   YP    YP   Y888888P   YP    YP   VP   V8P ");
+            writeLine(" {0}", (Config.version + " BETA ").PadLeft(53));
+            writeLine(" {0}", ("http://localhost:" + Config.apiPort + "/"));
+            writeLine("──────────────────────────────────────────────────────");
+            if(update_avail)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                writeLine(" An update (" + server_version + ") of Ixian DLT is available");
+                writeLine(" Please visit https://www.ixian.io");
+                Console.ResetColor();
+            }
+            else
+            {
+                writeLine(" Thank you for running an Ixian DLT node.");
+                writeLine(" For help please visit https://www.ixian.io");
+            }
+            writeLine("──────────────────────────────────────────────────────");
 
             if (Storage.upgrading)
             {
-                writeLine("Upgrading database: " + Storage.upgradeProgress + "/" + Storage.upgradeMaxBlockNum);
+                writeLine(" Upgrading database: " + Storage.upgradeProgress + "/" + Storage.upgradeMaxBlockNum);
             }
 
             if (Node.serverStarted == false)
@@ -117,9 +122,9 @@ namespace DLT.Meta
             }
 
             // Node status
-            Console.Write("\tStatus:\t\t");
+            Console.Write(" Status:               ");
 
-            string dltStatus =  "active       ";
+            string dltStatus =  "active";
             if (Node.blockSync.synchronizing)
                 dltStatus =     "synchronizing";
 
@@ -162,7 +167,7 @@ namespace DLT.Meta
             writeLine(dltStatus);
             Console.ResetColor();
 
-            writeLine("                                             ");
+            writeLine("");
             ulong lastBlockNum = 0;
             string lastBlockChecksum = "";
             int sigCount = 0;
@@ -171,14 +176,14 @@ namespace DLT.Meta
             {
                 lastBlockNum = b.blockNum;
                 sigCount = b.signatures.Count();
-                lastBlockChecksum = Crypto.hashToString(b.blockChecksum).Substring(0, 10);
+                lastBlockChecksum = Crypto.hashToString(b.blockChecksum).Substring(0, 6);
             }
 
-            writeLine("\tLast Block:\t\t{0} ({1} sigs) - {2}...       ", lastBlockNum, sigCount, lastBlockChecksum);
+            writeLine(" Last Block:           {0} ({1} sigs) - {2}...", lastBlockNum, sigCount, lastBlockChecksum);
 
-            writeLine("\tConnections (I/O):\t{0}              ", connectionsInStr + "/" + connectionsOut);
-            writeLine("\tPresences:\t\t{0}                    ", PresenceList.getTotalPresences());
-            writeLine("\tTransaction Pool:\t{0}               ", TransactionPool.getUnappliedTransactions().Count());
+            writeLine(" Connections (I/O):    {0}", connectionsInStr + "/" + connectionsOut);
+            writeLine(" Presences:            {0}", PresenceList.getTotalPresences());
+            writeLine(" Transaction Pool:     {0}", TransactionPool.getUnappliedTransactions().Count());
 
             // Mining status
             string mineStatus = "disabled";
@@ -189,18 +194,18 @@ namespace DLT.Meta
             if (Node.miner.pause)
                 mineStatus =    "paused ";
 
-            writeLine("                                                 ");
-            writeLine("\tMining:\t\t\t{0}                     ", mineStatus);
-            writeLine("\tHashrate:\t\t{0}                     ", Node.miner.lastHashRate);
-            writeLine("\tSearch Mode:\t\t{0}                  ", Node.miner.searchMode);
-            writeLine("\tSolved Blocks:\t\t{0}                ", Node.miner.getSolvedBlocksCount());
-            writeLine("─────────────────────────────────────────────────");
+            writeLine("");
+            writeLine(" Mining:               {0}", mineStatus);
+            writeLine(" Hashrate:             {0}", Node.miner.lastHashRate);
+            writeLine(" Search Mode:          {0}", Node.miner.searchMode);
+            writeLine(" Solved Blocks:        {0}", Node.miner.getSolvedBlocksCount());
+            writeLine("──────────────────────────────────────────────────────");
 
             TimeSpan elapsed = DateTime.UtcNow - startTime;
 
-            writeLine(" Running for {0} days {1}h {2}m {3}s             ", elapsed.Days, elapsed.Hours, elapsed.Minutes, elapsed.Seconds);
-            writeLine("                                                 ");
-            writeLine(" Press V to toggle stats. Esc key to exit.       ");
+            writeLine(" Running for {0} days {1}h {2}m {3}s", elapsed.Days, elapsed.Hours, elapsed.Minutes, elapsed.Seconds);
+            writeLine("");
+            writeLine(" Press V to toggle stats. Esc key to exit.");
 
         }
 

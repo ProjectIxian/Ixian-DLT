@@ -21,7 +21,7 @@ namespace DLT
 
     class Miner
     {
-        public bool pause = false; // Flag to toggle miner activity
+        public bool pause = true; // Flag to toggle miner activity
 
         public long lastHashRate = 0; // Last reported hash rate
         public ulong currentBlockNum = 0; // Mining block number

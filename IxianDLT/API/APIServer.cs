@@ -605,6 +605,8 @@ namespace DLTNode
                 dltStatus = "ErrorForkedViaUpgrade";
             }
 
+            networkArray.Add("Update", checkUpdate());
+
             networkArray.Add("DLT Status", dltStatus);
 
             string bpStatus = "Stopped";
@@ -936,6 +938,18 @@ namespace DLTNode
             };
 
             return new JsonResponse { result = resultArray, error = null };
+        }
+
+        private string checkUpdate()
+        {
+            UpdateVerify.checkVersion();
+            if (UpdateVerify.inProgress) return "";
+            if (UpdateVerify.ready)
+            {
+                if (UpdateVerify.error) return "";
+                if (UpdateVerify.serverVersion != Config.version) return UpdateVerify.serverVersion;
+            }
+            return "";
         }
     }
 }
