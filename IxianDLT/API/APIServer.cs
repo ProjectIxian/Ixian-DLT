@@ -993,7 +993,7 @@ namespace DLTNode
                 { "bestblock", block.blockChecksum }, // Block checksum
                 { "transactions", unapplied_txs.LongCount() }, // Number of transactions
                 { "txouts", txouts }, // Number of transaction outputs
-                { "total_amount", total_amount } // Total amount
+                { "total_amount", total_amount.ToString() } // Total amount
             };
 
             return new JsonResponse { result = result_array, error = null };
