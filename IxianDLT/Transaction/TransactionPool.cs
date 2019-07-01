@@ -422,7 +422,7 @@ namespace DLT
             {
                 ulong tmp = 0;
                 string tmp2 = "";
-                if (!verifyPoWTransaction(transaction, out tmp, out tmp2, -1, !Node.blockSync.synchronizing))
+                if (!Node.blockSync.synchronizing && !verifyPoWTransaction(transaction, out tmp, out tmp2))
                 {
                     return false;
                 }
@@ -1080,7 +1080,7 @@ namespace DLT
                     return false;
                 }
 
-                if (verify_pow == false)
+                if (verify_pow == false || tx.powVerified)
                 {
                     return true;
                 }
@@ -1092,6 +1092,7 @@ namespace DLT
                     // Verify the nonce
                     if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v0(nonce, blocknum, primary_address, block.difficulty))
                     {
+                        tx.powVerified = true;
                         return true;
                     }
                 }
@@ -1100,6 +1101,7 @@ namespace DLT
                     // Verify the nonce
                     if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v1(nonce, blocknum, primary_address, block.difficulty))
                     {
+                        tx.powVerified = true;
                         return true;
                     }
                 }
@@ -1108,6 +1110,7 @@ namespace DLT
                     // Verify the nonce
                     if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v2(nonce, blocknum, primary_address, block.difficulty))
                     {
+                        tx.powVerified = true;
                         return true;
                     }
                 }
@@ -1116,6 +1119,7 @@ namespace DLT
                     // Verify the nonce
                     if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v3(nonce, blocknum, primary_address, block.difficulty))
                     {
+                        tx.powVerified = true;
                         return true;
                     }
                 }

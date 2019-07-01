@@ -22,6 +22,10 @@ namespace DLT
 
             public static Dictionary<string, string> apiUsers = new Dictionary<string, string>();
 
+            public static List<string> apiAllowedIps = new List<string>();
+            public static List<string> apiBinds = new List<string>();
+
+
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
             public static bool disableMiner = false; // Flag to disable miner
@@ -98,7 +102,7 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--disableMiner] [--onlyShowAddressList] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
+                Console.WriteLine(" [--disableWebStart] [--disableMiner] [--onlyShowAddresses] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
                 Console.WriteLine(" [--recover] [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--walletPassword]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
@@ -141,9 +145,13 @@ namespace DLT
                 Console.WriteLine(" Available options:");
                 Console.WriteLine("    dltPort\t\t Port to listen on (same as -p CLI)");
                 Console.WriteLine("    testnetDltPort\t Port to listen on in testnet mode (same as -p CLI)");
+
                 Console.WriteLine("    apiPort\t\t HTTP/API port to listen on (same as -a CLI)");
+                Console.WriteLine("    apiAllowIp\t\t Allow API connections from specified source or sources (can be used multiple times)");
+                Console.WriteLine("    apiBind\t\t Bind to given address to listen for API connections (can be used multiple times)");
                 Console.WriteLine("    testnetApiPort\t HTTP/API port to listen on in testnet mode (same as -a CLI)");
                 Console.WriteLine("    addApiUser\t\t Adds user:password that can access the API (can be used multiple times)");
+
                 Console.WriteLine("    externalIp\t\t External IP Address to use (same as -i CLI)");
                 Console.WriteLine("    addPeer\t\t Specify which seed node to use (same as -n CLI) (can be used multiple times)");
                 Console.WriteLine("    addTestnetPeer\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
@@ -200,6 +208,12 @@ namespace DLT
                             break;
                         case "apiPort":
                             apiPort = int.Parse(value);
+                            break;
+                        case "apiAllowIp":
+                            apiAllowedIps.Add(value);
+                            break;
+                        case "apiBind":
+                            apiBinds.Add(value);
                             break;
                         case "testnetApiPort":
                             testnetApiPort = int.Parse(value);

@@ -15,7 +15,11 @@ namespace DLTNode
         public APIServer()
         {
             // Start the API server
-            start(String.Format("http://localhost:{0}/", Config.apiPort), Config.apiUsers);
+            if (Config.apiBinds.Count == 0)
+            {
+                Config.apiBinds.Add("http://localhost:" + Config.apiPort + "/");
+            }
+            start(Config.apiBinds, Config.apiUsers, Config.apiAllowedIps);
         }
 
         protected override bool processRequest(HttpListenerContext context, string methodName, Dictionary<string, object> parameters)
