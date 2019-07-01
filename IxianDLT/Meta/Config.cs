@@ -49,7 +49,7 @@ namespace DLT
             public static string walletFile = "ixian.wal";
             public static string genesisFile = "genesis.dat";
 
-            public static int maxLogSize = 50;
+            public static int maxLogSize = 50; // MB
             public static int maxLogCount = 10;
 
             public static ulong lastGoodBlock = 0;
@@ -64,13 +64,13 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.5-dev"; // DLT Node version
+            public static readonly string version = "xdc-0.6.5RC1"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
             public static bool isTestNet = false; // Testnet designator
 
-            public static readonly ulong maxBlocksPerDatabase = 1000;
-            public static readonly ulong deprecationBlockOffset = 86400; // 86.4k blocks ~= 30 days
-            public static readonly ulong compileTimeBlockNumber = 513600;
+            public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
+
+            public static readonly ulong nodeDeprecationBlock = 800000; // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 

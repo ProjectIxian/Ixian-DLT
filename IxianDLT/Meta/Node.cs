@@ -325,7 +325,7 @@ namespace DLT.Meta
             // Start the HTTP JSON API server
             apiServer = new APIServer();
 
-            if (IXICore.Platform.onMono() == false && !Config.disableWebStart)
+            if (IXICore.Platform.onMono() == false && !Config.disableWebStart && Config.apiBinds.Count == 0)
             {
                 System.Diagnostics.Process.Start("http://localhost:" + Config.apiPort);
             }
@@ -474,7 +474,7 @@ namespace DLT.Meta
             {
                 ConsoleHelpers.verboseConsoleOutput = true;
                 Logging.consoleOutput = true;
-                shutdownMessage = string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.compileTimeBlockNumber + Config.deprecationBlockOffset);
+                shutdownMessage = string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.nodeDeprecationBlock);
                 Logging.error(shutdownMessage);
                 forceShutdown = true;
                 running = false;
@@ -603,7 +603,7 @@ namespace DLT.Meta
         // Checks to see if this node can handle the block number
         static public bool checkCurrentBlockDeprecation(ulong block)
         {
-            ulong block_limit = Config.compileTimeBlockNumber + Config.deprecationBlockOffset;
+            ulong block_limit = Config.nodeDeprecationBlock;
 
             if(block > block_limit)
             {
