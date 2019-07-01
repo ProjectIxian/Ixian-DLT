@@ -123,18 +123,18 @@
     <PostBuildEvent>
     </PostBuildEvent>
   </PropertyGroup>
-  <Target Name="AfterBuild">
+  <Target Name="CopyHTMLToOutput" AfterTargets="CoreCompile">
     <ItemGroup>
-      <IXIPB1 Include="$(SolutionDir)\..\IxianCore\html\*.*" />
+      <IXIPB1 Include="$(SolutionDir)\..\Ixian-Core\html\*.*" />
     </ItemGroup>
     <ItemGroup>
-      <IXIPB2 Include="$(SolutionDir)\..\IxianCore\html\img\*.*" />
+      <IXIPB2 Include="$(SolutionDir)\..\Ixian-Core\html\img\*.*" />
     </ItemGroup>
     <ItemGroup>
-      <IXIPB3 Include="$(SolutionDir)\..\IxianCore\html\css\*.*" />
+      <IXIPB3 Include="$(SolutionDir)\..\Ixian-Core\html\css\*.*" />
     </ItemGroup>
     <ItemGroup>
-      <IXIPB4 Include="$(SolutionDir)\..\IxianCore\html\js\*.*" />
+      <IXIPB4 Include="$(SolutionDir)\..\Ixian-Core\html\js\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(IXIPB1)" DestinationFolder="$(OutputPath)\html" ContinueOnError="true" />
     <Copy SourceFiles="@(IXIPB2)" DestinationFolder="$(OutputPath)\html\img" ContinueOnError="true" />

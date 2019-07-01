@@ -58,19 +58,19 @@ namespace DLT
 
             private static void fetchUpdateVersion()
             {
-                System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient();
+                System.Net.Http.HttpClient http_client = new System.Net.Http.HttpClient();
                 try
                 {
-                    var httpGetTask = httpClient.GetStringAsync(updateUrl);
-                    httpGetTask.Wait();
-                    string[] updateStrings = httpGetTask.Result.Split(';');
-                    string versionText = updateStrings[0];
-                    string signature = updateStrings[1];
-                    if (!checkSignature(versionText, signature))
+                    var http_get_task = http_client.GetStringAsync(updateUrl);
+                    http_get_task.Wait();
+                    string[] update_strings = http_get_task.Result.Split(';');
+                    string version_text = update_strings[0];
+                    string signature = update_strings[1];
+                    if (!checkSignature(version_text, signature))
                     {
                         throw new Exception("Incorrect signature for the retrieved version text!");
                     }
-                    serverVersion = versionText;
+                    serverVersion = version_text;
                 }
                 catch (Exception ex)
                 {
@@ -87,11 +87,11 @@ namespace DLT
 
             private static bool checkSignature(string version, string base64Sig)
             {
-                byte[] signatureBytes = Convert.FromBase64String(base64Sig);
-                byte[] versionBytes = ASCIIEncoding.ASCII.GetBytes(version);
+                byte[] signature_bytes = Convert.FromBase64String(base64Sig);
+                byte[] version_bytes = ASCIIEncoding.ASCII.GetBytes(version);
                 RSACryptoServiceProvider r = new RSACryptoServiceProvider();
                 r.FromXmlString(IXIANSignPubKey);
-                return r.VerifyData(versionBytes, signatureBytes, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+                return r.VerifyData(version_bytes, signature_bytes, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
             }
         }
     }
