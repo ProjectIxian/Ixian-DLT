@@ -208,7 +208,7 @@ namespace DLT
                 // Sleep until next iteration
                 if (sleep)
                 {
-                    Thread.Sleep(2000);
+                    Thread.Sleep(5000);
                 }
                 else
                 {
