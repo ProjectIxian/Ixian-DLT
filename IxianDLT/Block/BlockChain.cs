@@ -51,6 +51,11 @@ namespace DLT
                 {
                     Block block = getBlock(blocks[0].blockNum);
 
+                    if(block == null)
+                    {
+                        break;
+                    }
+
                     TransactionPool.redactTransactionsForBlock(block); // Remove from Transaction Pool
 
                     // Check if this is a full history node
@@ -58,6 +63,7 @@ namespace DLT
                     {
                         Storage.removeBlock(block); // Remove from storage
                     }
+
                     lock (blocksDictionary)
                     {
                         blocksDictionary.Remove(block.blockNum);

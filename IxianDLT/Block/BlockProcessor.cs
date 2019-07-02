@@ -386,7 +386,12 @@ namespace DLT
 
         public Block getPendingSuperBlock(byte[] block_checksum)
         {
-            return pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(block_checksum)).First().Value;
+            var sb_list = pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(block_checksum));
+            if(sb_list.Count() == 0)
+            {
+                return null;
+            }
+            return sb_list.First().Value;
         }
 
         private bool onSuperBlockReceived(Block b, RemoteEndpoint endpoint = null)
@@ -2184,7 +2189,7 @@ namespace DLT
 
                         if (localNewBlock.lastSuperBlockChecksum == null)
                         {
-                            Block b = Node.blockChain.getBlock(1);
+                            Block b = Node.blockChain.getBlock(1, true);
                             if (b == null)
                             {
                                 Logging.error("Unable to find genesis block for superblock {0}.", localNewBlock.blockNum);
