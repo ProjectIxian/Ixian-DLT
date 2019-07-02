@@ -155,6 +155,7 @@ function Start-DLTClient {
         Write-Host -ForegroundColor Gray "Start-DLTClient: Commandline: $($clientBinary) $($StartupArgs)"
         [void]$p.Start()
         $result = $p
+        Start-Sleep 5
     } catch {
         Write-Host -ForegroundColor Magenta "Error while starting client '$($Client)': $($_.Message)"
     }
