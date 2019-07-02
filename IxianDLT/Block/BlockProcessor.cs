@@ -1861,7 +1861,7 @@ namespace DLT
                         SortedDictionary<byte[], IxiNumber> to_list = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
                         to_list.Add(addressBytes, balance_after);
                         string address = Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.getPrimaryAddress());
-                        Activity activity = new Activity(Node.walletStorage.getSeedHash(), address, Base58Check.Base58CheckEncoding.EncodePlain(ConsensusConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum);
+                        Activity activity = new Activity(Node.walletStorage.getSeedHash(), address, Base58Check.Base58CheckEncoding.EncodePlain(ConsensusConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum, "");
                         ActivityStorage.insertActivity(activity);
                     }
                 }

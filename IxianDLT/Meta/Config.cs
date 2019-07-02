@@ -64,7 +64,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.5RC1"; // DLT Node version
+            public static readonly string version = "xdc-0.6.5"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
             public static bool isTestNet = false; // Testnet designator
 

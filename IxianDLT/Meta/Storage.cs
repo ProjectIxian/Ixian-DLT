@@ -1178,6 +1178,8 @@ namespace DLT
                     File.Delete(fileName);
                 }
                 File.Delete(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "superblocks.dat");
+                File.Delete(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "superblocks.dat-shm");
+                File.Delete(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "superblocks.dat-wal");
             }
         }
     }

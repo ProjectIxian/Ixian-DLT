@@ -12,14 +12,10 @@ namespace DLTNode
 {
     class APIServer : GenericAPIServer
     {
-        public APIServer()
+        public APIServer(List<string> listen_URLs, Dictionary<string, string> authorized_users = null, List<string> allowed_IPs = null)
         {
             // Start the API server
-            if (Config.apiBinds.Count == 0)
-            {
-                Config.apiBinds.Add("http://localhost:" + Config.apiPort + "/");
-            }
-            start(Config.apiBinds, Config.apiUsers, Config.apiAllowedIps);
+            start(listen_URLs, authorized_users, allowed_IPs);
         }
 
         protected override bool processRequest(HttpListenerContext context, string methodName, Dictionary<string, object> parameters)
@@ -182,6 +178,32 @@ namespace DLTNode
             return new JsonResponse { result = "Synchronizing to network now.", error = error };
         }
 
+        private Dictionary<string, string> blockToJsonDictionary(Block block)
+        {
+            Dictionary<string, string> blockData = new Dictionary<string, string>();
+
+            blockData.Add("Block Number", block.blockNum.ToString());
+            blockData.Add("Version", block.version.ToString());
+            blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
+            blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
+            blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
+            blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
+            blockData.Add("PoW field", Crypto.hashToString(block.powField));
+            blockData.Add("Timestamp", block.timestamp.ToString());
+            blockData.Add("Difficulty", block.difficulty.ToString());
+            blockData.Add("Hashrate", (Miner.getTargetHashcountPerBlock(block.difficulty) / 60).ToString());
+            blockData.Add("Compacted Sigs", block.compactedSigs.ToString());
+            blockData.Add("Signature count", block.signatures.Count.ToString());
+            blockData.Add("Transaction count", block.transactions.Count.ToString());
+            blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
+            blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
+            blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
+            blockData.Add("Last Superblock", block.lastSuperBlockNum.ToString());
+            blockData.Add("Last Superblock checksum", Crypto.hashToString(block.lastSuperBlockChecksum));
+
+            return blockData;
+        }
+
         public JsonResponse onGetBlock(Dictionary<string, object> parameters)
         {
             JsonError error = null;
@@ -200,7 +222,7 @@ namespace DLTNode
             {
                 block_num = 0;
             }
-            Dictionary<string, string> blockData = null;
+
             Block block = Node.blockChain.getBlock(block_num, Config.storeFullHistory);
             if (block == null)
             {
@@ -213,23 +235,7 @@ namespace DLTNode
             }
             else
             {
-                blockData = new Dictionary<string, string>();
-
-                blockData.Add("Block Number", block.blockNum.ToString());
-                blockData.Add("Version", block.version.ToString());
-                blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
-                blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
-                blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
-                blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
-                blockData.Add("PoW field", Crypto.hashToString(block.powField));
-                blockData.Add("Timestamp", block.timestamp.ToString());
-                blockData.Add("Difficulty", block.difficulty.ToString());
-                blockData.Add("Signature count", block.signatures.Count.ToString());
-                blockData.Add("Transaction count", block.transactions.Count.ToString());
-                blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
-                blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
-                blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
-                return new JsonResponse { result = blockData, error = error };
+                return new JsonResponse { result = blockToJsonDictionary(block), error = error };
             }
         }
 
@@ -248,24 +254,7 @@ namespace DLTNode
                     return new JsonResponse { result = null, error = error };
                 }
 
-                Dictionary<string, string> blockData = new Dictionary<string, string>();
-
-                blockData.Add("Block Number", block.blockNum.ToString());
-                blockData.Add("Version", block.version.ToString());
-                blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
-                blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
-                blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
-                blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
-                blockData.Add("PoW field", Crypto.hashToString(block.powField));
-                blockData.Add("Timestamp", block.timestamp.ToString());
-                blockData.Add("Difficulty", block.difficulty.ToString());
-                blockData.Add("Signature count", block.signatures.Count.ToString());
-                blockData.Add("Transaction count", block.transactions.Count.ToString());
-                blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
-                blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
-                blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
-
-                blocks[i] = blockData;
+                blocks[i] = blockToJsonDictionary(block);
             }
 
             return new JsonResponse { result = blocks, error = error };
@@ -298,24 +287,10 @@ namespace DLTNode
             else
             {
 
-                blockData = new Dictionary<string, string>();
+                blockData = blockToJsonDictionary(block);
 
-                blockData.Add("Block Number", block.blockNum.ToString());
-                blockData.Add("Version", block.version.ToString());
-                blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
-                blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
-                blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
-                blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
-                blockData.Add("PoW field", Crypto.hashToString(block.powField));
-                blockData.Add("Timestamp", block.timestamp.ToString());
-                blockData.Add("Difficulty", block.difficulty.ToString());
-                blockData.Add("Hashrate", (Miner.getTargetHashcountPerBlock(block.difficulty) / 60).ToString());
-                blockData.Add("Signature count", block.signatures.Count.ToString());
-                blockData.Add("Transaction count", block.transactions.Count.ToString());
-                blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
-                blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
-                blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
                 blockData.Add("Transactions", JsonConvert.SerializeObject(TransactionPool.getFullBlockTransactionsAsArray(block)));
+                blockData.Add("Superblock segments", JsonConvert.SerializeObject(block.superBlockSegments));
             }
 
             return new JsonResponse { result = blockData, error = error };
@@ -969,7 +944,7 @@ namespace DLTNode
         // returns highest local blockheight
         private JsonResponse onGetBestBlockHash()
         {
-            return new JsonResponse { result = Node.getLastBlock().blockChecksum, error = null };
+            return new JsonResponse { result = Crypto.hashToString(Node.getLastBlock().blockChecksum), error = null };
         }
 
         // returns statistics about the unspent transactions
@@ -990,7 +965,7 @@ namespace DLTNode
             Dictionary<string, Object> result_array = new Dictionary<string, Object>
             {
                 { "height", block.blockNum }, // Block height
-                { "bestblock", block.blockChecksum }, // Block checksum
+                { "bestblock", Crypto.hashToString(block.blockChecksum) }, // Block checksum
                 { "transactions", unapplied_txs.LongCount() }, // Number of transactions
                 { "txouts", txouts }, // Number of transaction outputs
                 { "total_amount", total_amount.ToString() } // Total amount

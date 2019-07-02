@@ -975,8 +975,9 @@ namespace DLT
                         wsSynced = true;
                     }else if(Config.storeFullHistory)
                     {
+                        Block b = Node.blockChain.getBlock(block_height, true, true);
                         Node.walletState.setCachedBlockVersion(block_version);
-                        if (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                        if (b.lastSuperBlockChecksum == null || Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
                         {
                             wsSyncConfirmedBlockNum = block_height;
                             wsSynced = true;

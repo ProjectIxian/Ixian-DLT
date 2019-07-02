@@ -789,13 +789,13 @@ namespace DLT
                 {
                     foreach (var entry in wallet_list)
                     {
-                        activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(entry), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), transaction.toList[entry].ToString(), transaction.timeStamp, status, transaction.applied);
+                        activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(entry), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), transaction.toList[entry].ToString(), transaction.timeStamp, status, transaction.applied, transaction.id);
                         ActivityStorage.insertActivity(activity);
                     }
                 }
                 else if(wallet != null)
                 {
-                    activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, transaction.applied);
+                    activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, transaction.applied, transaction.id);
                     ActivityStorage.insertActivity(activity);
                 }
             }

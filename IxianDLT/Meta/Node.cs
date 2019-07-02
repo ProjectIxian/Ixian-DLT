@@ -322,8 +322,14 @@ namespace DLT.Meta
             blockProcessor = new BlockProcessor();
             blockSync = new BlockSync();
 
+
+            if (Config.apiBinds.Count == 0)
+            {
+                Config.apiBinds.Add("http://localhost:" + Config.apiPort + "/");
+            }
+
             // Start the HTTP JSON API server
-            apiServer = new APIServer();
+            apiServer = new APIServer(Config.apiBinds, Config.apiUsers, Config.apiAllowedIps);
 
             if (IXICore.Platform.onMono() == false && !Config.disableWebStart)
             {
