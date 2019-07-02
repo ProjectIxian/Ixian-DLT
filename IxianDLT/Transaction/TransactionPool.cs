@@ -1066,7 +1066,7 @@ namespace DLT
 
             try
             {
-                Block block = Node.blockChain.getBlock(blocknum);
+                Block block = Node.blockChain.getBlock(blocknum); // TODO TODO TODO TODO TODO we can pass the false, false parameters here when the new storage solution is enabled
 
                 if(block == null)
                 {

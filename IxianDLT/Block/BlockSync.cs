@@ -973,15 +973,19 @@ namespace DLT
                     {
                         Node.walletState.clear();
                         wsSynced = true;
-                    }else if(Config.storeFullHistory)
+                    }
+                    else if (Config.storeFullHistory)
                     {
                         Block b = Node.blockChain.getBlock(block_height, true, true);
-                        Node.walletState.setCachedBlockVersion(block_version);
-                        if (b.lastSuperBlockChecksum == null || Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                        if (b != null)
                         {
-                            wsSyncConfirmedBlockNum = block_height;
-                            wsSynced = true;
-                            wsSyncConfirmedVersion = Node.walletState.version;
+                            Node.walletState.setCachedBlockVersion(block_version);
+                            if ((b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null) || Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                            {
+                                wsSyncConfirmedBlockNum = block_height;
+                                wsSynced = true;
+                                wsSyncConfirmedVersion = Node.walletState.version;
+                            }
                         }
                     }
                     startSync();

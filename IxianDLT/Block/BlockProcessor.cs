@@ -404,7 +404,7 @@ namespace DLT
             var local_block_list = pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(b.blockChecksum));
             if (local_block_list.Count() > 0)
             {
-                b = local_block_list.First().Value;
+                return true;
             }
 
             if (b.lastSuperBlockChecksum == null)
@@ -660,7 +660,7 @@ namespace DLT
                 bool skip_sig_verification = false;
                 if(pendingSuperBlocks.Count() > 0 && pendingSuperBlocks.OrderBy(x=> x.Key).Last().Key > b.blockNum)
                 {
-                    skip_sig_verification = true;
+                    //skip_sig_verification = true; // TODO TODO TODO TODO TODO enable this and add additional hardening by verifying block's checksum against the SB segments when fully activating superblocks
                 }
                 // Verify signatures
                 if (!b.verifySignatures(skip_sig_verification))
@@ -1258,7 +1258,7 @@ namespace DLT
         // verifies all signatures according to Block v5 consensus
         public bool verifyBlockSignatures(Block block)
         {
-            if (block.blockNum > 6 && block.version >= BlockVer.v5 && block.lastSuperBlockChecksum == null)
+            if (block.blockNum > 6 && block.version >= BlockVer.v5)
             {
                 int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum);
 
