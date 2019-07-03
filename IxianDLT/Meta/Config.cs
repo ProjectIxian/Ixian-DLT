@@ -60,14 +60,11 @@ namespace DLT
 
             public static bool onlyShowAddresses = false;
 
-            // Store the device id in a cache for reuse in later instances
-            public static string device_id = Guid.NewGuid().ToString();
             public static string externalIp = "";
 
             // Read-only values
             public static readonly string version = "xdc-0.6.6-dev"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
-            public static bool isTestNet = false; // Testnet designator
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
@@ -83,12 +80,16 @@ namespace DLT
             public static bool generateWalletOnly = false;
             public static string dangerCommandlinePasswordCleartextUnsafe = "";
 
-            public static int forceTimeOffset = int.MaxValue;
-
             // internal
             public static bool changePass = false;
 
             public static int maxBlockVersionToGenerate = 4;
+
+            /// <summary>
+            /// Command to execute when a new block is accepted.
+            /// </summary>
+            public static string blockNotifyCommand = "";
+
 
             private Config()
             {
@@ -227,7 +228,7 @@ namespace DLT
                             }
                             break;
                         case "externalIp":
-                            NetworkClientManager.publicIP = value;
+                            externalIp = value;
                             break;
                         case "addPeer":
                             Network.CoreNetworkUtils.seedNodes.Add(new string[2] { value, null });
@@ -254,7 +255,7 @@ namespace DLT
                             }
                             break;
                         case "forceTimeOffset":
-                            forceTimeOffset = int.Parse(value);
+                            CoreConfig.forceTimeOffset = int.Parse(value);
                             break;
                         case "blockStorage":
                             blockStorageProvider = value;
@@ -263,7 +264,7 @@ namespace DLT
                             CoreConfig.walletNotifyCommand = value;
                             break;
                         case "blockNotify":
-                            CoreConfig.blockNotifyCommand = value;
+                            Config.blockNotifyCommand = value;
                             break;
                         default:
                             // unknown key
@@ -299,11 +300,11 @@ namespace DLT
                 cmd_parser = new FluentCommandLineParser();
 
                 // testnet
-                cmd_parser.Setup<bool>('t', "testnet").Callback(value => isTestNet = true).Required();
+                cmd_parser.Setup<bool>('t', "testnet").Callback(value => CoreConfig.isTestNet = true).Required();
 
                 cmd_parser.Parse(args);
 
-                if (isTestNet)
+                if (CoreConfig.isTestNet)
                 {
                     NetworkServer.listeningPort = defaultTestnetServerPort;
                     apiPort = testnetApiPort;
@@ -380,7 +381,7 @@ namespace DLT
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
-                cmd_parser.Setup<int>("forceTimeOffset").Callback(value => forceTimeOffset = value).Required();
+                cmd_parser.Setup<int>("forceTimeOffset").Callback(value => CoreConfig.forceTimeOffset = value).Required();
 
                 cmd_parser.Setup<int>("benchmarkKeys").Callback(value => benchmarkKeys = value).SetDefault(0);
 
@@ -430,7 +431,7 @@ namespace DLT
 
                 if (seedNode != "")
                 {
-                    if (isTestNet)
+                    if (CoreConfig.isTestNet)
                     {
                         Network.CoreNetworkUtils.seedTestNetNodes = new List<string[]>
                         {

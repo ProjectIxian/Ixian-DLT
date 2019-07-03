@@ -47,8 +47,15 @@ namespace DLT.Meta
 
         public static string shutdownMessage = "";
 
+        public Node()
+        {
+            CoreConfig.productVersion = Config.version;
+            IxianHandler.setHandler(this);
+            init();
+        }
+
         // Perform basic initialization of node
-        static public void init()
+        public void init()
         {
             running = true;
             
@@ -67,7 +74,7 @@ namespace DLT.Meta
             walletState = new WalletState();
         }
 
-        static public bool initWallet()
+        private bool initWallet()
         {
             walletStorage = new WalletStorage(Config.walletFile);
 
@@ -80,7 +87,7 @@ namespace DLT.Meta
                 // Request a password
                 // NOTE: This can only be done in testnet to enable automatic testing!
                 string password = "";
-                if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && Config.isTestNet)
+                if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && CoreConfig.isTestNet)
                 {
                     Logging.warn("TestNet detected and wallet password has been specified on the command line!");
                     password = Config.dangerCommandlinePasswordCleartextUnsafe;
@@ -107,7 +114,7 @@ namespace DLT.Meta
 
                     // NOTE: This is only permitted on the testnet for dev/testing purposes!
                     string password = "";
-                    if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && Config.isTestNet)
+                    if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && CoreConfig.isTestNet)
                     {
                         Logging.warn("Attempting to unlock the wallet with a password from commandline!");
                         password = Config.dangerCommandlinePasswordCleartextUnsafe;
@@ -176,7 +183,7 @@ namespace DLT.Meta
         }
 
         // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
-        static public void renameStorageFiles()
+        private void renameStorageFiles()
         {
             if (File.Exists("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "wsStorage.dat.1000"))
             {
@@ -239,7 +246,7 @@ namespace DLT.Meta
                 TransactionPool.addTransaction(txGen2);
             }
 
-            if (Config.isTestNet)
+            if (CoreConfig.isTestNet)
             {
                 // testnet seed2
                 Transaction tx2 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
@@ -274,7 +281,7 @@ namespace DLT.Meta
         }
 
         // Start the node
-        static public void start(bool verboseConsoleOutput)
+        public void start(bool verboseConsoleOutput)
         {
             // First create the data folder if it does not already exist
             checkDataFolder();
@@ -287,7 +294,7 @@ namespace DLT.Meta
                 NetDump.Instance.start(Config.networkDumpFile);
             }
 
-            NetworkUtils.configureNetwork();
+            NetworkUtils.configureNetwork(Config.externalIp);
 
             char node_type = 'M'; // TODO TODO TODO TODO change this to 'W' or 'C' after the upgrade
 
@@ -643,7 +650,7 @@ namespace DLT.Meta
                     else
                     if (nodeBalance < ConsensusConfig.minimumMasterNodeFunds)
                     {
-                        if (Config.disableMiner == false || Config.isTestNet)
+                        if (Config.disableMiner == false || CoreConfig.isTestNet)
                         {
                             if(Config.disableMiner)
                             {

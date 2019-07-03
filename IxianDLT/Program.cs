@@ -16,6 +16,12 @@ namespace DLTNode
 {
     class Program
     {
+        private static Node node = null;
+
+        private static System.Timers.Timer mainLoopTimer;
+
+        public static bool noStart = false;
+
         static void checkRequiredFiles()
         {
             string[] critical_dlls =
@@ -153,10 +159,6 @@ namespace DLTNode
             }
         }
 
-        private static System.Timers.Timer mainLoopTimer;
-
-        public static bool noStart = false;
-
         static void Main(string[] args)
         {
             if (!Console.IsOutputRedirected)
@@ -208,7 +210,7 @@ namespace DLTNode
             bool verboseConsoleOutputSetting = ConsoleHelpers.verboseConsoleOutput;
             ConsoleHelpers.verboseConsoleOutput = true;
 
-            Console.WriteLine(string.Format("IXIAN DLT {0}", Config.version));
+            Console.WriteLine(string.Format("IXIAN DLT {0} ({1})", Config.version, CoreConfig.version));
 
             // Check for critical files in the exe dir
             checkRequiredFiles();
@@ -234,7 +236,7 @@ namespace DLTNode
             if(Config.generateWalletOnly)
             {
                 noStart = true;
-                if (Config.isTestNet)
+                if (CoreConfig.isTestNet)
                 {
                     if (File.Exists(Config.walletFile))
                     {
@@ -269,7 +271,7 @@ namespace DLTNode
             // Set the logging options
             Logging.setOptions(Config.maxLogSize, Config.maxLogCount);
 
-            Logging.info(string.Format("Starting IXIAN DLT {0}", Config.version));
+            Logging.info(string.Format("Starting IXIAN DLT {0} ({1})", Config.version, CoreConfig.version));
             Logging.flush();
 
             // Check for the right vc++ redist for the argon miner
@@ -285,7 +287,7 @@ namespace DLTNode
             }
 
             // Log the parameters to notice any changes
-            Logging.info(String.Format("Mainnet: {0}", !Config.isTestNet));
+            Logging.info(String.Format("Mainnet: {0}", !CoreConfig.isTestNet));
 
             if(Config.workerOnly)
                 Logging.info("Miner: worker-only");
@@ -300,7 +302,7 @@ namespace DLTNode
             CryptoManager.initLib();
 
             // Initialize the node
-            Node.init();
+            node = new Node();
 
             if (noStart)
             {
@@ -309,7 +311,7 @@ namespace DLTNode
             }
 
             // Start the actual DLT node
-            Node.start(verboseConsoleOutputSetting);
+            node.start(verboseConsoleOutputSetting);
 
 
             // Setup a timer to handle routine updates

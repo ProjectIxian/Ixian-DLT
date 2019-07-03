@@ -162,14 +162,14 @@ namespace DLTNode
                            writer.Write(address);
 
                            // Send the testnet designator
-                           writer.Write(Config.isTestNet);
+                           writer.Write(CoreConfig.isTestNet);
 
                            // Send the node type
                            char node_type = 'M'; // This is a Master node
                            writer.Write(node_type);
 
                            // Send the node device id
-                           writer.Write(Config.device_id);
+                           writer.Write(CoreConfig.device_id);
 
                            // Send the wallet public key
                            writer.Write(Node.walletStorage.getPrimaryPublicKey());

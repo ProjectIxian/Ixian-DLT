@@ -1523,9 +1523,9 @@ namespace DLT
                             Block current_block = localNewBlock;
                             localNewBlock = null;
 
-                            if (CoreConfig.blockNotifyCommand != "")
+                            if (Config.blockNotifyCommand != "")
                             {
-                                string notify_cmd = CoreConfig.blockNotifyCommand.Replace("%s", Crypto.hashToString(current_block.blockChecksum));
+                                string notify_cmd = Config.blockNotifyCommand.Replace("%s", Crypto.hashToString(current_block.blockChecksum));
                                 IxiUtils.executeProcess(notify_cmd, "", false);
                             }
 
@@ -2620,7 +2620,7 @@ namespace DLT
             }
 
             IxiNumber newIxis = 0;
-            if (!Config.isTestNet)
+            if (!CoreConfig.isTestNet)
             {
                 if (totalIxis > new IxiNumber("100000000000"))
                 {

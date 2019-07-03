@@ -571,9 +571,10 @@ namespace DLTNode
 
             Dictionary<string, object> networkArray = new Dictionary<string, object>();
 
-            networkArray.Add("Node Version", Config.version);
+            networkArray.Add("Core Version", CoreConfig.version);
+            networkArray.Add("Node Version", CoreConfig.productVersion);
             string netType = "mainnet";
-            if (Config.isTestNet)
+            if (CoreConfig.isTestNet)
             {
                 netType = "testnet";
             }
