@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Meta;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -219,7 +220,7 @@ namespace DLT
                         readFromStorage = true;
                     }
 
-                    ulong last_block_height = Node.getLastBlockHeight();
+                    ulong last_block_height = IxianHandler.getLastBlockHeight();
                     if (blockNum > last_block_height  + (ulong)maxBlockRequests)
                     {
                         if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
@@ -702,7 +703,7 @@ namespace DLT
 
             if (!Config.recoverFromFile)
             {
-                CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], Node.getHighestKnownNetworkBlockHeight());
+                CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], IxianHandler.getHighestKnownNetworkBlockHeight());
 
                 Node.miner.start();
 
@@ -931,7 +932,7 @@ namespace DLT
                     }
                     noNetworkSynchronization = false;
 
-                    ulong firstBlock = Node.getLastBlockHeight();
+                    ulong firstBlock = IxianHandler.getLastBlockHeight();
 
                     lock (pendingBlocks)
                     {
@@ -1029,7 +1030,7 @@ namespace DLT
                 wsSyncConfirmedBlockNum = 0;
                 if (Config.fullStorageDataVerification == false)
                 {
-                    ulong lastBlockHeight = Node.getLastBlockHeight();
+                    ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
                     if (lastBlockHeight > 100)
                     {
                         Logging.info("Restoring WS to " + (lastBlockHeight - 100));

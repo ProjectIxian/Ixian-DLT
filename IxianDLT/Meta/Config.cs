@@ -1,3 +1,4 @@
+using DLT.Network;
 using Fclp;
 using IXICore;
 using System;
@@ -14,11 +15,11 @@ namespace DLT
         {
             // Providing pre-defined values
             // Can be read from a file later, or read from the command line
-            public static int serverPort = 10234;
-            public static int testnetServerPort = 11234;
+            private static int defaultServerPort = 10234;
+            private static int defaultTestnetServerPort = 11234;
+
             public static int apiPort = 8081;
             public static int testnetApiPort = 8181;
-            public static string publicServerIP = "127.0.0.1";
 
             public static Dictionary<string, string> apiUsers = new Dictionary<string, string>();
 
@@ -64,7 +65,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.5a"; // DLT Node version
+            public static readonly string version = "xdc-0.6.6-dev"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
             public static bool isTestNet = false; // Testnet designator
 
@@ -201,10 +202,10 @@ namespace DLT
                     switch (key)
                     {
                         case "dltPort":
-                            serverPort = int.Parse(value);
+                            Config.defaultServerPort = int.Parse(value);
                             break;
                         case "testnetDltPort":
-                            testnetServerPort = int.Parse(value);
+                            Config.defaultTestnetServerPort = int.Parse(value);
                             break;
                         case "apiPort":
                             apiPort = int.Parse(value);
@@ -226,7 +227,7 @@ namespace DLT
                             }
                             break;
                         case "externalIp":
-                            publicServerIP = value;
+                            NetworkClientManager.publicIP = value;
                             break;
                         case "addPeer":
                             Network.CoreNetworkUtils.seedNodes.Add(new string[2] { value, null });
@@ -304,11 +305,14 @@ namespace DLT
 
                 if (isTestNet)
                 {
-                    serverPort = testnetServerPort;
+                    NetworkServer.listeningPort = defaultTestnetServerPort;
                     apiPort = testnetApiPort;
                     dataFolderPath = "data-testnet";
                     PeerStorage.peersFilename = "testnet-peers.dat";
                     genesisFile = "testnet-genesis.dat";
+                }else
+                {
+                    NetworkServer.listeningPort = defaultServerPort;
                 }
 
 
@@ -340,7 +344,7 @@ namespace DLT
                 cmd_parser.Setup<bool>('f', "force").Callback(value => { if (start_clean > 0) { start_clean += 1; } });
 
 
-                cmd_parser.Setup<int>('p', "port").Callback(value => serverPort = value).Required();
+                cmd_parser.Setup<int>('p', "port").Callback(value => NetworkServer.listeningPort = value).Required();
 
                 cmd_parser.Setup<int>('a', "apiport").Callback(value => apiPort = value).Required();
 

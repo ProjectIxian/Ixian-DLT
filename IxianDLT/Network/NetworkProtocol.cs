@@ -6,6 +6,7 @@ using System.Text;
 using System.Linq;
 using IXICore;
 using IXICore.Utils;
+using IXICore.Meta;
 
 namespace DLT
 {
@@ -260,7 +261,7 @@ namespace DLT
                         int sig_addr_len = reader.ReadInt32();
                         byte[] sig_addr = reader.ReadBytes(sig_addr_len);
 
-                        ulong last_bh = Node.getLastBlockHeight();
+                        ulong last_bh = IxianHandler.getLastBlockHeight();
 
                         lock (Node.blockProcessor.localBlockLock)
                         {
@@ -386,7 +387,7 @@ namespace DLT
                         int checksum_len = reader.ReadInt32();
                         byte[] checksum = reader.ReadBytes(checksum_len);
 
-                        ulong last_block_height = Node.getLastBlockHeight();
+                        ulong last_block_height = IxianHandler.getLastBlockHeight();
 
                         Block target_block = Node.blockChain.getBlock(block_num, true);
                         if(target_block == null)
@@ -770,7 +771,7 @@ namespace DLT
 
                                         int wsLen = reader.ReadInt32();
 
-                                        if(last_block_num <= Node.getLastBlockHeight())
+                                        if(last_block_num <= IxianHandler.getLastBlockHeight())
                                         {
                                             Block b = Node.blockChain.getBlock(last_block_num);
                                             if(b != null)
@@ -808,7 +809,7 @@ namespace DLT
                                             return;
                                         }
 
-                                        ulong highest_block_height = Node.getHighestKnownNetworkBlockHeight();
+                                        ulong highest_block_height = IxianHandler.getHighestKnownNetworkBlockHeight();
                                         if (last_block_num + 10 < highest_block_height)
                                         {
                                             CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is too far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
@@ -845,7 +846,7 @@ namespace DLT
 
                                         //Logging.info(String.Format("Block #{0} has been requested.", block_number));
 
-                                        if (block_number > Node.getLastBlockHeight())
+                                        if (block_number > IxianHandler.getLastBlockHeight())
                                         {
                                             return;
                                         }
@@ -1040,7 +1041,7 @@ namespace DLT
                                                     {
                                                         if (NetworkClientManager.getConnectedClients().Length < 2)
                                                         {
-                                                            Config.publicServerIP = byeData;
+                                                            NetworkClientManager.publicIP = byeData;
                                                             Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
                                                         }
                                                     }
@@ -1048,7 +1049,7 @@ namespace DLT
 
                                                 case ProtocolByeCode.notConnectable: // not connectable from the internet
                                                     Logging.error("This node must be connectable from the internet, to connect to the network.");
-                                                    Logging.error("Please setup uPNP and/or port forwarding on your router for port " + Config.serverPort + ".");
+                                                    Logging.error("Please setup uPNP and/or port forwarding on your router for port " + NetworkServer.listeningPort + ".");
                                                     NetworkServer.connectable = false;
                                                     break;
 

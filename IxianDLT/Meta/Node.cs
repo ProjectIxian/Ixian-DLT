@@ -1,6 +1,7 @@
 ﻿using DLT.Network;
 using DLTNode;
 using IXICore;
+using IXICore.Meta;
 using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
@@ -10,7 +11,7 @@ using System.Threading;
 
 namespace DLT.Meta
 {
-    class Node
+    class Node: IxianNode
     {
         // Public
         public static BlockChain blockChain = null;
@@ -305,7 +306,7 @@ namespace DLT.Meta
             }
 
             // Generate presence list
-            PresenceList.generatePresenceList(Config.publicServerIP, node_type);
+            PresenceList.generatePresenceList(NetworkClientManager.publicIP, node_type);
 
             // Initialize storage
             Storage.prepareStorage();
@@ -448,7 +449,7 @@ namespace DLT.Meta
             maintenanceThread.Start();
         }
 
-        static public char getNodeType()
+        public override char getNodeType()
         {
             return PresenceList.curNodePresenceAddress.type;
         }
@@ -748,15 +749,10 @@ namespace DLT.Meta
             }
         }
 
-        public static string getFullAddress()
-        {
-            return Config.publicServerIP + ":" + Config.serverPort;
-        }
-
         // Convert this masternode to a worker node
         public static void convertToWorkerNode()
         {
-            if (getNodeType() == 'W')
+            if (IxianHandler.getNodeType() == 'W')
                 return;
 
             CoreConfig.simultaneousConnectedNeighbors = 4;
@@ -770,7 +766,7 @@ namespace DLT.Meta
         // Convert this masternode to a worker node
         public static void convertToClientNode()
         {
-            if (getNodeType() == 'C')
+            if (IxianHandler.getNodeType() == 'C')
                 return;
 
             PresenceList.curNodePresenceAddress.type = 'C';
@@ -782,7 +778,7 @@ namespace DLT.Meta
         // Convert this worker node to a masternode
         public static void convertToMasterNode()
         {
-            if (getNodeType() == 'M' || getNodeType() == 'H')
+            if (IxianHandler.getNodeType() == 'M' || IxianHandler.getNodeType() == 'H')
                 return;
 
             CoreConfig.simultaneousConnectedNeighbors = 6;
@@ -810,31 +806,26 @@ namespace DLT.Meta
 
         public static bool isWorkerNode()
         {
-            if (getNodeType() == 'W')
+            if (IxianHandler.getNodeType() == 'W')
                 return true;
             return false;
         }
 
         public static bool isMasterNode()
         {
-            if (getNodeType() == 'M' || getNodeType() == 'H')
+            if (IxianHandler.getNodeType() == 'M' || IxianHandler.getNodeType() == 'H')
                 return true;
             return false;
         }
 
-        public static ulong getLastBlockHeight()
+        public override ulong getLastBlockHeight()
         {
             return blockChain.getLastBlockNum();
         }
 
-        public static int getLastBlockVersion()
+        public override int getLastBlockVersion()
         {
             return blockChain.getLastBlockVersion();
-        }
-
-        public static int getRequiredConsensus()
-        {
-            return blockChain.getRequiredConsensus();
         }
 
         // Check if the data folder exists. Otherwise it creates it
@@ -868,7 +859,7 @@ namespace DLT.Meta
             }
         }
 
-        public static ulong getHighestKnownNetworkBlockHeight()
+        public override ulong getHighestKnownNetworkBlockHeight()
         {
             ulong bh = getLastBlockHeight();
 
@@ -880,12 +871,12 @@ namespace DLT.Meta
             return bh;
         }
 
-        public static Block getLastBlock()
+        public override Block getLastBlock()
         {
             return blockChain.getLastBlock();
         }
 
-        public static bool isAcceptingConnections()
+        public override bool isAcceptingConnections()
         {
             if(Node.blockProcessor.operating)
             {
@@ -894,11 +885,21 @@ namespace DLT.Meta
             return false;
         }
 
-        public static bool addTransaction(Transaction transaction)
+        public override bool addTransaction(Transaction transaction)
         {
             return TransactionPool.addTransaction(transaction);
         }
-        
+
+        public override Wallet getWallet(byte[] id)
+        {
+            return Node.walletState.getWallet(id);
+        }
+
+        public override IxiNumber getWalletBalance(byte[] id)
+        {
+            return Node.walletState.getWalletBalance(id);
+        }
+
         /*static void runDiffTests()
         {
             Logging.info("Running difficulty tests");

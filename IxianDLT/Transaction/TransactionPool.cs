@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Meta;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
@@ -153,7 +154,7 @@ namespace DLT
 
         public static bool verifyPremineTransaction(Transaction transaction)
         {
-            ulong block_height = Node.getLastBlockHeight();
+            ulong block_height = IxianHandler.getLastBlockHeight();
             if(block_height > 5256000)
             {
                 return true;
@@ -167,7 +168,7 @@ namespace DLT
             {
                 if (tx_address.SequenceEqual(premine_address))
                 {
-                    IxiNumber cur_balance = Node.walletState.getWalletBalance(premine_address);
+                    IxiNumber cur_balance = IxianHandler.getWalletBalance(premine_address);
                     if (block_height < 1051200)
                     {
                         if(cur_balance - transaction.amount - transaction.fee < new IxiNumber("900000000"))
@@ -256,7 +257,7 @@ namespace DLT
             {
                 minBh = blocknum - ConsensusConfig.getRedactedWindowSize();
             }
-            ulong highest_block_num = Node.getLastBlockHeight() + 5;
+            ulong highest_block_num = IxianHandler.getLastBlockHeight() + 5;
             if(Node.blockProcessor.highestNetworkBlockNum > highest_block_num)
             {
                 highest_block_num = Node.blockProcessor.highestNetworkBlockNum + 5;
@@ -1053,13 +1054,13 @@ namespace DLT
                 }
             }
 
-            if(blocknum > Node.getLastBlockHeight())
+            if(blocknum > IxianHandler.getLastBlockHeight())
             {
                 return false;
             }
 
             // ignore PoW solutions for first 100 blocks in the redacted window
-            if(block_version >= 3 && blocknum + ConsensusConfig.getRedactedWindowSize(block_version) - 100 < Node.getLastBlockHeight())
+            if(block_version >= 3 && blocknum + ConsensusConfig.getRedactedWindowSize(block_version) - 100 < IxianHandler.getLastBlockHeight())
             {
                 return false;
             }
@@ -2319,7 +2320,7 @@ namespace DLT
         public static void processPendingTransactions()
         {
             // TODO TODO this has to be refactored and moved to PendingTransactions
-            ulong last_block_height = Node.getLastBlockHeight();
+            ulong last_block_height = IxianHandler.getLastBlockHeight();
             lock (transactions) // this lock must be here to prevent deadlocks TODO: improve this at some point
             {
                 lock (PendingTransactions.pendingTransactions)

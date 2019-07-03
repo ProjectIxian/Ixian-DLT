@@ -2,6 +2,7 @@
 using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Meta;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -579,7 +580,7 @@ namespace DLTNode
             networkArray.Add("Network type", netType);
             networkArray.Add("My time", Clock.getTimestamp());
             networkArray.Add("Network time difference", Core.networkTimeDifference);
-            networkArray.Add("My External IP", Config.publicServerIP);
+            networkArray.Add("My External IP", NetworkClientManager.publicIP);
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
             networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
                 + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
@@ -611,13 +612,14 @@ namespace DLTNode
 
             networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
             networkArray.Add("Block Version", Node.blockChain.getLastBlockVersion());
-            networkArray.Add("Network Block Height", Node.getHighestKnownNetworkBlockHeight());
-            networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-            networkArray.Add("Node Type", Node.getNodeType());
+            networkArray.Add("Network Block Height", IxianHandler.getHighestKnownNetworkBlockHeight());
+            networkArray.Add("Node Type", IxianHandler.getNodeType());
             networkArray.Add("Connectable", NetworkServer.isConnectable());
 
             if (parameters.ContainsKey("verbose"))
             {
+                networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
+
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());
                 networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
@@ -625,15 +627,16 @@ namespace DLTNode
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
                 networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
+
+                networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
+                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
+
+                networkArray.Add("Masters", PresenceList.countPresences('M'));
+                networkArray.Add("Relays", PresenceList.countPresences('R'));
+                networkArray.Add("Clients", PresenceList.countPresences('C'));
+                networkArray.Add("Workers", PresenceList.countPresences('W'));
             }
 
-            networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
-            networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
-
-            networkArray.Add("Masters", PresenceList.countPresences('M'));
-            networkArray.Add("Relays", PresenceList.countPresences('R'));
-            networkArray.Add("Clients", PresenceList.countPresences('C'));
-            networkArray.Add("Workers", PresenceList.countPresences('W'));
 
 
             return new JsonResponse { result = networkArray, error = error };
@@ -938,19 +941,19 @@ namespace DLTNode
         // returns highest local blockheight
         private JsonResponse onGetBlockCount()
         {
-            return new JsonResponse { result = Node.getLastBlockHeight(), error = null };
+            return new JsonResponse { result = IxianHandler.getLastBlockHeight(), error = null };
         }
 
         // returns highest local blockheight
         private JsonResponse onGetBestBlockHash()
         {
-            return new JsonResponse { result = Crypto.hashToString(Node.getLastBlock().blockChecksum), error = null };
+            return new JsonResponse { result = Crypto.hashToString(IxianHandler.getLastBlock().blockChecksum), error = null };
         }
 
         // returns statistics about the unspent transactions
         private JsonResponse onGetTxOutsetInfo()
         {
-            Block block = Node.getLastBlock();
+            Block block = IxianHandler.getLastBlock();
             Transaction[] unapplied_txs = TransactionPool.getUnappliedTransactions();
 
             long txouts = 0;

@@ -292,7 +292,7 @@ namespace DLTNode
             else
                 Logging.info(String.Format("Miner: {0}", !Config.disableMiner));
 
-            Logging.info(String.Format("Server Port: {0}", Config.serverPort));
+            Logging.info(String.Format("Server Port: {0}", NetworkServer.listeningPort));
             Logging.info(String.Format("API Port: {0}", Config.apiPort));
             Logging.info(String.Format("Wallet File: {0}", Config.walletFile));
 

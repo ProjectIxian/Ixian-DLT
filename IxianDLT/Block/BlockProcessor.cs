@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Meta;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
@@ -532,13 +533,13 @@ namespace DLT
                         if (!b.Equals(block))
                         {
                             ProtocolMessage.broadcastNewBlock(block, null, endpoint);
-                            ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(Node.getLastBlockHeight()), null, endpoint);
+                            ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
                         }
                     }
                     else if(past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
                     {
                         // the node seems to be way behind, send the current last block
-                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(Node.getLastBlockHeight()), null, endpoint);
+                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
                     }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
                         Block localBlock = Node.blockChain.getBlock(b.blockNum);
@@ -589,7 +590,7 @@ namespace DLT
 
 
             // remove signatures without PL entry but not if we're catching up with the network
-            if (b.blockNum > Node.getHighestKnownNetworkBlockHeight() - 5 && removeSignaturesWithoutPlEntry(b))
+            if (b.blockNum > IxianHandler.getHighestKnownNetworkBlockHeight() - 5 && removeSignaturesWithoutPlEntry(b))
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
@@ -670,7 +671,7 @@ namespace DLT
                 }
             }
 
-            ulong lastBlockNum = Node.getLastBlockHeight();
+            ulong lastBlockNum = IxianHandler.getLastBlockHeight();
 
             if (prevBlock == null && lastBlockNum > 1) // block not found but blockChain is not empty, request the missing blocks
             {
@@ -723,13 +724,13 @@ namespace DLT
                 networkUpgraded = false;
 
                 // verify block version, it should never be lower than the previous block
-                if (b.version < Node.getLastBlockVersion())
+                if (b.version < IxianHandler.getLastBlockVersion())
                 {
                     return BlockVerifyStatus.PotentiallyForkedBlock;
                 }
 
                 // verify difficulty
-                if (Node.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0 || Node.blockChain.Count >= (long)ConsensusConfig.getRedactedWindowSize())
+                if (IxianHandler.getLastBlockHeight() - (ulong)Node.blockChain.Count == 0 || Node.blockChain.Count >= (long)ConsensusConfig.getRedactedWindowSize())
                 {
                     //Logging.info("Verifying difficulty for #" + b.blockNum);
                     ulong expectedDifficulty = calculateDifficulty(b.version);
@@ -1126,7 +1127,7 @@ namespace DLT
                 else // localNewBlock == null
                 {
                     bool hasNodeSig = true;
-                    if(getElectedNodeOffset() != -1 && Node.getLastBlockHeight() + 2 > Node.getHighestKnownNetworkBlockHeight())
+                    if(getElectedNodeOffset() != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
                     {
                         hasNodeSig = b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()));
                     }
@@ -1283,7 +1284,7 @@ namespace DLT
                     }
                 }
 
-                ulong last_block_num = Node.getLastBlockHeight();
+                ulong last_block_num = IxianHandler.getLastBlockHeight();
                 if (block.blockNum == last_block_num + 1)
                 {
                     // current block
@@ -1400,7 +1401,7 @@ namespace DLT
             var sw = new System.Diagnostics.Stopwatch();
             sw.Start();
 
-            Block last_block = Node.getLastBlock();
+            Block last_block = IxianHandler.getLastBlock();
             ulong last_block_num = 0;
             if (last_block != null)
             {
@@ -1494,7 +1495,7 @@ namespace DLT
                         {
                             Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
                                 Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(ws_checksum)));
-                            Logging.error(String.Format("Node reports block version: {0}", Node.getLastBlockVersion()));
+                            Logging.error(String.Format("Node reports block version: {0}", IxianHandler.getLastBlockVersion()));
                             // TODO TODO TODO TODO TODO Connect this with WSJ
                             rollBackAcceptedBlock(localNewBlock);
                             if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(last_block.walletStateChecksum))
@@ -2226,7 +2227,7 @@ namespace DLT
                         localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
                     }
                     Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
-                    Logging.info(String.Format("While generating new block: Node's blockversion: {0}", Node.getLastBlockVersion()));
+                    Logging.info(String.Format("While generating new block: Node's blockversion: {0}", IxianHandler.getLastBlockVersion()));
                     Node.walletState.revert();
 
                     localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
@@ -2450,7 +2451,7 @@ namespace DLT
         private static BigInteger calculateEstimatedHashRate()
         {
             // to get the EHR, we'll take PoW solutions from last 10 block and calculate the total hashrate, in the event of ~45-55% of solved blocks, we should get a relatively accurate result
-            ulong last_block_num = Node.getLastBlockHeight();
+            ulong last_block_num = IxianHandler.getLastBlockHeight();
             BigInteger hash_rate = 0;
             uint i = 0;
             for (i = 0; i < 10; i++)
