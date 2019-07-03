@@ -907,6 +907,11 @@ namespace DLT.Meta
             return Node.walletState.getWalletBalance(id);
         }
 
+        public override void shutdown()
+        {
+            forceShutdown = true;
+        }
+
         /*static void runDiffTests()
         {
             Logging.info("Running difficulty tests");

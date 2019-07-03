@@ -785,7 +785,7 @@ namespace DLT
                                         }
 
                                         byte[] walletstate_checksum = reader.ReadBytes(wsLen);
-                                        int consensus = reader.ReadInt32();
+                                        int consensus = reader.ReadInt32(); // deprecated
 
                                         endpoint.blockHeight = last_block_num;
 
