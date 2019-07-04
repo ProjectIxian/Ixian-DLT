@@ -818,8 +818,18 @@ namespace DLTNode
             ulong blockdiff = ulong.Parse((string)parameters["diff"]);
 
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, blockdiff);
-            if(verify_result)
+
+            bool verify_result = false;
+            if (block.version <= BlockVer.v4)
+            {
+                verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, blockdiff);
+            }
+            else // >= 5
+            {
+                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, blockdiff);
+            }
+
+            if (verify_result)
             {
                 Logging.info("Received verify share: {0} #{1} - PASSED with diff {2}", nonce, blocknum, blockdiff);
             }
@@ -866,7 +876,15 @@ namespace DLTNode
             Logging.info("Received miner share: {0} #{1}", nonce, blocknum);
 
             byte[] solver_address = Node.walletStorage.getPrimaryAddress();
-            bool verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+            bool verify_result = false;
+            if (block.version <= BlockVer.v4)
+            {
+                verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
+            }
+            else // >= 5
+            {
+                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, block.difficulty);
+            }
             bool send_result = false;
 
             // Solution is valid, try to submit it to network
