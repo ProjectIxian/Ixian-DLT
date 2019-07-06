@@ -348,6 +348,39 @@ namespace DLT
                 }
             }
 
+            private static void handleGetRandomPresences(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (!endpoint.isConnected())
+                {
+                    return;
+                }
+
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        char type = reader.ReadChar();
+
+                        List<Presence> presences = PresenceList.getPresencesByType(type);
+                        int presence_count = presences.Count();
+                        if (presence_count > 10)
+                        {
+                            Random rnd = new Random();
+                            presences = presences.Skip(rnd.Next(presence_count - 10)).Take(10).ToList();
+                        }
+
+                        foreach (Presence presence in presences)
+                        {
+                            byte[][] presence_chunks = presence.getByteChunks();
+                            foreach (byte[] presence_chunk in presence_chunks)
+                            {
+                                endpoint.sendData(ProtocolMessageCode.updatePresence, presence_chunk, null);
+                            }
+                        }
+                    }
+                }
+            }
+
             public static void broadcastBlockSignatures(Block b, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
                 if (b.frozenSignatures != null)
@@ -1314,8 +1347,9 @@ namespace DLT
                             break;
 
 
-                        case ProtocolMessageCode.syncPresenceList:
+                        case ProtocolMessageCode.getPresenceList:
                             {
+                                // TODO TODO TODO TODO send in chunks
                                 byte[] pdata = PresenceList.getBytes();
                                 byte[] ba = CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.presenceList, pdata);
                                 endpoint.sendData(ProtocolMessageCode.presenceList, pdata);
@@ -1324,28 +1358,14 @@ namespace DLT
 
                         case ProtocolMessageCode.presenceList:
                             {
-                                // TODO TODO TODO secure this further
-                                if(isAuthoritativeNode(endpoint))
-                                {
-                                    Logging.info("NET: Receiving complete presence list");
-                                    if (Node.presenceListActive == false)
-                                    {
-                                        Logging.info("Synchronizing complete presence list.");
-                                        PresenceList.syncFromBytes(data);
-                                        Node.presenceListActive = true;
-                                    }
-                                }
+                                PresenceList.syncFromBytes(data);
                             }
                             break;
 
                         case ProtocolMessageCode.updatePresence:
                             {
-                                // TODO TODO TODO secure this further
-                                if (isAuthoritativeNode(endpoint))
-                                {
-                                    // Parse the data and update entries in the presence list
-                                    PresenceList.updateFromBytes(data);
-                                }
+                                // Parse the data and update entries in the presence list
+                                PresenceList.updateFromBytes(data);
                             }
                             break;
 
@@ -1394,6 +1414,13 @@ namespace DLT
                                         }
                                     }
                                 }
+                            }
+                            break;
+
+                            // return 10 random presences of the selected type
+                        case ProtocolMessageCode.getRandomPresences:
+                            {
+                                handleGetRandomPresences(data, endpoint);
                             }
                             break;
 
@@ -1528,15 +1555,6 @@ namespace DLT
                 }
                 
             }
-
-            // Check if the remote endpoint provided is authoritative
-            private static bool isAuthoritativeNode(RemoteEndpoint endpoint)
-            {
-                // Disabled for dev purposes.
-                // TODO: re-enable
-                return true;
-            }
-
         }
     }
 }

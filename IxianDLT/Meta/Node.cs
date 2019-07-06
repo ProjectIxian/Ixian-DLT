@@ -30,7 +30,6 @@ namespace DLT.Meta
         public static bool forceNextBlock = false;
 
         public static bool serverStarted = false;
-        public static bool presenceListActive = false;
 
         public static bool forceShutdown = false;
 
@@ -591,8 +590,6 @@ namespace DLT.Meta
             statsConsoleScreen.stop();
 
             NetDump.Instance.shutdown();
-
-            presenceListActive = false;
         }
 
         static public void synchronize()
