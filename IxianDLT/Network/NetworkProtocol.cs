@@ -506,6 +506,68 @@ namespace DLT
                 }
             }
 
+            private static void handleGetBlockHeaders(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong from = reader.ReadUInt64();
+                        ulong to = reader.ReadUInt64();
+
+                        ulong totalCount = to - from;
+                        if (totalCount < 1)
+                            return;
+
+                        ulong lastBlockNum = Node.blockChain.getLastBlockNum();
+
+                        if (from > lastBlockNum - 1)
+                            return;
+
+                        if (to > lastBlockNum)
+                            to = lastBlockNum;
+
+                        // Adjust total count if necessary
+                        totalCount = to - from;
+                        if (totalCount < 1)
+                            return;
+
+                        // Cap total block headers sent
+                        if (totalCount > 100)
+                            totalCount = 100;
+
+                        using (MemoryStream mOut = new MemoryStream())
+                        {
+                            using (BinaryWriter writer = new BinaryWriter(mOut))
+                            {
+                                writer.Write(totalCount);
+                                for (ulong i = 0; i < totalCount; i++)
+                                {
+                                    Block block = Node.blockChain.getBlock(from + i);
+                                    if (block == null)
+                                        continue;
+
+                                    BlockHeader header = new BlockHeader(block);
+                                    byte[] headerBytes = header.getBytes();
+                                    writer.Write(headerBytes.Length);
+                                    writer.Write(headerBytes);
+                                }
+                            }
+
+                            // Send the blockheaders
+                            if (endpoint != null)
+                            {
+                                if (endpoint.isConnected())
+                                {
+                                    endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+
             // Requests block with specified block height from the network, include_segments_from_block value can be 0 for no segments, and a positive value for segments bigger than the specified value
             public static bool broadcastGetNextSuperBlock(ulong block_num, byte[] block_checksum, ulong include_segments = 0, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
@@ -1446,6 +1508,12 @@ namespace DLT
                         case ProtocolMessageCode.getNextSuperBlock:
                             {
                                 handleGetNextSuperBlock(data, endpoint);
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getBlockHeaders:
+                            {
+                                handleGetBlockHeaders(data, endpoint);
                             }
                             break;
 
