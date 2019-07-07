@@ -1372,7 +1372,7 @@ namespace DLT
                         case ProtocolMessageCode.keepAlivePresence:
                             {
                                 byte[] address = null;
-                                bool updated = PresenceList.receiveKeepAlive(data, out address);
+                                bool updated = PresenceList.receiveKeepAlive(data, out address, endpoint);
 
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
@@ -1396,14 +1396,13 @@ namespace DLT
                                         byte[] wallet = reader.ReadBytes(walletLen);
                                         lock (PresenceList.presences)
                                         {
-                                            // TODO re-verify this
                                             Presence p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(wallet));
                                             if (p != null)
                                             {
                                                 byte[][] presence_chunks = p.getByteChunks();
                                                 foreach (byte[] presence_chunk in presence_chunks)
                                                 {
-                                                    endpoint.sendData(ProtocolMessageCode.updatePresence, presence_chunk, wallet);
+                                                    endpoint.sendData(ProtocolMessageCode.updatePresence, presence_chunk, null);
                                                 }
                                             }
                                             else
