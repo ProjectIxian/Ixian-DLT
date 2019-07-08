@@ -312,7 +312,7 @@ namespace DLT.Meta
             }
 
             // Generate presence list
-            PresenceList.generatePresenceList(NetworkClientManager.publicIP, node_type);
+            PresenceList.generatePresenceList(NetworkClientManager.publicIP, Config.serverPort, node_type);
 
             // Initialize storage
             Storage.prepareStorage();
