@@ -1313,7 +1313,7 @@ namespace DLT
                 }
 
                 ulong last_block_num = IxianHandler.getLastBlockHeight();
-                if (block.blockNum == last_block_num + 1)
+                if (block.blockNum == last_block_num + 1 || Node.blockSync.synchronizing)
                 {
                     // current block
 
