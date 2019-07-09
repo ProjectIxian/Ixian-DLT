@@ -70,7 +70,7 @@ namespace DLT
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 800000; // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 800000 + (ulong)(new Random()).Next(200); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
@@ -85,12 +85,15 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 4;
+            public static int maxBlockVersionToGenerate = 5;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
             /// </summary>
             public static string blockNotifyCommand = "";
+
+
+            public static bool noNetworkSync = false;
 
 
             private Config()
@@ -390,6 +393,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("generateWallet").Callback(value => generateWalletOnly = value).SetDefault(false);
 
                 cmd_parser.Setup<string>("walletPassword").Callback(value => dangerCommandlinePasswordCleartextUnsafe = value).SetDefault("");
+
+                cmd_parser.Setup<bool>("noNetworkSync").Callback(value => noNetworkSync = true).Required();
 
                 cmd_parser.Parse(args);
 

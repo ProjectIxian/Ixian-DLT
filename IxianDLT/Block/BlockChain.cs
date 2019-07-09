@@ -559,6 +559,8 @@ namespace DLT
         // this function prunes un-needed sigs from blocks
         private void compactBlockSigs(Block last_block)
         {
+            return; // TODO enable after enabling sig pruning
+
             if(last_block.version < BlockVer.v5)
             {
                 return;

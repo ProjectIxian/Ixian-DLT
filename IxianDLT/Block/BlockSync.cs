@@ -514,7 +514,7 @@ namespace DLT
                             return;
                         }
 
-                        if (b.getSignatureCount() < Node.blockChain.getRequiredConsensus() && Node.blockChain.Count > 16)
+                        if (!Node.blockProcessor.verifyBlockSignatures(b) && Node.blockChain.Count > 16)
                         {
                             Logging.warn(String.Format("Block #{0} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
@@ -991,7 +991,7 @@ namespace DLT
                     }
                     startSync();
 
-                    if (Config.recoverFromFile)
+                    if (Config.recoverFromFile || Config.noNetworkSync)
                     {
                         noNetworkSynchronization = false;
                     }else

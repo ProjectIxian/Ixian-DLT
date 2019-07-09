@@ -7,6 +7,7 @@ using System.Linq;
 using IXICore;
 using IXICore.Utils;
 using IXICore.Meta;
+using System.Threading;
 
 namespace DLT
 {
@@ -32,13 +33,28 @@ namespace DLT
                 else
                 {
                     // Block is likely local, fetch the transactions
-                    lock (Node.blockProcessor.localBlockLock)
+
+                    bool haveLock = false;
+                    try
                     {
+                        Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                        if (!haveLock)
+                        {
+                            throw new TimeoutException();
+                        }
+
                         Block tmp = Node.blockProcessor.getLocalBlock();
                         if (tmp != null && tmp.blockNum == blockNum)
                         {
                             b = tmp;
                             txIdArr = new List<string>(tmp.transactions);
+                        }
+                    }
+                    finally
+                    {
+                        if (haveLock)
+                        {
+                            Monitor.Exit(Node.blockProcessor.localBlockLock);
                         }
                     }
                 }
@@ -1006,16 +1022,6 @@ namespace DLT
                                         }
 
                                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(), BitConverter.GetBytes(block.blockNum));
-
-                                        // if somebody requested last block from the chain, re-broadcast the localNewBlock as well
-                                        if (Node.blockChain.getLastBlockNum() == block_number)
-                                        {
-                                            Block localNewBlock = Node.blockProcessor.getLocalBlock();
-                                            if (localNewBlock != null)
-                                            {
-                                                ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
-                                            }
-                                        }
                                     }
                                 }
                             }
