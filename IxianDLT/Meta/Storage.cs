@@ -641,7 +641,8 @@ namespace DLT
                         i += 8;
                         int seg_bc_len = BitConverter.ToInt32(blk.superBlockSegments, i);
                         i += 4;
-                        byte[] seg_bc = blk.superBlockSegments.Skip(i).Take(seg_bc_len).ToArray();
+                        byte[] seg_bc = new byte[seg_bc_len];
+                        Array.Copy(blk.superBlockSegments, i, seg_bc, 0, seg_bc_len);
                         i += seg_bc_len;
 
                         block.superBlockSegments.Add(seg_block_num, new SuperBlockSegment(seg_block_num, seg_bc));

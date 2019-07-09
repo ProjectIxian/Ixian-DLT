@@ -60,7 +60,6 @@ namespace DLT.Meta
                 }
 
                 Thread.Sleep(2000);
-                Thread.Yield();               
             }
         }
 

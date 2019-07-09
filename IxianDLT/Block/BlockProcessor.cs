@@ -214,14 +214,13 @@ namespace DLT
                 // Sleep until next iteration
                 if (sleep)
                 {
-                    Thread.Sleep(5000);
+                    Thread.Sleep(10000);
                 }
                 else
                 {
                     Thread.Sleep(1000);
                 }
             }
-            Thread.Yield();
             return;
         }
 
@@ -2123,6 +2122,7 @@ namespace DLT
                     if(cache_currentSuperBlockSegments.ContainsKey(cur_block_height - 1) 
                         && cache_currentSuperBlockSegments[cur_block_height - 1].blockChecksum.SequenceEqual(Node.blockChain.getBlock(cur_block_height - 1).blockChecksum))
                     {
+                        Logging.info("Fetching cached superblock segments for block #{0}", super_block.blockNum);
                         super_block.superBlockSegments = cache_currentSuperBlockSegments;
                         super_block.lastSuperBlockNum = cache_lastSuperBlockNum;
                         super_block.lastSuperBlockChecksum = cache_lastSuperBlockChecksum;
@@ -2135,6 +2135,8 @@ namespace DLT
                         cache_lastSuperBlockChecksum = null;
                     }
                 }
+
+                Logging.info("Generating superblock segments for block #{0}", super_block.blockNum);
 
                 super_block.superBlockSegments.Clear();
                 for (ulong i = cur_block_height - 1; i > 0; i--)
