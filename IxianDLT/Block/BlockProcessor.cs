@@ -691,13 +691,15 @@ namespace DLT
                             Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if half of required consensus is reached on the block
+                        // TODO TODO TODO TODO lock sigs to 1000 when the network is big enough
                         if (b.blockNum > lastBlockNum + 1 && b.getFrozenSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             highestNetworkBlockNum = b.blockNum;
-                            if (b.lastSuperBlockChecksum != null && !generateSuperBlockSegments(b, endpoint))
+                            // TODO TODO TODO TODO uncomment this once sig pruning and sync from superblocks is enabled
+                            /*if (b.lastSuperBlockChecksum != null && !generateSuperBlockSegments(b, endpoint))
                             {
                                 pendingSuperBlocks.AddOrReplace(b.blockNum, b);
-                            }
+                            }*/
                         }
                     }
                 }
