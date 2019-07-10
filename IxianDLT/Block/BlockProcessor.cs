@@ -411,7 +411,7 @@ namespace DLT
             {
                 if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum)
                 {
-                    generateSuperBlockSegments(b, endpoint);
+                    generateSuperBlockSegments(b, false, endpoint);
                 }
                 return true;
             }
@@ -464,7 +464,7 @@ namespace DLT
 
             if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum)
             {
-                generateSuperBlockSegments(b, endpoint);
+                generateSuperBlockSegments(b, false, endpoint);
             }
             return true;
         }
@@ -2116,14 +2116,14 @@ namespace DLT
             Logging.info(String.Format("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount));
         }
 
-        public bool generateSuperBlockSegments(Block super_block, RemoteEndpoint endpoint = null)
+        public bool generateSuperBlockSegments(Block super_block, bool new_block, RemoteEndpoint endpoint = null)
         {
             lock (superBlockLock)
             {
                 ulong cur_block_height = super_block.blockNum;
 
                 // TODO TODO TODO implement getLastSuperBlockNum with sync properly
-                if (Node.blockChain.getLastSuperBlockNum() > 0 && Node.blockChain.getLastSuperBlockNum() != super_block.lastSuperBlockNum)
+                if (!new_block && Node.blockChain.getLastSuperBlockNum() > 0 && Node.blockChain.getLastSuperBlockNum() != super_block.lastSuperBlockNum)
                 {
                     return false;
                 }
@@ -2268,7 +2268,7 @@ namespace DLT
                         // superblock
 
                         // collect all blocks up to last superblock (or genesis block if no superblock yet exists)
-                        if (!generateSuperBlockSegments(localNewBlock))
+                        if (!generateSuperBlockSegments(localNewBlock, true))
                         {
                             Logging.error("Error generating segments for superblock {0}.", localNewBlock.blockNum);
                             localNewBlock = null;
