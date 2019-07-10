@@ -1,6 +1,7 @@
-using DLT.Network;
 using Fclp;
 using IXICore;
+using IXICore.Meta;
+using IXICore.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -236,10 +237,10 @@ namespace DLT
                             externalIp = value;
                             break;
                         case "addPeer":
-                            Network.CoreNetworkUtils.seedNodes.Add(new string[2] { value, null });
+                            CoreNetworkUtils.seedNodes.Add(new string[2] { value, null });
                             break;
                         case "addTestnetPeer":
-                            Network.CoreNetworkUtils.seedTestNetNodes.Add(new string[2] { value, null });
+                            CoreNetworkUtils.seedTestNetNodes.Add(new string[2] { value, null });
                             break;
                         case "maxLogSize":
                             maxLogSize = int.Parse(value);
@@ -440,14 +441,14 @@ namespace DLT
                 {
                     if (CoreConfig.isTestNet)
                     {
-                        Network.CoreNetworkUtils.seedTestNetNodes = new List<string[]>
+                        CoreNetworkUtils.seedTestNetNodes = new List<string[]>
                         {
                             new string[2] { seedNode, null }
                         };
                     }
                     else
                     {
-                        Network.CoreNetworkUtils.seedNodes = new List<string[]>
+                        CoreNetworkUtils.seedNodes = new List<string[]>
                         {
                             new string[2] { seedNode, null }
                         };

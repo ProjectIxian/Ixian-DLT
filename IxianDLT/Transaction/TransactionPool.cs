@@ -2,13 +2,14 @@
 using DLT.Network;
 using IXICore;
 using IXICore.Meta;
+using IXICore.Network;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using static DLT.Transaction;
+using static IXICore.Transaction;
 
 namespace DLT
 {

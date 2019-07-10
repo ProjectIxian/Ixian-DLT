@@ -1,16 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Timers;
-using DLT;
+﻿using DLT;
 using DLT.Meta;
-using System.Text;
 using DLT.Network;
-using System.Threading;
+using IXICore;
+using IXICore.Meta;
+using IXICore.Utils;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using IXICore;
-using IXICore.Utils;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Timers;
 
 namespace DLTNode
 {
@@ -433,7 +434,7 @@ namespace DLTNode
             Logging.log(LogSeverity.info, "Running Tests:");
 
             // Create a crypto lib
-            CryptoLib crypto_lib = new CryptoLib(new CryptoLibs.BouncyCastle());
+            CryptoLib crypto_lib = new CryptoLib(new IXICore.BouncyCastle());
             IxianKeyPair kp = crypto_lib.generateKeys(ConsensusConfig.defaultRsaKeySize);
 
             Logging.log(LogSeverity.info, String.Format("Public Key base64: {0}", kp.publicKeyBytes));

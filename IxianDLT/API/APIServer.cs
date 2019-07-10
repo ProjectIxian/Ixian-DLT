@@ -1,8 +1,8 @@
 ﻿using DLT;
 using DLT.Meta;
-using DLT.Network;
 using IXICore;
 using IXICore.Meta;
+using IXICore.Network;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;

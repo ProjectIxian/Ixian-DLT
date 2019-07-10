@@ -1,4 +1,5 @@
-﻿using DLT.Meta;
+﻿using IXICore;
+using IXICore.Meta;
 using System;
 using System.IO;
 
@@ -18,7 +19,7 @@ namespace DLT.Meta
             FileStream fs = File.Open(db_path, FileMode.Create, FileAccess.Write, FileShare.None);
             fs.Write(BitConverter.GetBytes(Node.walletState.version), 0, 4);
 
-            DLT.WsChunk[] chunk = Node.walletState.getWalletStateChunks(0, blockNum);
+            WsChunk[] chunk = Node.walletState.getWalletStateChunks(0, blockNum);
             fs.Write(BitConverter.GetBytes(chunk[0].wallets.LongLength), 0, 8);
 
             foreach (var entry in chunk[0].wallets)
@@ -75,7 +76,7 @@ namespace DLT.Meta
 
                 long walletCount = BitConverter.ToInt64(walletCountBytes, 0);
 
-                DLT.Wallet[] wallets = new DLT.Wallet[25];
+                Wallet[] wallets = new Wallet[25];
                 for (long i = 0, j = 0; i < walletCount; i++, j++)
                 {
                     byte[] lenBytes = new byte[4];
@@ -86,7 +87,7 @@ namespace DLT.Meta
                     byte[] entryBytes = new byte[len];
                     fs.Read(entryBytes, 0, len);
 
-                    wallets[j] = new DLT.Wallet(entryBytes);
+                    wallets[j] = new Wallet(entryBytes);
                     if (j == 24 || i == walletCount - 1)
                     {
                         for (int k = 24; k > j; k--)

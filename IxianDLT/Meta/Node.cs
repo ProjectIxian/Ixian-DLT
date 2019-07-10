@@ -1,7 +1,7 @@
-﻿using DLT.Network;
-using DLTNode;
+﻿using DLTNode;
 using IXICore;
 using IXICore.Meta;
+using IXICore.Network;
 using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
