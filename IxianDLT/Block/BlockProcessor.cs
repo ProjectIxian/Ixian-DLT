@@ -465,7 +465,23 @@ namespace DLT
 
             if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum)
             {
+                // next block
                 generateSuperBlockSegments(b, false, endpoint);
+            }else if(IxianHandler.getLastBlockHeight() + 1 > b.blockNum)
+            {
+                // already processed block
+                Block local_block = Node.blockChain.getBlock(b.blockNum, true, true);
+                if(local_block == null)
+                {
+                    // this should never happen
+                    Logging.error("Received a superblock {0} that we're supposed to have but don't.", b.blockNum);
+                }
+
+                b.superBlockSegments = local_block.superBlockSegments;
+            }else
+            {
+                // TODO TODO TODO implement for superblock catch-up
+                return false;
             }
             return true;
         }

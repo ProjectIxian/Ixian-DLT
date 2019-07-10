@@ -389,7 +389,7 @@ namespace DLT.Meta
                 ulong lastLocalBlockNum = Meta.Storage.getLastBlockNum();
                 if(lastLocalBlockNum > 6)
                 {
-                    lastLocalBlockNum = lastLocalBlockNum - 3;
+                    lastLocalBlockNum = lastLocalBlockNum - 6;
                 }
                 if(Config.lastGoodBlock > 0 && Config.lastGoodBlock < lastLocalBlockNum)
                 {
