@@ -542,6 +542,8 @@ namespace DLT
                     {
                         ulong include_segments = reader.ReadUInt64();
 
+                        bool full_header = reader.ReadBoolean();
+
                         Block block = null;
 
                         int checksum_len = reader.ReadInt32();
@@ -549,21 +551,24 @@ namespace DLT
 
                         block = Storage.getNextSuperBlock(checksum);
 
-                        endpoint.sendData(ProtocolMessageCode.newBlock, block.getBytes(), BitConverter.GetBytes(block.blockNum));
-
-                        if (block != null && include_segments > 0)
+                        if (block != null)
                         {
-                            foreach (var entry in block.superBlockSegments.OrderBy(x => x.Key))
+                            endpoint.sendData(ProtocolMessageCode.newBlock, block.getBytes(full_header), BitConverter.GetBytes(block.blockNum));
+
+                            if (include_segments > 0)
                             {
-                                SuperBlockSegment segment = entry.Value;
-                                if (segment.blockNum < include_segments)
+                                foreach (var entry in block.superBlockSegments.OrderBy(x => x.Key))
                                 {
-                                    continue;
+                                    SuperBlockSegment segment = entry.Value;
+                                    if (segment.blockNum < include_segments)
+                                    {
+                                        continue;
+                                    }
+
+                                    Block segment_block = Node.blockChain.getBlock(segment.blockNum, true);
+
+                                    endpoint.sendData(ProtocolMessageCode.newBlock, segment_block.getBytes(), BitConverter.GetBytes(segment.blockNum));
                                 }
-
-                                Block segment_block = Node.blockChain.getBlock(segment.blockNum, true);
-
-                                endpoint.sendData(ProtocolMessageCode.newBlock, segment_block.getBytes(), BitConverter.GetBytes(segment.blockNum));
                             }
                         }
                     }
@@ -633,13 +638,14 @@ namespace DLT
 
 
             // Requests block with specified block height from the network, include_segments_from_block value can be 0 for no segments, and a positive value for segments bigger than the specified value
-            public static bool broadcastGetNextSuperBlock(ulong block_num, byte[] block_checksum, ulong include_segments = 0, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            public static bool broadcastGetNextSuperBlock(ulong block_num, byte[] block_checksum, ulong include_segments = 0, bool full_header = false, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
                     using (BinaryWriter writerw = new BinaryWriter(mw))
                     {
                         writerw.Write(include_segments);
+                        writerw.Write(full_header);
                         writerw.Write(block_checksum.Length);
                         writerw.Write(block_checksum);
 #if TRACE_MEMSTREAM_SIZES
@@ -660,7 +666,7 @@ namespace DLT
             }
 
             // Requests block with specified block height from the network, include_transactions value can be 0 - don't include transactions, 1 - include all but staking transactions or 2 - include all, including staking transactions
-            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0)
+            public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0, bool full_header = false)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
@@ -668,6 +674,7 @@ namespace DLT
                     {
                         writerw.Write(block_num);
                         writerw.Write(include_transactions);
+                        writerw.Write(full_header);
 #if TRACE_MEMSTREAM_SIZES
                         Logging.info(String.Format("NetworkProtocol::broadcastGetBlock: {0}", mw.Length));
 #endif
@@ -695,14 +702,14 @@ namespace DLT
                 {
                     if (endpoint.isConnected())
                     {
-                        endpoint.sendData(ProtocolMessageCode.newBlock, b.getBytes(), BitConverter.GetBytes(b.blockNum));
+                        endpoint.sendData(ProtocolMessageCode.newBlock, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
                         return true;
                     }
                     return false;
                 }
                 else
                 {
-                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlock, b.getBytes(), BitConverter.GetBytes(b.blockNum), skipEndpoint);
+                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlock, b.getBytes(false), BitConverter.GetBytes(b.blockNum), skipEndpoint);
                 }
             }
 
@@ -990,6 +997,14 @@ namespace DLT
                                     {
                                         ulong block_number = reader.ReadUInt64();
                                         byte include_transactions = reader.ReadByte();
+                                        bool full_header = false;
+                                        try
+                                        {
+                                            full_header = reader.ReadBoolean();
+                                        }catch(Exception)
+                                        {
+
+                                        }
 
                                         //Logging.info(String.Format("Block #{0} has been requested.", block_number));
 
@@ -1021,7 +1036,7 @@ namespace DLT
                                             Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
                                         }
 
-                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(), BitConverter.GetBytes(block.blockNum));
+                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header), BitConverter.GetBytes(block.blockNum));
                                     }
                                 }
                             }

@@ -409,7 +409,10 @@ namespace DLT
             var local_block_list = pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(b.blockChecksum));
             if (local_block_list.Count() > 0)
             {
-                generateSuperBlockSegments(b, endpoint);
+                if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum)
+                {
+                    generateSuperBlockSegments(b, endpoint);
+                }
                 return true;
             }
 
@@ -448,16 +451,21 @@ namespace DLT
             }
             else
             {
-                byte[] last_accepted_super_block_checksum = Node.blockChain.getLastSuperBlockChecksum();
+                // TODO TODO handle this and getLastSuperBlockChecksum()
+                /*byte[] last_accepted_super_block_checksum = Node.blockChain.getLastSuperBlockChecksum();
                 if (getPendingSuperBlock(last_accepted_super_block_checksum) == null)
                 {
                     Logging.info("Received a future super block {0}.", b.blockNum);
-                    ProtocolMessage.broadcastGetNextSuperBlock(Node.blockChain.getLastSuperBlockNum(), last_accepted_super_block_checksum, 0, null, null);
-                }
+                    //ProtocolMessage.broadcastGetNextSuperBlock(Node.blockChain.getLastSuperBlockNum(), last_accepted_super_block_checksum, 0, null, null);
+                }*/
+                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null, 0, false);
                 return false;
             }
 
-            generateSuperBlockSegments(b, endpoint);
+            if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum)
+            {
+                generateSuperBlockSegments(b, endpoint);
+            }
             return true;
         }
 
@@ -1598,7 +1606,7 @@ namespace DLT
                                 highestNetworkBlockNum = 0;
                             }
 
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.newBlock, current_block.getBytes(), BitConverter.GetBytes(current_block.blockNum));
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.newBlock, current_block.getBytes(false), BitConverter.GetBytes(current_block.blockNum));
 
                             if (Node.miner.searchMode != BlockSearchMode.latestBlock)
                             {
@@ -2114,7 +2122,8 @@ namespace DLT
             {
                 ulong cur_block_height = super_block.blockNum;
 
-                if (Node.blockChain.getLastSuperBlockNum() != super_block.lastSuperBlockNum)
+                // TODO TODO TODO implement getLastSuperBlockNum with sync properly
+                if (Node.blockChain.getLastSuperBlockNum() > 0 && Node.blockChain.getLastSuperBlockNum() != super_block.lastSuperBlockNum)
                 {
                     return false;
                 }
@@ -2122,9 +2131,10 @@ namespace DLT
                 if (cache_currentSuperBlockSegments != null)
                 {
                     if(cache_currentSuperBlockSegments.ContainsKey(cur_block_height - 1) 
-                        && cache_currentSuperBlockSegments[cur_block_height - 1].blockChecksum.SequenceEqual(Node.blockChain.getBlock(cur_block_height - 1).blockChecksum))
+                        && cache_currentSuperBlockSegments[cur_block_height - 1].blockChecksum.SequenceEqual(Node.blockChain.getBlock(cur_block_height - 1).blockChecksum)
+                        && cache_currentSuperBlockSegments.ContainsKey(super_block.lastSuperBlockNum + 1))
                     {
-                        Logging.info("Fetching cached superblock segments for block #{0}", super_block.blockNum);
+                        Logging.info("Setting cached superblock segments to received superblock #{0}", super_block.blockNum);
                         super_block.superBlockSegments = cache_currentSuperBlockSegments;
                         super_block.lastSuperBlockNum = cache_lastSuperBlockNum;
                         super_block.lastSuperBlockChecksum = cache_lastSuperBlockChecksum;
@@ -2260,7 +2270,7 @@ namespace DLT
                         // collect all blocks up to last superblock (or genesis block if no superblock yet exists)
                         if (!generateSuperBlockSegments(localNewBlock))
                         {
-                            Logging.error("Error generating transactions for superblock {0}.", localNewBlock.blockNum);
+                            Logging.error("Error generating segments for superblock {0}.", localNewBlock.blockNum);
                             localNewBlock = null;
                             return;
                         }

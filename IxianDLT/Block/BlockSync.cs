@@ -156,7 +156,7 @@ namespace DLT
                     if (currentTime - requestedBlockTimes[blockNum] > 10)
                     {
                         // Re-request block
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1) == false)
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1, true) == false)
                         {
                             if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {
@@ -246,7 +246,7 @@ namespace DLT
                             Logging.warn("Expecting block {0} in storage but had to request it from network.", blockNum);
                         }
                         // Didn't find the block in storage, request it from the network
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1) == false)
+                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1, true) == false)
                         {
                             if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
                             {
