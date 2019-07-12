@@ -1,4 +1,5 @@
-﻿using DLTNode;
+﻿using DLT.Network;
+using DLTNode;
 using IXICore;
 using IXICore.Meta;
 using IXICore.Network;
@@ -907,6 +908,16 @@ namespace DLT.Meta
         public override void shutdown()
         {
             forceShutdown = true;
+        }
+
+        public override WalletStorage getWalletStorage()
+        {
+            return walletStorage;
+        }
+
+        public override void parseProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint endpoint)
+        {
+            ProtocolMessage.parseProtocolMessage(code, data, endpoint);
         }
 
         /*static void runDiffTests()
