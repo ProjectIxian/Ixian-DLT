@@ -1202,6 +1202,7 @@ namespace DLT
                                                         if (NetworkClientManager.getConnectedClients().Length < 2)
                                                         {
                                                             NetworkClientManager.publicIP = byeData;
+                                                            PresenceList.curNodePresenceAddress.address = byeData + ":" + NetworkServer.getListeningPort();
                                                             Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
                                                         }
                                                     }
