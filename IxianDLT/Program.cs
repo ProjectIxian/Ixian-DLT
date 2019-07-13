@@ -178,7 +178,7 @@ namespace DLTNode
                 ConsoleHelpers.verboseConsoleOutput = true;
                 Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
                 e.Cancel = true;
-                Node.forceShutdown = true;
+                IxianHandler.forceShutdown = true;
             };
 
             // For testing only. Run any experiments here as to not affect the infrastructure.
@@ -192,7 +192,7 @@ namespace DLTNode
 
             if(Node.apiServer != null)
             { 
-                while (Node.forceShutdown == false)
+                while (IxianHandler.forceShutdown == false)
                 {
                     Thread.Sleep(1000);
                 }
@@ -364,7 +364,7 @@ namespace DLTNode
                 {
                     ConsoleHelpers.verboseConsoleOutput = true;
                     Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
-                    Node.forceShutdown = true;
+                    IxianHandler.forceShutdown = true;
                 }
                 else if (key.Key == ConsoleKey.M)
                 {
@@ -396,7 +396,7 @@ namespace DLTNode
             }
             if (Node.update() == false)
             {
-                Node.forceShutdown = true;
+                IxianHandler.forceShutdown = true;
             }
         }
 

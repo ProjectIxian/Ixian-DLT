@@ -630,7 +630,7 @@ namespace DLTNode
                 networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
 
                 networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
-                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients());
+                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients(true));
 
                 networkArray.Add("Masters", PresenceList.countPresences('M'));
                 networkArray.Add("Relays", PresenceList.countPresences('R'));

@@ -15,7 +15,7 @@ namespace DLT.Meta
         private Thread thread = null;
         private bool running = false;
 
-        private int consoleWidth = 55;
+        private int consoleWidth = 61;
         private uint drawCycle = 0; // Keep a count of screen draw cycles as a basic method of preventing visual artifacts
         private ThreadLiveCheck TLC;
 
@@ -79,26 +79,32 @@ namespace DLT.Meta
 
             Console.SetCursorPosition(0, 0);
 
+
             string server_version = checkForUpdate();
             bool update_avail = false;
-            if(!server_version.StartsWith("("))
+            if (!server_version.StartsWith("("))
             {
-                if(server_version != Config.version)
+                if (server_version != Config.version)
                 {
                     update_avail = true;
-                } 
+                }
             }
 
-            writeLine(" d888888b   db    db   d888888b    .d88b.    d8b   db ");
-            writeLine("   `88'     `8b  d8'     `88'     d8'  `8b   888o  88 ");
-            writeLine("    88       `8bd8'       88      88oooo88   88V8o 88 ");
-            writeLine("    88       .dPYb.       88      88~~~~88   88 V8o88 ");
-            writeLine("   .88.     .8P  Y8.     .88.     88    88   88  V888 ");
-            writeLine(" Y888888P   YP    YP   Y888888P   YP    YP   VP   V8P ");
-            writeLine(" {0}", (Config.version + " BETA ").PadLeft(53));
+            int connectionsOut = NetworkClientManager.getConnectedClients(true).Count();
+            int connectionsIn = NetworkServer.getConnectedClients().Count();
+
+
+
+            writeLine(" ██╗██╗  ██╗██╗ █████╗ ███╗   ██╗    ██████╗ ██╗  ████████╗ ");
+            writeLine(" ██║╚██╗██╔╝██║██╔══██╗████╗  ██║    ██╔══██╗██║  ╚══██╔══╝ ");
+            writeLine(" ██║ ╚███╔╝ ██║███████║██╔██╗ ██║    ██║  ██║██║     ██║    ");
+            writeLine(" ██║ ██╔██╗ ██║██╔══██║██║╚██╗██║    ██║  ██║██║     ██║    ");
+            writeLine(" ██║██╔╝ ██╗██║██║  ██║██║ ╚████║    ██████╔╝███████╗██║    ");
+            writeLine(" ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝    ╚═════╝ ╚══════╝╚═╝    ");
+            writeLine(" {0}", (Config.version + " BETA ").PadLeft(59));
             writeLine(" {0}", ("http://localhost:" + Config.apiPort + "/"));
-            writeLine("──────────────────────────────────────────────────────");
-            if(update_avail)
+            writeLine("────────────────────────────────────────────────────────────");
+            if (update_avail)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 writeLine(" An update (" + server_version + ") of Ixian DLT is available");
@@ -107,10 +113,21 @@ namespace DLT.Meta
             }
             else
             {
-                writeLine(" Thank you for running an Ixian DLT node.");
-                writeLine(" For help please visit https://www.ixian.io");
+                if (!NetworkServer.isConnectable() && connectionsOut == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    writeLine(" Your node isn't connectable from the internet.");
+                    writeLine(" Please set-up port forwarding for port " + NetworkServer.getListeningPort() + ". ");
+                    writeLine(" Make sure you can connect to: " + NetworkServer.getFullPublicAddress());
+                    Console.ResetColor();
+                }
+                else
+                {
+                    writeLine(" Thank you for running an Ixian DLT node.");
+                    writeLine(" For help please visit https://www.ixian.io");
+                }
             }
-            writeLine("──────────────────────────────────────────────────────");
+            writeLine("────────────────────────────────────────────────────────────");
 
             if (Storage.upgrading)
             {
@@ -130,22 +147,12 @@ namespace DLT.Meta
                 dltStatus =     "synchronizing";
 
 
-            int connectionsIn = 0;
-            int connectionsOut = NetworkClientManager.getConnectedClients().Count();
 
             string connectionsInStr = "-";  // Default to no inbound connections accepted
             if (NetworkServer.isRunning())
             {
                 // If the server is running, show the number of inbound connections
-                connectionsIn = NetworkServer.getConnectedClients().Count();
-                if (!NetworkServer.isConnectable() && connectionsOut == 0)
-                {
-                    connectionsInStr = "Not connectable";
-                }
-                else
-                {
-                    connectionsInStr = String.Format("{0}", connectionsIn);
-                }
+                connectionsInStr = String.Format("{0}", connectionsIn);
             }
 
             if (connectionsIn + connectionsOut < 1)
@@ -200,7 +207,7 @@ namespace DLT.Meta
             writeLine(" Hashrate:             {0}", Node.miner.lastHashRate);
             writeLine(" Search Mode:          {0}", Node.miner.searchMode);
             writeLine(" Solved Blocks:        {0}", Node.miner.getSolvedBlocksCount());
-            writeLine("──────────────────────────────────────────────────────");
+            writeLine("────────────────────────────────────────────────────────────");
 
             TimeSpan elapsed = DateTime.UtcNow - startTime;
 

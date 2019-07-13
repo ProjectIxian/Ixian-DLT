@@ -32,8 +32,6 @@ namespace DLT.Meta
 
         public static bool serverStarted = false;
 
-        public static bool forceShutdown = false;
-
         // Private
         private static Thread maintenanceThread;
 
@@ -58,9 +56,22 @@ namespace DLT.Meta
         public void init()
         {
             running = true;
-            
+
+            // First create the data folder if it does not already exist
+            checkDataFolder();
+
+            renameStorageFiles(); // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
+
+            // debug
+            if (Config.networkDumpFile != "")
+            {
+                NetDump.Instance.start(Config.networkDumpFile);
+            }
+
+            NetworkUtils.configureNetwork(Config.externalIp, Config.serverPort);
+
             // Load or Generate the wallet
-            if(!initWallet())
+            if (!initWallet())
             {
                 running = false;
                 DLTNode.Program.noStart = true;
@@ -97,7 +108,7 @@ namespace DLT.Meta
                 {
                     Logging.flush();
                     password = ConsoleHelpers.requestNewPassword("Enter a password for your new wallet: ");
-                    if (forceShutdown)
+                    if (IxianHandler.forceShutdown)
                     {
                         return false;
                     }
@@ -125,7 +136,7 @@ namespace DLT.Meta
                         Console.Write("Enter wallet password: ");
                         password = ConsoleHelpers.getPasswordInput();
                     }
-                    if (forceShutdown)
+                    if (IxianHandler.forceShutdown)
                     {
                         return false;
                     }
@@ -168,7 +179,7 @@ namespace DLT.Meta
                 while (new_password.Length < 10)
                 {
                     new_password = ConsoleHelpers.requestNewPassword("Enter a new password for your wallet: ");
-                    if (forceShutdown)
+                    if (IxianHandler.forceShutdown)
                     {
                         return false;
                     }
@@ -283,19 +294,6 @@ namespace DLT.Meta
         // Start the node
         public void start(bool verboseConsoleOutput)
         {
-            // First create the data folder if it does not already exist
-            checkDataFolder();
-
-            renameStorageFiles(); // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
-
-            // debug
-            if (Config.networkDumpFile != "")
-            {
-                NetDump.Instance.start(Config.networkDumpFile);
-            }
-
-            NetworkUtils.configureNetwork(Config.externalIp);
-
             char node_type = 'M'; // TODO TODO TODO TODO change this to 'W' or 'C' after the upgrade
 
             if(Config.disableMiner)
@@ -313,7 +311,7 @@ namespace DLT.Meta
             }
 
             // Generate presence list
-            PresenceList.generatePresenceList(IxianHandler.publicIP, Config.serverPort, node_type);
+            PresenceList.init(IxianHandler.publicIP, Config.serverPort, node_type);
 
             // Initialize storage
             Storage.prepareStorage();
@@ -485,7 +483,7 @@ namespace DLT.Meta
                 Logging.consoleOutput = true;
                 shutdownMessage = string.Format("Your DLT node can only handle blocks up to #{0}. Please update to the latest version from www.ixian.io", Config.nodeDeprecationBlock);
                 Logging.error(shutdownMessage);
-                forceShutdown = true;
+                IxianHandler.forceShutdown = true;
                 running = false;
                 return running;
             }
@@ -534,8 +532,7 @@ namespace DLT.Meta
         static public void stop()
         {
             Program.noStart = true;
-            forceShutdown = true;
-            ConsoleHelpers.forceShutdown = true;
+            IxianHandler.forceShutdown = true;
 
             // Stop the keepalive thread
             PresenceList.stopKeepAlive();
@@ -902,7 +899,7 @@ namespace DLT.Meta
 
         public override void shutdown()
         {
-            forceShutdown = true;
+            IxianHandler.forceShutdown = true;
         }
 
         public override WalletStorage getWalletStorage()

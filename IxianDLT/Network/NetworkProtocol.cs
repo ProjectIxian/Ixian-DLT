@@ -1199,7 +1199,7 @@ namespace DLT
                                                 case ProtocolByeCode.incorrectIp: // incorrect IP
                                                     if (IxiUtils.validateIPv4(byeData))
                                                     {
-                                                        if (NetworkClientManager.getConnectedClients().Length < 2)
+                                                        if (NetworkClientManager.getConnectedClients(true).Length < 2)
                                                         {
                                                             IxianHandler.publicIP = byeData;
                                                             Logging.info("Changed internal IP Address to " + byeData + ", reconnecting");
