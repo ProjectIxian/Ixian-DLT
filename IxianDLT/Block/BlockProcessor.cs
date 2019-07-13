@@ -248,42 +248,32 @@ namespace DLT
             {
                 byte[][] sig = b.signatures[i];
 
-                lock (PresenceList.presences)
+                Presence p = PresenceList.getPresenceByAddress(sig[1]);
+                if (p != null)
                 {
-                    Presence p = null;
-                    // Check if we have a public key instead of an address
-                    if (sig[1].Length > 70)
+                    bool masterEntryFound = false;
+                    lock (p)
                     {
-                        p = PresenceList.presences.Find(x => x.pubkey.SequenceEqual(sig[1]));
-                    }
-                    else
-                    {
-                        p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(sig[1]));
-                    }
-
-                    if(p != null)
-                    {
-                        bool masterEntryFound = false;
-                        foreach(PresenceAddress pa in p.addresses)
+                        foreach (PresenceAddress pa in p.addresses)
                         {
-                            if(pa.type == 'M' || pa.type == 'H')
+                            if (pa.type == 'M' || pa.type == 'H')
                             {
                                 masterEntryFound = true;
                                 break;
                             }
                         }
-                        if(!masterEntryFound)
-                        {
-                            p = null;
-                        }
                     }
-
-                    //Logging.info(String.Format("Searching for {0}", parts[1]));                 
-                    if (p == null)
+                    if (!masterEntryFound)
                     {
-                        sigs.Add(sig);
-                        continue;
+                        p = null;
                     }
+                }
+
+                //Logging.info(String.Format("Searching for {0}", parts[1]));                 
+                if (p == null)
+                {
+                    sigs.Add(sig);
+                    continue;
                 }
             }
             return sigs;

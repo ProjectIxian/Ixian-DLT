@@ -472,11 +472,11 @@ namespace DLTNode
         {
             JsonError error = null;
 
+            List<Presence> presences = PresenceList.getPresences();
             // Show a list of presences
-            lock (PresenceList.presences)
+            lock (presences)
             {
-                var json = PresenceList.presences;
-                return new JsonResponse { result = json, error = error };
+                return new JsonResponse { result = presences, error = error };
             }
 
         }
@@ -631,13 +631,12 @@ namespace DLTNode
 
                 networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
                 networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients(true));
-
-                networkArray.Add("Masters", PresenceList.countPresences('M'));
-                networkArray.Add("Relays", PresenceList.countPresences('R'));
-                networkArray.Add("Clients", PresenceList.countPresences('C'));
-                networkArray.Add("Workers", PresenceList.countPresences('W'));
             }
 
+            networkArray.Add("Masters", PresenceList.countPresences('M'));
+            networkArray.Add("Relays", PresenceList.countPresences('R'));
+            networkArray.Add("Clients", PresenceList.countPresences('C'));
+            networkArray.Add("Workers", PresenceList.countPresences('W'));
 
 
             return new JsonResponse { result = networkArray, error = error };
@@ -718,9 +717,11 @@ namespace DLTNode
         {
             Dictionary<string, int> versions = new Dictionary<string, int>();
 
-            lock (PresenceList.presences)
+            List<Presence> presences = PresenceList.getPresences();
+
+            lock (presences)
             {
-                foreach (var entry in PresenceList.presences)
+                foreach (var entry in presences)
                 {
                     foreach (var pa_entry in entry.addresses)
                     {

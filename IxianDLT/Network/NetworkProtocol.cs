@@ -1462,10 +1462,10 @@ namespace DLT
                                     {
                                         int walletLen = reader.ReadInt32();
                                         byte[] wallet = reader.ReadBytes(walletLen);
-                                        lock (PresenceList.presences)
+                                        Presence p = PresenceList.getPresenceByAddress(wallet);
+                                        if (p != null)
                                         {
-                                            Presence p = PresenceList.presences.Find(x => x.wallet.SequenceEqual(wallet));
-                                            if (p != null)
+                                            lock (p)
                                             {
                                                 byte[][] presence_chunks = p.getByteChunks();
                                                 foreach (byte[] presence_chunk in presence_chunks)
@@ -1473,18 +1473,18 @@ namespace DLT
                                                     endpoint.sendData(ProtocolMessageCode.updatePresence, presence_chunk, null);
                                                 }
                                             }
-                                            else
-                                            {
-                                                // TODO blacklisting point
-                                                Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Base58Check.Base58CheckEncoding.EncodePlain(wallet)));
-                                            }
+                                        }
+                                        else
+                                        {
+                                            // TODO blacklisting point
+                                            Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Base58Check.Base58CheckEncoding.EncodePlain(wallet)));
                                         }
                                     }
                                 }
                             }
                             break;
 
-                            // return 10 random presences of the selected type
+                        // return 10 random presences of the selected type
                         case ProtocolMessageCode.getRandomPresences:
                             {
                                 handleGetRandomPresences(data, endpoint);
