@@ -268,6 +268,11 @@ namespace DLT
             // Removes event subscriptions for the provided endpoint
             private static void handleNewBlockSignature(byte[] data, RemoteEndpoint endpoint)
             {
+                if(Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+
                 if (data == null)
                 {
                     Logging.warn(string.Format("Invalid protocol message signature data"));

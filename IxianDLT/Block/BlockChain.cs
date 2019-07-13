@@ -316,15 +316,15 @@ namespace DLT
 
         public int getRequiredConsensus(ulong block_num, bool adjusted_to_ratio = true)
         {
-            int block_offset = 6;
-            if (block_num < (ulong)block_offset + 2) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
+            int block_offset = 7;
+            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
                 int total_consensus = 0;
                 int block_count = 0;
                 for (int i = 0; i < 10; i++)
                 {
-                    ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset - 1;
+                    ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
                     Block b = blocks.Find(x => x.blockNum == consensus_block_num);
                     if(b == null)
                     {
@@ -346,14 +346,14 @@ namespace DLT
                     consensus = ConsensusConfig.maximumBlockSigners;
                     if (adjusted_to_ratio)
                     {
-                        consensus = (int)Math.Ceiling(consensus * ConsensusConfig.networkConsensusRatio);
+                        consensus = (int)Math.Floor(consensus * ConsensusConfig.networkConsensusRatio);
                     }
                 }
                 else
                 {
                     if (adjusted_to_ratio)
                     {
-                        consensus = (int)Math.Ceiling(total_consensus / block_count * ConsensusConfig.networkConsensusRatio);
+                        consensus = (int)Math.Floor(total_consensus / block_count * ConsensusConfig.networkConsensusRatio);
                     }
                 }
 

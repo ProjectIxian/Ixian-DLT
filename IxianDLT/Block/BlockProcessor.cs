@@ -537,7 +537,7 @@ namespace DLT
                         else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
                             // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
-                            if (!verifyBlockSignatures(b))
+                            if (b.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
                             {
                                 ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
                             }
@@ -1467,9 +1467,10 @@ namespace DLT
             {
                 if (localNewBlock == null) return false;
 
+                Block target_block = null;
                 if (localNewBlock.blockNum > 11)
                 {
-                    Block target_block = Node.blockChain.getBlock(localNewBlock.blockNum - 5);
+                    target_block = Node.blockChain.getBlock(localNewBlock.blockNum - 5);
                     if (target_block.frozenSignatures == null || !verifySignatureFreezeChecksum(localNewBlock, null))
                     {
                         freezeSignatures(target_block);
@@ -1489,6 +1490,14 @@ namespace DLT
                     return false;
                 }else
                 {
+                    if (target_block != null && !verifyBlockSignatures(target_block))
+                    {
+                        blacklistBlock(localNewBlock);
+                        localNewBlock = null;
+                        target_block.setFrozenSignatures(null);
+                        Logging.warn("The target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
+                        return false;
+                    }
                     if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                     {
                         if (Node.isMasterNode())
@@ -1595,7 +1604,7 @@ namespace DLT
                                     if (tmp_block.frozenSignatures != null)
                                     {
                                         tmp_block.signatures = tmp_block.frozenSignatures;
-                                        tmp_block.frozenSignatures = null;
+                                        tmp_block.setFrozenSignatures(null);
                                     }
                                     Node.blockChain.updateBlock(tmp_block);
                                 }
@@ -2684,6 +2693,12 @@ namespace DLT
             if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 11)
             {
                 freezeSignatures(target_block);
+                if(target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
+                {
+                    target_block.setFrozenSignatures(null);
+                    Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
+                    throw new Exception("Freezing the target block yields less than required signatures");
+                }
             }
             return target_block.calculateSignatureChecksum();
         }

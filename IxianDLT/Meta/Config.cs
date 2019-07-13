@@ -66,7 +66,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.6-dev"; // DLT Node version
+            public static readonly string version = "xdc-0.6.5d"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
@@ -169,7 +169,7 @@ namespace DLT
                 Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
                 Console.WriteLine("    forceTimeOffset\t Forces network time offset to the specified value (same as --forceTimeOffset CLI)");
                 Console.WriteLine("    walletNotify\t Execute command when a wallet transaction changes");
-                Console.WriteLine("    blockNotify\t Execute command when the block changes");
+                Console.WriteLine("    blockNotify\t\t Execute command when the block changes");
 
                 return "";
             }
