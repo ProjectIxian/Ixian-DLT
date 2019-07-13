@@ -313,7 +313,7 @@ namespace DLT.Meta
             }
 
             // Generate presence list
-            PresenceList.generatePresenceList(NetworkClientManager.publicIP, Config.serverPort, node_type);
+            PresenceList.generatePresenceList(IxianHandler.publicIP, Config.serverPort, node_type);
 
             // Initialize storage
             Storage.prepareStorage();
@@ -454,11 +454,6 @@ namespace DLT.Meta
             maintenanceThread = new Thread(performMaintenance);
             maintenanceThread.Name = "Node_Maintenance_Thread";
             maintenanceThread.Start();
-        }
-
-        public override char getNodeType()
-        {
-            return PresenceList.curNodePresenceAddress.type;
         }
 
         static public bool update()
@@ -757,12 +752,12 @@ namespace DLT.Meta
         // Convert this masternode to a worker node
         public static void convertToWorkerNode()
         {
-            if (IxianHandler.getNodeType() == 'W')
+            if (PresenceList.myPresenceType == 'W')
                 return;
 
             CoreConfig.simultaneousConnectedNeighbors = 4;
 
-            PresenceList.curNodePresenceAddress.type = 'W';
+            PresenceList.myPresenceType = 'W';
 
             NetworkClientManager.restartClients();
             NetworkServer.stopNetworkOperations();
@@ -771,10 +766,10 @@ namespace DLT.Meta
         // Convert this masternode to a worker node
         public static void convertToClientNode()
         {
-            if (IxianHandler.getNodeType() == 'C')
+            if (PresenceList.myPresenceType == 'C')
                 return;
 
-            PresenceList.curNodePresenceAddress.type = 'C';
+            PresenceList.myPresenceType = 'C';
 
             NetworkClientManager.restartClients();
             NetworkServer.stopNetworkOperations();
@@ -783,18 +778,18 @@ namespace DLT.Meta
         // Convert this worker node to a masternode
         public static void convertToMasterNode()
         {
-            if (IxianHandler.getNodeType() == 'M' || IxianHandler.getNodeType() == 'H')
+            if (PresenceList.myPresenceType == 'M' || PresenceList.myPresenceType == 'H')
                 return;
 
             CoreConfig.simultaneousConnectedNeighbors = 6;
 
             if (Config.storeFullHistory)
             {
-                PresenceList.curNodePresenceAddress.type = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
+                PresenceList.myPresenceType = 'M'; // TODO TODO TODO TODO this is only temporary until all nodes upgrade, changes this to 'H' later
             }
             else
             {
-                PresenceList.curNodePresenceAddress.type = 'M';
+                PresenceList.myPresenceType = 'M';
             }
 
             NetworkClientManager.restartClients();
@@ -811,14 +806,14 @@ namespace DLT.Meta
 
         public static bool isWorkerNode()
         {
-            if (IxianHandler.getNodeType() == 'W')
+            if (PresenceList.myPresenceType == 'W')
                 return true;
             return false;
         }
 
         public static bool isMasterNode()
         {
-            if (IxianHandler.getNodeType() == 'M' || IxianHandler.getNodeType() == 'H')
+            if (PresenceList.myPresenceType == 'M' || PresenceList.myPresenceType == 'H')
                 return true;
             return false;
         }
