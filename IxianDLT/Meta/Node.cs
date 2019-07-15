@@ -375,7 +375,7 @@ namespace DLT.Meta
                 }
                 else
                 {
-                    NetworkServer.beginNetworkOperations(Config.serverPort);
+                    NetworkServer.beginNetworkOperations();
                 }
             }
             else
@@ -437,7 +437,7 @@ namespace DLT.Meta
                     }
                     else
                     {
-                        NetworkServer.beginNetworkOperations(Config.serverPort);
+                        NetworkServer.beginNetworkOperations();
                     }
 
                     // Start the network client manager
@@ -469,7 +469,7 @@ namespace DLT.Meta
                     }
                     else
                     {
-                        NetworkServer.beginNetworkOperations(Config.serverPort);
+                        NetworkServer.beginNetworkOperations();
                     }
 
                     serverStarted = true;
@@ -520,7 +520,7 @@ namespace DLT.Meta
                 NetworkClientManager.start();
                 if (isMasterNode())
                 {
-                    NetworkServer.beginNetworkOperations(Config.serverPort);
+                    NetworkServer.beginNetworkOperations();
                 }
                 floodPause = false;
             }

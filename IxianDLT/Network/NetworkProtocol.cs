@@ -1209,7 +1209,7 @@ namespace DLT
 
                                                 case ProtocolByeCode.notConnectable: // not connectable from the internet
                                                     Logging.error("This node must be connectable from the internet, to connect to the network.");
-                                                    Logging.error("Please setup uPNP and/or port forwarding on your router for port " + NetworkServer.getListeningPort() + ".");
+                                                    Logging.error("Please setup uPNP and/or port forwarding on your router for port " + IxianHandler.publicPort + ".");
                                                     NetworkServer.connectable = false;
                                                     break;
 
@@ -1244,19 +1244,6 @@ namespace DLT
                                             Logging.info(string.Format("Disconnected with message: {0}", message));
                                         else
                                             Logging.info("Disconnected");
-
-                                        // TODO TODO TODO TODO remove this after upgrade as it won't be needed
-                                        // Convert to Worker node if possible
-                                        if (message.StartsWith("Insufficient funds"))
-                                        {
-
-                                            if (Config.disableMiner == false)
-                                            {
-                                                Logging.info("Reconnecting in Worker mode.");
-                                                Node.convertToWorkerNode();
-                                            }
-                                            return;
-                                        }
                                     }
                                 }
                             }

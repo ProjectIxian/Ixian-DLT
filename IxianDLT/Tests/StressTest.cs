@@ -152,7 +152,7 @@ namespace DLTNode
                    {
                        using (BinaryWriter writer = new BinaryWriter(m))
                        {
-                            string publicHostname = NetworkServer.getFullPublicAddress();
+                            string publicHostname = IxianHandler.getFullPublicAddress();
                            // Send the public IP address and port
                            writer.Write(publicHostname);
 

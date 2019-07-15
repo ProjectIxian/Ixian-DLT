@@ -117,8 +117,8 @@ namespace DLT.Meta
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     writeLine(" Your node isn't connectable from the internet.");
-                    writeLine(" Please set-up port forwarding for port " + NetworkServer.getListeningPort() + ". ");
-                    writeLine(" Make sure you can connect to: " + NetworkServer.getFullPublicAddress());
+                    writeLine(" Please set-up port forwarding for port " + IxianHandler.publicPort + ". ");
+                    writeLine(" Make sure you can connect to: " + IxianHandler.getFullPublicAddress());
                     Console.ResetColor();
                 }
                 else

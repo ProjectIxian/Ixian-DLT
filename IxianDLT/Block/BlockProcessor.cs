@@ -1629,6 +1629,12 @@ namespace DLT
                                 Node.miner.checkActiveBlockSolved();
                             }
 
+                            // Broadcast blockheight only if the node is synchronized
+                            if (!Node.blockSync.synchronizing)
+                            {
+                                ProtocolMessage.broadcastBlockHeight(last_block_num);
+                            }
+
                             cleanupBlockBlacklist();
                             if (last_block_num % Config.saveWalletStateEveryBlock == 0)
                             {
@@ -1731,12 +1737,6 @@ namespace DLT
 
             // Update wallet state public keys
             updateWalletStatePublicKeys(b.blockNum, ws_snapshot);
-
-            // Broadcast blockheight only if the node is synchronized
-            if (!Node.blockSync.synchronizing)
-            {
-                ProtocolMessage.broadcastBlockHeight(b.blockNum);
-            }
 
             return true;
         }
