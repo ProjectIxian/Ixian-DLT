@@ -109,6 +109,7 @@
     <Compile Include="Tests\DebugSnapshot.cs" />
     <Compile Include="Tests\StressTest.cs" />
     <Compile Include="Transaction\TransactionPool.cs" />
+    <Compile Include="Wallet\WSJ.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
