@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace DLTNode
+namespace DLT
 {
     public enum WSJEntryType : int
     {
@@ -90,15 +90,7 @@ namespace DLTNode
                 Logging.error("WSJE_Balance entry is missing target wallet or delta!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            IxiNumber new_balance = w.balance + delta;
-            if(new_balance < 0)
-            {
-                Logging.error(String.Format("WSJE_Balance application would result in a negative value! Wallet: {0}, balance: {1}, delta: {2}", targetWallet, w.balance, delta));
-                return false;
-            }
-            w.balance = new_balance;
-            return true;
+            return Node.walletState.setWalletBalanceInternal(targetWallet, delta);
         }
 
         public override bool revert()
@@ -108,15 +100,7 @@ namespace DLTNode
                 Logging.error("WSJE_Balance entry is missing target wallet or delta!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            IxiNumber new_balance = w.balance - delta;
-            if (new_balance < 0)
-            {
-                Logging.error(String.Format("WSJE_Balance revertion would result in a negative value! Wallet: {0}, balance: {1}, delta: {2}", targetWallet, w.balance, delta));
-                return false;
-            }
-            w.balance = new_balance;
-            return true;
+            return Node.walletState.setWalletBalanceInternal(targetWallet, new IxiNumber(0) - delta);
         }
     }
 
@@ -183,25 +167,13 @@ namespace DLTNode
                 Logging.error("WSJE_AllowedSigner entry is missing target wallet or signer!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
             if(adding)
             {
-                if (w.isValidSigner(signer))
-                {
-                    Logging.error(String.Format("WSJE_AllowedSigner cannot add duplicate signer! Wallet: {0}, signer: {1}", targetWallet, signer));
-                    return false;
-                }
-                w.addValidSigner(signer);
+                return Node.walletState.addWalletAllowedSignerInternal(targetWallet, signer);
             } else
             {
-                if(!w.isValidSigner(signer))
-                {
-                    Logging.error(String.Format("WSJE_AllowedSigner cannot remove nonexistant signer! Wallet: {0}, signer: {1}", targetWallet, signer));
-                    return false;
-                }
-                w.delValidSigner(signer);
+                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer);
             }
-            return true;
         }
 
         public override bool revert()
@@ -211,37 +183,25 @@ namespace DLTNode
                 Logging.error("WSJE_AllowedSigner entry is missing target wallet or signer!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
             if (adding)
             {
-                if (!w.isValidSigner(signer))
-                {
-                    Logging.error(String.Format("WSJE_AllowedSigner cannot revert add signer! Wallet: {0}, signer: {1}", targetWallet, signer));
-                    return false;
-                }
-                w.delValidSigner(signer);
+                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer);
             }
             else
             {
-                if (w.isValidSigner(signer))
-                {
-                    Logging.error(String.Format("WSJE_AllowedSigner cannot reverte remove signer! Wallet: {0}, signer: {1}", targetWallet, signer));
-                    return false;
-                }
-                w.addValidSigner(signer);
+                return Node.walletState.addWalletAllowedSignerInternal(targetWallet, signer);
             }
-            return true;
         }
     }
 
     public class WSJE_Signers : WSJEntry
     {
-        private int signers;
+        private int delta;
 
         public WSJE_Signers(byte[] address, int delta_signers)
         {
             targetWallet = address;
-            signers = delta_signers;
+            delta = delta_signers;
         }
 
         public WSJE_Signers(BinaryReader r)
@@ -256,7 +216,7 @@ namespace DLTNode
             {
                 targetWallet = r.ReadBytes(target_wallet_len);
             }
-            signers = r.ReadInt32();
+            delta = r.ReadInt32();
         }
 
         public override void writeBytes(BinaryWriter w)
@@ -271,7 +231,7 @@ namespace DLTNode
             {
                 w.Write((int)0);
             }
-            w.Write(signers);
+            w.Write(delta);
         }
 
         public override bool apply()
@@ -281,15 +241,7 @@ namespace DLTNode
                 Logging.error("WSJE_Signers entry is missing target wallet!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            int new_sigs = w.requiredSigs + signers;
-            if (new_sigs <= w.countAllowedSigners)
-            {
-                Logging.error(String.Format("WSJE_Signers application would result in an invalid wallet! Wallet: {0}, validSigners: {1}, reqSigs: {2}, delta: {3}", targetWallet, w.countAllowedSigners, w.requiredSigs, signers));
-                return false;
-            }
-            w.requiredSigs = (byte)new_sigs;
-            return true;
+            return Node.walletState.setWalletRequiredSignaturesInternal(targetWallet, delta);
         }
 
         public override bool revert()
@@ -299,15 +251,7 @@ namespace DLTNode
                 Logging.error("WSJE_Signers entry is missing target wallet!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            int new_sigs = w.requiredSigs - signers;
-            if (new_sigs <= w.countAllowedSigners)
-            {
-                Logging.error(String.Format("WSJE_Signers revertion would result in an invalid wallet! Wallet: {0}, validSigners: {1}, reqSigs: {2}, delta: {3}", targetWallet, w.countAllowedSigners, w.requiredSigs, signers));
-                return false;
-            }
-            w.requiredSigs = (byte)new_sigs;
-            return true;
+            return Node.walletState.setWalletRequiredSignaturesInternal(targetWallet, -delta);
         }
     }
 
@@ -370,14 +314,7 @@ namespace DLTNode
                 Logging.error("WSJE_Pubkey entry is missing target wallet or pubkey!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            if (w.publicKey != null)
-            {
-                Logging.error(String.Format("WSJE_Pubkey cannot add pubkey - already exists! Wallet: {0}", targetWallet));
-                return false;
-            }
-            w.publicKey = pubkey;
-            return true;
+            return Node.walletState.setWalletPublicKeyInternal(targetWallet, pubkey);
         }
 
         public override bool revert()
@@ -387,14 +324,7 @@ namespace DLTNode
                 Logging.error("WSJE_Pubkey entry is missing target wallet or pubkey!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            if (w.publicKey == null)
-            {
-                Logging.error(String.Format("WSJE_Pubkey cannot revert add pubkey - does not exist! Wallet: {0}", targetWallet));
-                return false;
-            }
-            w.publicKey = null;
-            return true;
+            return Node.walletState.setWalletPublicKeyInternal(targetWallet, null);
         }
     }
 
@@ -403,11 +333,10 @@ namespace DLTNode
         private byte[] new_data;
         private byte[] old_data;
 
-        public WSJE_Data(byte[] address, byte[] adding_data)
+        public WSJE_Data(byte[] address, byte[] adding_data, byte[] previous_data)
         {
             targetWallet = address;
-            Wallet w = IxianHandler.getWallet(targetWallet);
-            old_data = w.data;
+            old_data = previous_data;
             new_data = adding_data;
         }
 
@@ -474,14 +403,7 @@ namespace DLTNode
                 Logging.error("WSJE_Data entry is missing target wallet or data!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            if(!w.data.SequenceEqual(old_data))
-            {
-                Logging.error(String.Format("WSJE_Data unable to apply - old data does not match! Wallet: {0}", targetWallet));
-                return false;
-            }
-            w.data = new_data;
-            return true;
+            return Node.walletState.setWalletUserDataInternal(targetWallet, new_data, old_data);
         }
 
         public override bool revert()
@@ -491,14 +413,7 @@ namespace DLTNode
                 Logging.error("WSJE_Data entry is missing target wallet or data!");
                 return false;
             }
-            Wallet w = Node.walletState.getWallet(targetWallet);
-            if (!w.data.SequenceEqual(new_data))
-            {
-                Logging.error(String.Format("WSJE_Data unable to apply - changed data does not match expected value! Wallet: {0}", targetWallet));
-                return false;
-            }
-            w.data = old_data;
-            return true;
+            return Node.walletState.setWalletUserDataInternal(targetWallet, old_data, new_data);
         }
     }
 
@@ -507,28 +422,26 @@ namespace DLTNode
     {
         private readonly List<WSJEntry> entries = new List<WSJEntry>();
 
-        public Guid guid { get; private set; }
+        public ulong wsjTxNumber { get; private set; }
         public byte[] beforeWSChecksum { get; private set; }
         public byte[] afterWSChecksum { get; private set; }
 
-        WSJTransaction(bool auto_checksum = true)
+        public WSJTransaction(ulong number, bool auto_checksum = true)
         {
-            beforeWSChecksum = Node.walletState.calculateWalletStateChecksum();
-            guid = Guid.NewGuid();
+            if (auto_checksum)
+            {
+                beforeWSChecksum = Node.walletState.calculateWalletStateChecksum();
+            }
+            wsjTxNumber = number;
         }
 
-        WSJTransaction(byte[] bytes)
+        public WSJTransaction(byte[] bytes)
         {
             using (MemoryStream m = new MemoryStream(bytes))
             {
                 using (BinaryReader r = new BinaryReader(m))
                 {
-                    int guid_bytes_len = r.ReadInt32();
-                    if(guid_bytes_len > 0)
-                    {
-                        byte[] guid_bytes = r.ReadBytes(guid_bytes_len);
-                        guid = new Guid(guid_bytes);
-                    }
+                    wsjTxNumber = r.ReadUInt64();
                     int before_checksum_len = r.ReadInt32();
                     if(before_checksum_len > 0)
                     {
@@ -614,9 +527,7 @@ namespace DLTNode
                 {
                     using (BinaryWriter w = new BinaryWriter(m))
                     {
-                        byte[] guid_bytes = guid.ToByteArray();
-                        w.Write(guid_bytes.Length);
-                        w.Write(guid_bytes);
+                        w.Write(wsjTxNumber);
 
                         w.Write(beforeWSChecksum.Length);
                         w.Write(beforeWSChecksum);

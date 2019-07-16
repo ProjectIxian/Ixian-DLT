@@ -333,8 +333,8 @@ namespace DLTNode
                 if (key.Key == ConsoleKey.W)
                 {
                     string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
-                    Logging.info(String.Format("WalletState checksum: ({0} wallets, {1} snapshots) : {2}",
-                        Node.walletState.numWallets, Node.walletState.hasSnapshot, ws_checksum));
+                    Logging.info(String.Format("WalletState checksum: ({0} wallets, inTransaction: {1}) : {2}",
+                        Node.walletState.numWallets, Node.walletState.inTransaction, ws_checksum));
                 }
                 else if (key.Key == ConsoleKey.V)
                 {
