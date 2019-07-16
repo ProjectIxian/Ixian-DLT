@@ -248,7 +248,7 @@ namespace DLTNode
                         Logging.info("Generating a new wallet.");
                         CryptoManager.initLib();
                         WalletStorage wst = new WalletStorage(Config.walletFile);
-                        wst.writeWallet(Config.dangerCommandlinePasswordCleartextUnsafe);
+                        wst.generateWallet(Config.dangerCommandlinePasswordCleartextUnsafe);
                     }
                 } else
                 {

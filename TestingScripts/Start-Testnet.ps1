@@ -104,7 +104,7 @@ function Execute-Binary {
         [void]$p.Start()
         Write-Host -ForegroundColor Green "Waiting for $($Binary) to close..."
         try {
-            $p.WaitForExit(5000)
+            $p.WaitForExit(10000)
         } catch { }
         $output = ""
         if($p.HasExited -eq $false) {
@@ -349,7 +349,7 @@ if($ClearState.IsPresent) {
             $output = Execute-Binary -CWD $targetWD -Binary $targetExe -Parameters $params -ReturnStdOut
             # Looking for log line like: 01-10 11:15:17.4001|info|(1): Public Node Address: 1STq7YC3y71uiN1QHbp8jFfVg3A1rfBe8qYytbgr2CNEKeXUD
             $pub_addr_r = New-Object System.Text.RegularExpressions.Regex(
-                "^Your IXIAN address is ([a-zA-Z0-9]+)",
+                "^Your IXIAN addresses are:.+\n([a-zA-Z0-9]+)",
                 [System.Text.RegularExpressions.RegexOptions]::Multiline)
             $match = $pub_addr_r.Match($output)
             if($match.Success) {

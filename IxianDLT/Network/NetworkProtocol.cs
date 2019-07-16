@@ -1420,7 +1420,14 @@ namespace DLT
                         case ProtocolMessageCode.updatePresence:
                             {
                                 // Parse the data and update entries in the presence list
-                                PresenceList.updateFromBytes(data);
+                                Presence updated_presence = PresenceList.updateFromBytes(data);
+
+                                // If a presence entry was updated, broadcast this message again
+                                if (updated_presence != null)
+                                {
+                                    // Send this keepalive message to all subscribed clients
+                                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, updated_presence.wallet, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
+                                }
                             }
                             break;
 
@@ -1433,8 +1440,8 @@ namespace DLT
                                 if (updated)
                                 {
                                     CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'R', 'H', 'W' }, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
-                                    
-                                    // Send this keepalive message to all connected clients
+
+                                    // Send this keepalive message to all subscribed clients
                                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
                                 }
                                 
