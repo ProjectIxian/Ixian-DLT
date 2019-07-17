@@ -44,12 +44,14 @@ namespace DLT
 
     public class WSJE_Balance : WSJEntry
     {
-        private IxiNumber delta;
+        private IxiNumber old_value;
+        private IxiNumber new_value;
 
-        public WSJE_Balance(byte[] address, IxiNumber delta_balance)
+        public WSJE_Balance(byte[] address, IxiNumber old_balance, IxiNumber new_balance)
         {
             targetWallet = address;
-            delta = delta_balance;
+            old_value = old_balance;
+            new_value = new_balance;
         }
 
         public WSJE_Balance(BinaryReader r)
@@ -64,8 +66,10 @@ namespace DLT
             {
                 targetWallet = r.ReadBytes(target_wallet_len);
             }
-            string delta_str = r.ReadString();
-            delta = new IxiNumber(delta_str);
+            string old_str = r.ReadString();
+            string new_str = r.ReadString();
+            old_value = new IxiNumber(old_str);
+            new_value = new IxiNumber(new_str);
         }
 
         public override void writeBytes(BinaryWriter w)
@@ -80,27 +84,28 @@ namespace DLT
             {
                 w.Write((int)0);
             }
-            w.Write(delta.ToString());
+            w.Write(old_value.ToString());
+            w.Write(new_value.ToString());
         }
 
         public override bool apply()
         {
-            if (targetWallet == null || delta == null)
+            if (targetWallet == null)
             {
-                Logging.error("WSJE_Balance entry is missing target wallet or delta!");
+                Logging.error("WSJE_Balance entry is missing target wallet!");
                 return false;
             }
-            return Node.walletState.setWalletBalanceInternal(targetWallet, delta);
+            return Node.walletState.setWalletBalanceInternal(targetWallet, new_value);
         }
 
         public override bool revert()
         {
-            if (targetWallet == null || delta == null)
+            if (targetWallet == null)
             {
-                Logging.error("WSJE_Balance entry is missing target wallet or delta!");
+                Logging.error("WSJE_Balance entry is missing target wallet!");
                 return false;
             }
-            return Node.walletState.setWalletBalanceInternal(targetWallet, new IxiNumber(0) - delta);
+            return Node.walletState.setWalletBalanceInternal(targetWallet, old_value);
         }
     }
 
@@ -196,12 +201,14 @@ namespace DLT
 
     public class WSJE_Signers : WSJEntry
     {
-        private int delta;
+        private byte old_sigs;
+        private byte new_sigs;
 
-        public WSJE_Signers(byte[] address, int delta_signers)
+        public WSJE_Signers(byte[] address, byte old_req_sigs, byte new_req_sigs)
         {
             targetWallet = address;
-            delta = delta_signers;
+            old_sigs = old_req_sigs;
+            new_sigs = new_req_sigs;
         }
 
         public WSJE_Signers(BinaryReader r)
@@ -216,7 +223,8 @@ namespace DLT
             {
                 targetWallet = r.ReadBytes(target_wallet_len);
             }
-            delta = r.ReadInt32();
+            old_sigs = r.ReadByte();
+            new_sigs = r.ReadByte();
         }
 
         public override void writeBytes(BinaryWriter w)
@@ -231,7 +239,8 @@ namespace DLT
             {
                 w.Write((int)0);
             }
-            w.Write(delta);
+            w.Write(old_sigs);
+            w.Write(new_sigs);
         }
 
         public override bool apply()
@@ -241,7 +250,7 @@ namespace DLT
                 Logging.error("WSJE_Signers entry is missing target wallet!");
                 return false;
             }
-            return Node.walletState.setWalletRequiredSignaturesInternal(targetWallet, delta);
+            return Node.walletState.setWalletRequiredSignaturesInternal(targetWallet, new_sigs);
         }
 
         public override bool revert()
@@ -251,7 +260,7 @@ namespace DLT
                 Logging.error("WSJE_Signers entry is missing target wallet!");
                 return false;
             }
-            return Node.walletState.setWalletRequiredSignaturesInternal(targetWallet, -delta);
+            return Node.walletState.setWalletRequiredSignaturesInternal(targetWallet, old_sigs);
         }
     }
 
@@ -333,11 +342,11 @@ namespace DLT
         private byte[] new_data;
         private byte[] old_data;
 
-        public WSJE_Data(byte[] address, byte[] adding_data, byte[] previous_data)
+        public WSJE_Data(byte[] address, byte[] old_wallet_data, byte[] new_wallet_data)
         {
             targetWallet = address;
-            old_data = previous_data;
-            new_data = adding_data;
+            old_data = old_wallet_data;
+            new_data = new_wallet_data;
         }
 
         public WSJE_Data(BinaryReader r)

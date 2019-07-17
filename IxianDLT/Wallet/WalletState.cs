@@ -27,16 +27,14 @@ namespace DLT
 
         private List<WSJTransaction> wsjTransactions = new List<WSJTransaction>();
         private ulong txIDNumber;
+        private readonly Stack<ulong> openTransactions = new Stack<ulong>();
         public bool inTransaction
         {
             get
             {
-                return transactionDepth > 0;
+                return openTransactions.Count > 0;
             }
         }
-        public int transactionDepth { get; private set; }
-
-
 
         private IxiNumber cachedTotalSupply = new IxiNumber(0);
         public int numWallets { get => walletState.Count; }
@@ -49,7 +47,6 @@ namespace DLT
         public WalletState()
         {
             txIDNumber = 1;
-            transactionDepth = 0;
         }
 
         public WalletState(IEnumerable<Wallet> genesisState)
@@ -71,8 +68,7 @@ namespace DLT
                 cachedChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
                 wsjTransactions.Clear();
-                txIDNumber = 1;
-                transactionDepth = 0;
+                txIDNumber = 0;
             }
         }
 
@@ -83,64 +79,62 @@ namespace DLT
             {
                 txIDNumber += 1;
                 var tx = new WSJTransaction(txIDNumber);
-                transactionDepth += 1;
                 wsjTransactions.Add(tx);
+                openTransactions.Push(txIDNumber);
                 return tx.wsjTxNumber;
             }
         }
 
         public void commitTransaction(ulong transaction_id)
         {
-            lock(stateLock)
+            // data has already been changed in the WalletState directly
+            lock (stateLock)
             {
-                walkbackTransaction(transaction_id, true);
+                if(openTransactions.Contains(transaction_id))
+                {
+                    while(openTransactions.Count > 0)
+                    {
+                        ulong c_tx = openTransactions.Pop();
+                        if (c_tx == transaction_id) break;
+                    }
+                } else
+                {
+                    Logging.warn(String.Format("WSJ attempted to commit transaction ID {0}, but no such transaction is open.", transaction_id));
+                }
             }
         }
 
-        public void revertTransaction(ulong transaction_id)
+        public bool revertTransaction(ulong transaction_id)
         {
             lock(stateLock)
             {
-                walkbackTransaction(transaction_id, false);
-            }
-        }
-
-        private void walkbackTransaction(ulong txid, bool commit)
-        {
-            String action = commit ? "commit" : "revert";
-            if (transactionDepth <= 0)
-            {
-                Logging.warn(String.Format("Attempted to {0} WSJ transaction id {1}, but none were started.", action, txid));
-                return;
-            }
-            if (!wsjTransactions.Exists(x => x.wsjTxNumber == txid))
-            {
-                Logging.warn(String.Format("Attempted to {0} WSJ transaction id {1}, but it does not exist.", action, txid));
-                return;
-            }
-            while (wsjTransactions.Count > 0)
-            {
-                var tx = wsjTransactions.Last();
-                if (!tx.apply())
+                if (!openTransactions.Contains(transaction_id))
                 {
-                    Logging.error(String.Format("WSJ transaction {0} for {1} produced an error!", action, tx.wsjTxNumber));
+                    Logging.warn(String.Format("Attempted to revert WSJ transaction id {0}, but no such transaction is open.", transaction_id));
+                    return false;
                 }
-                else
+                while (openTransactions.Count > 0)
                 {
-                    Logging.info(String.Format("WSJ transaction {0} {1} successfuly.", tx.wsjTxNumber, action));
+                    var tx = wsjTransactions.Last();
+                    if (!tx.revert())
+                    {
+                        Logging.error(String.Format("WSJ transaction revert for {0} produced an error!", tx.wsjTxNumber));
+                    }
+                    else
+                    {
+                        Logging.info(String.Format("WSJ transaction {0} reverted successfuly.", tx.wsjTxNumber));
+                    }
+                    wsjTransactions.RemoveAt(wsjTransactions.Count - 1);
+                    openTransactions.Pop();
+                    if (tx.wsjTxNumber == transaction_id)
+                    {
+                        Logging.info(String.Format("Target WSJ transaction reverted: {0}", transaction_id));
+                        // TODO: WSJ: verify that `beforeWSChecksum` was reached
+                        return true;
+                    }
                 }
-                transactionDepth -= 1;
-                wsjTransactions.RemoveAt(wsjTransactions.Count - 1);
-                if (transactionDepth == 0)
-                {
-                    Logging.warn(String.Format("Attempted to {0} WSJ transaction {1} which was already previously done.", action, txid));
-                    break;
-                }
-                if (tx.wsjTxNumber == txid)
-                {
-                    Logging.info(String.Format("WSJ transaction {0} -> {1} successful.", txid, action));
-                    break;
-                }
+                // this bit is impossible, but we need it to keep the compiler happy
+                return true;
             }
         }
 
@@ -165,26 +159,18 @@ namespace DLT
 
         #region Wallet Manipulation Methods - public use
         // Sets the wallet balance for a specified wallet
-        public void setWalletBalance(byte[] id, IxiNumber balance)
+        public void setWalletBalance(byte[] id, IxiNumber new_balance)
         {
             lock (stateLock)
             {
-                if(inTransaction)
+                if (wsjTransactions.Count == 0)
                 {
-                    Wallet wallet = getWallet(id);
-
-                    IxiNumber old_balance = wallet.balance;
-                    IxiNumber delta = balance - old_balance;
-
-                    var change = new WSJE_Balance(wallet.id, delta);
-                    wsjTransactions.Last().addChange(change);
-                } else
-                {
-                    Logging.warn(String.Format("Set wallet {0} to balance {1} -> creating implicit transaction.", Addr2String(id), balance.ToString()));
-                    ulong txid = beginTransaction();
-                    setWalletBalance(id, balance);
-                    commitTransaction(txid);
+                    Logging.warn(String.Format("Implicitly creating transaction for wallet balance change. Wallet {0}, new balance: {1}", Addr2String(id), new_balance.ToString()));
+                    beginTransaction();
                 }
+                Wallet wallet = getWallet(id);
+                var change = new WSJE_Balance(wallet.id, wallet.balance, new_balance);
+                wsjTransactions.Last().addChange(change);
             }
         }
 
@@ -198,41 +184,32 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to set public key, but it is already set.", Addr2String(id)));
                     return;
                 }
-                if (inTransaction)
+                if (wsjTransactions.Count == 0)
                 {
-                    var change = new WSJE_Pubkey(id, public_key);
-                    wsjTransactions.Last().addChange(change);
+                    Logging.warn(String.Format("Implicitly creating transaction for wallet pubkey change. Wallet {0}", Addr2String(id)));
+                    beginTransaction();
                 }
-                else
-                {
-                    Logging.warn(String.Format("Set wallet {0} public key -> creating implicit transaction.", Addr2String(id)));
-                    ulong txid = beginTransaction();
-                    setWalletPublicKey(id, public_key);
-                    commitTransaction(txid);
-                }
+                var change = new WSJE_Pubkey(id, public_key);
+                wsjTransactions.Last().addChange(change);
             }
         }
 
         public void addWalletAllowedSigner(byte[] id, byte[] signer)
         {
-            lock(stateLock)
+            lock (stateLock)
             {
-                if(getWallet(id).isValidSigner(signer))
+                if (getWallet(id).isValidSigner(signer))
                 {
                     Logging.warn(String.Format("Wallet {0} attempted to add signer {1}, but it is already in the allowed signer list.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
-                if(inTransaction)
+                if (wsjTransactions.Count == 0)
                 {
-                    var change = new WSJE_AllowedSigner(id, true, signer);
-                    wsjTransactions.Last().addChange(change);
-                } else
-                {
-                    Logging.warn(String.Format("Wallet {0} add allowed signer {1} -> creating implicit transaction.", Addr2String(id), Addr2String(signer)));
-                    ulong txid = beginTransaction();
-                    addWalletAllowedSigner(id, signer);
-                    commitTransaction(txid);
+                    Logging.warn(String.Format("Implicitly creating transaction for wallet adding allowed signer. Wallet {0}, signer: {1}", Addr2String(id), Addr2String(signer)));
+                    beginTransaction();
                 }
+                var change = new WSJE_AllowedSigner(id, true, signer);
+                wsjTransactions.Last().addChange(change);
             }
         }
 
@@ -245,76 +222,62 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to delete signer {1}, but it is not in the allowed signer list.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
-                if (inTransaction)
+                if (wsjTransactions.Count == 0)
                 {
-                    var change = new WSJE_AllowedSigner(id, false, signer);
-                    wsjTransactions.Last().addChange(change);
+                    Logging.warn(String.Format("Implicitly creating transaction for wallet deleting allowed signer. Wallet {0}, signer: {1}", Addr2String(id), Addr2String(signer)));
+                    beginTransaction();
                 }
-                else
-                {
-                    Logging.warn(String.Format("Wallet {0} delete allowed signer {1} -> creating implicit transaction.", Addr2String(id), Addr2String(signer)));
-                    ulong txid = beginTransaction();
-                    delWalletAllowedSigner(id, signer);
-                    commitTransaction(txid);
-                }
+                var change = new WSJE_AllowedSigner(id, false, signer);
+                wsjTransactions.Last().addChange(change);
             }
         }
 
         public void setWalletRequiredSignatures(byte[] id, byte req_sigs)
         {
             Wallet w = getWallet(id);
-            if(w.requiredSigs == req_sigs)
+            if (w.requiredSigs == req_sigs)
             {
                 Logging.warn(String.Format("Wallet {0} attempted to set required signatures to {1}, but it is already at {1}.", Addr2String(id), req_sigs));
                 return;
             }
-            if (inTransaction)
+            if (wsjTransactions.Count == 0)
             {
-                int delta = req_sigs - w.requiredSigs;
-                var change = new WSJE_Signers(id, delta);
-                wsjTransactions.Last().addChange(change);
+                Logging.warn(String.Format("Implicitly creating transaction for wallet change required sigs. Wallet {0}, current signatures: {1}, new signatures: {2}", 
+                    Addr2String(id),
+                    w.requiredSigs,
+                    req_sigs));
+                beginTransaction();
             }
-            else
-            {
-                Logging.warn(String.Format("Wallet {0} set required signers to {1} -> creating implicit transaction.", Addr2String(id), req_sigs));
-                ulong txid = beginTransaction();
-                setWalletRequiredSignatures(id, req_sigs);
-                commitTransaction(txid);
-            }
+            var change = new WSJE_Signers(id, w.requiredSigs, req_sigs);
+            wsjTransactions.Last().addChange(change);
         }
 
-        public void setWalletUserData(byte[] id, byte[] user_data)
+        public void setWalletUserData(byte[] id, byte[] new_data)
         {
-            if (inTransaction)
+            if (wsjTransactions.Count == 0)
             {
-                Wallet w = getWallet(id);
-                var change = new WSJE_Data(id, user_data, w.data);
-                wsjTransactions.Last().addChange(change);
+                Logging.warn(String.Format("Implicitly creating transaction for wallet data change. Wallet {0}", Addr2String(id)));
+                beginTransaction();
             }
-            else
-            {
-                Logging.warn(String.Format("Wallet {0} set user data -> creating implicit transaction.", Addr2String(id)));
-                ulong txid = beginTransaction();
-                setWalletUserData(id, user_data);
-                commitTransaction(txid);
-            }
+            Wallet w = getWallet(id);
+            var change = new WSJE_Data(id, w.data, new_data);
+            wsjTransactions.Last().addChange(change);
         }
         #endregion
 
         #region Internal (WSJ) Wallet manipulation methods
         // this is called only by WSJ
-        public bool setWalletBalanceInternal(byte[] id, IxiNumber delta)
+        public bool setWalletBalanceInternal(byte[] id, IxiNumber balance)
         {
             lock (stateLock)
             {
                 Wallet w = getWallet(id);
-                IxiNumber new_balance = w.balance + delta;
-                if (new_balance < 0)
+                if (balance < 0)
                 {
-                    Logging.error(String.Format("WSJE_Balance application would result in a negative value! Wallet: {0}, balance: {1}, delta: {2}", Addr2String(id), w.balance, delta));
+                    Logging.error(String.Format("WSJE_Balance application would result in a negative value! Wallet: {0}, current balance: {1}, new balance: {2}", Addr2String(id), w.balance, balance));
                     return false;
                 }
-                w.balance = new_balance;
+                w.balance = balance;
 
                 // Send balance update notification to the network
                 using (MemoryStream mw = new MemoryStream())
@@ -417,7 +380,7 @@ namespace DLT
             }
         }
 
-        public bool setWalletRequiredSignaturesInternal(byte[] id, int delta)
+        public bool setWalletRequiredSignaturesInternal(byte[] id, int new_sigs)
         {
             lock(stateLock)
             {
@@ -426,14 +389,13 @@ namespace DLT
                 {
                     Logging.error(String.Format("WSJE_Signers attempted apply on a non-multisig wallet {0}.", Addr2String(id)));
                 }
-                int new_sigs = w.requiredSigs + delta;
                 if (new_sigs > w.countAllowedSigners + 1)
                 {
-                    Logging.error(String.Format("WSJE_Signers application would result in an invalid wallet! Wallet: {0}, validSigners: {1}, reqSigs: {2}, delta: {3}", 
+                    Logging.error(String.Format("WSJE_Signers application would result in an invalid wallet! Wallet: {0}, validSigners: {1}, reqSigs: {2}, new sigs: {3}", 
                         Addr2String(id), 
                         w.countAllowedSigners, 
                         w.requiredSigs, 
-                        delta));
+                        new_sigs));
                     return false;
                 }
                 w.requiredSigs = (byte)new_sigs;
