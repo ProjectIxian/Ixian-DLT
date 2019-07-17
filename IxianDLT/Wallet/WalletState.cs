@@ -138,6 +138,23 @@ namespace DLT
             }
         }
 
+        private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id)
+        {
+            if (!openTransactions.Contains(transaction_id))
+            {
+                return Enumerable.Empty<Wallet>();
+            }
+            int tx_pos = wsjTransactions.FindIndex(x => x.wsjTxNumber == transaction_id);
+            if (tx_pos < 0)
+            {
+                // shouldn't be possible to happen
+                Logging.error(String.Format("WSJ Corruption: WSJ Transaction {0} exists in openTransactions, but not in wsjTransactions!", transaction_id));
+                // TODO: WSJ: Debug dump transaction state
+                return Enumerable.Empty<Wallet>();
+            }
+            return wsjTransactions.Skip(tx_pos).SelectMany(x => x.getAffectedWallets().Select(w_id => getWallet(w_id)));
+        }
+
         public IxiNumber getWalletBalance(byte[] id)
         {
             return getWallet(id).balance;
@@ -477,6 +494,34 @@ namespace DLT
 
                 cachedChecksum = checksum;
                 return checksum;
+            }
+        }
+
+        public byte[] calculateWalletStateDeltaChecksum(ulong transaction_id)
+        {
+            lock (stateLock)
+            {
+                if(!openTransactions.Contains(transaction_id))
+                {
+                    Logging.error(String.Format("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open."));
+                    return null;
+                }
+                using (MemoryStream m = new MemoryStream())
+                {
+                    using (BinaryWriter w = new BinaryWriter(m))
+                    {
+                        w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
+                        // TODO: WSJ: Kludge until Blockversion upgrade, so we can replace WS Deltas with WSJ
+                        foreach(var altered_wallet in getAlteredWalletsSinceWSJTX(transaction_id))
+                        {
+                            altered_wallet.writeBytes(w);
+                        }
+                    }
+#if TRACE_MEMSTREAM_SIZES
+                    Logging.info(String.Format("WalletState::calculateWalletStateDeltaChecksum: {0}", m.Length));
+#endif
+                    return Crypto.sha512sqTrunc(m.ToArray(), 0, 0, 64);
+                }
             }
         }
 

@@ -522,6 +522,11 @@ namespace DLT
             entries.Add(entry);
         }
 
+        public IEnumerable<byte[]> getAffectedWallets()
+        {
+            return entries.Select(x => x.targetWallet);
+        }
+
         public byte[] getBytes()
         {
             if (afterWSChecksum == null)

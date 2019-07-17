@@ -1051,7 +1051,7 @@ namespace DLT
                             }
                             else
                             {
-                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum();
+                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(wsj_tx);
                             }
                         }
                         Node.walletState.revertTransaction(wsj_tx);
