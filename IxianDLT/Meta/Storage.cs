@@ -860,7 +860,7 @@ namespace DLT
                 transaction.signature = tx.signature;
                 transaction.version = tx.version;
                 transaction.pubKey = tx.pubKey;
-                // note - don't ever read .applied field, otherwise there will be issues with sync
+                transaction.applied = (ulong)tx.applied;
 
                 // Add toList
                 string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);

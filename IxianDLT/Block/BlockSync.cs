@@ -474,6 +474,7 @@ namespace DLT
                                 Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
                                 if (t != null)
                                 {
+                                    t.applied = 0;
                                     if(!TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification))
                                     {
                                         Logging.error("Error adding a transaction {0} from storage", txid);

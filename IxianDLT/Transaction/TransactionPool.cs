@@ -582,8 +582,11 @@ namespace DLT
                         }
                     }
 
-                    return true;
+                    // Send transaction events to all subscribed clients
+                    // TODO: optimize this further to decrease cpu time in the current thread
+                    broadcastAddTransactionEvent(t);
 
+                    return true;
                 }
             }
             return false;
@@ -867,27 +870,15 @@ namespace DLT
         public static void broadcastAddTransactionEvent(Transaction transaction)
         {
             // Send transaction FROM event
-            if (transaction.fromList.Count < 2)
-            {
-                byte[] addr = new Address(transaction.pubKey).address;
-                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(), null);
-            }
-            else
-            {
-                foreach (var entry in transaction.fromList)
-                {
-                    byte[] addr = new byte[entry.Key.Length];
-                    Array.Copy(entry.Key, addr, addr.Length);
-                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(), null);
-                }
-            }
+            byte[] from_addr = new Address(transaction.pubKey).address;
+            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.newTransaction, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
 
             // Send transaction TO event
             foreach (var entry in transaction.toList)
             {
                 byte[] addr = new byte[entry.Key.Length];
                 Array.Copy(entry.Key, addr, addr.Length);
-                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(), null);
+                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
             }
         }
 

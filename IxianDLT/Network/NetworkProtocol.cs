@@ -1117,7 +1117,7 @@ namespace DLT
 
                                         Logging.info(String.Format("Sending transaction {0} - {1} - {2}.", transaction.id, Crypto.hashToString(transaction.checksum), transaction.amount));
 
-                                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes());
+                                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true));
                                     }
                                 }
                             }
