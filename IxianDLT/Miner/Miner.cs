@@ -348,7 +348,7 @@ namespace DLT
             List<Block> blockList = null;
 
             int block_offset = 1;
-            if (Node.blockChain.Count > (long)ConsensusConfig.getRedactedWindowSize())
+            if (Node.blockChain.Count >= (long)ConsensusConfig.getRedactedWindowSize())
             {
                 block_offset = 1000;
             }

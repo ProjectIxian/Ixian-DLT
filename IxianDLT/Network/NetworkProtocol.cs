@@ -1425,6 +1425,8 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated_presence != null)
                                 {
+                                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'R', 'H', 'W' }, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
+
                                     // Send this keepalive message to all subscribed clients
                                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, updated_presence.wallet, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
                                 }

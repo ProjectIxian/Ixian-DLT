@@ -172,7 +172,7 @@ namespace DLTNode
             IXICore.Utils.ConsoleHelpers.prepareWindowsConsole();
 
             // Start logging
-            Logging.start();
+            Logging.start("");
 
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
                 ConsoleHelpers.verboseConsoleOutput = true;
