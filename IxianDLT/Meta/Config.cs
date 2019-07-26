@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace DLT
 {
@@ -315,11 +316,12 @@ namespace DLT
                     Config.serverPort = defaultTestnetServerPort;
                     apiPort = testnetApiPort;
                     dataFolderPath = "data-testnet";
-                    PeerStorage.init("testnet-peers.dat");
+                    PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "testnet-peers.dat");
                     genesisFile = "testnet-genesis.dat";
                 }else
                 {
                     Config.serverPort = defaultServerPort;
+                    PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location));
                 }
 
 

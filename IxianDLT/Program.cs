@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Timers;
@@ -172,7 +173,7 @@ namespace DLTNode
             IXICore.Utils.ConsoleHelpers.prepareWindowsConsole();
 
             // Start logging
-            Logging.start("");
+            Logging.start(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location));
 
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
                 ConsoleHelpers.verboseConsoleOutput = true;

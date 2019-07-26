@@ -1282,10 +1282,10 @@ namespace DLT
 
             foreach (var entry in sorted_sigs)
             {
-                byte[] address = (new Address(entry[1])).address;
+                byte[] address = (new Address(entry[1], null, false)).address;
                 foreach (var prev_entry in election_block.signatures)
                 {
-                    if (address.SequenceEqual((new Address(prev_entry[1])).address))
+                    if (address.SequenceEqual((new Address(prev_entry[1], null, false)).address))
                     {
                         required_sigs.Add(entry);
                         sig_count++;
@@ -1372,7 +1372,7 @@ namespace DLT
                     {
                         foreach (var sig in local_block.frozenSignatures)
                         {
-                            if(block.containsSignature(sig[1]))
+                            if(block.containsSignature(new Address(sig[1])))
                             {
                                 valid_sig_count++;
                             }
@@ -1422,8 +1422,8 @@ namespace DLT
             {
                 foreach (byte[] address in poe)
                 {
-                    byte[][] signature = target_block.signatures.Find(x => (new Address(x[1])).address.SequenceEqual(address));
-                    if (signature != null && frozen_block_sigs.Find(x => (new Address(x[1])).address.SequenceEqual(address)) == null)
+                    byte[][] signature = target_block.signatures.Find(x => (new Address(x[1], null, false)).address.SequenceEqual(address));
+                    if (signature != null && frozen_block_sigs.Find(x => (new Address(x[1], null, false)).address.SequenceEqual(address)) == null)
                     {
                         frozen_block_sigs.Add(signature);
                         sig_count++;
