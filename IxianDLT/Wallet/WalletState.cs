@@ -297,6 +297,7 @@ namespace DLT
                 w.balance = balance;
 
                 // Send balance update notification to the network
+                // TODO: WSJ: This should be in a different place
                 using (MemoryStream mw = new MemoryStream())
                 {
                     using (BinaryWriter writerw = new BinaryWriter(mw))
