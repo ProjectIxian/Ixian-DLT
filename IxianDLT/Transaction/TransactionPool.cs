@@ -869,6 +869,11 @@ namespace DLT
         // Send transaction events to all subscribed clients
         public static void broadcastAddTransactionEvent(Transaction transaction)
         {
+            if(Node.blockSync.synchronizing)
+            {
+                return;
+            }
+
             // Send transaction FROM event
             byte[] from_addr = new Address(transaction.pubKey).address;
             CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.newTransaction, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));

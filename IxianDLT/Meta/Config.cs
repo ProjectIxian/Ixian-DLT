@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace DLT
 {
@@ -66,7 +67,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.6"; // DLT Node version
+            public static readonly string version = "xdc-0.6.6a"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
@@ -315,11 +316,12 @@ namespace DLT
                     Config.serverPort = defaultTestnetServerPort;
                     apiPort = testnetApiPort;
                     dataFolderPath = "data-testnet";
-                    PeerStorage.init("testnet-peers.dat");
+                    PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "testnet-peers.dat");
                     genesisFile = "testnet-genesis.dat";
                 }else
                 {
                     Config.serverPort = defaultServerPort;
+                    PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location));
                 }
 
 
