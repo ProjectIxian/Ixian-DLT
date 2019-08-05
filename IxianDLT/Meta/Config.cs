@@ -134,6 +134,7 @@ namespace DLT
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
                 Console.WriteLine("    --disableMiner\t Disable miner");
                 Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
+                Console.WriteLine("    --walletPassword\t Specify the password for the wallet (be careful with this)");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -143,7 +144,6 @@ namespace DLT
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
 				Console.WriteLine("    --verifyStorage\t Full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
-                Console.WriteLine("    --walletPassword\t Specify the password for the wallet. [TESTNET ONLY!]");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue syntax.");
