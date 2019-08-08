@@ -84,7 +84,7 @@ namespace DLT.Meta
             bool update_avail = false;
             if (!server_version.StartsWith("("))
             {
-                if (server_version != Config.version)
+                if (server_version.CompareTo(Config.version) > 0)
                 {
                     update_avail = true;
                 }

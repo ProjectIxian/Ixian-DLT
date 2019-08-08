@@ -1004,7 +1004,7 @@ namespace DLTNode
             if (UpdateVerify.ready)
             {
                 if (UpdateVerify.error) return "";
-                if (UpdateVerify.serverVersion != Config.version) return UpdateVerify.serverVersion;
+                if (UpdateVerify.serverVersion.CompareTo(Config.version) > 0) return UpdateVerify.serverVersion;
             }
             return "";
         }
