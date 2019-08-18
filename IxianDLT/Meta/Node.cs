@@ -98,9 +98,9 @@ namespace DLT.Meta
                 // Request a password
                 // NOTE: This can only be done in testnet to enable automatic testing!
                 string password = "";
-                if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && CoreConfig.isTestNet)
+                if (Config.dangerCommandlinePasswordCleartextUnsafe != "")
                 {
-                    Logging.warn("TestNet detected and wallet password has been specified on the command line!");
+                    Logging.warn("Warning: Wallet password has been specified on the command line!");
                     password = Config.dangerCommandlinePasswordCleartextUnsafe;
                     // Also note that the commandline password still has to be >= 10 characters
                 }
@@ -125,9 +125,9 @@ namespace DLT.Meta
 
                     // NOTE: This is only permitted on the testnet for dev/testing purposes!
                     string password = "";
-                    if (Config.dangerCommandlinePasswordCleartextUnsafe != "" && CoreConfig.isTestNet)
+                    if (Config.dangerCommandlinePasswordCleartextUnsafe != "")
                     {
-                        Logging.warn("Attempting to unlock the wallet with a password from commandline!");
+                        Logging.warn("Warning: Attempting to unlock the wallet with a password from commandline!");
                         password = Config.dangerCommandlinePasswordCleartextUnsafe;
                     }
                     if (password.Length < 10)
