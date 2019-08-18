@@ -1179,9 +1179,16 @@ namespace DLT
             // TODO: move this to a seperate function. Left here for now for dev purposes
             // Apply any staking transactions in the pool at this moment
             List<Transaction> staking_txs = null;
-            lock (transactions)
+            if (Node.walletState.inTransaction)
             {
-                staking_txs = transactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.StakingReward && x.applied == 0).ToList();
+                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, block.version, block.timestamp);
+            }
+            else
+            {
+                lock (transactions)
+                {
+                    staking_txs = transactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.StakingReward && x.applied == 0).ToList();
+                }
             }
 
             // Maintain a list of stakers

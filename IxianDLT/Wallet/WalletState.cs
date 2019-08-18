@@ -77,6 +77,11 @@ namespace DLT
         {
             lock(stateLock)
             {
+                if(openTransactions.Count > 0)
+                {
+                    // Transaction is already open
+                    return 0;
+                }
                 txIDNumber += 1;
                 var tx = new WSJTransaction(txIDNumber);
                 wsjTransactions.Add(tx);
@@ -87,6 +92,10 @@ namespace DLT
 
         public void commitTransaction(ulong transaction_id)
         {
+            if(transaction_id == 0)
+            {
+                return;
+            }
             // data has already been changed in the WalletState directly
             lock (stateLock)
             {
@@ -106,6 +115,10 @@ namespace DLT
 
         public bool revertTransaction(ulong transaction_id)
         {
+            if(transaction_id == 0)
+            {
+                return true;
+            }
             lock(stateLock)
             {
                 if (!openTransactions.Contains(transaction_id))
@@ -180,15 +193,12 @@ namespace DLT
         {
             lock (stateLock)
             {
-                if (wsjTransactions.Count == 0)
-                {
-                    Logging.warn(String.Format("Implicitly creating transaction for wallet balance change. Wallet {0}, new balance: {1}", Addr2String(id), new_balance.ToString()));
-                    beginTransaction();
-                }
+                ulong tx = beginTransaction();
                 Wallet wallet = getWallet(id);
                 var change = new WSJE_Balance(wallet.id, wallet.balance, new_balance);
                 change.apply();
                 wsjTransactions.Last().addChange(change);
+                commitTransaction(tx);
             }
         }
 
@@ -202,14 +212,11 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to set public key, but it is already set.", Addr2String(id)));
                     return;
                 }
-                if (wsjTransactions.Count == 0)
-                {
-                    Logging.warn(String.Format("Implicitly creating transaction for wallet pubkey change. Wallet {0}", Addr2String(id)));
-                    beginTransaction();
-                }
+                ulong tx = beginTransaction();
                 var change = new WSJE_Pubkey(id, public_key);
                 change.apply();
                 wsjTransactions.Last().addChange(change);
+                commitTransaction(tx);
             }
         }
 
@@ -222,14 +229,11 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to add signer {1}, but it is already in the allowed signer list.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
-                if (wsjTransactions.Count == 0)
-                {
-                    Logging.warn(String.Format("Implicitly creating transaction for wallet adding allowed signer. Wallet {0}, signer: {1}", Addr2String(id), Addr2String(signer)));
-                    beginTransaction();
-                }
+                ulong tx = beginTransaction();
                 var change = new WSJE_AllowedSigner(id, true, signer);
                 change.apply();
                 wsjTransactions.Last().addChange(change);
+                commitTransaction(tx);
             }
         }
 
@@ -242,14 +246,11 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to delete signer {1}, but it is not in the allowed signer list.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
-                if (wsjTransactions.Count == 0)
-                {
-                    Logging.warn(String.Format("Implicitly creating transaction for wallet deleting allowed signer. Wallet {0}, signer: {1}", Addr2String(id), Addr2String(signer)));
-                    beginTransaction();
-                }
+                ulong tx = beginTransaction();
                 var change = new WSJE_AllowedSigner(id, false, signer);
                 change.apply();
                 wsjTransactions.Last().addChange(change);
+                commitTransaction(tx);
             }
         }
 
@@ -261,30 +262,21 @@ namespace DLT
                 Logging.warn(String.Format("Wallet {0} attempted to set required signatures to {1}, but it is already at {1}.", Addr2String(id), req_sigs));
                 return;
             }
-            if (wsjTransactions.Count == 0)
-            {
-                Logging.warn(String.Format("Implicitly creating transaction for wallet change required sigs. Wallet {0}, current signatures: {1}, new signatures: {2}", 
-                    Addr2String(id),
-                    w.requiredSigs,
-                    req_sigs));
-                beginTransaction();
-            }
+            ulong tx = beginTransaction();
             var change = new WSJE_Signers(id, w.requiredSigs, req_sigs);
             change.apply();
             wsjTransactions.Last().addChange(change);
+            commitTransaction(tx);
         }
 
         public void setWalletUserData(byte[] id, byte[] new_data)
         {
-            if (wsjTransactions.Count == 0)
-            {
-                Logging.warn(String.Format("Implicitly creating transaction for wallet data change. Wallet {0}", Addr2String(id)));
-                beginTransaction();
-            }
+            ulong tx = beginTransaction();
             Wallet w = getWallet(id);
             var change = new WSJE_Data(id, w.data, new_data);
             change.apply();
             wsjTransactions.Last().addChange(change);
+            commitTransaction(tx);
         }
         #endregion
 
@@ -510,7 +502,7 @@ namespace DLT
             {
                 if(!openTransactions.Contains(transaction_id))
                 {
-                    Logging.error(String.Format("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open."));
+                    Logging.error(String.Format("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id));
                     return null;
                 }
                 using (MemoryStream m = new MemoryStream())
