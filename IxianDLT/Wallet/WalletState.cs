@@ -187,6 +187,7 @@ namespace DLT
                 }
                 Wallet wallet = getWallet(id);
                 var change = new WSJE_Balance(wallet.id, wallet.balance, new_balance);
+                change.apply();
                 wsjTransactions.Last().addChange(change);
             }
         }
@@ -207,6 +208,7 @@ namespace DLT
                     beginTransaction();
                 }
                 var change = new WSJE_Pubkey(id, public_key);
+                change.apply();
                 wsjTransactions.Last().addChange(change);
             }
         }
@@ -226,6 +228,7 @@ namespace DLT
                     beginTransaction();
                 }
                 var change = new WSJE_AllowedSigner(id, true, signer);
+                change.apply();
                 wsjTransactions.Last().addChange(change);
             }
         }
@@ -245,6 +248,7 @@ namespace DLT
                     beginTransaction();
                 }
                 var change = new WSJE_AllowedSigner(id, false, signer);
+                change.apply();
                 wsjTransactions.Last().addChange(change);
             }
         }
@@ -266,6 +270,7 @@ namespace DLT
                 beginTransaction();
             }
             var change = new WSJE_Signers(id, w.requiredSigs, req_sigs);
+            change.apply();
             wsjTransactions.Last().addChange(change);
         }
 
@@ -278,6 +283,7 @@ namespace DLT
             }
             Wallet w = getWallet(id);
             var change = new WSJE_Data(id, w.data, new_data);
+            change.apply();
             wsjTransactions.Last().addChange(change);
         }
         #endregion
@@ -517,10 +523,10 @@ namespace DLT
                         {
                             altered_wallet.writeBytes(w);
                         }
-                    }
 #if TRACE_MEMSTREAM_SIZES
-                    Logging.info(String.Format("WalletState::calculateWalletStateDeltaChecksum: {0}", m.Length));
+                        Logging.info(String.Format("WalletState::calculateWalletStateDeltaChecksum: {0}", m.Length));
 #endif
+                    }
                     return Crypto.sha512sqTrunc(m.ToArray(), 0, 0, 64);
                 }
             }
