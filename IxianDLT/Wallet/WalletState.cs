@@ -519,7 +519,8 @@ namespace DLT
                     {
                         w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
                         // TODO: WSJ: Kludge until Blockversion upgrade, so we can replace WS Deltas with WSJ
-                        foreach(var altered_wallet in getAlteredWalletsSinceWSJTX(transaction_id))
+                        var altered_wallets = getAlteredWalletsSinceWSJTX(transaction_id);
+                        foreach (var altered_wallet in altered_wallets.OrderBy(x => x.id, new ByteArrayComparer()))
                         {
                             altered_wallet.writeBytes(w);
                         }
