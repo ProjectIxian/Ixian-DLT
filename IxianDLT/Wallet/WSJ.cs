@@ -506,7 +506,7 @@ namespace DLT
         {
             lock (entries)
             {
-                foreach (var e in entries)
+                foreach (var e in entries.AsEnumerable().Reverse())
                 {
                     if (e.revert() == false)
                     {
