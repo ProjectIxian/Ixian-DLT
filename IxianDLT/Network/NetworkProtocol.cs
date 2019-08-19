@@ -1006,7 +1006,17 @@ namespace DLT
                                             Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
                                         }
 
-                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header), BitConverter.GetBytes(block.blockNum));
+                                        bool frozen_sigs_only = true;
+
+                                        if(block_number + 5 > IxianHandler.getLastBlockHeight())
+                                        {
+                                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
+                                            {
+                                                frozen_sigs_only = false;
+                                            }
+                                        }
+
+                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
                                     }
                                 }
                             }

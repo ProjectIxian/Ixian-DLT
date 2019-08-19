@@ -508,7 +508,7 @@ namespace DLT
                         }
                         if (b_status != BlockVerifyStatus.Valid)
                         {
-                            Logging.warn(String.Format("Block #{0} is invalid. Discarding and requesting a new one.", b.blockNum));
+                            Logging.warn(String.Format("Block #{0} {1} is invalid. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             requestBlockAgain(b.blockNum);
                             return;
@@ -516,7 +516,7 @@ namespace DLT
 
                         if (!Node.blockProcessor.verifyBlockSignatures(b) && Node.blockChain.Count > 16)
                         {
-                            Logging.warn(String.Format("Block #{0} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum));
+                            Logging.warn(String.Format("Block #{0} {1} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             requestBlockAgain(b.blockNum);
                             return;
@@ -586,6 +586,20 @@ namespace DLT
                                     return;
                                 }
                             }
+
+                            if (b.blockNum > 12 && b.blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
+                            {
+                                if (Node.isMasterNode())
+                                {
+                                    byte[][] signature_data = b.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
+                                    if (signature_data != null)
+                                    {
+                                        // ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                        ProtocolMessage.broadcastNewBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1]);
+                                    }
+                                }
+                            }
+
                             Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                             resetWatchDog(b.blockNum);
                             if (missingBlocks != null)

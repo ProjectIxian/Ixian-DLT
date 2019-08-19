@@ -1433,7 +1433,13 @@ namespace DLT
                         break;
                     }
                 }
-                target_block.setFrozenSignatures(frozen_block_sigs);
+                if (frozen_block_sigs.Count >= Node.blockChain.getRequiredConsensus(target_block.blockNum, true))
+                {
+                    target_block.setFrozenSignatures(frozen_block_sigs);
+                }else
+                {
+                    Logging.warn("Error freezing signatures of target block #{0}, cannot freeze enough signatures to pass consensus.", target_block.blockNum);
+                }
             }
         }
 
@@ -2685,8 +2691,8 @@ namespace DLT
                 freezeSignatures(target_block);
                 if(target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
                 {
-                    target_block.setFrozenSignatures(null);
                     Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
+                    target_block.setFrozenSignatures(null);
                     throw new Exception("Freezing the target block yields less than required signatures");
                 }
             }
