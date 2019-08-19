@@ -111,6 +111,7 @@ namespace DLT
             {
                 WSJTransaction wsjt = wsjTransactions[0];
                 wsjTransactions.Clear();
+                cachedTotalSupply = new IxiNumber(0);
                 return wsjt.revert();
             }
         }
@@ -121,7 +122,7 @@ namespace DLT
             {
                 return Enumerable.Empty<Wallet>();
             }
-            return wsjTransactions[0].getAffectedWallets().Select(wid => getWallet(wid));
+            return wsjTransactions[0].getAffectedWallets();
         }
 
         public IxiNumber getWalletBalance(byte[] id)
@@ -474,7 +475,7 @@ namespace DLT
                         w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
                         // TODO: WSJ: Kludge until Blockversion upgrade, so we can replace WS Deltas with WSJ
                         var altered_wallets = getAlteredWalletsSinceWSJTX(transaction_id);
-                        foreach (var altered_wallet in altered_wallets.OrderBy(x => x.id, new ByteArrayComparer()))
+                        foreach (var altered_wallet in altered_wallets)
                         {
                             altered_wallet.writeBytes(w);
                         }

@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using IXICore;
 using IXICore.Meta;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -522,9 +523,15 @@ namespace DLT
             entries.Add(entry);
         }
 
-        public IEnumerable<byte[]> getAffectedWallets()
+        public IEnumerable<Wallet> getAffectedWallets()
         {
-            return entries.Select(x => x.targetWallet);
+            SortedSet<Wallet> sortedWallets = new SortedSet<Wallet>(new LambdaComparer<Wallet>((a, b) => _ByteArrayComparer.Compare(a.id, b.id) ));
+            foreach(var entry in entries)
+            {
+                sortedWallets.Add(Node.walletState.getWallet(entry.targetWallet));
+            }
+            return sortedWallets;
+
         }
 
         public byte[] getBytes()
