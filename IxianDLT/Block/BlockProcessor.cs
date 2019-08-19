@@ -1632,7 +1632,7 @@ namespace DLT
                             // Broadcast blockheight only if the node is synchronized
                             if (!Node.blockSync.synchronizing)
                             {
-                                ProtocolMessage.broadcastBlockHeight(last_block_num);
+                                ProtocolMessage.broadcastBlockHeight(last_block_num, current_block.blockChecksum);
                             }
 
                             cleanupBlockBlacklist();
