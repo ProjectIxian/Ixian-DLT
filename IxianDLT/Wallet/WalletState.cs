@@ -27,12 +27,11 @@ namespace DLT
 
         private List<WSJTransaction> wsjTransactions = new List<WSJTransaction>();
         private ulong txIDNumber;
-        private readonly Stack<ulong> openTransactions = new Stack<ulong>();
         public bool inTransaction
         {
             get
             {
-                return openTransactions.Count > 0;
+                return wsjTransactions.Count > 0;
             }
         }
 
@@ -77,7 +76,7 @@ namespace DLT
         {
             lock(stateLock)
             {
-                if(openTransactions.Count > 0)
+                if(wsjTransactions.Count > 0)
                 {
                     // Transaction is already open
                     return 0;
@@ -85,7 +84,6 @@ namespace DLT
                 txIDNumber += 1;
                 var tx = new WSJTransaction(txIDNumber);
                 wsjTransactions.Add(tx);
-                openTransactions.Push(txIDNumber);
                 return tx.wsjTxNumber;
             }
         }
@@ -99,73 +97,31 @@ namespace DLT
             // data has already been changed in the WalletState directly
             lock (stateLock)
             {
-                if(openTransactions.Contains(transaction_id))
-                {
-                    while(openTransactions.Count > 0)
-                    {
-                        ulong c_tx = openTransactions.Pop();
-                        if (c_tx == transaction_id) break;
-                    }
-                } else
-                {
-                    Logging.warn(String.Format("WSJ attempted to commit transaction ID {0}, but no such transaction is open.", transaction_id));
-                }
+                wsjTransactions.Clear();
             }
         }
 
         public bool revertTransaction(ulong transaction_id)
         {
-            if(transaction_id == 0)
+            if(transaction_id == 0 || wsjTransactions.Count == 0)
             {
                 return true;
             }
             lock(stateLock)
             {
-                if (!openTransactions.Contains(transaction_id))
-                {
-                    Logging.warn(String.Format("Attempted to revert WSJ transaction id {0}, but no such transaction is open.", transaction_id));
-                    return false;
-                }
-                while (openTransactions.Count > 0)
-                {
-                    var tx = wsjTransactions.Last();
-                    if (!tx.revert())
-                    {
-                        Logging.error(String.Format("WSJ transaction revert for {0} produced an error!", tx.wsjTxNumber));
-                    }
-                    else
-                    {
-                        Logging.info(String.Format("WSJ transaction {0} reverted successfuly.", tx.wsjTxNumber));
-                    }
-                    wsjTransactions.RemoveAt(wsjTransactions.Count - 1);
-                    openTransactions.Pop();
-                    if (tx.wsjTxNumber == transaction_id)
-                    {
-                        Logging.info(String.Format("Target WSJ transaction reverted: {0}", transaction_id));
-                        // TODO: WSJ: verify that `beforeWSChecksum` was reached
-                        return true;
-                    }
-                }
-                // this bit is impossible, but we need it to keep the compiler happy
-                return true;
+                WSJTransaction wsjt = wsjTransactions[0];
+                wsjTransactions.Clear();
+                return wsjt.revert();
             }
         }
 
         private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id)
         {
-            if (!openTransactions.Contains(transaction_id))
+            if (wsjTransactions.Count == 0)
             {
                 return Enumerable.Empty<Wallet>();
             }
-            int tx_pos = wsjTransactions.FindIndex(x => x.wsjTxNumber == transaction_id);
-            if (tx_pos < 0)
-            {
-                // shouldn't be possible to happen
-                Logging.error(String.Format("WSJ Corruption: WSJ Transaction {0} exists in openTransactions, but not in wsjTransactions!", transaction_id));
-                // TODO: WSJ: Debug dump transaction state
-                return Enumerable.Empty<Wallet>();
-            }
-            return wsjTransactions.Skip(tx_pos).SelectMany(x => x.getAffectedWallets().Select(w_id => getWallet(w_id)));
+            return wsjTransactions[0].getAffectedWallets().Select(wid => getWallet(wid));
         }
 
         public IxiNumber getWalletBalance(byte[] id)
@@ -193,12 +149,13 @@ namespace DLT
         {
             lock (stateLock)
             {
-                ulong tx = beginTransaction();
                 Wallet wallet = getWallet(id);
                 var change = new WSJE_Balance(wallet.id, wallet.balance, new_balance);
                 change.apply();
-                wsjTransactions.Last().addChange(change);
-                commitTransaction(tx);
+                if (wsjTransactions.Count > 0)
+                {
+                    wsjTransactions.Last().addChange(change);
+                }
             }
         }
 
@@ -212,11 +169,12 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to set public key, but it is already set.", Addr2String(id)));
                     return;
                 }
-                ulong tx = beginTransaction();
                 var change = new WSJE_Pubkey(id, public_key);
                 change.apply();
-                wsjTransactions.Last().addChange(change);
-                commitTransaction(tx);
+                if (wsjTransactions.Count > 0)
+                {
+                    wsjTransactions.Last().addChange(change);
+                }
             }
         }
 
@@ -229,11 +187,12 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to add signer {1}, but it is already in the allowed signer list.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
-                ulong tx = beginTransaction();
                 var change = new WSJE_AllowedSigner(id, true, signer);
                 change.apply();
-                wsjTransactions.Last().addChange(change);
-                commitTransaction(tx);
+                if (wsjTransactions.Count > 0)
+                {
+                    wsjTransactions.Last().addChange(change);
+                }
             }
         }
 
@@ -246,11 +205,12 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to delete signer {1}, but it is not in the allowed signer list.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
-                ulong tx = beginTransaction();
                 var change = new WSJE_AllowedSigner(id, false, signer);
                 change.apply();
-                wsjTransactions.Last().addChange(change);
-                commitTransaction(tx);
+                if (wsjTransactions.Count > 0)
+                {
+                    wsjTransactions.Last().addChange(change);
+                }
             }
         }
 
@@ -262,21 +222,23 @@ namespace DLT
                 Logging.warn(String.Format("Wallet {0} attempted to set required signatures to {1}, but it is already at {1}.", Addr2String(id), req_sigs));
                 return;
             }
-            ulong tx = beginTransaction();
             var change = new WSJE_Signers(id, w.requiredSigs, req_sigs);
             change.apply();
-            wsjTransactions.Last().addChange(change);
-            commitTransaction(tx);
+            if (wsjTransactions.Count > 0)
+            {
+                wsjTransactions.Last().addChange(change);
+            }
         }
 
         public void setWalletUserData(byte[] id, byte[] new_data)
         {
-            ulong tx = beginTransaction();
             Wallet w = getWallet(id);
             var change = new WSJE_Data(id, w.data, new_data);
             change.apply();
-            wsjTransactions.Last().addChange(change);
-            commitTransaction(tx);
+            if (wsjTransactions.Count > 0)
+            {
+                wsjTransactions.Last().addChange(change);
+            }
         }
         #endregion
 
@@ -500,7 +462,7 @@ namespace DLT
         {
             lock (stateLock)
             {
-                if(!openTransactions.Contains(transaction_id))
+                if(wsjTransactions.Count == 0)
                 {
                     Logging.error(String.Format("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id));
                     return null;

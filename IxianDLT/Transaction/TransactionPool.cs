@@ -2016,8 +2016,6 @@ namespace DLT
                 return false;
             }
 
-            ulong wallet_changes_tx = Node.walletState.beginTransaction();
-
             IxiNumber total_amount = 0;
             foreach (var entry in tx.fromList)
             {
@@ -2032,7 +2030,6 @@ namespace DLT
                     Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
                         tx.id, block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address));
                     failed_transactions.Add(tx);
-                    Node.walletState.revertTransaction(wallet_changes_tx);
                     return false;
                 }
 
@@ -2043,7 +2040,6 @@ namespace DLT
             if (tx.amount + tx.fee != total_amount)
             {
                 Logging.error(String.Format("Transaction {{ {0} }}'s input values are different than the total amount + fee", tx.id));
-                Node.walletState.revertTransaction(wallet_changes_tx);
                 failed_transactions.Add(tx);
                 return false;
             }
@@ -2068,10 +2064,8 @@ namespace DLT
             {
                 Logging.error(String.Format("Transaction {{ {0} }}'s output values are different than the total amount", tx.id));
                 failed_transactions.Add(tx);
-                Node.walletState.revertTransaction(wallet_changes_tx);
                 return false;
             }
-            Node.walletState.commitTransaction(wallet_changes_tx);
 
             if (!Node.walletState.inTransaction)
             {
@@ -2110,8 +2104,6 @@ namespace DLT
                 IxiNumber powRewardPart = pow_reward / miners_count;
 
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
-                ulong reward_tx = Node.walletState.beginTransaction();
-
                 foreach (var entry in miners_to_reward)
                 {
                     // TODO add another address checksum here, just in case
@@ -2126,8 +2118,6 @@ namespace DLT
                         ActivityStorage.updateValue(Encoding.UTF8.GetBytes(((Transaction)entry[2]).id), powRewardPart);
                     }
                 }
-
-                Node.walletState.commitTransaction(reward_tx);
 
                 // Ignore if we're in a bigger transaction, which is not yet complete
                 if (Node.walletState.inTransaction)
