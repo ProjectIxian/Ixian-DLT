@@ -157,59 +157,24 @@ namespace DLT
 
             // Broadcast the current block height. Called after accepting a new block once the node is fully synced
             // Returns false when no RemoteEndpoints found to send the message to
-            public static bool broadcastBlockHeight(ulong blockNum)
+            public static bool broadcastBlockHeight(ulong blockNum, byte[] checksum)
             {
-                bool result = false;
-                lock (NetworkServer.connectedClients)
+                using (MemoryStream mw = new MemoryStream())
                 {
-                    foreach (RemoteEndpoint endpoint in NetworkServer.connectedClients)
+                    using (BinaryWriter writerw = new BinaryWriter(mw))
                     {
-                        if (!endpoint.isConnected() || endpoint.helloReceived == false)
-                        {
-                            continue;
-                        }
+                        Block tmp_block = IxianHandler.getLastBlock();
 
-                        if (endpoint.presence == null || endpoint.presenceAddress == null)
-                        {
-                            continue;
-                        }
+                        // Send the block height
+                        writerw.Write(blockNum);
 
-                        if (endpoint.presenceAddress.type != 'C')
-                        {
-                            continue;
-                        }
+                        // Send the block checksum for this balance
+                        writerw.Write(checksum.Length);
+                        writerw.Write(checksum);
 
-                        byte[] presenceWallet = endpoint.presence.wallet;
-
-                        // Retrieve the latest balance
-                        IxiNumber balance = Node.walletState.getWalletBalance(presenceWallet);
-
-                        // Return the balance for the matching address
-                        using (MemoryStream mw = new MemoryStream())
-                        {
-                            using (BinaryWriter writerw = new BinaryWriter(mw))
-                            {
-                                // Send the address
-                                writerw.Write(presenceWallet.Length);
-                                writerw.Write(presenceWallet);
-                                // Send the balance
-                                writerw.Write(balance.ToString());
-                                // Send the block height for this balance
-                                writerw.Write(Node.blockChain.getLastBlockNum());
-
-                                // Send the message
-#if TRACE_MEMSTREAM_SIZES
-                                Logging.info(String.Format("NetworkProtocol::broadcastBlockHeight: {0}", mw.Length));
-#endif
-                                endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
-
-                                result = true;
-                            }
-                        }
+                        return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'C' }, ProtocolMessageCode.blockHeight, mw.ToArray(), null, null);
                     }
                 }
-
-                return result;
             }
 
 
@@ -1069,8 +1034,15 @@ namespace DLT
                                                 writerw.Write(address);
                                                 // Send the balance
                                                 writerw.Write(balance.ToString());
+
+                                                Block tmp_block = IxianHandler.getLastBlock();
+
                                                 // Send the block height for this balance
-                                                writerw.Write(Node.blockChain.getLastBlockNum());
+                                                writerw.Write(tmp_block.blockNum);
+                                                // Send the block checksum for this balance
+                                                writerw.Write(tmp_block.blockChecksum.Length);
+                                                writerw.Write(tmp_block.blockChecksum);
+
 #if TRACE_MEMSTREAM_SIZES
                                                 Logging.info(String.Format("NetworkProtocol::parseProtocolMessage: {0}", mw.Length));
 #endif
@@ -1398,22 +1370,6 @@ namespace DLT
                                         Node.blockSync.onWalletChunkReceived(c);
                                     }
                                 }
-                            }
-                            break;
-
-
-                        case ProtocolMessageCode.getPresenceList:
-                            {
-                                // TODO TODO TODO TODO send in chunks
-                                byte[] pdata = PresenceList.getBytes();
-                                byte[] ba = CoreProtocolMessage.prepareProtocolMessage(ProtocolMessageCode.presenceList, pdata);
-                                endpoint.sendData(ProtocolMessageCode.presenceList, pdata);
-                            }
-                            break;
-
-                        case ProtocolMessageCode.presenceList:
-                            {
-                                PresenceList.syncFromBytes(data);
                             }
                             break;
 
