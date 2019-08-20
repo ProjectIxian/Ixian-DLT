@@ -84,6 +84,8 @@ namespace DLT
             public static bool generateWalletOnly = false;
             public static string dangerCommandlinePasswordCleartextUnsafe = "";
 
+            public static bool devInsertFromJson = false;
+
             // internal
             public static bool changePass = false;
 
@@ -398,6 +400,8 @@ namespace DLT
                 cmd_parser.Setup<string>("walletPassword").Callback(value => dangerCommandlinePasswordCleartextUnsafe = value).SetDefault("");
 
                 cmd_parser.Setup<bool>("noNetworkSync").Callback(value => noNetworkSync = true).Required();
+
+                cmd_parser.Setup<bool>("devInsertFromJson").Callback(value => devInsertFromJson = true).Required();
 
                 cmd_parser.Parse(args);
 

@@ -6,6 +6,7 @@ using IXICore.Network;
 using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -328,6 +329,14 @@ namespace DLT.Meta
             blockProcessor = new BlockProcessor();
             blockSync = new BlockSync();
 
+
+            if (Config.devInsertFromJson)
+            {
+                Console.WriteLine("Inserting from JSON");
+                devInsertFromJson();
+                Program.noStart = true;
+                return;
+            }
 
             if (Config.apiBinds.Count == 0)
             {
@@ -1047,6 +1056,18 @@ namespace DLT.Meta
 
             Logging.info("Test done, you can open chart.html now");
         }*/
+
+        private void devInsertFromJson()
+        {
+            string json_file = "block.txt";
+
+            Dictionary<string, string> response = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(json_file));
+            ulong blockNum = ulong.Parse(response["Block Number"]);
+            List<byte[][]> signatures = JsonConvert.DeserializeObject<List<byte[][]>>(response["Signatures"]);
+            Block b = Storage.getBlock(blockNum);
+            b.signatures = signatures;
+            Storage.insertBlock(b);
+        }
     }
 
     class dataPoint

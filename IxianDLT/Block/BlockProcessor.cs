@@ -1364,7 +1364,10 @@ namespace DLT
 
                     local_block.addSignaturesFrom(block);
 
-                    freezeSignatures(local_block);
+                    if(!freezeSignatures(local_block))
+                    {
+                        return false;
+                    }
 
                     int valid_sig_count = 0;
 
@@ -1406,7 +1409,7 @@ namespace DLT
         }
 
         // Freezes signature for the specified target block
-        public void freezeSignatures(Block target_block)
+        public bool freezeSignatures(Block target_block)
         {
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
 
@@ -1433,12 +1436,17 @@ namespace DLT
                         break;
                     }
                 }
-                if (frozen_block_sigs.Count >= Node.blockChain.getRequiredConsensus(target_block.blockNum, true))
+
+                int required_consensus_count_adjusted = Node.blockChain.getRequiredConsensus(target_block.blockNum, true);
+
+                if (frozen_block_sigs.Count >= required_consensus_count_adjusted)
                 {
                     target_block.setFrozenSignatures(frozen_block_sigs);
+                    return true;
                 }else
                 {
-                    Logging.warn("Error freezing signatures of target block #{0}, cannot freeze enough signatures to pass consensus.", target_block.blockNum);
+                    Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus {2} < {3}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs.Count, required_consensus_count_adjusted);
+                    return false;
                 }
             }
         }
@@ -2688,8 +2696,7 @@ namespace DLT
 
             if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 11)
             {
-                freezeSignatures(target_block);
-                if(target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
+                if(!freezeSignatures(target_block) || target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
                 {
                     Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
                     target_block.setFrozenSignatures(null);
