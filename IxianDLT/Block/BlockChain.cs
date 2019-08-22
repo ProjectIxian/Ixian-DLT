@@ -149,9 +149,9 @@ namespace DLT
             redactChain();
             lock (blocks)
             {
-                if (blocks.Count > 20)
+                if (blocks.Count > 30)
                 {
-                    Block tmp_block = getBlock(b.blockNum - 20);
+                    Block tmp_block = getBlock(b.blockNum - 30);
                     if (tmp_block != null)
                     {
                         TransactionPool.compactTransactionsForBlock(tmp_block);
@@ -316,6 +316,7 @@ namespace DLT
 
         public int getRequiredConsensus(ulong block_num, bool adjusted_to_ratio = true)
         {
+            // TODO TODO TODO TODO TODO there is an issue with calculating required consensus after blocks are compacted, for now this is resolved by increasing the compacting window
             int block_offset = 7;
             if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)

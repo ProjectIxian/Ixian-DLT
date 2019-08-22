@@ -67,7 +67,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.6c"; // DLT Node version
+            public static readonly string version = "xdc-0.6.6d"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
@@ -83,6 +83,8 @@ namespace DLT
             // Development/testing options
             public static bool generateWalletOnly = false;
             public static string dangerCommandlinePasswordCleartextUnsafe = "";
+
+            public static bool devInsertFromJson = false;
 
             // internal
             public static bool changePass = false;
@@ -398,6 +400,8 @@ namespace DLT
                 cmd_parser.Setup<string>("walletPassword").Callback(value => dangerCommandlinePasswordCleartextUnsafe = value).SetDefault("");
 
                 cmd_parser.Setup<bool>("noNetworkSync").Callback(value => noNetworkSync = true).Required();
+
+                cmd_parser.Setup<bool>("devInsertFromJson").Callback(value => devInsertFromJson = true).Required();
 
                 cmd_parser.Parse(args);
 
