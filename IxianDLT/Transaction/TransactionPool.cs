@@ -2120,7 +2120,7 @@ namespace DLT
                 }
 
                 // Ignore if we're in a bigger transaction, which is not yet complete
-                if (Node.walletState.inTransaction)
+                if (!Node.walletState.inTransaction)
                 {
                     // Set the powField as a checksum of all miners for this block
                     block.powField = BitConverter.GetBytes(sent_block_num);
