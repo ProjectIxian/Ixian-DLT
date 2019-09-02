@@ -170,6 +170,11 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to set public key, but it is already set.", Addr2String(id)));
                     return;
                 }
+                if (public_key == null)
+                {
+                    // this would be a non-op (current pubkey = null, new pubkey = null)
+                    return;
+                }
                 var change = new WSJE_Pubkey(id, public_key);
                 change.apply();
                 if (wsjTransactions.Count > 0)
@@ -245,7 +250,7 @@ namespace DLT
 
         #region Internal (WSJ) Wallet manipulation methods
         // this is called only by WSJ
-        public bool setWalletBalanceInternal(byte[] id, IxiNumber balance)
+        public bool setWalletBalanceInternal(byte[] id, IxiNumber balance, bool is_reverting = false)
         {
             lock (stateLock)
             {
@@ -259,42 +264,45 @@ namespace DLT
 
                 // Send balance update notification to the network
                 // TODO: WSJ: This should be in a different place
-                using (MemoryStream mw = new MemoryStream())
+                if (!is_reverting && !inTransaction)
                 {
-                    using (BinaryWriter writerw = new BinaryWriter(mw))
+                    using (MemoryStream mw = new MemoryStream())
                     {
-                        // Send the address
-                        writerw.Write(id.Length);
-                        writerw.Write(id);
-                        // Send the balance
-                        writerw.Write(balance.ToString());
+                        using (BinaryWriter writerw = new BinaryWriter(mw))
+                        {
+                            // Send the address
+                            writerw.Write(id.Length);
+                            writerw.Write(id);
+                            // Send the balance
+                            writerw.Write(balance.ToString());
 
-                        Block tmp_block = IxianHandler.getLastBlock();
-                        if (tmp_block != null)
-                        {
-                            // Send the block height for this balance
-                            writerw.Write(tmp_block.blockNum);
-                            // Send the block checksum for this balance
-                            writerw.Write(tmp_block.blockChecksum.Length);
-                            writerw.Write(tmp_block.blockChecksum);
-                        }
-                        else // genesis edge case
-                        {
-                            // Send the block height for this balance
-                            writerw.Write((ulong)1);
-                            // Send the block checksum for this balance
-                            writerw.Write(0); // TODO TODO fill out genesis checksum
-                        }
+                            Block tmp_block = IxianHandler.getLastBlock();
+                            if (tmp_block != null)
+                            {
+                                // Send the block height for this balance
+                                writerw.Write(tmp_block.blockNum);
+                                // Send the block checksum for this balance
+                                writerw.Write(tmp_block.blockChecksum.Length);
+                                writerw.Write(tmp_block.blockChecksum);
+                            }
+                            else // genesis edge case
+                            {
+                                // Send the block height for this balance
+                                writerw.Write((ulong)1);
+                                // Send the block checksum for this balance
+                                writerw.Write(0); // TODO TODO fill out genesis checksum
+                            }
 #if TRACE_MEMSTREAM_SIZES
                             Logging.info(String.Format("WalletState::setWalletBalance: {0}", mw.Length));
 #endif
 
-                        // Send balance message to all subscribed clients
-                        CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.balance, id, ProtocolMessageCode.balance, mw.ToArray(), id, null);
+                            // Send balance message to all subscribed clients
+                            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.balance, id, ProtocolMessageCode.balance, mw.ToArray(), id, null);
+                        }
                     }
                 }
 
-                if (cachedBlockVersion >= 5 && w.balance.getAmount() == 0 && w.type == WalletType.Normal)
+                if (cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     walletState.Remove(id);
                 }
@@ -313,6 +321,14 @@ namespace DLT
             lock(stateLock)
             {
                 Wallet w = getWallet(id);
+                if(w.isEmptyWallet())
+                {
+                    // rare edge case: this is a wallet which was recently updated to balance 0 and thus removed from walletstate
+                    // we reach this point because processing transactions updates wallet public keys first and then sets their balance,
+                    // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0
+                    // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
+                    return true;
+                }
                 if(w.publicKey != null && public_key != null)
                 {
                     Logging.error(String.Format("WSJE_PublicKey attempted to set public key on wallet {0} which already has a public key.", Addr2String(id)));

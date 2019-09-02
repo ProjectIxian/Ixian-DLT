@@ -106,7 +106,7 @@ namespace DLT
                 Logging.error("WSJE_Balance entry is missing target wallet!");
                 return false;
             }
-            return Node.walletState.setWalletBalanceInternal(targetWallet, old_value);
+            return Node.walletState.setWalletBalanceInternal(targetWallet, old_value, true);
         }
     }
 
@@ -329,9 +329,9 @@ namespace DLT
 
         public override bool revert()
         {
-            if (targetWallet == null || pubkey == null)
+            if (targetWallet == null)
             {
-                Logging.error("WSJE_Pubkey entry is missing target wallet or pubkey!");
+                Logging.error("WSJE_Pubkey entry is missing target wallet!");
                 return false;
             }
             return Node.walletState.setWalletPublicKeyInternal(targetWallet, null);
@@ -493,7 +493,7 @@ namespace DLT
                 {
                     if (e.apply() == false)
                     {
-                        Logging.error(String.Format("Error while applying WSJ transaction {0} -> {1}.", beforeWSChecksum, afterWSChecksum));
+                        Logging.error(String.Format("Error while applying WSJ transaction {0} -> {1}.", Crypto.hashToString(beforeWSChecksum), Crypto.hashToString(afterWSChecksum)));
                         return false;
                     }
                 }
@@ -510,7 +510,7 @@ namespace DLT
                 {
                     if (e.revert() == false)
                     {
-                        Logging.error(String.Format("Error while reverting WSJ transaction {0} <- {1}.", beforeWSChecksum, afterWSChecksum));
+                        Logging.error(String.Format("Error while reverting WSJ transaction {0} <- {1}.", Crypto.hashToString(beforeWSChecksum), Crypto.hashToString(afterWSChecksum)));
                         return false;
                     }
                 }

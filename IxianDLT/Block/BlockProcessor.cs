@@ -1042,6 +1042,7 @@ namespace DLT
                     else if(b.blockNum == last_block_num + 1)
                     {
                         Node.walletState.setCachedBlockVersion(b.version);
+                        IxiNumber totalSupplyBefore = Node.walletState.calculateTotalSupply();
                         ulong wsj_tx = Node.walletState.beginTransaction();
                         if (applyAcceptedBlock(b))
                         {
@@ -1053,8 +1054,16 @@ namespace DLT
                             {
                                 ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(wsj_tx);
                             }
+                        } else
+                        {
+                            Logging.error(String.Format("Block #{0} failed applying!", b.blockNum));
                         }
                         Node.walletState.revertTransaction(wsj_tx);
+                        IxiNumber totalSupplyAfter = Node.walletState.calculateTotalSupply();
+                        if(totalSupplyBefore != totalSupplyAfter)
+                        {
+                            Logging.error(String.Format("Block #{0} did not cleanly revert!", b.blockNum));
+                        }
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {
                             Logging.error(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
