@@ -1042,6 +1042,13 @@ namespace DLT
                     else if(b.blockNum == last_block_num + 1)
                     {
                         Node.walletState.setCachedBlockVersion(b.version);
+                        if(b.blockNum == 597582 || b.blockNum == 597583)
+                        {
+                            Config.fullBlockLogging = true;
+                        } else
+                        {
+                            Config.fullBlockLogging = false;
+                        }
                         IxiNumber totalSupplyBefore = Node.walletState.calculateTotalSupply();
                         ulong wsj_tx = Node.walletState.beginTransaction();
                         if (applyAcceptedBlock(b))
@@ -1747,6 +1754,7 @@ namespace DLT
             }
 
             // Distribute staking rewards first
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (version {1})", b.blockNum, b.version); }
             distributeStakingRewards(b, b.version);
 
             // Apply transactions from block
@@ -1756,9 +1764,11 @@ namespace DLT
             }
 
             // Apply transaction fees
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
             applyTransactionFeeRewards(b);
 
             // Update wallet state public keys
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> updateWalletStatePublicKeys (version {1})", b.blockNum, b.version); }
             updateWalletStatePublicKeys(b.blockNum);
 
             return true;
@@ -2733,6 +2743,7 @@ namespace DLT
             }
 
             IxiNumber totalIxis = Node.walletState.calculateTotalSupply();
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> generateStakingTransactions (total supply = {1})", targetBlockNum, totalIxis.getAmount()); }
             //Logging.info(String.Format("totalIxis = {0}", totalIxis.ToString()));
             IxiNumber inflationPA = new IxiNumber("0.1"); // 0.1% inflation per year for the first month
 
@@ -2918,13 +2929,16 @@ namespace DLT
 
             if (!Node.walletState.inTransaction)
             {
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (transaction = {1})", b.blockNum, Node.walletState.inTransaction); }
                 List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, block_version, b.timestamp);
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards: generated {1} staking transactions:", b.blockNum, transactions.Count); }
                 foreach (Transaction transaction in transactions)
                 {
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Staking transaction {{ {1} }} -> {2} IxiCash to {3} recipients", b.blockNum, transaction.id, transaction.amount.getAmount(), transaction.toList.Count); }
                     TransactionPool.addTransaction(transaction, true);
                 }
             }
-            
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (done)", b.blockNum); }
             return true;
         }
 

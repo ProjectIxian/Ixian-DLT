@@ -79,6 +79,7 @@ namespace DLT
             // Debugging values
             public static string networkDumpFile = "";
             public static int benchmarkKeys = 0;
+            public static bool fullBlockLogging = false; // use with care - it will explode the log files
 
             // Development/testing options
             public static bool generateWalletOnly = false;

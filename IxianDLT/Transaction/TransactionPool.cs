@@ -1181,13 +1181,17 @@ namespace DLT
             List<Transaction> staking_txs = null;
             if (Node.walletState.inTransaction)
             {
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - generating staking transactions (transaction = {1})", block.blockNum, Node.walletState.inTransaction); }
                 staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, block.version, block.timestamp);
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - generated {1} staking transactions", block.blockNum, staking_txs.Count); }
             }
             else
             {
                 lock (transactions)
                 {
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - selecting staking transactions from pool (transaction = {1})", block.blockNum, Node.walletState.inTransaction); }
                     staking_txs = transactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.StakingReward && x.applied == 0).ToList();
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - selected {1} staking transactions", block.blockNum, staking_txs.Count); }
                 }
             }
 
@@ -1195,6 +1199,7 @@ namespace DLT
             List<byte[]> blockStakers = new List<byte[]>();
 
             List<string> stakingTxIds = block.transactions.FindAll(x => x.StartsWith("stk-"));
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - block has {1} staking transaction ids", block.blockNum, stakingTxIds.Count); }
 
             foreach (Transaction tx in staking_txs)
             {
@@ -1227,7 +1232,8 @@ namespace DLT
                 // TODO: note that this can backfire when recovering completely from a file
                 if (Node.blockSync.synchronizing && Config.recoverFromFile == false && Config.storeFullHistory == false && Config.fullStorageDataVerification == false)
                     continue;
-               
+
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - applying staking transaction {1}", block.blockNum, tx.id); }
                 if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers))
                 {
                     //Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
@@ -1265,8 +1271,11 @@ namespace DLT
 
                 List<Transaction> failed_staking_transactions = new List<Transaction>();
 
-                if(!applyStakingTransactionsFromBlock(block, failed_staking_transactions))
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionsFromBlock (transaction = {1})", block.blockNum, Node.walletState.inTransaction); }
+
+                if (!applyStakingTransactionsFromBlock(block, failed_staking_transactions))
                 {
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock failed!", block.blockNum); }
                     return false;
                 }
 
@@ -1295,7 +1304,7 @@ namespace DLT
                     return false;
                 }
 
-
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applying other transactions ({1} transactions)!", block.blockNum, block.transactions.Count); }
                 foreach (string txid in block.transactions)
                 {
                     // Skip staking txids
@@ -1312,7 +1321,7 @@ namespace DLT
                     }
 
                     Transaction tx = getTransaction(txid, block.blockNum);
-
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Type: {2}, Amount: {3}", block.blockNum, tx.id, tx.type, tx.amount.getAmount()); }
                     if (tx == null)
                     {
                         Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
@@ -1350,6 +1359,8 @@ namespace DLT
                         // Generate an address from the public key and compare it with the sender
                         if (pubkey == null)
                         {
+                            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, tx.id, 
+                                Base58Check.Base58CheckEncoding.EncodePlain(tmp_address)); }
                             // There is no supplied public key, extract it from transaction
                             pubkey = tx.pubKey;
                             if (pubkey != null)
@@ -1361,8 +1372,10 @@ namespace DLT
                     }
 
                     // Special case for PoWSolution transactions
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as PoW", block.blockNum, tx.id); }
                     if (applyPowTransaction(tx, block, blockSolutionsDictionary, failed_transactions))
                     {
+                        if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: as PoW succeeded", block.blockNum, tx.id, tx.type, tx.amount.getAmount()); }
                         continue;
                     }
 
@@ -1428,6 +1441,7 @@ namespace DLT
                     }
 
                     // If we reached this point, it means this is a normal transaction
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as normal", block.blockNum, tx.id); }
                     applyNormalTransaction(tx, block, failed_transactions);
 
                 }
@@ -1435,6 +1449,7 @@ namespace DLT
                 // Finally, Check if we have any miners to reward
                 if (blockSolutionsDictionary.Count > 0)
                 {
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Block solutions: {1} - rewarding miners...", block.blockNum, blockSolutionsDictionary.Count); }
                     rewardMiners(block.blockNum, blockSolutionsDictionary);
                 }
 
