@@ -321,11 +321,11 @@ namespace DLT
             lock(stateLock)
             {
                 Wallet w = getWallet(id);
-                if(w.isEmptyWallet())
+                if(w.isEmptyWallet() && public_key == null)
                 {
                     // rare edge case: this is a wallet which was recently updated to balance 0 and thus removed from walletstate
                     // we reach this point because processing transactions updates wallet public keys first and then sets their balance,
-                    // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0
+                    // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0, then it tries to remove public key on it
                     // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
                     return true;
                 }
