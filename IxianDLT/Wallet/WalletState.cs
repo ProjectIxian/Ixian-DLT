@@ -490,7 +490,7 @@ namespace DLT
             }
         }
 
-        public byte[] calculateWalletStateDeltaChecksum(ulong transaction_id)
+        public byte[] calculateWalletStateDeltaChecksum(ulong transaction_id, bool block_debug = false)
         {
             lock (stateLock)
             {
@@ -506,8 +506,22 @@ namespace DLT
                         w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
                         // TODO: WSJ: Kludge until Blockversion upgrade, so we can replace WS Deltas with WSJ
                         var altered_wallets = getAlteredWalletsSinceWSJTX(transaction_id);
+                        int i = 0;
                         foreach (var altered_wallet in altered_wallets)
                         {
+                            if (block_debug)
+                            {
+                                Logging.info("Delta Checksum: Wallet [{6}] {{ {0} }}: Balance: {7}, Type: {1}, Signers: {2}, Req: {3}, Pubkey: {4} bytes, Data: {5} bytes",
+                                    Base58Check.Base58CheckEncoding.EncodePlain(altered_wallet.id),
+                                    altered_wallet.type,
+                                    altered_wallet.countAllowedSigners,
+                                    altered_wallet.requiredSigs,
+                                    altered_wallet.publicKey != null ? altered_wallet.publicKey.Length : -1,
+                                    altered_wallet.data != null ? altered_wallet.data.Length : -1,
+                                    i,
+                                    altered_wallet.balance.ToString());
+                                i += 1;
+                            }
                             altered_wallet.writeBytes(w);
                         }
 #if TRACE_MEMSTREAM_SIZES
