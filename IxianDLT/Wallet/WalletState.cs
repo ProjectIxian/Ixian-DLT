@@ -302,7 +302,7 @@ namespace DLT
                     }
                 }
 
-                if (cachedBlockVersion >= 5 && w.isEmptyWallet())
+                if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     walletState.Remove(id);
                 }
