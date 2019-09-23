@@ -988,6 +988,13 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
         {
+            if(b.blockNum >= 678878 && b.blockNum < 678900)
+            {
+                Config.fullBlockLogging = true;
+            } else
+            {
+                Config.fullBlockLogging = false;
+            }
             var sw = new System.Diagnostics.Stopwatch();
             sw.Start();
 
@@ -1042,15 +1049,9 @@ namespace DLT
                     else if(b.blockNum == last_block_num + 1)
                     {
                         Node.walletState.setCachedBlockVersion(b.version);
-                        if(b.blockNum == 597582 || b.blockNum == 597583)
-                        {
-                            Config.fullBlockLogging = true;
-                        } else
-                        {
-                            Config.fullBlockLogging = false;
-                        }
                         IxiNumber totalSupplyBefore = Node.walletState.calculateTotalSupply();
                         ulong wsj_tx = Node.walletState.beginTransaction();
+                        if (Config.fullBlockLogging) { Logging.info("Starting WSJ transaction for block verification: {0}", wsj_tx); }
                         if (applyAcceptedBlock(b))
                         {
                             if (b.version < BlockVer.v5 || b.lastSuperBlockChecksum != null)
@@ -1065,6 +1066,7 @@ namespace DLT
                         {
                             Logging.error(String.Format("Block #{0} failed applying!", b.blockNum));
                         }
+                        if (Config.fullBlockLogging) { Logging.info("Reverting WSJ transaction for block verification: {0}", wsj_tx); }
                         Node.walletState.revertTransaction(wsj_tx);
                         IxiNumber totalSupplyAfter = Node.walletState.calculateTotalSupply();
                         if(totalSupplyBefore != totalSupplyAfter)

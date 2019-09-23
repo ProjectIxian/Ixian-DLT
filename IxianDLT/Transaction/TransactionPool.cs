@@ -1353,6 +1353,7 @@ namespace DLT
 
                     if(block.version >= BlockVer.v3)
                     {
+                        if (Config.fullBlockLogging) { Logging.info("Checking if transaction has a public key set - {0} B", tx.pubKey == null ? 0 : tx.pubKey.Length); }
                         byte[] tmp_address = (new Address(tx.pubKey)).address;
                         // Update the walletstate public key
                         byte[] pubkey = Node.walletState.getWallet(tmp_address).publicKey;
@@ -2071,6 +2072,14 @@ namespace DLT
 
 
                 // Update the walletstate
+                if (Config.fullBlockLogging)
+                {
+                    Logging.info("Normal transaction {{ {3} }} updates wallet {0} balance: {1} -> {2}.",
+                        WalletState.Addr2String(entry.Key),
+                        dest_balance_before.ToString(),
+                        dest_balance_after.ToString(),
+                        tx.id);
+                }
                 Node.walletState.setWalletBalance(entry.Key, dest_balance_after);
                 total_amount += entry.Value;
             }

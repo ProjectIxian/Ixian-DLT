@@ -110,9 +110,10 @@ namespace DLT
             lock(stateLock)
             {
                 WSJTransaction wsjt = wsjTransactions[0];
+                bool result = wsjt.revert();
                 wsjTransactions.Clear();
                 cachedTotalSupply = new IxiNumber(0);
-                return wsjt.revert();
+                return result;
             }
         }
 
@@ -304,6 +305,7 @@ namespace DLT
 
                 if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
+                    Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     walletState.Remove(id);
                 }
                 else
@@ -336,6 +338,10 @@ namespace DLT
                 {
                     Logging.error(String.Format("WSJE_PublicKey attempted to clear public key on wallet {0} which doesn't have a public key.", Addr2String(id)));
                     return false;
+                }
+                if((public_key != null && public_key.Length < 50) || DLT.Meta.Config.fullBlockLogging)
+                {
+                    Logging.info("WSJE_PublicKey: Setting public key ({0}B) for wallet {1}. (Transaction: {2})", public_key.Length, Addr2String(id), inTransaction);
                 }
                 w.publicKey = public_key;
 
