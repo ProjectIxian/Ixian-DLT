@@ -988,13 +988,6 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlock(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
         {
-            if(b.blockNum >= 678878 && b.blockNum < 678900)
-            {
-                Config.fullBlockLogging = true;
-            } else
-            {
-                Config.fullBlockLogging = false;
-            }
             var sw = new System.Diagnostics.Stopwatch();
             sw.Start();
 
