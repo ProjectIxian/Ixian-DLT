@@ -35,11 +35,11 @@ namespace DLT.Meta
         {
             if (blockNum == 0)
             {
-                if(DLT.Meta.Storage.getLastBlockNum() <= 6)
+                if(Node.storage.getHighestBlockInStorage() <= 6)
                 {
                     return 0;
                 }
-                blockNum = DLT.Meta.Storage.getLastBlockNum() - 6;
+                blockNum = Node.storage.getHighestBlockInStorage() - 6;
                 if(blockNum == 0)
                 {
                     return 0;

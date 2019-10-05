@@ -11,7 +11,7 @@ namespace DLT
     {
         public abstract class IStorage
         {
-            public string pathBase;
+            protected string pathBase;
             // Threading
             private Thread thread = null;
             private bool running = false;
@@ -202,7 +202,7 @@ namespace DLT
             /// </summary>
             /// <param name="checksum">Block checksum of the previous Superblock.</param>
             /// <returns>Null if the bloud could not be found in storage.</returns>
-            public abstract Block getBlocksByLastSBHash(byte[] checksum);
+            public abstract Block getBlockByLastSBHash(byte[] checksum);
             /// <summary>
             /// Retrieves all Blocks between two block heights, inclusive on both ends.
             /// Note: If `from` is larger than `to`, or both parameters are 0, an empty collection is returned.
@@ -216,9 +216,9 @@ namespace DLT
             /// Retrieves a Transaction by its txid.
             /// </summary>
             /// <param name="txid">Transaction ID of the required Transaction.</param>
-            /// <param name="block_num">Block height of the Block where the Transaction can be found. This parameter may be 0, in which case all storage will be searched.</param>
+            /// <param name="block_num">Block height of the Block where the Transaction can be found.</param>
             /// <returns>Null if this transaction can't be found in storage.</returns>
-            public abstract Transaction getTransaction(string txid, ulong block_num = 0);
+            public abstract Transaction getTransaction(string txid, ulong block_num);
             /// <summary>
             /// Retrieves all Transactions with the specified type from the given block range.
             /// Note: If `block_to` is 0, only Block `block_from` will be searched. If both parameters are 0, all Blocks will be searched.
@@ -274,7 +274,7 @@ namespace DLT
             public abstract IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to);
             //
             // Remove
-            public abstract bool removeBlock(ulong block_num, bool remove_transactions);
+            public abstract bool removeBlock(ulong block_num, bool remove_transactions = true);
             public abstract bool removeTransaction(string txid, ulong block_num = 0);
             //
             // Prepare and cleanup
@@ -290,7 +290,7 @@ namespace DLT
                 Logging.info("Block storage provider: {0}", name);
                 switch(name)
                 {
-                    //case "SQLite": return new SQLiteStorage();
+                    case "SQLite": return new SQLiteStorage();
                     case "RocksDB": return new RocksDBStorage();
                     default: throw new Exception(String.Format("Unknown blocks storage provider: {0}", name));
                 }

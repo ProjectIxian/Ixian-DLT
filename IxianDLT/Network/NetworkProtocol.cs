@@ -519,7 +519,7 @@ namespace DLT
                         int checksum_len = reader.ReadInt32();
                         byte[] checksum = reader.ReadBytes(checksum_len);
 
-                        block = Storage.getNextSuperBlock(checksum);
+                        block = Node.storage.getBlockByLastSBHash(checksum);
 
                         if (block != null)
                         {

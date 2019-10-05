@@ -578,7 +578,7 @@ namespace DLT
                         }
                         if (insertTx)
                         {
-                            Meta.Storage.insertTransaction(t);
+                            Node.storage.insertTransaction(t);
                         }
                     }
 
@@ -911,7 +911,7 @@ namespace DLT
 
                 /*var sw = new System.Diagnostics.Stopwatch();
                 sw.Start();*/
-                transaction = Storage.getTransaction(txid, block_num);
+                transaction = Node.storage.getTransaction(txid, block_num);
                 /*sw.Stop();
                 TimeSpan elapsed = sw.Elapsed;
                 Logging.info(string.Format("StopWatch duration: {0}ms", elapsed.TotalMilliseconds));*/

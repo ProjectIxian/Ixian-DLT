@@ -155,14 +155,20 @@ namespace DLT
                                 wr.Write(blockChecksum.Length);
                                 wr.Write(blockChecksum);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (lastBlockChecksum != null)
                             {
                                 wr.Write(lastBlockChecksum.Length);
                                 wr.Write(lastBlockChecksum);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             wr.Write(lastSuperblockNum);
 
@@ -171,21 +177,30 @@ namespace DLT
                                 wr.Write(lastSuperblockChecksum.Length);
                                 wr.Write(lastSuperblockChecksum);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (walletStateChecksum != null)
                             {
                                 wr.Write(walletStateChecksum.Length);
                                 wr.Write(walletStateChecksum);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (sigFreezeChecksum != null)
                             {
                                 wr.Write(sigFreezeChecksum.Length);
                                 wr.Write(sigFreezeChecksum);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             wr.Write(difficulty);
 
@@ -194,7 +209,10 @@ namespace DLT
                                 wr.Write(powField.Length);
                                 wr.Write(powField);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (signatures != null)
                             {
@@ -208,7 +226,10 @@ namespace DLT
                                     wr.Write(s[1]);
                                 }
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (transactions != null)
                             {
@@ -218,7 +239,10 @@ namespace DLT
                                     wr.Write(txid);
                                 }
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             wr.Write(timestamp);
                             wr.Write(version);
@@ -395,14 +419,20 @@ namespace DLT
                                 wr.Write(amount.Length);
                                 wr.Write(amount);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (fee != null)
                             {
                                 wr.Write(fee.Length);
                                 wr.Write(fee);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (toList != null)
                             {
@@ -415,7 +445,10 @@ namespace DLT
                                     wr.Write(toList[i][1]);
                                 }
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
 
                             if (fromList != null)
@@ -429,14 +462,20 @@ namespace DLT
                                     wr.Write(fromList[i][1]);
                                 }
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (data != null)
                             {
                                 wr.Write(data.Length);
                                 wr.Write(data);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             wr.Write(blockHeight);
                             wr.Write(nonce);
@@ -447,21 +486,30 @@ namespace DLT
                                 wr.Write(checksum.Length);
                                 wr.Write(checksum);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (signature != null)
                             {
                                 wr.Write(signature.Length);
                                 wr.Write(signature);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             if (pubKey != null)
                             {
                                 wr.Write(pubKey.Length);
                                 wr.Write(pubKey);
                             }
-                            else wr.Write(0);
+                            else
+                            {
+                                wr.Write(0);
+                            }
 
                             wr.Write(applied);
                             wr.Write(version);
@@ -614,7 +662,10 @@ namespace DLT
                                     bw.Write(e.Length);
                                     bw.Write(e);
                                 }
-                                else bw.Write(0);
+                                else
+                                {
+                                    bw.Write(0);
+                                }
                             }
                         }
                         return ms.ToArray();
@@ -773,7 +824,10 @@ namespace DLT
             {
                 lock (rockLock)
                 {
-                    if (database == null) return;
+                    if (database == null)
+                    {
+                        return;
+                    }
                     database.Dispose();
                     database = null;
                     // free all indexes
@@ -849,7 +903,10 @@ namespace DLT
             {
                 lock (rockLock)
                 {
-                    if (database == null) return false;
+                    if (database == null)
+                    {
+                        return false;
+                    }
                     var sb = new _storage_Block(block);
                     database.Put(BitConverter.GetBytes(sb.blockNum), sb.asBytes(), rocksCFBlocks);
                     updateBlockIndexes(sb);
@@ -863,7 +920,10 @@ namespace DLT
             {
                 lock (rockLock)
                 {
-                    if (database == null) return false;
+                    if (database == null)
+                    {
+                        return false;
+                    }
                     var st = new _storage_Transaction(transaction);
                     database.Put(ASCIIEncoding.ASCII.GetBytes(st.id), st.asBytes(), rocksCFTransactions);
                     updateTXIndexes(st);
@@ -876,7 +936,10 @@ namespace DLT
             {
                 lock(rockLock)
                 {
-                    if (database == null) return false;
+                    if (database == null)
+                    {
+                        return false;
+                    }
                     idxTXApplied.addIndexEntry(BitConverter.GetBytes(transaction.applied), new _applied_tx_idx_entry(transaction.blockHeight, transaction.id).asBytes());
                     idxTXApplied.updateDBIndex(database);
                     return true;
@@ -899,8 +962,14 @@ namespace DLT
             {
                 lock (rockLock)
                 {
-                    if (database == null) return null;
-                    if (blocknum < minBlockNumber || blocknum > maxBlockNumber) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
+                    if (blocknum < minBlockNumber || blocknum > maxBlockNumber)
+                    {
+                        return null;
+                    }
                     return getBlockInternal(BitConverter.GetBytes(blocknum));
                 }
             }
@@ -909,7 +978,10 @@ namespace DLT
             {
                 lock (rockLock)
                 {
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     var e = idxBlocksChecksum.getEntriesForKey(checksum);
                     if (e.Any())
@@ -924,7 +996,10 @@ namespace DLT
             {
                 lock (rockLock)
                 {
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     var e = idxBlocksLastSBChecksum.getEntriesForKey(checksum);
                     if (e.Any())
@@ -973,7 +1048,10 @@ namespace DLT
             {
                 lock (rockLock)
                 {
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     return getTransactionInternal(ASCIIEncoding.ASCII.GetBytes(txid));
                 }
             }
@@ -983,7 +1061,10 @@ namespace DLT
                 lock (rockLock)
                 {
                     List<Transaction> txs = new List<Transaction>();
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXType.getEntriesForKey(BitConverter.GetBytes((int)type)))
                     {
@@ -998,7 +1079,10 @@ namespace DLT
                 lock (rockLock)
                 {
                     List<Transaction> txs = new List<Transaction>();
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXFrom.getEntriesForKey(from_addr))
                     {
@@ -1013,7 +1097,10 @@ namespace DLT
                 lock (rockLock)
                 {
                     List<Transaction> txs = new List<Transaction>();
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXFrom.getEntriesForKey(to_addr))
                     {
@@ -1028,7 +1115,10 @@ namespace DLT
                 lock (rockLock)
                 {
                     List<Transaction> txs = new List<Transaction>();
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     foreach (var i in idxTXFrom.getEntriesForKey(BitConverter.GetBytes(block_num)))
                     {
@@ -1043,7 +1133,10 @@ namespace DLT
                 lock (rockLock)
                 {
                     List<Transaction> txs = new List<Transaction>();
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     foreach (var ts_bytes in idxTXTimestamp.getAllKeys())
                     {
@@ -1065,7 +1158,10 @@ namespace DLT
                 lock (rockLock)
                 {
                     List<_applied_tx_idx_entry> txs = new List<_applied_tx_idx_entry>();
-                    if (database == null) return null;
+                    if (database == null)
+                    {
+                        return null;
+                    }
                     lastUsedTime = DateTime.Now;
                     foreach (var bh_bytes in idxTXApplied.getAllKeys())
                     {
@@ -1263,7 +1359,10 @@ namespace DLT
                         }
                     }
                 }
-                if (latest_db == 0) return 0; // empty db
+                if (latest_db == 0)
+                {
+                    return 0; // empty db
+                }
                 lock (openDatabases)
                 {
                     var db = getDatabase(latest_db);
@@ -1286,7 +1385,10 @@ namespace DLT
                         }
                     }
                 }
-                if (oldest_db == 0) return 0; // empty db
+                if (oldest_db == 0)
+                {
+                    return 0; // empty db
+                }
                 lock (openDatabases)
                 {
                     var db = getDatabase(oldest_db);
@@ -1332,14 +1434,17 @@ namespace DLT
                             db.openDatabase();
                         }
                         Block b = db.getBlockByHash(checksum);
-                        if (b != null) return b;
+                        if (b != null)
+                        {
+                            return b;
+                        }
                     }
                     //
                     return null;
                 }
             }
 
-            public override Block getBlocksByLastSBHash(byte[] checksum)
+            public override Block getBlockByLastSBHash(byte[] checksum)
             {
                 lock (openDatabases)
                 {
@@ -1350,7 +1455,10 @@ namespace DLT
                             db.openDatabase();
                         }
                         Block b = db.getBlockByLastSBHash(checksum);
-                        if (b != null) return b;
+                        if (b != null)
+                        {
+                            return b;
+                        }
                     }
                     //
                     return null;
@@ -1393,7 +1501,10 @@ namespace DLT
                                 db.openDatabase();
                             }
                             Transaction t = db.getTransaction(txid);
-                            if (t != null) return t;
+                            if (t != null)
+                            {
+                                return t;
+                            }
                         }
                     }
                     return null;
@@ -1515,7 +1626,10 @@ namespace DLT
                         foreach (var appidx in db.getTransactionsApplied(block_from, block_to))
                         {
                             var t = getTransaction(appidx.tx_id, appidx.tx_original_bh);
-                            if (t != null) combined.Add(t);
+                            if (t != null)
+                            {
+                                combined.Add(t);
+                            }
                         }
                     }
                     return combined;

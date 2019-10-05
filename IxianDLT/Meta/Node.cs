@@ -297,7 +297,7 @@ namespace DLT.Meta
         {
             char node_type = 'M'; // TODO TODO TODO TODO change this to 'W' or 'C' after the upgrade
 
-            if(Config.disableMiner)
+            if (Config.disableMiner)
             {
                 node_type = 'M';
             }
@@ -315,7 +315,16 @@ namespace DLT.Meta
             PresenceList.init(IxianHandler.publicIP, Config.serverPort, node_type);
 
             // Initialize storage
-            Storage.prepareStorage();
+            if (storage is null)
+            {
+                storage = IStorage.create(Config.blockStorageProvider);
+            }
+            if(!storage.prepareStorage())
+            {
+                Logging.error("Error while preparing block storage! Aborting.");
+                Program.noStart = true;
+                return;
+            }
 
             ActivityStorage.prepareStorage();
 
@@ -394,7 +403,7 @@ namespace DLT.Meta
                     Block genesis = new Block(Crypto.stringToHash(File.ReadAllText(Config.genesisFile)));
                     blockChain.setGenesisBlock(genesis);
                 }
-                ulong lastLocalBlockNum = Meta.Storage.getLastBlockNum();
+                ulong lastLocalBlockNum = storage.getHighestBlockInStorage();
                 if(lastLocalBlockNum > 6)
                 {
                     lastLocalBlockNum = lastLocalBlockNum - 6;
@@ -416,7 +425,7 @@ namespace DLT.Meta
 
                 if (Config.recoverFromFile)
                 {
-                    Block b = Meta.Storage.getBlock(lastLocalBlockNum);
+                    Block b = storage.getBlock(lastLocalBlockNum);
                     blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
                 }
                 else
@@ -573,7 +582,7 @@ namespace DLT.Meta
             }
 
             // Stop the block storage
-            Storage.stopStorage();
+            storage.stopStorage();
 
             // stop activity storage
             ActivityStorage.stopStorage();
@@ -720,10 +729,11 @@ namespace DLT.Meta
 
             // deleting block storage is a special case
             // we have to instantiate whatever implementation we are using and remove its data files
-            /*storage = IStorage.create(Config.blockStorageProvider);
-            storage.deleteData();*/
-
-            Storage.deleteCache();
+            if (storage is null)
+            {
+                storage = IStorage.create(Config.blockStorageProvider);
+            }
+            storage.deleteData();
 
             WalletStateStorage.deleteCache();
 
@@ -1064,9 +1074,9 @@ namespace DLT.Meta
             Dictionary<string, string> response = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(json_file));
             ulong blockNum = ulong.Parse(response["Block Number"]);
             List<byte[][]> signatures = JsonConvert.DeserializeObject<List<byte[][]>>(response["Signatures"]);
-            Block b = Storage.getBlock(blockNum);
+            Block b = storage.getBlock(blockNum);
             b.signatures = signatures;
-            Storage.insertBlock(b);
+            storage.insertBlock(b);
         }
     }
 

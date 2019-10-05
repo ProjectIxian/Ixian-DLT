@@ -99,7 +99,7 @@
     <Compile Include="Meta\Node.cs" />
     <Compile Include="Meta\RocksDBStorage.cs" />
     <Compile Include="Meta\StatsConsoleScreen.cs" />
-    <Compile Include="Meta\Storage.cs" />
+    <Compile Include="Meta\SQLiteStorage.cs" />
     <Compile Include="Meta\UpdateVerify.cs" />
     <Compile Include="Meta\WalletStateStorage.cs" />
     <Compile Include="Miner\Miner.cs" />

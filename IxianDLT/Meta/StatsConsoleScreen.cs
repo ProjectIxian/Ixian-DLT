@@ -74,8 +74,10 @@ namespace DLT.Meta
 
         public void drawScreen()
         {
-            if (Storage.upgrading)
+            if (Node.storage.isUpgrading())
+            {
                 Console.Clear();
+            }
 
             Console.SetCursorPosition(0, 0);
 
@@ -129,9 +131,9 @@ namespace DLT.Meta
             }
             writeLine("────────────────────────────────────────────────────────────");
 
-            if (Storage.upgrading)
+            if (Node.storage.isUpgrading())
             {
-                writeLine(" Upgrading database: " + Storage.upgradeProgress + "/" + Storage.upgradeMaxBlockNum);
+                writeLine(" Upgrading database: " + Node.storage.upgradePercentage() + " %");
             }
 
             if (Node.serverStarted == false)
