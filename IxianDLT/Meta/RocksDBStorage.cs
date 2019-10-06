@@ -20,6 +20,7 @@ namespace DLT
                 public byte[] blockChecksum { get; set; }
                 public byte[] lastBlockChecksum { get; set; }
                 public ulong lastSuperblockNum { get; set; }
+                public byte[] superBlockSegments { get; set; }
                 public byte[] lastSuperblockChecksum { get; set; }
                 public byte[] walletStateChecksum { get; set; }
                 public byte[] sigFreezeChecksum { get; set; }
@@ -54,6 +55,21 @@ namespace DLT
                     transactions = from_block.transactions.ToArray();
                     timestamp = from_block.timestamp;
                     version = from_block.version;
+                    if (lastSuperblockChecksum != null)
+                    {
+                        //this is a superblock
+                        MemoryStream ms = new MemoryStream();
+                        using (BinaryWriter bw = new BinaryWriter(ms, Encoding.UTF8, true))
+                        {
+                            foreach (var entry in from_block.superBlockSegments)
+                            {
+                                bw.Write(BitConverter.GetBytes(entry.Value.blockNum));
+                                bw.Write(BitConverter.GetBytes(entry.Value.blockChecksum.Length));
+                                bw.Write(entry.Value.blockChecksum);
+                            }
+                        }
+                        superBlockSegments = ms.ToArray();
+                    }
                 }
                 public Block asBlock()
                 {
@@ -75,6 +91,21 @@ namespace DLT
                     b.transactions = transactions.ToList();
                     b.timestamp = timestamp;
                     b.version = version;
+                    if(superBlockSegments != null)
+                    {
+                        for (int i = 0; i < superBlockSegments.Length;)
+                        {
+                            ulong seg_block_num = BitConverter.ToUInt64(superBlockSegments, i);
+                            i += 8;
+                            int seg_bc_len = BitConverter.ToInt32(superBlockSegments, i);
+                            i += 4;
+                            byte[] seg_bc = new byte[seg_bc_len];
+                            Array.Copy(superBlockSegments, i, seg_bc, 0, seg_bc_len);
+                            i += seg_bc_len;
+
+                            b.superBlockSegments.Add(seg_block_num, new SuperBlockSegment(seg_block_num, seg_bc));
+                        }
+                    }
                     // special flag:
                     b.fromLocalStorage = true;
                     return b;
@@ -139,6 +170,12 @@ namespace DLT
 
                             timestamp = br.ReadInt64();
                             version = br.ReadInt32();
+
+                            count = br.ReadInt32();
+                            if(count > 0)
+                            {
+                                superBlockSegments = br.ReadBytes(count);
+                            }
                         }
                     }
                 }
@@ -246,6 +283,15 @@ namespace DLT
 
                             wr.Write(timestamp);
                             wr.Write(version);
+                            // superblock segments
+                            if(superBlockSegments != null)
+                            {
+                                wr.Write(superBlockSegments.Length);
+                                wr.Write(superBlockSegments);
+                            } else
+                            {
+                                wr.Write(0);
+                            }
                         }
                         return ms.ToArray();
                     }
@@ -755,20 +801,6 @@ namespace DLT
                     rocksOptions = new DbOptions();
                     rocksOptions.SetCreateIfMissing(true);
                     rocksOptions.SetCreateMissingColumnFamilies(true);
-                    var columnFamilies = new ColumnFamilies();
-                    // default column families
-                    columnFamilies.Add("blocks", new ColumnFamilyOptions());
-                    columnFamilies.Add("transactions", new ColumnFamilyOptions());
-                    columnFamilies.Add("meta", new ColumnFamilyOptions());
-                    // index column families
-                    columnFamilies.Add("index_block_checksum", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_block_last_sb_checksum", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_type", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_from", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_to", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_block_height", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_timestamp", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_applied", new ColumnFamilyOptions());
                     //
                     database = RocksDb.Open(rocksOptions, dbPath);
                     // initialize column family handles
