@@ -1374,7 +1374,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.info("RocksDB: Opening a new database for blocks {0} - {1}.", baseBlockNum, baseBlockNum + maxBlocksPerDB - 1);
+                        Logging.info("RocksDB: Opening a new database for blocks {0} - {1}.", baseBlockNum * maxBlocksPerDB, (baseBlockNum * maxBlocksPerDB) + maxBlocksPerDB - 1);
                         db = new RocksDBInternal(pathBase + Path.DirectorySeparatorChar + baseBlockNum.ToString());
                         openDatabases.Add(baseBlockNum, db);
                     }
