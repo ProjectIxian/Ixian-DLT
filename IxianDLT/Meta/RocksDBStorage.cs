@@ -31,6 +31,8 @@ namespace DLT
                 public long timestamp { get; set; }
                 public int version { get; set; }
                 //
+                public bool compactedSigs { get; set; }
+                //
                 public _storage_Block() { }
                 public _storage_Block(Block from_block)
                 {
@@ -38,23 +40,6 @@ namespace DLT
                     blockChecksum = from_block.blockChecksum;
                     lastBlockChecksum = from_block.lastBlockChecksum;
                     lastSuperblockNum = from_block.lastSuperBlockNum;
-                    lastSuperblockChecksum = from_block.lastSuperBlockChecksum;
-                    walletStateChecksum = from_block.walletStateChecksum;
-                    sigFreezeChecksum = from_block.signatureFreezeChecksum;
-                    difficulty = from_block.difficulty;
-                    powField = from_block.powField;
-                    signatures = new byte[from_block.signatures.Count][][];
-                    int i = 0;
-                    foreach (var sig in from_block.signatures)
-                    {
-                        signatures[i] = new byte[2][];
-                        signatures[i][0] = sig[0];
-                        signatures[i][1] = sig[1];
-                        i++;
-                    }
-                    transactions = from_block.transactions.ToArray();
-                    timestamp = from_block.timestamp;
-                    version = from_block.version;
                     if (lastSuperblockChecksum != null)
                     {
                         //this is a superblock
@@ -70,6 +55,35 @@ namespace DLT
                         }
                         superBlockSegments = ms.ToArray();
                     }
+                    lastSuperblockChecksum = from_block.lastSuperBlockChecksum;
+                    walletStateChecksum = from_block.walletStateChecksum;
+                    sigFreezeChecksum = from_block.signatureFreezeChecksum;
+                    difficulty = from_block.difficulty;
+                    powField = from_block.powField;
+
+                    List<byte[][]> source_signatures = null;
+                    if(from_block.frozenSignatures != null)
+                    {
+                        source_signatures = from_block.frozenSignatures;
+                    } else
+                    {
+                        source_signatures = from_block.signatures;
+                    }
+
+                    signatures = new byte[source_signatures.Count][][];
+                    int i = 0;
+                    foreach (byte[][] sig in source_signatures)
+                    {
+                        signatures[i] = new byte[2][];
+                        signatures[i][0] = sig[0];
+                        signatures[i][1] = sig[1];
+                        i += 1;
+                    }
+
+                    transactions = from_block.transactions.ToArray();
+                    timestamp = from_block.timestamp;
+                    version = from_block.version;
+                    compactedSigs = from_block.compactedSigs;
                 }
                 public Block asBlock()
                 {
@@ -79,19 +93,7 @@ namespace DLT
                     b.lastBlockChecksum = lastBlockChecksum;
                     b.lastSuperBlockNum = lastSuperblockNum;
                     b.lastSuperBlockChecksum = lastSuperblockChecksum;
-                    b.walletStateChecksum = walletStateChecksum;
-                    b.signatureFreezeChecksum = sigFreezeChecksum;
-                    b.difficulty = difficulty;
-                    b.powField = powField;
-                    b.signatures = new List<byte[][]>();
-                    foreach (var sig in signatures)
-                    {
-                        b.signatures.Add(new byte[2][] { sig[0], sig[1] });
-                    }
-                    b.transactions = transactions.ToList();
-                    b.timestamp = timestamp;
-                    b.version = version;
-                    if(superBlockSegments != null)
+                    if (superBlockSegments != null)
                     {
                         for (int i = 0; i < superBlockSegments.Length;)
                         {
@@ -106,6 +108,19 @@ namespace DLT
                             b.superBlockSegments.Add(seg_block_num, new SuperBlockSegment(seg_block_num, seg_bc));
                         }
                     }
+                    b.walletStateChecksum = walletStateChecksum;
+                    b.signatureFreezeChecksum = sigFreezeChecksum;
+                    b.difficulty = difficulty;
+                    b.powField = powField;
+                    b.signatures = new List<byte[][]>();
+                    foreach (var sig in signatures)
+                    {
+                        b.signatures.Add(new byte[2][] { sig[0], sig[1] });
+                    }
+                    b.transactions = transactions.ToList();
+                    b.timestamp = timestamp;
+                    b.version = version;
+                    b.compactedSigs = compactedSigs;
                     // special flag:
                     b.fromLocalStorage = true;
                     return b;
@@ -176,6 +191,8 @@ namespace DLT
                             {
                                 superBlockSegments = br.ReadBytes(count);
                             }
+
+                            compactedSigs = br.ReadBoolean();
                         }
                     }
                 }
@@ -292,6 +309,7 @@ namespace DLT
                             {
                                 wr.Write(0);
                             }
+                            wr.Write(compactedSigs);
                         }
                         return ms.ToArray();
                     }
