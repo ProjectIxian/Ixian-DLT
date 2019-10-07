@@ -117,7 +117,7 @@ namespace DLT
                     {
                         b.signatures.Add(new byte[2][] { sig[0], sig[1] });
                     }
-                    b.transactions = transactions.ToList();
+                    b.transactions = transactions != null ? transactions.ToList() : new List<string>();
                     b.timestamp = timestamp;
                     b.version = version;
                     b.compactedSigs = compactedSigs;
@@ -799,6 +799,8 @@ namespace DLT
                 }
             }
             public DateTime lastUsedTime { get; private set; }
+            public DateTime lastMaintenance { get; private set; }
+            public readonly double maintenanceInterval = 120.0;
 
             public RocksDBInternal(string db_path)
             {
@@ -820,7 +822,22 @@ namespace DLT
                     rocksOptions.SetCreateIfMissing(true);
                     rocksOptions.SetCreateMissingColumnFamilies(true);
                     //
-                    database = RocksDb.Open(rocksOptions, dbPath);
+                    var columnFamilies = new ColumnFamilies();
+                    // default column families
+                    columnFamilies.Add("blocks", new ColumnFamilyOptions());
+                    columnFamilies.Add("transactions", new ColumnFamilyOptions());
+                    columnFamilies.Add("meta", new ColumnFamilyOptions());
+                    // index column families
+                    columnFamilies.Add("index_block_checksum", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_block_last_sb_checksum", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_tx_type", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_tx_from", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_tx_to", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_tx_block_height", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_tx_timestamp", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_tx_applied", new ColumnFamilyOptions());
+                    //
+                    database = RocksDb.Open(rocksOptions, dbPath, columnFamilies);
                     // initialize column family handles
                     rocksCFBlocks = database.GetColumnFamily("blocks");
                     rocksCFTransactions = database.GetColumnFamily("transactions");
@@ -866,7 +883,51 @@ namespace DLT
                     {
                         maxBlockNumber = ulong.Parse(max_block_str);
                     }
+                    Logging.info("RocksDB: Opened Database {0}: Blocks {1} - {2}, version {3}", dbPath, minBlockNumber, maxBlockNumber, dbVersion);
+                    Logging.info("RocksDB: Stats: {0}", database.GetProperty("rocksdb.stats"));
                     lastUsedTime = DateTime.Now;
+                    lastMaintenance = DateTime.Now;
+                }
+            }
+
+            public void logStats()
+            {
+                if (database != null)
+                {
+                    Logging.info("RocksDB: Stats for '{0}': {1}", dbPath, database.GetProperty("rocksdb.stats"));
+                }
+            }
+
+            public void maintenance()
+            {
+                if(database != null)
+                {
+                    if((DateTime.Now - lastMaintenance).TotalSeconds > maintenanceInterval)
+                    {
+                        Logging.info("RocksDB: Performing regular maintenance (compaction) on database '{0}'.", dbPath);
+                        try
+                        {
+                            lock (rockLock)
+                            {
+                                var i = database.NewIterator(rocksCFBlocks);
+                                i = i.SeekToFirst();
+                                var first_key = i.Key();
+                                i = i.SeekToLast();
+                                var last_key = i.Key();
+                                database.CompactRange(first_key, last_key, rocksCFBlocks);
+                                i = database.NewIterator(rocksCFTransactions);
+                                i = i.SeekToFirst();
+                                first_key = i.Key();
+                                i = i.SeekToLast();
+                                last_key = i.Key();
+                                database.CompactRange(first_key, last_key, rocksCFTransactions);
+                            }
+                        }catch(Exception e)
+                        {
+                            Logging.warn("RocksDB: Error while performing regular maintenance on '{0}': {1}", dbPath, e.Message);
+                        }
+                        lastMaintenance = DateTime.Now;
+                    }
                 }
             }
 
@@ -1302,20 +1363,25 @@ namespace DLT
             {
                 // open or create the db which should contain blockNum
                 ulong baseBlockNum = blockNum / maxBlocksPerDB;
+                //Logging.info("RocksDB: Getting database for block {0} (Database: {1}).", blockNum, baseBlockNum);
                 RocksDBInternal db = null;
                 lock (openDatabases)
                 {
                     if (openDatabases.ContainsKey(baseBlockNum))
                     {
                         db = openDatabases[baseBlockNum];
+                        //Logging.info("RocksDB: Database is already registered. Opened = {0}", db.isOpen);
                     }
                     else
                     {
+                        Logging.info("RocksDB: Opening a new database for blocks {0} - {1}.", baseBlockNum, baseBlockNum + maxBlocksPerDB - 1);
                         db = new RocksDBInternal(pathBase + Path.DirectorySeparatorChar + baseBlockNum.ToString());
+                        openDatabases.Add(baseBlockNum, db);
                     }
                 }
                 if (!db.isOpen)
                 {
+                    Logging.info("RocksDB: Database {0} is not opened - opening.", baseBlockNum);
                     db.openDatabase();
                 }
                 return db;
@@ -1349,7 +1415,10 @@ namespace DLT
                 {
                     foreach (var db in openDatabases.Values)
                     {
-                        if ((DateTime.Now - db.lastUsedTime).TotalSeconds >= closeAfterSeconds)
+                        // Heavy RocksDB debug output, remove when in production
+                        db.logStats();
+                        db.maintenance();
+                        if (db.isOpen && (DateTime.Now - db.lastUsedTime).TotalSeconds >= closeAfterSeconds)
                         {
                             Logging.info("RocksDB: Closing '{0}' due to inactivity.", db.dbPath);
                             db.closeDatabase();

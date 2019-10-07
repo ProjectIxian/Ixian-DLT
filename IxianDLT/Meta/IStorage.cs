@@ -16,6 +16,7 @@ namespace DLT
             private Thread thread = null;
             private bool running = false;
             private ThreadLiveCheck TLC;
+            private DateTime lastCleanupPass = DateTime.Now;
 
             protected enum QueueStorageCode
             {
@@ -102,7 +103,16 @@ namespace DLT
                         }
                         else
                         {
-                            // Sleep for 10ms to prevent cpu waste
+                            if ((DateTime.Now - lastCleanupPass).TotalSeconds > 60.0)
+                            {
+                                lastCleanupPass = DateTime.Now;
+                                // this is only enabled on Rocks for now
+                                if (this is RocksDBStorage)
+                                {
+                                    cleanupCache();
+                                }
+                            }
+                            // Sleep for 10ms to yield CPU schedule slot
                             Thread.Sleep(10);
                         }
                     }
