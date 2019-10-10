@@ -1359,7 +1359,7 @@ namespace DLT
             public ulong maxBlocksPerDB = 10000;
             
 
-            private RocksDBInternal getDatabase(ulong blockNum)
+            private RocksDBInternal getDatabase(ulong blockNum, bool onlyExisting = false)
             {
                 // open or create the db which should contain blockNum
                 ulong baseBlockNum = blockNum / maxBlocksPerDB;
@@ -1374,8 +1374,17 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.info("RocksDB: Opening a new database for blocks {0} - {1}.", baseBlockNum * maxBlocksPerDB, (baseBlockNum * maxBlocksPerDB) + maxBlocksPerDB - 1);
-                        db = new RocksDBInternal(pathBase + Path.DirectorySeparatorChar + baseBlockNum.ToString());
+                        string db_path = pathBase + Path.DirectorySeparatorChar + baseBlockNum.ToString();
+                        if (onlyExisting)
+                        {
+                            if (!Directory.Exists(db_path))
+                            {
+                                Logging.info("RocksDB: Open of '{0} requested with onlyExisting = true, but it does not exist.", db_path);
+                                return null;
+                            }
+                        }
+                        Logging.info("RocksDB: Opening a database for blocks {0} - {1}.", baseBlockNum * maxBlocksPerDB, (baseBlockNum * maxBlocksPerDB) + maxBlocksPerDB - 1);
+                        db = new RocksDBInternal(db_path);
                         openDatabases.Add(baseBlockNum, db);
                     }
                 }
@@ -1469,7 +1478,8 @@ namespace DLT
                 ulong latest_db = 0;
                 foreach(var d in Directory.EnumerateDirectories(pathBase))
                 {
-                    string final_dir = Path.GetDirectoryName(d);
+                    string[] dir_parts = d.Split(Path.DirectorySeparatorChar);
+                    string final_dir = dir_parts[dir_parts.Length - 1];
                     if(ulong.TryParse(final_dir, out ulong db_base))
                     {
                         if(db_base > latest_db)
@@ -1484,8 +1494,15 @@ namespace DLT
                 }
                 lock (openDatabases)
                 {
-                    var db = getDatabase(latest_db);
-                    return db.maxBlockNumber;
+                    for(ulong i = latest_db; i >= 0; i--)
+                    {
+                        var db = getDatabase(i * maxBlocksPerDB, true);
+                        if (db != null && db.maxBlockNumber > 0)
+                        {
+                            return db.maxBlockNumber;
+                        }
+                    }
+                    return 0;
                 }
             }
 

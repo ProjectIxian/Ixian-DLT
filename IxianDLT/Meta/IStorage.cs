@@ -28,6 +28,7 @@ namespace DLT
             protected struct QueueStorageMessage
             {
                 public QueueStorageCode code;
+                public int retryCount;
                 public object data;
             }
 
@@ -119,10 +120,52 @@ namespace DLT
                     catch (Exception e)
                     {
                         Logging.error("Exception occured in storage thread loop: " + e);
+                        debugDumpCrashObject(active_message);
+                        active_message.retryCount += 1;
+                        if(active_message.retryCount > 10)
+                        {
+                            Logging.error("Too many retries, aborting...");
+                            shutdown();
+                            throw new Exception("Too many storage retries. Aborting storage thread.");
+                        }
+                        lock(queueStatements)
+                        {
+                            queueStatements.Add(active_message);
+                        }
+
                     }
                     Thread.Yield();
                 }
-                cleanupCache();
+                shutdown();
+            }
+
+            private void debugDumpCrashObject(QueueStorageMessage message)
+            {
+                Logging.error("Crashed on message: (code: {0}, retry count: {1})", message.code.ToString(), message.retryCount);
+                if(message.code == QueueStorageCode.insertBlock)
+                {
+                    debugDumpCrashBlock((Block)message.data);
+                } else if (message.code == QueueStorageCode.insertTransaction)
+                {
+                    debugDumpCrashTX((Transaction)message.data);
+                } else
+                {
+                    Logging.error("Message is 'updateTXAppliedFlag'.");
+                }
+            }
+
+            private void debugDumpCrashBlock(Block b)
+            {
+                Logging.error("Block #{0}, checksum: {1}.", b.blockNum, Base58Check.Base58CheckEncoding.EncodePlain(b.blockChecksum));
+                Logging.error("Transactions: {0}, signatures: {1}, timestamp: {2}.", b.transactions.Count, b.signatures.Count, b.timestamp);
+                Logging.error("Complete block: {0}", Base58Check.Base58CheckEncoding.EncodePlain(b.getBytes()));
+            }
+
+            private void debugDumpCrashTX(Transaction tx)
+            {
+                Logging.error("Transaction {0}, checksum: {1}", tx.id, Base58Check.Base58CheckEncoding.EncodePlain(tx.checksum));
+                Logging.error("Type: {0}, amount: {1}", tx.type, tx.amount);
+                Logging.error("Complete transaction: {0}", Base58Check.Base58CheckEncoding.EncodePlain(tx.getBytes()));
             }
 
             public virtual bool redactBlockStorage(ulong removeBlocksBelow)
@@ -156,6 +199,7 @@ namespace DLT
                 QueueStorageMessage message = new QueueStorageMessage
                 {
                     code = QueueStorageCode.insertBlock,
+                    retryCount = 0,
                     data = new Block(block)
                 };
 
@@ -172,6 +216,7 @@ namespace DLT
                 QueueStorageMessage message = new QueueStorageMessage
                 {
                     code = QueueStorageCode.insertTransaction,
+                    retryCount = 0,
                     data = new Transaction(transaction)
                 };
 
