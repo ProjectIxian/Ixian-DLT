@@ -377,15 +377,13 @@ namespace DLT
                     tx.type = type;
                     tx.amount = new IxiNumber(new System.Numerics.BigInteger(amount));
                     tx.fee = new IxiNumber(new System.Numerics.BigInteger(fee));
-                    tx.toList = new SortedDictionary<byte[], IxiNumber>();
                     foreach (var to in toList)
                     {
-                        tx.toList.Add(to[0], new IxiNumber(new System.Numerics.BigInteger(to[1])));
+                        tx.toList.AddOrReplace(to[0], new IxiNumber(new System.Numerics.BigInteger(to[1])));
                     }
-                    tx.fromList = new SortedDictionary<byte[], IxiNumber>();
                     foreach (var from in fromList)
                     {
-                        tx.fromList.Add(from[0], new IxiNumber(new System.Numerics.BigInteger(from[1])));
+                        tx.fromList.AddOrReplace(from[0], new IxiNumber(new System.Numerics.BigInteger(from[1])));
                     }
                     tx.data = data;
                     tx.blockHeight = blockHeight;
@@ -801,13 +799,21 @@ namespace DLT
             public DateTime lastUsedTime { get; private set; }
             public DateTime lastMaintenance { get; private set; }
             public readonly double maintenanceInterval = 120.0;
+            // Caches (shared with other rocksDb
+            private Cache blockCache = null;
+            private Cache compressedBlockCache = null;
+            private ulong writeBufferSize = 0;
 
-            public RocksDBInternal(string db_path)
+
+            public RocksDBInternal(string db_path, Cache block_cache = null, Cache compressed_block_cache = null, ulong write_buffer_size = 0)
             {
                 dbPath = db_path;
                 minBlockNumber = 0;
                 maxBlockNumber = 0;
                 dbVersion = 0;
+                blockCache = block_cache;
+                compressedBlockCache = compressed_block_cache;
+                writeBufferSize = write_buffer_size;
             }
 
             public void openDatabase()
@@ -821,21 +827,35 @@ namespace DLT
                     rocksOptions = new DbOptions();
                     rocksOptions.SetCreateIfMissing(true);
                     rocksOptions.SetCreateMissingColumnFamilies(true);
-                    //
-                    var columnFamilies = new ColumnFamilies();
+                    if (writeBufferSize > 0)
+                    {
+                        rocksOptions.SetDbWriteBufferSize(writeBufferSize);
+                    }
+                    BlockBasedTableOptions bbto = new BlockBasedTableOptions();
+                    if(blockCache != null)
+                    {
+                        bbto.SetBlockCache(blockCache.Handle);
+                    }
+                    if(compressedBlockCache != null)
+                    {
+                        bbto.SetBlockCacheCompressed(compressedBlockCache.Handle);
+                    }
+                    ColumnFamilyOptions cfo = new ColumnFamilyOptions();
+                    cfo.SetBlockBasedTableFactory(bbto);
+                    var columnFamilies = new ColumnFamilies(cfo);
                     // default column families
-                    columnFamilies.Add("blocks", new ColumnFamilyOptions());
-                    columnFamilies.Add("transactions", new ColumnFamilyOptions());
-                    columnFamilies.Add("meta", new ColumnFamilyOptions());
+                    columnFamilies.Add("blocks", cfo);
+                    columnFamilies.Add("transactions", cfo);
+                    columnFamilies.Add("meta", cfo);
                     // index column families
-                    columnFamilies.Add("index_block_checksum", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_block_last_sb_checksum", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_type", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_from", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_to", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_block_height", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_timestamp", new ColumnFamilyOptions());
-                    columnFamilies.Add("index_tx_applied", new ColumnFamilyOptions());
+                    columnFamilies.Add("index_block_checksum", cfo);
+                    columnFamilies.Add("index_block_last_sb_checksum", cfo);
+                    columnFamilies.Add("index_tx_type", cfo);
+                    columnFamilies.Add("index_tx_from", cfo);
+                    columnFamilies.Add("index_tx_to", cfo);
+                    columnFamilies.Add("index_tx_block_height", cfo);
+                    columnFamilies.Add("index_tx_timestamp", cfo);
+                    columnFamilies.Add("index_tx_applied", cfo);
                     //
                     database = RocksDb.Open(rocksOptions, dbPath, columnFamilies);
                     // initialize column family handles
@@ -894,7 +914,17 @@ namespace DLT
             {
                 if (database != null)
                 {
-                    Logging.info("RocksDB: Stats for '{0}': {1}", dbPath, database.GetProperty("rocksdb.stats"));
+                    if (blockCache != null)
+                    {
+                        Logging.info("RocksDB: Common Cache Bytes Used: {0}", blockCache.GetUsage());
+                    }
+                    if (compressedBlockCache != null)
+                    {
+                        Logging.info("RocksDB: Common Compressed Cache Bytes Used: {0}", compressedBlockCache.GetUsage());
+                    }
+                    Logging.info("RocksDB: Stats [rocksdb.block-cache-usage] '{0}': {1}", dbPath, database.GetProperty("rocksdb.block-cache-usage"));
+                    Logging.info("RocksDB: Stats for '{0}': {1}", dbPath, database.GetProperty("rocksdb.dbstats"));
+
                 }
             }
 
@@ -1357,6 +1387,11 @@ namespace DLT
             private readonly Dictionary<ulong, RocksDBInternal> openDatabases = new Dictionary<ulong, RocksDBInternal>();
             public uint closeAfterSeconds = 60;
             public ulong maxBlocksPerDB = 10000;
+
+            // Runtime stuff
+            private ulong writeBufferSize = 0;
+            private Cache commonBlockCache = null;
+            private Cache commonCompressedBlockCache = null;
             
 
             private RocksDBInternal getDatabase(ulong blockNum, bool onlyExisting = false)
@@ -1384,7 +1419,7 @@ namespace DLT
                             }
                         }
                         Logging.info("RocksDB: Opening a database for blocks {0} - {1}.", baseBlockNum * maxBlocksPerDB, (baseBlockNum * maxBlocksPerDB) + maxBlocksPerDB - 1);
-                        db = new RocksDBInternal(db_path);
+                        db = new RocksDBInternal(db_path, commonBlockCache, commonCompressedBlockCache, writeBufferSize);
                         openDatabases.Add(baseBlockNum, db);
                     }
                 }
@@ -1395,6 +1430,67 @@ namespace DLT
                 }
                 return db;
             }
+
+            private ulong getPhysicalMemorySizeMB()
+            {
+                ulong totalMemoryKB = 0;
+                try
+                {
+                    System.Management.ObjectQuery csQuery = new System.Management.ObjectQuery("SELECT * FROM CIM_OperatingSystem");
+                    System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(csQuery);
+
+                    foreach (var obj in searcher.Get())
+                    {
+                        totalMemoryKB = Convert.ToUInt64(obj["TotalVisibleMemorySize"]);
+                        break;
+                    }
+                }
+                catch (Exception)
+                {
+                    // ignore
+                }
+                return totalMemoryKB / 1024;
+            }
+
+            private ulong estimateDBWriteBufferSize()
+            {
+                const ulong MB = 1024 * 1024;
+                const ulong GB = 1024 * MB;
+                ulong memMB = getPhysicalMemorySizeMB();
+                if (memMB < 4096) // 4GB or below or indeterminate
+                {
+                    return 128 * MB;
+                }
+                else if (memMB < 8192) // between 4GB and 8GB
+                {
+                    return 512 * MB;
+                }
+                else // above 8GB
+                {
+                    return 1 * GB;
+                }
+            }
+
+            private ulong estimateDBBlockCacheSize()
+            {
+                const ulong MB = 1024 * 1024;
+                const ulong GB = 1024 * MB;
+                ulong memMB = getPhysicalMemorySizeMB();
+                if (memMB < 4096) // 4GB or below or indeterminate
+                {
+                    return 512 * MB;
+                }
+                else if (memMB < 8192) // between 4GB and 8GB
+                { 
+                    return 1 * GB;
+                }
+                else // above 8GB
+                {
+                    return 2 * GB;
+                }
+            }
+
+
 
             protected override bool prepareStorageInternal()
             {
@@ -1415,6 +1511,11 @@ namespace DLT
                         return false;
                     }
                 }
+                // preare cache
+                writeBufferSize = estimateDBWriteBufferSize();
+                ulong blockCacheSize = estimateDBBlockCacheSize();
+                commonBlockCache = Cache.CreateLru(blockCacheSize / 2);
+                commonCompressedBlockCache = Cache.CreateLru(blockCacheSize / 2);
                 return true;
             }
 
