@@ -142,15 +142,20 @@ namespace DLT
             private void debugDumpCrashObject(QueueStorageMessage message)
             {
                 Logging.error("Crashed on message: (code: {0}, retry count: {1})", message.code.ToString(), message.retryCount);
-                if(message.code == QueueStorageCode.insertBlock)
+                if (message.retryCount == 1 || message.retryCount >= 10)
                 {
-                    debugDumpCrashBlock((Block)message.data);
-                } else if (message.code == QueueStorageCode.insertTransaction)
-                {
-                    debugDumpCrashTX((Transaction)message.data);
-                } else
-                {
-                    Logging.error("Message is 'updateTXAppliedFlag'.");
+                    if (message.code == QueueStorageCode.insertBlock)
+                    {
+                        debugDumpCrashBlock((Block)message.data);
+                    }
+                    else if (message.code == QueueStorageCode.insertTransaction)
+                    {
+                        debugDumpCrashTX((Transaction)message.data);
+                    }
+                    else
+                    {
+                        Logging.error("Message is 'updateTXAppliedFlag'.");
+                    }
                 }
             }
 
