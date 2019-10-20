@@ -1116,7 +1116,7 @@ namespace DLT
 
             protected override void shutdown()
             {
-                throw new NotImplementedException();
+                // does nothing for this provider
             }
         }
     }

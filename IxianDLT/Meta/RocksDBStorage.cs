@@ -1449,12 +1449,15 @@ namespace DLT
         {
             private readonly Dictionary<ulong, RocksDBInternal> openDatabases = new Dictionary<ulong, RocksDBInternal>();
             public uint closeAfterSeconds = 60;
+            public uint oldDBCleanupPeriod = 600;
             public ulong maxBlocksPerDB = 10000;
 
             // Runtime stuff
             private ulong writeBufferSize = 0;
             private Cache commonBlockCache = null;
             private Cache commonCompressedBlockCache = null;
+            private DateTime lastOldCleanup = DateTime.Now;
+
             
 
             private RocksDBInternal getDatabase(ulong blockNum, bool onlyExisting = false)
@@ -1597,17 +1600,51 @@ namespace DLT
             {
                 lock (openDatabases)
                 {
+                    Logging.info("RocksDB Registered database list:");
                     foreach (var db in openDatabases.Values)
                     {
+                        Logging.info("RocksDB: [{0}]: open: {1}, last used: {2}, last maintenance: {3}",
+                            db.dbPath,
+                            db.isOpen,
+                            db.lastUsedTime,
+                            db.lastMaintenance
+                            );
+                    }
+                    List<ulong> toDrop = new List<ulong>();
+                    foreach (var db in openDatabases)
+                    {
                         // Heavy RocksDB debug output, remove when in production
-                        db.logStats();
-                        db.maintenance();
-                        if (db.isOpen && (DateTime.Now - db.lastUsedTime).TotalSeconds >= closeAfterSeconds)
+                        db.Value.logStats();
+                        db.Value.maintenance();
+                        if (db.Value.isOpen && (DateTime.Now - db.Value.lastUsedTime).TotalSeconds >= closeAfterSeconds)
                         {
-                            Logging.info("RocksDB: Closing '{0}' due to inactivity.", db.dbPath);
-                            db.closeDatabase();
+                            Logging.info("RocksDB: Closing '{0}' due to inactivity.", db.Value.dbPath);
+                            db.Value.closeDatabase();
+                            toDrop.Add(db.Key);
                         }
                     }
+                    foreach (ulong dbnum in toDrop)
+                    {
+                        openDatabases.Remove(dbnum);
+                    }
+                    // periodically we need to reopen old databases to cause log files to release
+                    if ((DateTime.Now - lastOldCleanup).TotalSeconds > oldDBCleanupPeriod)
+                    {
+                        Logging.info("RocksDB: Performing cleanup of old databases.");
+                        lastOldCleanup = DateTime.Now;
+                        if (openDatabases.Count > 0)
+                        {
+                            var most_recent_db = openDatabases.OrderByDescending(x => x.Value.lastUsedTime).First();
+                            ulong current_db = most_recent_db.Key;
+                            for (ulong i = current_db; i > current_db - 10; i++)
+                            {
+                                var db = getDatabase(i, true);
+                                Logging.info("RocksDB: Cleaning up log files for database {0}", db.dbPath);
+                                // the auto cleanup will take care of them later
+                            }
+                        }
+                    }
+
 
                     // check disk status and close databases if we're running low
                     try
@@ -1619,24 +1656,12 @@ namespace DLT
                             // close the oldest database - this might cause the only currently-open database to be closed, but it will force block compaction and reorg,
                             // which should return some disk space. 
                             // The log will show this as a warning, because it means the disk hosting the block database really isn't large enough.
-                            var oldest_db = openDatabases.Values.OrderBy(x => x.lastUsedTime).Where(x => x.isOpen).First();
-                            if (oldest_db != null)
-                            {
-                                Logging.info("RocksDB Registered database list:");
-                                foreach(var db in openDatabases.Values)
-                                {
-                                    Logging.info("RocksDB: [{0}]: open: {1}, last used: {2}, last maintenance: {3}",
-                                        db.dbPath,
-                                        db.isOpen,
-                                        db.lastUsedTime,
-                                        db.lastMaintenance
-                                        );
-                                }
-                                Logging.warn("RocksDB: Disk free space is low, closing the oldest database: {0}", oldest_db.dbPath);
-                                oldest_db.closeDatabase();
-                                long diskFreeBytesAfter = GetTotalFreeSpace(Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()));
-                                Logging.info("RocksDB: After close, disk has {0} bytes free.", diskFreeBytesAfter);
-                            }
+                            var oldest_db = openDatabases.OrderBy(x => x.Value.lastUsedTime).Where(x => x.Value.isOpen).First();
+                            Logging.warn("RocksDB: Disk free space is low, closing the oldest database: {0}", oldest_db.Value.dbPath);
+                            oldest_db.Value.closeDatabase();
+                            openDatabases.Remove(oldest_db.Key);
+                            long diskFreeBytesAfter = GetTotalFreeSpace(Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()));
+                            Logging.info("RocksDB: After close, disk has {0} bytes free.", diskFreeBytesAfter);
                         }
                     }
                     catch (Exception e)
