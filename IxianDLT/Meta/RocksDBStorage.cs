@@ -708,6 +708,7 @@ namespace DLT
                         fromBytes(iter.Key(), iter.Value());
                         iter.Next();
                     }
+                    iter.Dispose();
                 }
 
                 private byte[] asBytes(byte[] key)
@@ -828,6 +829,8 @@ namespace DLT
                     rocksOptions.SetCreateIfMissing(true);
                     rocksOptions.SetCreateMissingColumnFamilies(true);
                     rocksOptions.SetTargetFileSizeMultiplier(1);
+                    rocksOptions.SetLogFileTimeToRoll(604800000000); // about 7 days
+                    rocksOptions.SetRecycleLogFileNum(30);
                     if (writeBufferSize > 0)
                     {
                         rocksOptions.SetDbWriteBufferSize(writeBufferSize);
@@ -947,12 +950,15 @@ namespace DLT
                                 i = i.SeekToLast();
                                 var last_key = i.Key();
                                 database.CompactRange(first_key, last_key, rocksCFBlocks);
+                                i.Dispose();
+                                //
                                 i = database.NewIterator(rocksCFTransactions);
                                 i = i.SeekToFirst();
                                 first_key = i.Key();
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, rocksCFTransactions);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxBlocksChecksum.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -960,6 +966,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxBlocksChecksum.rocksIndexHandle);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxBlocksLastSBChecksum.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -967,6 +974,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxBlocksLastSBChecksum.rocksIndexHandle);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxTXType.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -974,6 +982,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxTXType.rocksIndexHandle);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxTXFrom.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -981,6 +990,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxTXFrom.rocksIndexHandle);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxTXTo.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -988,6 +998,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxTXTo.rocksIndexHandle);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxTXBlockHeight.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -995,6 +1006,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxTXBlockHeight.rocksIndexHandle);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxTXTimestamp.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -1002,6 +1014,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxTXTimestamp.rocksIndexHandle);
+                                i.Dispose();
                                 //
                                 i = database.NewIterator(idxTXApplied.rocksIndexHandle);
                                 i = i.SeekToFirst();
@@ -1009,6 +1022,7 @@ namespace DLT
                                 i = i.SeekToLast();
                                 last_key = i.Key();
                                 database.CompactRange(first_key, last_key, idxTXApplied.rocksIndexHandle);
+                                i.Dispose();
                             }
                         }
                         catch(Exception e)
@@ -1028,8 +1042,6 @@ namespace DLT
                     {
                         return;
                     }
-                    database.Dispose();
-                    database = null;
                     // free all blocks column families
                     rocksCFBlocks = null;
                     rocksCFMeta = null;
@@ -1043,6 +1055,10 @@ namespace DLT
                     idxTXBlockHeight = null;
                     idxTXTimestamp = null;
                     idxTXApplied = null;
+                    //
+                    rocksOptions = null;
+                    database.Dispose();
+                    database = null;
                 }
             }
 
@@ -1230,6 +1246,7 @@ namespace DLT
                             blocks.Add(new _storage_Block(iter.Value()).asBlock());
                         }
                     }
+                    iter.Dispose();
                     return blocks;
                 }
             }
@@ -1456,9 +1473,6 @@ namespace DLT
             private ulong writeBufferSize = 0;
             private Cache commonBlockCache = null;
             private Cache commonCompressedBlockCache = null;
-            private DateTime lastOldCleanup = DateTime.Now;
-
-            
 
             private RocksDBInternal getDatabase(ulong blockNum, bool onlyExisting = false)
             {
@@ -1613,8 +1627,6 @@ namespace DLT
                     List<ulong> toDrop = new List<ulong>();
                     foreach (var db in openDatabases)
                     {
-                        // Heavy RocksDB debug output, remove when in production
-                        db.Value.logStats();
                         db.Value.maintenance();
                         if (db.Value.isOpen && (DateTime.Now - db.Value.lastUsedTime).TotalSeconds >= closeAfterSeconds)
                         {
@@ -1627,24 +1639,6 @@ namespace DLT
                     {
                         openDatabases.Remove(dbnum);
                     }
-                    // periodically we need to reopen old databases to cause log files to release
-                    if ((DateTime.Now - lastOldCleanup).TotalSeconds > oldDBCleanupPeriod)
-                    {
-                        Logging.info("RocksDB: Performing cleanup of old databases.");
-                        lastOldCleanup = DateTime.Now;
-                        if (openDatabases.Count > 0)
-                        {
-                            var most_recent_db = openDatabases.OrderByDescending(x => x.Value.lastUsedTime).First();
-                            ulong current_db = most_recent_db.Key;
-                            for (ulong i = current_db; i > current_db - 10; i++)
-                            {
-                                var db = getDatabase(i, true);
-                                Logging.info("RocksDB: Cleaning up log files for database {0}", db.dbPath);
-                                // the auto cleanup will take care of them later
-                            }
-                        }
-                    }
-
 
                     // check disk status and close databases if we're running low
                     try
@@ -1657,7 +1651,7 @@ namespace DLT
                             // which should return some disk space. 
                             // The log will show this as a warning, because it means the disk hosting the block database really isn't large enough.
                             var oldest_db = openDatabases.OrderBy(x => x.Value.lastUsedTime).Where(x => x.Value.isOpen).First();
-                            Logging.warn("RocksDB: Disk free space is low, closing the oldest database: {0}", oldest_db.Value.dbPath);
+                            Logging.warn("RocksDB: Disk free space is low, closing/reopening the oldest database to force compaction: {0}", oldest_db.Value.dbPath);
                             oldest_db.Value.closeDatabase();
                             openDatabases.Remove(oldest_db.Key);
                             long diskFreeBytesAfter = GetTotalFreeSpace(Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()));
