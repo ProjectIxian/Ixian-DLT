@@ -50,6 +50,7 @@ namespace DLT
                     return dataFolderPath + Path.DirectorySeparatorChar + "blocks";
                 }
             }
+            public static bool optimizeDBStorage = false;
             public static string configFilename = "ixian.cfg";
             public static string walletFile = "ixian.wal";
             public static string genesisFile = "genesis.dat";
@@ -147,6 +148,7 @@ namespace DLT
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
 				Console.WriteLine("    --verifyStorage\t Full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
+                Console.WriteLine("    --optimizeDBStorage\t Only for RocksDB: Performs manual compaction on all databases before starting the node. MAY TAKE SOME TIME!");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue syntax.");
@@ -381,6 +383,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("disableWebStart").Callback(value => disableWebStart = true).Required();
 
                 cmd_parser.Setup<string>("dataFolderPath").Callback(value => dataFolderPath = value).Required();
+
+                cmd_parser.Setup<bool>("optimizeDBStorage").Callback(value => optimizeDBStorage = value).Required();
 
                 cmd_parser.Setup<bool>("disableMiner").Callback(value => disableMiner = true).Required();
 

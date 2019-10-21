@@ -1473,6 +1473,7 @@ namespace DLT
             private ulong writeBufferSize = 0;
             private Cache commonBlockCache = null;
             private Cache commonCompressedBlockCache = null;
+            private Queue<RocksDBInternal> reopenCleanupList = new Queue<RocksDBInternal>();
 
             private RocksDBInternal getDatabase(ulong blockNum, bool onlyExisting = false)
             {
@@ -1607,6 +1608,24 @@ namespace DLT
                 ulong blockCacheSize = estimateDBBlockCacheSize();
                 commonBlockCache = Cache.CreateLru(blockCacheSize / 2);
                 commonCompressedBlockCache = Cache.CreateLru(blockCacheSize / 2);
+                // pre-start DB optimization
+                if (Config.optimizeDBStorage)
+                {
+                    Logging.info("RocksDB: Performing pre-start DB compaction and optimization.");
+                    foreach (string db in Directory.GetDirectories(pathBase)) {
+                        Logging.info("RocksDB: Optimizing [{0}].", db);
+                        RocksDBInternal temp_db = new RocksDBInternal(db);
+                        try
+                        {
+                            temp_db.openDatabase();
+                            temp_db.closeDatabase();
+                        } catch(Exception e)
+                        {
+                            Logging.warn("RocksDB: Error while opening database {0}: {1}", db, e.Message);
+                        }
+                    }
+                    Logging.info("RocksDB: Pre-start optimnization complete.");
+                }
                 return true;
             }
 
@@ -1633,11 +1652,22 @@ namespace DLT
                             Logging.info("RocksDB: Closing '{0}' due to inactivity.", db.Value.dbPath);
                             db.Value.closeDatabase();
                             toDrop.Add(db.Key);
+                            reopenCleanupList.Enqueue(db.Value);
                         }
                     }
                     foreach (ulong dbnum in toDrop)
                     {
                         openDatabases.Remove(dbnum);
+                    }
+
+                    int num = 0;
+                    while(num < 2 && reopenCleanupList.Count > 0)
+                    {
+                        var db = reopenCleanupList.Dequeue();
+                        Logging.info("RocksDB: Reopening previously closed database [{0}] to allow RocksDB removal of stale log files.", db.dbPath);
+                        db.openDatabase();
+                        db.closeDatabase();
+                        num += 1;
                     }
 
                     // check disk status and close databases if we're running low
@@ -1654,6 +1684,7 @@ namespace DLT
                             Logging.warn("RocksDB: Disk free space is low, closing/reopening the oldest database to force compaction: {0}", oldest_db.Value.dbPath);
                             oldest_db.Value.closeDatabase();
                             openDatabases.Remove(oldest_db.Key);
+                            reopenCleanupList.Enqueue(oldest_db.Value);
                             long diskFreeBytesAfter = GetTotalFreeSpace(Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()));
                             Logging.info("RocksDB: After close, disk has {0} bytes free.", diskFreeBytesAfter);
                         }
