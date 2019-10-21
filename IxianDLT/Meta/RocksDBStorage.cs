@@ -1474,6 +1474,7 @@ namespace DLT
             private Cache commonBlockCache = null;
             private Cache commonCompressedBlockCache = null;
             private Queue<RocksDBInternal> reopenCleanupList = new Queue<RocksDBInternal>();
+            private DateTime lastReopenOptimize = DateTime.Now;
 
             private RocksDBInternal getDatabase(ulong blockNum, bool onlyExisting = false)
             {
@@ -1660,14 +1661,37 @@ namespace DLT
                         openDatabases.Remove(dbnum);
                     }
 
-                    int num = 0;
-                    while(num < 2 && reopenCleanupList.Count > 0)
+                    if ((DateTime.Now - lastReopenOptimize).TotalSeconds > 60.0)
                     {
-                        var db = reopenCleanupList.Dequeue();
-                        Logging.info("RocksDB: Reopening previously closed database [{0}] to allow RocksDB removal of stale log files.", db.dbPath);
-                        db.openDatabase();
-                        db.closeDatabase();
-                        num += 1;
+                        int num = 0;
+                        List<RocksDBInternal> problemDBs = new List<RocksDBInternal>();
+                        while (num < 2 && reopenCleanupList.Count > 0)
+                        {
+                            var db = reopenCleanupList.Dequeue();
+                            if(openDatabases.Values.Any(x => x.dbPath == db.dbPath))
+                            {
+                                Logging.info("RocksDB: Database [{0}] was still in use, skipping until it is closed.", db.dbPath);
+                                continue;
+                            }
+                            Logging.info("RocksDB: Reopening previously closed database [{0}] to allow RocksDB removal of stale log files.", db.dbPath);
+                            try
+                            {
+                                db.openDatabase();
+                                db.closeDatabase();
+                                Logging.info("RocksDB: Reopen succeeded");
+                            } catch(Exception)
+                            {
+                                // these were attempted too quickly and RocksDB internal still has some pointers open
+                                problemDBs.Add(db);
+                                Logging.info("RocksDB: Database [{0}] was locked by another process, will try again later.", db.dbPath);
+                            }
+                            num += 1;
+                        }
+                        foreach(var db in problemDBs)
+                        {
+                            reopenCleanupList.Enqueue(db);
+                        }
+                        lastReopenOptimize = DateTime.Now;
                     }
 
                     // check disk status and close databases if we're running low
