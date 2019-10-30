@@ -67,12 +67,12 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.6e"; // DLT Node version
+            public static readonly string version = "xdc-0.6.6f"; // DLT Node version
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 850000 + (ulong)(new Random()).Next(200); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 1000000 + (ulong)(new Random()).Next(500); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
