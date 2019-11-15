@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using IXICore;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace UnitTests
 {
@@ -73,6 +74,70 @@ namespace UnitTests
             Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should not be the same as empty!");
             pit.remove(txid);
             Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty if all hashes are removed!");
+        }
+
+        [TestMethod]
+        public void hashIsRepeatable()
+        {
+            PrefixInclusionTree pit = new PrefixInclusionTree();
+            List<string> txids = new List<string>();
+            for(int i=0;i<RNG.Next(25);i++)
+            {
+                txids.Add(generateRandomTXID());
+            }
+            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty before any hashes are added!");
+            foreach(string tx in txids)
+            {
+                pit.add(tx);
+            }
+            byte[] pit_hash = pit.calculateTreeHash();
+            Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash shouldn't be equal to empty after hashes are added!");
+            foreach(string tx in txids)
+            {
+                Assert.IsTrue(pit.contains(tx), "PIT should contain the added txid!");
+                pit.remove(tx);
+                Assert.IsFalse(pit.contains(tx), "PIT shouldn't contain hash which was removed!");
+            }
+            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty after all txids are removed!");
+            foreach (string tx in txids)
+            {
+                pit.add(tx);
+            }
+            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(pit_hash), "PIT hash should be repeatable if the same txids are added!");
+        }
+
+        [TestMethod]
+        public void largeHashTree()
+        {
+            PrefixInclusionTree pit = new PrefixInclusionTree();
+            List<string> txids = new List<string>();
+            Stopwatch sw = new Stopwatch();
+            // between 2000 and 3000 hashes
+            for (int i = 0; i < RNG.Next(1000) + 2000; i++)
+            {
+                txids.Add(generateRandomTXID());
+            }
+            sw.Start();
+            foreach (var tx in txids)
+            {
+                pit.add(tx);
+            }
+            sw.Stop();
+            Trace.WriteLine(String.Format("Large PIT test - adding: {0} hashes = {1} ms", txids.Count, sw.ElapsedMilliseconds));
+            sw.Reset();
+            sw.Start();
+            foreach (var tx in txids)
+            {
+                Assert.IsTrue(pit.contains(tx), "PIT should contain all the added hashes (large quantity)");
+            }
+            sw.Stop();
+            Trace.WriteLine(String.Format("Large PIT test - verifying: {0} hashes = {1} ms", txids.Count, sw.ElapsedMilliseconds));
+            sw.Reset();
+            sw.Start();
+            byte[] pit_hash = pit.calculateTreeHash();
+            sw.Stop();
+            Trace.WriteLine(String.Format("Large PIT test - calculating hash: {0} hashes = {1} ms", txids.Count, sw.ElapsedMilliseconds));
+            Assert.IsFalse(pit_hash.SequenceEqual(emptyPITHash), "PIT hash should be different from empty (large quantity)");
         }
     }
 }
