@@ -22,6 +22,41 @@ namespace UnitTests
             return Base58Check.Base58CheckEncoding.EncodePlain(random_txid);
         }
 
+        private void verifyMinimumTree(int sizeFrom, int sizeTo)
+        {
+            PrefixInclusionTree pit = new PrefixInclusionTree();
+            List<string> txids = new List<string>();
+            for (int i = 0; i < RNG.Next(sizeTo-sizeFrom) + sizeFrom; i++)
+            {
+                // between 1000 and 2000 txids
+                string tx = generateRandomTXID();
+                txids.Add(tx);
+                pit.add(tx);
+            }
+            Trace.WriteLine(String.Format("Generated {0} transactions...", txids.Count));
+            // pick a random tx
+            string rtx = txids[RNG.Next(txids.Count)];
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            byte[] minimal_tree = pit.getMinimumTree(rtx);
+            sw.Stop();
+            Trace.WriteLine(String.Format("Retrieving minimum TX tree took {0} ms and yielded {1} bytes.", sw.ElapsedMilliseconds, minimal_tree.Length));
+            sw.Reset();
+            Assert.IsNotNull(minimal_tree, "PIT returns null minimal tree!");
+
+            PrefixInclusionTree pit2 = new PrefixInclusionTree();
+            sw.Start();
+            pit2.reconstructMinimumTree(minimal_tree);
+            sw.Stop();
+            Trace.WriteLine(String.Format("Reconstructing minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
+            sw.Reset();
+            sw.Start();
+            Assert.IsTrue(pit2.contains(rtx), "Reconstructed PIT should contain the minimal transaction!");
+            Assert.IsTrue(pit2.verifyMinimumTreeHash(), "Minimum PIT tree does not verify successfully!");
+            sw.Stop();
+            Trace.WriteLine(String.Format("Verifying minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
+        }
+
         [TestInitialize]
         public void testInitialize()
         {
@@ -81,18 +116,18 @@ namespace UnitTests
         {
             PrefixInclusionTree pit = new PrefixInclusionTree();
             List<string> txids = new List<string>();
-            for(int i=0;i<RNG.Next(25);i++)
+            for (int i = 0; i < RNG.Next(25); i++)
             {
                 txids.Add(generateRandomTXID());
             }
             Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty before any hashes are added!");
-            foreach(string tx in txids)
+            foreach (string tx in txids)
             {
                 pit.add(tx);
             }
             byte[] pit_hash = pit.calculateTreeHash();
             Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash shouldn't be equal to empty after hashes are added!");
-            foreach(string tx in txids)
+            foreach (string tx in txids)
             {
                 Assert.IsTrue(pit.contains(tx), "PIT should contain the added txid!");
                 pit.remove(tx);
@@ -138,6 +173,24 @@ namespace UnitTests
             sw.Stop();
             Trace.WriteLine(String.Format("Large PIT test - calculating hash: {0} hashes = {1} ms", txids.Count, sw.ElapsedMilliseconds));
             Assert.IsFalse(pit_hash.SequenceEqual(emptyPITHash), "PIT hash should be different from empty (large quantity)");
+        }
+
+        [TestMethod]
+        public void minimumTreeSimple()
+        {
+            verifyMinimumTree(5, 5);
+        }
+
+        [TestMethod]
+        public void minimumTreeLarge()
+        {
+            verifyMinimumTree(1000, 2000);
+        }
+
+        [TestMethod]
+        public void minimumTreeExtraLarge()
+        {
+            verifyMinimumTree(10000, 15000);
         }
     }
 }
