@@ -22,9 +22,9 @@ namespace UnitTests
             return Base58Check.Base58CheckEncoding.EncodePlain(random_txid);
         }
 
-        private void verifyMinimumTree(int sizeFrom, int sizeTo)
+        private void verifyMinimumTree(int sizeFrom, int sizeTo, byte numLevels = 4)
         {
-            PrefixInclusionTree pit = new PrefixInclusionTree();
+            PrefixInclusionTree pit = new PrefixInclusionTree(16, numLevels);
             List<string> txids = new List<string>();
             for (int i = 0; i < RNG.Next(sizeTo-sizeFrom) + sizeFrom; i++)
             {
@@ -184,13 +184,33 @@ namespace UnitTests
         [TestMethod]
         public void minimumTreeLarge()
         {
-            verifyMinimumTree(1000, 2000);
+            verifyMinimumTree(1800, 2200);
         }
+
+        [TestMethod]
+        public void minimumTreeLarge2Levels()
+        {
+            verifyMinimumTree(1800, 2200, 2);
+        }
+
+        [TestMethod]
+        public void minimumTreeLarge3Levels()
+        {
+            verifyMinimumTree(1800, 2200, 3);
+        }
+
 
         [TestMethod]
         public void minimumTreeExtraLarge()
         {
             verifyMinimumTree(10000, 15000);
         }
+
+        [TestMethod]
+        public void minimumTreeExtraExtraLarge()
+        {
+            verifyMinimumTree(100000, 110000);
+        }
+
     }
 }
