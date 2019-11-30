@@ -621,7 +621,7 @@ namespace DLT
                         continue;
                     }
 
-                    block.transactions.Add(s1);
+                    block.addTransaction(s1);
                 }
 
                 if (blk.superBlockSegments != null)

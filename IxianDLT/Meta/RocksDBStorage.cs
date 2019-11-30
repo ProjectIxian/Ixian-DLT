@@ -117,7 +117,13 @@ namespace DLT
                     {
                         b.signatures.Add(new byte[2][] { sig[0], sig[1] });
                     }
-                    b.transactions = transactions != null ? transactions.ToList() : new List<string>();
+                    if (transactions != null)
+                    {
+                        foreach (string txid in transactions)
+                        {
+                            b.addTransaction(txid);
+                        }
+                    }
                     b.timestamp = timestamp;
                     b.version = version;
                     b.compactedSigs = compactedSigs;
