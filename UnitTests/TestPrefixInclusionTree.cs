@@ -28,10 +28,12 @@ namespace UnitTests
             List<string> txids = new List<string>();
             for (int i = 0; i < RNG.Next(sizeTo-sizeFrom) + sizeFrom; i++)
             {
-                // between 1000 and 2000 txids
                 string tx = generateRandomTXID();
-                txids.Add(tx);
-                pit.add(tx);
+                if (!txids.Contains(tx))
+                {
+                    txids.Add(tx);
+                    pit.add(tx);
+                }
             }
             Trace.WriteLine(String.Format("Generated {0} transactions...", txids.Count));
             // pick a random tx
@@ -55,6 +57,35 @@ namespace UnitTests
             Assert.IsTrue(pit2.verifyMinimumTreeHash(), "Minimum PIT tree does not verify successfully!");
             sw.Stop();
             Trace.WriteLine(String.Format("Verifying minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
+        }
+
+        private void hashIsRepeatableInternal(int sizeFrom, int sizeTo)
+        {
+            PrefixInclusionTree pit = new PrefixInclusionTree();
+            List<string> txids = new List<string>();
+            for (int i = 0; i < RNG.Next(sizeTo - sizeFrom) + sizeFrom; i++)
+            {
+                string tx = generateRandomTXID();
+                if (!txids.Contains(tx))
+                {
+                    txids.Add(tx);
+                    pit.add(tx);
+                }
+            }
+            byte[] pit_hash = pit.calculateTreeHash();
+            Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash shouldn't be equal to empty after hashes are added!");
+            foreach (string tx in txids)
+            {
+                Assert.IsTrue(pit.contains(tx), "PIT should contain the added txid!");
+                pit.remove(tx);
+                Assert.IsFalse(pit.contains(tx), "PIT shouldn't contain hash which was removed!");
+            }
+            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty after all txids are removed!");
+            foreach (string tx in txids)
+            {
+                pit.add(tx);
+            }
+            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(pit_hash), "PIT hash should be repeatable if the same txids are added!");
         }
 
         [TestInitialize]
@@ -114,31 +145,13 @@ namespace UnitTests
         [TestMethod]
         public void hashIsRepeatable()
         {
-            PrefixInclusionTree pit = new PrefixInclusionTree();
-            List<string> txids = new List<string>();
-            for (int i = 0; i < RNG.Next(25); i++)
-            {
-                txids.Add(generateRandomTXID());
-            }
-            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty before any hashes are added!");
-            foreach (string tx in txids)
-            {
-                pit.add(tx);
-            }
-            byte[] pit_hash = pit.calculateTreeHash();
-            Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash shouldn't be equal to empty after hashes are added!");
-            foreach (string tx in txids)
-            {
-                Assert.IsTrue(pit.contains(tx), "PIT should contain the added txid!");
-                pit.remove(tx);
-                Assert.IsFalse(pit.contains(tx), "PIT shouldn't contain hash which was removed!");
-            }
-            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty after all txids are removed!");
-            foreach (string tx in txids)
-            {
-                pit.add(tx);
-            }
-            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(pit_hash), "PIT hash should be repeatable if the same txids are added!");
+            hashIsRepeatableInternal(50, 100);
+        }
+
+        [TestMethod]
+        public void hashIsRepeatableLarge()
+        {
+            hashIsRepeatableInternal(10000, 15000);
         }
 
         [TestMethod]
