@@ -11,7 +11,7 @@ namespace UnitTests
     [TestClass]
     public class IxianUT_PrefixInclusionTree
     {
-        static readonly byte[] emptyPITHash = { 0x82, 0x6d, 0xf0, 0x68, 0x45, 0x7d, 0xf5, 0xdd, 0x19, 0x5b, 0x43, 0x7a, 0xb7, 0xe7, 0x73, 0x9f };
+        static readonly byte[] emptyPITHash_44 = { 130, 109, 240, 104, 69, 125, 245, 221, 25, 91, 67, 122, 183, 231, 115, 159, 247, 93, 38, 114, 24, 63, 2, 187, 142, 16, 137, 250, 188, 249, 123, 217, 220, 128, 17, 12, 244, 45, 188, 124, 255, 65, 199, 142 };
         private Random RNG;
 
 
@@ -121,14 +121,14 @@ namespace UnitTests
                 }
             }
             byte[] pit_hash = pit.calculateTreeHash();
-            Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash shouldn't be equal to empty after hashes are added!");
+            Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash_44), "PIT hash shouldn't be equal to empty after hashes are added!");
             foreach (string tx in txids)
             {
                 Assert.IsTrue(pit.contains(tx), "PIT should contain the added txid!");
                 pit.remove(tx);
                 Assert.IsFalse(pit.contains(tx), "PIT shouldn't contain hash which was removed!");
             }
-            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty after all txids are removed!");
+            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash_44), "PIT hash should be equal to empty after all txids are removed!");
             foreach (string tx in txids)
             {
                 pit.add(tx);
@@ -147,7 +147,7 @@ namespace UnitTests
         {
             PrefixInclusionTree pit = new PrefixInclusionTree();
             byte[] hash = pit.calculateTreeHash();
-            Assert.IsTrue(hash.SequenceEqual(emptyPITHash), "Empty PIT hash is incorrect!");
+            Assert.IsTrue(hash.SequenceEqual(emptyPITHash_44), "Empty PIT hash is incorrect!");
             Assert.IsFalse(pit.contains("ABCDEFGH"), "PIT reports that it contains an invalid txid");
         }
 
@@ -185,9 +185,9 @@ namespace UnitTests
             PrefixInclusionTree pit = new PrefixInclusionTree();
             string txid = generateRandomTXID();
             pit.add(txid);
-            Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should not be the same as empty!");
+            Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash_44), "PIT hash should not be the same as empty!");
             pit.remove(txid);
-            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash), "PIT hash should be equal to empty if all hashes are removed!");
+            Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash_44), "PIT hash should be equal to empty if all hashes are removed!");
         }
 
         [TestMethod]
@@ -233,7 +233,7 @@ namespace UnitTests
             byte[] pit_hash = pit.calculateTreeHash();
             sw.Stop();
             Trace.WriteLine(String.Format("Large PIT test - calculating hash: {0} hashes = {1} ms", txids.Count, sw.ElapsedMilliseconds));
-            Assert.IsFalse(pit_hash.SequenceEqual(emptyPITHash), "PIT hash should be different from empty (large quantity)");
+            Assert.IsFalse(pit_hash.SequenceEqual(emptyPITHash_44), "PIT hash should be different from empty (large quantity)");
         }
 
         [TestMethod]
