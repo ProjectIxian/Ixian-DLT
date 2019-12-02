@@ -936,12 +936,12 @@ namespace DLT
             return true;
         }
 
-        public static Transaction[] getLastTransactions()
+        public static Transaction[] getLastTransactions(int from_index, int to_index)
         {
             lock (transactions)
             {
                 List<Transaction> full_tx_list = new List<Transaction>();
-                foreach (var entry in transactions)
+                foreach (var entry in transactions.Skip(from_index).Take(to_index))
                 {
                     Transaction tx = entry.Value;
                     if (tx == null)
@@ -954,12 +954,12 @@ namespace DLT
             }
         }
 
-        public static Transaction[] getAppliedTransactions()
+        public static Transaction[] getAppliedTransactions(int from_index, int to_index)
         {
             lock (transactions)
             {
                 List<Transaction> full_tx_list = new List<Transaction>();
-                var tx_list =  transactions.Where(x => x.Value == null || x.Value.applied != 0).ToArray();
+                var tx_list =  transactions.Where(x => x.Value == null || x.Value.applied != 0).Skip(from_index).Take(to_index).ToArray();
                 foreach(var entry in tx_list)
                 {
                     Transaction tx = entry.Value;

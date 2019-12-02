@@ -497,7 +497,7 @@ namespace DLTNode
                 count = (string)parameters["count"];
             }
 
-            Transaction[] transactions = TransactionPool.getLastTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
+            Transaction[] transactions = TransactionPool.getLastTransactions(Int32.Parse(fromIndex), Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -553,7 +553,7 @@ namespace DLTNode
                 count = (string)parameters["count"];
             }
 
-            Transaction[] transactions = TransactionPool.getAppliedTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
+            Transaction[] transactions = TransactionPool.getAppliedTransactions(Int32.Parse(fromIndex), Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
