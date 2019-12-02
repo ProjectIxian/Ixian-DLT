@@ -113,6 +113,11 @@ namespace DLT
                         }
                         ((SQLiteConnection)entry.Value[0]).Close();
                         connectionCache.Remove(entry.Key);
+
+                        // Fix for occasional locked database error
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        // End of fix
                     }
                 }
             }
