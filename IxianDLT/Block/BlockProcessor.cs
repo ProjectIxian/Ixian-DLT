@@ -1497,7 +1497,7 @@ namespace DLT
                     Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
                     TimeSpan current_block_processing_time = DateTime.UtcNow - currentBlockStartTime;
                     Random rnd = new Random();
-                    if (current_block_processing_time.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
+                    if (current_block_processing_time.TotalSeconds > (blockGenerationInterval * 4) + rnd.Next(30)) // can't get target block for 4 block times + random seconds, we don't want all nodes sending at once
                     {
                         blacklistBlock(localNewBlock);
                         localNewBlock = null;
