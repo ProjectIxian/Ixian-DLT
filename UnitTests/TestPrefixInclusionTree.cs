@@ -25,19 +25,17 @@ namespace UnitTests
         private void verifyMinimumTree(int sizeFrom, int sizeTo, byte numLevels = 4)
         {
             PrefixInclusionTree pit = new PrefixInclusionTree(16, numLevels);
-            List<string> txids = new List<string>();
+            HashSet<string> txids = new HashSet<string>();
             for (int i = 0; i < RNG.Next(sizeTo-sizeFrom) + sizeFrom; i++)
             {
                 string tx = generateRandomTXID();
-                if (!txids.Contains(tx))
-                {
-                    txids.Add(tx);
-                    pit.add(tx);
-                }
+                txids.Add(tx);
+                pit.add(tx);
             }
+            byte[] original_tree_hash = pit.calculateTreeHash();
             Trace.WriteLine(String.Format("Generated {0} transactions...", txids.Count));
             // pick a random tx
-            string rtx = txids[RNG.Next(txids.Count)];
+            string rtx = txids.ElementAt(RNG.Next(txids.Count));
             Stopwatch sw = new Stopwatch();
             sw.Start();
             byte[] minimal_tree = pit.getMinimumTree(rtx);
@@ -54,10 +52,60 @@ namespace UnitTests
             sw.Reset();
             sw.Start();
             Assert.IsTrue(pit2.contains(rtx), "Reconstructed PIT should contain the minimal transaction!");
-            Assert.IsTrue(pit2.verifyMinimumTreeHash(), "Minimum PIT tree does not verify successfully!");
+            Assert.IsTrue(original_tree_hash.SequenceEqual(pit2.calculateTreeHash()), "Minimum PIT tree does not verify successfully!");
             sw.Stop();
             Trace.WriteLine(String.Format("Verifying minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
         }
+
+        private void verifyMinimumTreeA(int sizeFrom, int sizeTo, bool all_tx, byte numLevels = 4)
+        {
+            PrefixInclusionTree pit = new PrefixInclusionTree(16, numLevels);
+            HashSet<string> txids = new HashSet<string>();
+            for (int i = 0; i < RNG.Next(sizeTo - sizeFrom) + sizeFrom; i++)
+            {
+                string tx = generateRandomTXID();
+                txids.Add(tx);
+                pit.add(tx);
+            }
+            Trace.WriteLine(String.Format("Generated {0} transactions...", txids.Count));
+            byte[] original_tree_hash = pit.calculateTreeHash();
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            byte[] minimal_tree = pit.getMinimumTreeAnonymized();
+            sw.Stop();
+            Trace.WriteLine(String.Format("Retrieving anonymized minimum TX tree took {0} ms and yielded {1} bytes.", sw.ElapsedMilliseconds, minimal_tree.Length));
+            sw.Reset();
+            Assert.IsNotNull(minimal_tree, "PIT returns null minimal tree!");
+
+            PrefixInclusionTree pit2 = new PrefixInclusionTree();
+            sw.Start();
+            pit2.reconstructMinimumTree(minimal_tree);
+            sw.Stop();
+            Trace.WriteLine(String.Format("Reconstructing minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
+            sw.Reset();
+            sw.Start();
+            if (all_tx)
+            {
+                foreach (string tx in txids)
+                {
+                    // "pretend" to add the transactions we're interested in verifying - this should not change the resulting tree hash
+                    pit2.add(tx);
+                }
+            } else
+            {
+                // only verify some tx (10%)
+                int num_to_verify = RNG.Next(sizeFrom) / 10;
+                for(int i = 0; i< num_to_verify;i++)
+                {
+                    string rand_tx = txids.ElementAt(RNG.Next(txids.Count));
+                    pit2.add(rand_tx);
+                }
+            }
+            Assert.IsTrue(original_tree_hash.SequenceEqual(pit2.calculateTreeHash()), "Minimum PIT tree does not verify successfully!");
+            sw.Stop();
+            Trace.WriteLine(String.Format("Verifying minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
+        }
+
 
         private void hashIsRepeatableInternal(int sizeFrom, int sizeTo)
         {
@@ -222,8 +270,55 @@ namespace UnitTests
         [TestMethod]
         public void minimumTreeExtraExtraLarge()
         {
-            verifyMinimumTree(100000, 110000);
+            verifyMinimumTree(50000, 60000);
         }
 
+        [TestMethod]
+        public void minimumTreeAnonymizedSimple()
+        {
+            verifyMinimumTreeA(5, 5, true);
+        }
+
+        [TestMethod]
+        public void minimumTreeAnonymizedSimpleSubset()
+        {
+            verifyMinimumTreeA(5, 5, false);
+        }
+
+        [TestMethod]
+        public void minimumTreeAnonymizedSimpleLarge()
+        {
+            verifyMinimumTreeA(1800, 2200, true);
+        }
+
+        [TestMethod]
+        public void minimumTreeAnonymizedSimpleSubsetLarge()
+        {
+            verifyMinimumTreeA(1800, 2200, false);
+        }
+
+        [TestMethod]
+        public void minimumTreeAnonymizedSimpleExtraLarge()
+        {
+            verifyMinimumTreeA(10000, 15000, true);
+        }
+
+        [TestMethod]
+        public void minimumTreeAnonymizedSimpleSubsetExtraLarge()
+        {
+            verifyMinimumTreeA(10000, 15000, false);
+        }
+
+        [TestMethod]
+        public void minimumTreeAnonymizedSimpleExtraExtraLarge()
+        {
+            verifyMinimumTreeA(50000, 60000, true);
+        }
+
+        [TestMethod]
+        public void minimumTreeAnonymizedSimpleSubsetExtraExtraLarge()
+        {
+            verifyMinimumTreeA(50000, 60000, false);
+        }
     }
 }
