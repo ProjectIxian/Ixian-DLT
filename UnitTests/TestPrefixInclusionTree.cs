@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Text;
 
 using IXICore;
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ namespace UnitTests
 
         private void verifyMinimumTree(int sizeFrom, int sizeTo, byte numLevels = 4)
         {
-            PrefixInclusionTree pit = new PrefixInclusionTree(16, numLevels);
+            PrefixInclusionTree pit = new PrefixInclusionTree(44, numLevels);
             HashSet<string> txids = new HashSet<string>();
             for (int i = 0; i < RNG.Next(sizeTo-sizeFrom) + sizeFrom; i++)
             {
@@ -59,7 +60,7 @@ namespace UnitTests
 
         private void verifyMinimumTreeA(int sizeFrom, int sizeTo, bool all_tx, byte numLevels = 4)
         {
-            PrefixInclusionTree pit = new PrefixInclusionTree(16, numLevels);
+            PrefixInclusionTree pit = new PrefixInclusionTree(44, numLevels);
             HashSet<string> txids = new HashSet<string>();
             for (int i = 0; i < RNG.Next(sizeTo - sizeFrom) + sizeFrom; i++)
             {
@@ -106,6 +107,57 @@ namespace UnitTests
             Trace.WriteLine(String.Format("Verifying minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
         }
 
+        private void verifyMinimumTreeM(int sizeFrom, int sizeTo, int included_percent = 2, int max_tx = 5, byte numLevels = 4)
+        {
+            PrefixInclusionTree pit = new PrefixInclusionTree(44, numLevels);
+            HashSet<string> txids = new HashSet<string>();
+            for (int i = 0; i < RNG.Next(sizeTo - sizeFrom) + sizeFrom; i++)
+            {
+                string tx = generateRandomTXID();
+                txids.Add(tx);
+                pit.add(tx);
+            }
+            Trace.WriteLine(String.Format("Generated {0} transactions...", txids.Count));
+            byte[] original_tree_hash = pit.calculateTreeHash();
+            Stopwatch sw = new Stopwatch();
+            // chose some transactions for which to make a minimum tree
+            List<string> chosenTransactions = new List<string>();
+            foreach(string tx in txids)
+            {
+                // 10% of transactions, or at least one
+                if(chosenTransactions.Count == 0 || RNG.Next(100) < included_percent)
+                {
+                    chosenTransactions.Add(tx);
+                }
+                if(chosenTransactions.Count >= max_tx)
+                {
+                    break;
+                }
+            }
+            Trace.WriteLine(String.Format("Chosen {0} transactions from the list.", chosenTransactions.Count));
+            sw.Start();
+            byte[] minimal_tree = pit.getMinimumTreeTXList(chosenTransactions);
+            sw.Stop();
+            Trace.WriteLine(String.Format("Retrieving matcher-based minimum TX tree took {0} ms and yielded {1} bytes.", sw.ElapsedMilliseconds, minimal_tree.Length));
+            sw.Reset();
+            Assert.IsNotNull(minimal_tree, "PIT returns null minimal tree!");
+
+            PrefixInclusionTree pit2 = new PrefixInclusionTree();
+            sw.Start();
+            pit2.reconstructMinimumTree(minimal_tree);
+            sw.Stop();
+            Trace.WriteLine(String.Format("Reconstructing minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
+            sw.Reset();
+
+            sw.Start();
+            foreach(string tx in chosenTransactions)
+            {
+                Assert.IsTrue(pit2.contains(tx), "Reconstructed PIT should contain the selected transactions!");
+            }
+            Assert.IsTrue(original_tree_hash.SequenceEqual(pit2.calculateTreeHash()), "Minimum PIT tree does not verify successfully!");
+            sw.Stop();
+            Trace.WriteLine(String.Format("Verifying minimum TX tree took {0} ms.", sw.ElapsedMilliseconds));
+        }
 
         private void hashIsRepeatableInternal(int sizeFrom, int sizeTo)
         {
@@ -274,51 +326,76 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimple()
+        public void minimumTreeAnonymized()
         {
             verifyMinimumTreeA(5, 5, true);
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimpleSubset()
+        public void minimumTreeAnonymizedSubset()
         {
             verifyMinimumTreeA(5, 5, false);
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimpleLarge()
+        public void minimumTreeAnonymizedLarge()
         {
             verifyMinimumTreeA(1800, 2200, true);
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimpleSubsetLarge()
+        public void minimumTreeAnonymizedSubsetLarge()
         {
             verifyMinimumTreeA(1800, 2200, false);
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimpleExtraLarge()
+        public void minimumTreeAnonymizedExtraLarge()
         {
             verifyMinimumTreeA(10000, 15000, true);
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimpleSubsetExtraLarge()
+        public void minimumTreeAnonymizedSubsetExtraLarge()
         {
             verifyMinimumTreeA(10000, 15000, false);
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimpleExtraExtraLarge()
+        public void minimumTreeAnonymizedExtraExtraLarge()
         {
             verifyMinimumTreeA(50000, 60000, true);
         }
 
         [TestMethod]
-        public void minimumTreeAnonymizedSimpleSubsetExtraExtraLarge()
+        public void minimumTreeAnonymizedSubsetExtraExtraLarge()
         {
             verifyMinimumTreeA(50000, 60000, false);
+        }
+
+
+        [TestMethod]
+        public void minimumTreeMatcher()
+        {
+            verifyMinimumTreeM(5, 5);
+        }
+
+        [TestMethod]
+        public void minimumTreeMatcherLarge()
+        {
+            verifyMinimumTreeM(1800, 2200);
+        }
+
+        [TestMethod]
+        public void minimumTreeMatcherExtraLarge()
+        {
+            verifyMinimumTreeM(10000, 15000);
+        }
+
+        [TestMethod]
+        public void minimumTreeMatcherExtraExtraLarge()
+        {
+            verifyMinimumTreeM(50000, 60000);
         }
     }
 }
