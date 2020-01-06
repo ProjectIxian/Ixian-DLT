@@ -747,9 +747,6 @@ namespace DLT.Meta
 
                 TransactionPool.processPendingTransactions();
 
-                // Cleanup transaction pool
-                TransactionPool.performCleanup();
-
                 // Cleanup the presence list
                 PresenceList.performCleanup();
             }

@@ -1752,6 +1752,12 @@ namespace DLT
             // Update wallet state public keys
             updateWalletStatePublicKeys(b.blockNum, ws_snapshot);
 
+            if(ws_snapshot == false)
+            {
+                // Cleanup transaction pool
+                TransactionPool.performCleanup();
+            }
+
             return true;
         }
 
