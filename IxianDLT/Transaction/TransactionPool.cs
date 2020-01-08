@@ -2275,7 +2275,7 @@ namespace DLT
                             }
                         }
 
-                        Block block = Node.blockChain.getBlock(blocknum);
+                        Block block = Node.blockChain.getBlock(blocknum, false, false);
 
                         if (block == null || block.powField != null)
                         {
@@ -2342,7 +2342,7 @@ namespace DLT
                         {
                             ulong pow_block_num = BitConverter.ToUInt64(t.data, 0);
 
-                            Block tmpBlock = Node.blockChain.getBlock(pow_block_num);
+                            Block tmpBlock = Node.blockChain.getBlock(pow_block_num, false, false);
                             if (tmpBlock == null || tmpBlock.powField != null)
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);

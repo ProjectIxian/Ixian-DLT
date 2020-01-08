@@ -514,7 +514,7 @@ namespace DLT
                             return;
                         }
 
-                        if (!Node.blockProcessor.verifyBlockSignatures(b) && Node.blockChain.Count > 16)
+                        if (!b.fromLocalStorage && !Node.blockProcessor.verifyBlockSignatures(b) && Node.blockChain.Count > 16)
                         {
                             Logging.warn(String.Format("Block #{0} {1} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);

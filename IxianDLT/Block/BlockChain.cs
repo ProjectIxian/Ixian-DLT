@@ -161,8 +161,10 @@ namespace DLT
                 compactBlockSigs(b);
             }
 
-            lastBlockReceivedTime = Clock.getTimestamp();
+            // Cleanup transaction pool
+            TransactionPool.performCleanup();
 
+            lastBlockReceivedTime = Clock.getTimestamp();
             return true;
         }
 
