@@ -328,7 +328,7 @@ namespace DLT
                 for (int i = 0; i < 10; i++)
                 {
                     ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
-                    Block b = blocks.Find(x => x.blockNum == consensus_block_num);
+                    Block b = blocksDictionary[consensus_block_num];
                     if(b == null)
                     {
                         break;
@@ -507,7 +507,6 @@ namespace DLT
                     }
                     if (entry.Value.powField != null)
                     {
-                        // TODO: an additional verification would be nice
                         solved_blocks++;
                     }
                 }

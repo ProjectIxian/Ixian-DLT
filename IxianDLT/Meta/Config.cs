@@ -33,7 +33,7 @@ namespace DLT
 
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
-            public static bool disableMiner = false; // Flag to disable miner
+            public static bool disableMiner = false; // Flag to disable miner - deprecated
             public static bool workerOnly = false; // Flag to disable masternode capability
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
@@ -73,7 +73,7 @@ namespace DLT
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 850000 + (ulong)(new Random()).Next(200); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 1200000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
@@ -115,7 +115,7 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--disableMiner] [--onlyShowAddresses] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
+                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
                 Console.WriteLine(" [--recover] [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--walletPassword]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
@@ -136,7 +136,6 @@ namespace DLT
                 Console.WriteLine("    --maxLogCount\t Specify maximum number of log files");
                 Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
-                Console.WriteLine("    --disableMiner\t Disable miner");
                 Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
                 Console.WriteLine("    --walletPassword\t Specify the password for the wallet (be careful with this)");
                 Console.WriteLine("");
@@ -171,7 +170,6 @@ namespace DLT
                 Console.WriteLine("    addTestnetPeer\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
                 Console.WriteLine("    maxLogSize\t\t Specify maximum log file size in MB (same as --maxLogSize CLI)");
                 Console.WriteLine("    maxLogCount\t\t Specify maximum number of log files (same as --maxLogCount CLI)");
-                Console.WriteLine("    disableMiner\t 1 to disable the miner, 0 to enable (same as --disableMiner CLI)");
                 Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
                 Console.WriteLine("    forceTimeOffset\t Forces network time offset to the specified value (same as --forceTimeOffset CLI)");
                 Console.WriteLine("    walletNotify\t Execute command when a wallet transaction changes");
@@ -253,12 +251,6 @@ namespace DLT
                             break;
                         case "maxLogCount":
                             maxLogCount = int.Parse(value);
-                            break;
-                        case "disableMiner":
-                            if (int.Parse(value) != 0)
-                            {
-                                disableMiner = true;
-                            }
                             break;
                         case "disableWebStart":
                             if (int.Parse(value) != 0)
@@ -385,8 +377,6 @@ namespace DLT
                 cmd_parser.Setup<string>("dataFolderPath").Callback(value => dataFolderPath = value).Required();
 
                 cmd_parser.Setup<bool>("optimizeDBStorage").Callback(value => optimizeDBStorage = value).Required();
-
-                cmd_parser.Setup<bool>("disableMiner").Callback(value => disableMiner = true).Required();
 
                 cmd_parser.Setup<bool>("verifyStorage").Callback(value => fullStorageDataVerification = true).Required();
 
