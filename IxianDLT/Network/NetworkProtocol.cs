@@ -575,31 +575,65 @@ namespace DLT
                         if (totalCount > 100)
                             totalCount = 100;
 
-                        using (MemoryStream mOut = new MemoryStream())
+                        if (endpoint != null)
                         {
-                            using (BinaryWriter writer = new BinaryWriter(mOut))
+                            if (endpoint.isConnected())
                             {
-                                writer.Write(totalCount);
-                                for (ulong i = 0; i < totalCount; i++)
+                                using (MemoryStream mOut = new MemoryStream())
                                 {
-                                    Block block = Node.blockChain.getBlock(from + i);
-                                    if (block == null)
-                                        continue;
+                                    bool found = false;
+                                    using (BinaryWriter writer = new BinaryWriter(mOut))
+                                    {
+                                        for (ulong i = 0; i < totalCount; i++)
+                                        {
+                                            // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
+                                            Block block = Node.blockChain.getBlock(from + i, true, true);
+                                            if (block == null)
+                                                break;
 
-                                    BlockHeader header = new BlockHeader(block);
-                                    byte[] headerBytes = header.getBytes();
-                                    writer.Write(headerBytes.Length);
-                                    writer.Write(headerBytes);
+                                            found = true;
+                                            BlockHeader header = new BlockHeader(block);
+                                            byte[] headerBytes = header.getBytes();
+                                            writer.Write(headerBytes.Length);
+                                            writer.Write(headerBytes);
+
+                                            broadcastBlockHeaderTransactions(block, endpoint);
+                                        }
+                                    }
+                                    if (found)
+                                    {
+                                        // Send the blockheaders
+                                        endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
+                                    }
                                 }
                             }
+                        }
+                    }
+                }
+            }
 
-                            // Send the blockheaders
-                            if (endpoint != null)
+            private static void broadcastBlockHeaderTransactions(Block b, RemoteEndpoint endpoint)
+            {
+                if(!endpoint.isConnected())
+                {
+                    return;
+                }
+
+                foreach(var txid in b.transactions)
+                {
+                    Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
+
+                    if (endpoint.isSubscribedToEvent(NetworkEvents.Type.transactionFrom, new Address(t.pubKey).address))
+                    {
+                        endpoint.sendData(ProtocolMessageCode.newTransaction, t.getBytes(true), null);
+                    }
+                    else
+                    {
+                        foreach (var entry in t.toList)
+                        {
+                            if (endpoint.isSubscribedToEvent(NetworkEvents.Type.transactionTo, entry.Key))
                             {
-                                if (endpoint.isConnected())
-                                {
-                                    endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
-                                }
+                                endpoint.sendData(ProtocolMessageCode.newTransaction, t.getBytes(true), null);
                             }
                         }
                     }

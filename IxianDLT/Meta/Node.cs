@@ -753,7 +753,7 @@ namespace DLT.Meta
             {
                 TLC.Report();
                 // Sleep a while to prevent cpu usage
-                Thread.Sleep(1000);
+                Thread.Sleep(10000);
 
                 TransactionPool.processPendingTransactions();
 
