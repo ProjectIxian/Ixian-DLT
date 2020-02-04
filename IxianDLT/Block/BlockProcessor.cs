@@ -841,11 +841,26 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version > BlockVer.v2)
+                else if (b.version <= BlockVer.v5)
                 {
                     if (t.version < 2 || t.version > 3)
                     {
                         Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 2 or 3!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }
+                else if (b.version == BlockVer.v6)
+                {
+                    if (t.version < 3 || t.version > 4)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 3 or 4!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }else if (b.version >= BlockVer.v7)
+                {
+                    if (t.version != 4)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 4!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -2057,9 +2072,9 @@ namespace DLT
                 }
 
                 // lock transaction v2 with block v3
-                if (block_version >= 3 && transaction.version < 2)
+                if (block_version >= BlockVer.v6 && transaction.version < 3)
                 {
-                    if (Node.blockChain.getLastBlockVersion() >= 3)
+                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v6)
                     {
                         TransactionPool.removeTransaction(transaction.id);
                     }

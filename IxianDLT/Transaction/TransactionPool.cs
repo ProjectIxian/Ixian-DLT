@@ -246,9 +246,23 @@ namespace DLT
             }
 
             // lock transaction v2 with block v3
-            if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= 3)
+            if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= BlockVer.v3)
             {
                 Logging.warn(String.Format("Transaction version is too low, network is using v2 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
+            // lock transaction v3 with block v6
+            if (transaction.version < 3 && Node.blockChain.getLastBlockVersion() >= BlockVer.v6)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v3 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
+            // lock transaction v4 with block v7
+            if (transaction.version < 4 && Node.blockChain.getLastBlockVersion() >= BlockVer.v7)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v4 as the lowest valid version. TXid: {0}.", transaction.id));
                 return false;
             }
 

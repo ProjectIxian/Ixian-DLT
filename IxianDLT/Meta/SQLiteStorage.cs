@@ -59,6 +59,7 @@ namespace DLT
                 public string toList { get; set; }
                 public string fromList { get; set; }
                 public byte[] from { get; set; }
+                public byte[] dataChecksum { get; set; }
                 public byte[] data { get; set; }
                 public long blockHeight { get; set; }
                 public int nonce { get; set; }
@@ -164,11 +165,17 @@ namespace DLT
                         executeSQL(connection, sql);
                         sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
                         executeSQL(connection, sql);
-                    } else if (!tableInfo.Exists(x => x.Name == "fromList"))
+                    }
+                    else if (!tableInfo.Exists(x => x.Name == "fromList"))
                     {
                         string sql = "ALTER TABLE `transactions` ADD COLUMN `fromList` TEXT;";
                         executeSQL(connection, sql);
                         sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
+                        executeSQL(connection, sql);
+                    }
+                    else if (!tableInfo.Exists(x => x.Name == "dataChecksum"))
+                    {
+                        string sql = "ALTER TABLE `transactions` ADD COLUMN `dataChecksum` TEXT;";
                         executeSQL(connection, sql);
                     }
 
@@ -404,8 +411,8 @@ namespace DLT
                         // Transaction was not found in any existing database, seek to the proper database
                         seekDatabase(transaction.applied, true);
 
-                        string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                        result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
+                        string sql = "INSERT INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`dataChecksum`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                        result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, transaction.dataChecksum, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                     }
                     else
                     {
@@ -413,8 +420,8 @@ namespace DLT
                         seekDatabase(transaction.applied, true);
 
                         // Likely already have the tx stored, update the old entry
-                        string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `fromList` = ?,`data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
-                        result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
+                        string sql = "UPDATE `transactions` SET `type` = ?,`amount` = ? ,`fee` = ?, `toList` = ?, `fromList` = ?,`dataChecksum` = ?, `data` = ?, `blockHeight` = ?, `nonce` = ?, `timestamp` = ?,`checksum` = ?,`signature` = ?, `pubKey` = ?, `applied` = ?, `version` = ? WHERE `id` = ?";
+                        result = executeSQL(sql, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, transaction.dataChecksum, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version, transaction.id);
                     }
                 }
 
@@ -913,6 +920,7 @@ namespace DLT
                     id = tx.id,
                     amount = new IxiNumber(tx.amount),
                     fee = new IxiNumber(tx.fee),
+                    dataChecksum = tx.dataChecksum,
                     data = unshuffleStorageBytes(tx.data),
                     blockHeight = (ulong)tx.blockHeight,
                     nonce = tx.nonce,
