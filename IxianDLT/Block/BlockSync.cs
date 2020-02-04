@@ -199,7 +199,7 @@ namespace DLT
                     return false;
                 }
 
-                List<ulong> tmpMissingBlocks = new List<ulong>(missingBlocks);
+                List<ulong> tmpMissingBlocks = new List<ulong>(missingBlocks.Take(maxBlockRequests * 2));
 
                 foreach (ulong blockNum in tmpMissingBlocks)
                 {
@@ -537,12 +537,15 @@ namespace DLT
                                 }
                                 else
                                 {
-                                    byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                                    if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                    if (b.lastSuperBlockChecksum != null || b.blockNum % Config.saveWalletStateEveryBlock == 0)
                                     {
-                                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                        handleWatchDog(true);
-                                        return;
+                                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                        if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                        {
+                                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                            handleWatchDog(true);
+                                            return;
+                                        }
                                     }
                                 }
                                 if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
@@ -602,10 +605,6 @@ namespace DLT
 
                             Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                             resetWatchDog(b.blockNum);
-                            if (missingBlocks != null)
-                            {
-                                missingBlocks.RemoveAll(x => x <= b.blockNum);
-                            }
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
@@ -620,9 +619,9 @@ namespace DLT
                     }
 
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-
                 } while (pendingBlocks.Count > 0 && running);
             }
+
             if (!sleep && Node.blockChain.getLastBlockNum() >= syncToBlock)
             {
                 if(verifyLastBlock())

@@ -155,7 +155,7 @@ namespace DLT
                         string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, `lastSuperBlockChecksum` BLOB, `lastSuperBlockNum` INTEGER, `superBlockSegments` BLOB, `compactedSigs` INTEGER, PRIMARY KEY(`blockNum`));";
                         executeSQL(connection, sql);
 
-                        sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
+                        sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `dataChecksum` BLOB, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
                         executeSQL(connection, sql);
                         sql = "CREATE INDEX `type` ON `transactions` (`type`);";
                         executeSQL(connection, sql);
@@ -915,13 +915,11 @@ namespace DLT
 
                 _storage_Transaction tx = _storage_tx[0];
 
-                transaction = new Transaction(tx.type)
+                transaction = new Transaction(tx.type, tx.dataChecksum, unshuffleStorageBytes(tx.data))
                 {
                     id = tx.id,
                     amount = new IxiNumber(tx.amount),
                     fee = new IxiNumber(tx.fee),
-                    dataChecksum = tx.dataChecksum,
-                    data = unshuffleStorageBytes(tx.data),
                     blockHeight = (ulong)tx.blockHeight,
                     nonce = tx.nonce,
                     timeStamp = tx.timestamp,

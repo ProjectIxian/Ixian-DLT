@@ -438,7 +438,7 @@ namespace DLT
             {
                 ulong tmp = 0;
                 string tmp2 = "";
-                if (!Node.blockSync.synchronizing && !verifyPoWTransaction(transaction, out tmp, out tmp2))
+                if (!Node.blockSync.synchronizing && !verifyPoWTransaction(transaction, out tmp, out tmp2, -1, !transaction.fromLocalStorage))
                 {
                     return false;
                 }
@@ -1162,7 +1162,7 @@ namespace DLT
                             b.blockNum, Crypto.hashToString(b.blockChecksum), txid));
                         return false;
                     }
-                    applyPowTransaction(tx, b, blockSolutionsDictionary, null, !tx.fromLocalStorage);
+                    applyPowTransaction(tx, b, blockSolutionsDictionary, null);
                     setAppliedFlag(txid, b.blockNum, !tx.fromLocalStorage);
                 }
                 // set PoW fields
@@ -1522,7 +1522,7 @@ namespace DLT
         // Checks if a transaction is a pow transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
         // be careful when changing/updating ws_snapshot related things in this function as the parameter relies on sync as well
-        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<object[]>> blockSolutionsDictionary, List<Transaction> failedTransactions, bool verify_pow = true)
+        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<object[]>> blockSolutionsDictionary, List<Transaction> failedTransactions)
         {
             if (tx.type != (int)Transaction.Type.PoWSolution)
             {
@@ -1546,6 +1546,12 @@ namespace DLT
             if (!Node.walletState.inTransaction)
             {
                 setAppliedFlag(tx.id, block.blockNum);
+            }
+
+            bool verify_pow = true;
+            if(tx.fromLocalStorage && !Config.fullStorageDataVerification)
+            {
+                verify_pow = false;
             }
 
             // Verify if the solution is correct

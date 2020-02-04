@@ -684,6 +684,10 @@ namespace DLT
                 {
                     //skip_sig_verification = true; // TODO TODO TODO TODO TODO enable this and add additional hardening by verifying block's checksum against the SB segments when fully activating superblocks
                 }
+                if(b.fromLocalStorage && !Config.fullStorageDataVerification)
+                {
+                    skip_sig_verification = true;
+                }
                 // Verify signatures
                 if (!b.verifySignatures(skip_sig_verification))
                 {

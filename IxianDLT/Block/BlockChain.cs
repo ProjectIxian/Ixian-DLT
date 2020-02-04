@@ -328,8 +328,12 @@ namespace DLT
                 for (int i = 0; i < 10; i++)
                 {
                     ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
-                    Block b = blocksDictionary[consensus_block_num];
-                    if(b == null)
+                    Block b = null;
+                    if(blocksDictionary.ContainsKey(consensus_block_num))
+                    {
+                        b = blocksDictionary[consensus_block_num];
+                    }
+                    if (b == null)
                     {
                         break;
                     }

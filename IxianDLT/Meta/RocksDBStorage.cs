@@ -330,6 +330,7 @@ namespace DLT
                 public byte[] fee { get; set; }
                 public byte[][][] toList { get; set; }
                 public byte[][][] fromList { get; set; }
+                public byte[] dataChecksum { get; set; }
                 public byte[] data { get; set; }
                 public ulong blockHeight { get; set; }
                 public int nonce { get; set; }
@@ -365,6 +366,7 @@ namespace DLT
                         fromList[i][1] = from.Value.getAmount().ToByteArray();
                         i++;
                     }
+                    dataChecksum = from_tx.dataChecksum;
                     data = from_tx.data;
                     blockHeight = from_tx.blockHeight;
                     nonce = from_tx.nonce;
@@ -378,7 +380,7 @@ namespace DLT
 
                 public Transaction asTransaction()
                 {
-                    Transaction tx = new Transaction(type);
+                    Transaction tx = new Transaction(type, dataChecksum, data);
                     tx.id = id;
                     tx.type = type;
                     tx.amount = new IxiNumber(new System.Numerics.BigInteger(amount));
@@ -391,7 +393,6 @@ namespace DLT
                     {
                         tx.fromList.AddOrReplace(from[0], new IxiNumber(new System.Numerics.BigInteger(from[1])));
                     }
-                    tx.data = data;
                     tx.blockHeight = blockHeight;
                     tx.nonce = nonce;
                     tx.timeStamp = timestamp;
@@ -450,6 +451,9 @@ namespace DLT
                                 }
                             }
                             else { fromList = null; }
+
+                            count = br.ReadInt32();
+                            if (count > 0) { dataChecksum = br.ReadBytes(count); } else { dataChecksum = null; }
 
                             count = br.ReadInt32();
                             if (count > 0) { data = br.ReadBytes(count); } else { data = null; }
@@ -529,6 +533,16 @@ namespace DLT
                                     wr.Write(fromList[i][1].Length);
                                     wr.Write(fromList[i][1]);
                                 }
+                            }
+                            else
+                            {
+                                wr.Write(0);
+                            }
+
+                            if (dataChecksum != null)
+                            {
+                                wr.Write(dataChecksum.Length);
+                                wr.Write(dataChecksum);
                             }
                             else
                             {
