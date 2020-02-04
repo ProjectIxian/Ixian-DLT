@@ -175,7 +175,7 @@ namespace DLT
                     }
                     else if (!tableInfo.Exists(x => x.Name == "dataChecksum"))
                     {
-                        string sql = "ALTER TABLE `transactions` ADD COLUMN `dataChecksum` TEXT;";
+                        string sql = "ALTER TABLE `transactions` ADD COLUMN `dataChecksum` BLOB;";
                         executeSQL(connection, sql);
                     }
 
