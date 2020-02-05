@@ -1,11 +1,9 @@
-﻿using System;
-using System.Linq;
+﻿using IXICore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Text;
-
-using IXICore;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 namespace UnitTests
 {
