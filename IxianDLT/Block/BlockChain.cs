@@ -32,7 +32,7 @@ namespace DLT
             {
                 lock (blocks)
                 {
-                    return blocks.LongCount();
+                    return blocks.Count;
                 }
             }
         }

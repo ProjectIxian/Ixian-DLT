@@ -164,6 +164,7 @@ namespace DLT.Meta
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 dltStatus = "No fully signed block received for over 30 minutes";
+                IxianHandler.status = NodeStatus.stalled;
             }
 
             if (Node.blockProcessor.networkUpgraded)

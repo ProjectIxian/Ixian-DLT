@@ -1657,6 +1657,8 @@ namespace DLT
                             // Reset transaction limits
                             //TransactionPool.resetSocketTransactionLimits();
 
+                            IxianHandler.status = NodeStatus.ready;
+
                             if (highestNetworkBlockNum > last_block_num)
                             {
                                 ProtocolMessage.broadcastGetBlock(last_block_num + 1, null, null, 1);
@@ -3035,8 +3037,7 @@ namespace DLT
                     Wallet signerWallet = Node.walletState.getWallet(signerAddress);
                     if (signerWallet.publicKey == null)
                     {
-                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
-                        continue;
+                        throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
                     }
                 }
                 else

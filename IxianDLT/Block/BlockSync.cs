@@ -192,7 +192,6 @@ namespace DLT
                 int requested_count = 0;
 
                 // whatever is left in missingBlocks is what we need to request
-                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
                 if (missingBlocks.Count() == 0)
                 {
                     receivedAllMissingBlocks = true;
@@ -224,10 +223,6 @@ namespace DLT
                     {
                         if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
                         {
-                            if (!readFromStorage)
-                            {
-                                Thread.Sleep(100);
-                            }
                             break;
                         }
                     }
@@ -265,6 +260,7 @@ namespace DLT
                         }
                     }
                 }
+
                 if (requested_count > 0)
                     return true;
             }
@@ -685,12 +681,21 @@ namespace DLT
         private void stopSyncStartBlockProcessing()
         {
 
+            if(CoreConfig.preventNetworkOperations)
+            {
+                Logging.info("Data verification successfully completed.");
+                IxianHandler.forceShutdown = true;
+                return;
+            }
+
             // Don't finish sync if we never synchronized from network
             if (noNetworkSynchronization == true)
             {
                 Thread.Sleep(500);
                 return;
             }
+
+            IxianHandler.status = NodeStatus.ready;
 
             // if we reach here, we are synchronized
             syncDone = true;

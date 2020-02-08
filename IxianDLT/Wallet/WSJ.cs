@@ -433,15 +433,9 @@ namespace DLT
         private readonly List<WSJEntry> entries = new List<WSJEntry>();
 
         public ulong wsjTxNumber { get; private set; }
-        public byte[] beforeWSChecksum { get; private set; }
-        public byte[] afterWSChecksum { get; private set; }
 
         public WSJTransaction(ulong number, bool auto_checksum = true)
         {
-            if (auto_checksum)
-            {
-                beforeWSChecksum = Node.walletState.calculateWalletStateChecksum();
-            }
             wsjTxNumber = number;
         }
 
@@ -452,16 +446,6 @@ namespace DLT
                 using (BinaryReader r = new BinaryReader(m))
                 {
                     wsjTxNumber = r.ReadUInt64();
-                    int before_checksum_len = r.ReadInt32();
-                    if(before_checksum_len > 0)
-                    {
-                        beforeWSChecksum = r.ReadBytes(before_checksum_len);
-                    }
-                    int after_checksum_len = r.ReadInt32();
-                    if(after_checksum_len > 0)
-                    {
-                        afterWSChecksum = r.ReadBytes(after_checksum_len);
-                    }
                     int count_entries = r.ReadInt32();
                     lock(entries)
                     {
@@ -493,12 +477,11 @@ namespace DLT
                 {
                     if (e.apply() == false)
                     {
-                        Logging.error(String.Format("Error while applying WSJ transaction {0} -> {1}.", Crypto.hashToString(beforeWSChecksum), Crypto.hashToString(afterWSChecksum)));
+                        Logging.error(String.Format("Error while applying WSJ transaction."));
                         return false;
                     }
                 }
             }
-            afterWSChecksum = Node.walletState.calculateWalletStateChecksum();
             return true;
         }
 
@@ -510,8 +493,7 @@ namespace DLT
                 {
                     if (e.revert() == false)
                     {
-                        Logging.error(String.Format("Error while reverting WSJ transaction {0} <- {1}.", Crypto.hashToString(beforeWSChecksum), Crypto.hashToString(afterWSChecksum)));
-                        return false;
+                        Logging.error(String.Format("Error while reverting WSJ transaction."));
                     }
                 }
             }
@@ -536,10 +518,6 @@ namespace DLT
 
         public byte[] getBytes()
         {
-            if (afterWSChecksum == null)
-            {
-                throw new Exception("WSJ Transaction must be applied at least once before it can be serialized.");
-            }
             lock (entries)
             {
                 // 144 = guid + before checksum + after checksum
@@ -549,12 +527,6 @@ namespace DLT
                     using (BinaryWriter w = new BinaryWriter(m))
                     {
                         w.Write(wsjTxNumber);
-
-                        w.Write(beforeWSChecksum.Length);
-                        w.Write(beforeWSChecksum);
-
-                        w.Write(afterWSChecksum.Length);
-                        w.Write(afterWSChecksum);
 
                         w.Write(entries.Count);
                         foreach(var e in entries)
