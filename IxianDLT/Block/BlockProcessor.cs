@@ -2314,7 +2314,7 @@ namespace DLT
 
                     // Create a new block and add all the transactions in the pool
                     localNewBlock = new Block();
-                    localNewBlock.timestamp = Core.getCurrentTimestamp();
+                    localNewBlock.timestamp = Clock.getNetworkTimestamp();
 
                     Block last_block = Node.blockChain.getLastBlock();
                     if (last_block != null)

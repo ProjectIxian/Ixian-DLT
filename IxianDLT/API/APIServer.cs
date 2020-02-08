@@ -580,7 +580,7 @@ namespace DLTNode
             }
             networkArray.Add("Network type", netType);
             networkArray.Add("My time", Clock.getTimestamp());
-            networkArray.Add("Network time difference", Core.networkTimeDifference);
+            networkArray.Add("Network time difference", Clock.networkTimeDifference);
             networkArray.Add("My External IP", IxianHandler.publicIP);
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
             networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
@@ -605,6 +605,8 @@ namespace DLTNode
             networkArray.Add("Update", checkUpdate());
 
             networkArray.Add("DLT Status", dltStatus);
+
+            networkArray.Add("Core Status", IxianHandler.status);
 
             string bpStatus = "Stopped";
             if (Node.blockProcessor.operating)
@@ -809,7 +811,7 @@ namespace DLTNode
             }
 
             ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
-            Block block = Node.blockChain.getBlock(blocknum);
+            Block block = Node.blockChain.getBlock(blocknum, false, false);
             if (block == null)
             {
                 Logging.info("Received incorrect verify block number from miner.");
@@ -867,7 +869,7 @@ namespace DLTNode
             }
 
             ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
-            Block block = Node.blockChain.getBlock(blocknum);
+            Block block = Node.blockChain.getBlock(blocknum, false, false);
             if (block == null)
             {
                 Logging.info("Received incorrect block number from miner.");

@@ -142,7 +142,7 @@ namespace DLT
                 return false;
             }
 
-            long currentTime = Core.getCurrentTimestamp();
+            long currentTime = Clock.getTimestamp();
 
             // Check if the block has already been requested
             lock (requestedBlockTimes)
