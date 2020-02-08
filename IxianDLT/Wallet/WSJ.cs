@@ -434,7 +434,7 @@ namespace DLT
 
         public ulong wsjTxNumber { get; private set; }
 
-        public WSJTransaction(ulong number, bool auto_checksum = true)
+        public WSJTransaction(ulong number)
         {
             wsjTxNumber = number;
         }

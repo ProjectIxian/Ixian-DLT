@@ -651,6 +651,28 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
+            Block genesis_block = Node.blockChain.getGenesisBlock();
+            if (genesis_block != null)
+            {
+                if (b.blockNum == 1)
+                {
+                    if (!b.blockChecksum.SequenceEqual(genesis_block.blockChecksum))
+                    {
+                        Logging.error("Received block {0} that's different from genesis block, discarding the block.", b.blockNum);
+                        return BlockVerifyStatus.PotentiallyForkedBlock;
+                    }
+                }
+                else if (b.lastSuperBlockNum == 1)
+                {
+                    if (!b.lastSuperBlockChecksum.SequenceEqual(genesis_block.blockChecksum))
+                    {
+                        Logging.error("Received block {0} that's different from genesis block, discarding the block.", b.blockNum);
+                        return BlockVerifyStatus.PotentiallyForkedBlock;
+                    }
+                }
+            }
+
+
             if (Node.blockChain.Count > 0 && b.blockNum + 5 <= Node.blockChain.getLastBlockNum())
             {
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum);

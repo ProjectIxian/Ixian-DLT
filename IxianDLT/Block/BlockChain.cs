@@ -659,5 +659,10 @@ namespace DLT
                 }
             }
         }
+
+        public Block getGenesisBlock()
+        {
+            return genesisBlock;
+        }
     }
 }
