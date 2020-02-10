@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 
 namespace DLT
@@ -609,6 +610,62 @@ namespace DLT
                             }
                         }
                     }
+                }
+            }
+
+            private static void handleGetPIT(byte[] data, RemoteEndpoint endpoint)
+            {
+                MemoryStream ms = new MemoryStream(data);
+                using (BinaryReader r = new BinaryReader(ms))
+                {
+                    ulong block_num = r.ReadUInt64();
+                    int filter_len = r.ReadInt32();
+                    byte[] filter = r.ReadBytes(filter_len);
+                    Cuckoo cf;
+                    try
+                    {
+                        cf = new Cuckoo(filter);
+                    } catch(Exception)
+                    {
+                        Logging.warn("The Cuckoo filter in the getPIT message was invalid or corrupted!");
+                        return;
+                    }
+                    Block b = Node.blockChain.getBlock(block_num, true, true);
+                    if (b is null)
+                    {
+                        return;
+                    }
+                    if(b.version < BlockVer.v6)
+                    {
+                        Logging.warn("Neighbor {0} requested PIT information for block {0}, which was below the minimal PIT version.", endpoint.fullAddress, block_num);
+                        return;
+                    }
+                    PrefixInclusionTree pit = new PrefixInclusionTree();
+                    List<string> interesting_transactions = new List<string>();
+                    foreach(var tx in b.transactions)
+                    {
+                        pit.add(tx);
+                        if(cf.Contains(Encoding.UTF8.GetBytes(tx)))
+                        {
+                            interesting_transactions.Add(tx);
+                        }
+                    }
+                    // make sure we ended up with the correct PIT
+                    if(!b.pitChecksum.SequenceEqual(pit.calculateTreeHash()))
+                    {
+                        // This is a serious error, but I am not sure how to respond to it right now.
+                        Logging.error("Reconstructed PIT for block {0} does not match the checksum in block header!", block_num);
+                        return;
+                    }
+                    byte[] minimal_pit = pit.getMinimumTreeTXList(interesting_transactions);
+                    MemoryStream mOut = new MemoryStream(minimal_pit.Length + 12);
+                    using (BinaryWriter w = new BinaryWriter(mOut, Encoding.UTF8, true))
+                    {
+                        w.Write(block_num);
+                        w.Write(minimal_pit.Length);
+                        w.Write(minimal_pit);
+                    }
+                    endpoint.sendData(ProtocolMessageCode.pitData, mOut.ToArray());
                 }
             }
 
@@ -1604,6 +1661,12 @@ namespace DLT
                         case ProtocolMessageCode.getBlockHeaders:
                             {
                                 handleGetBlockHeaders(data, endpoint);
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getPIT:
+                            {
+                                handleGetPIT(data, endpoint);
                             }
                             break;
 
