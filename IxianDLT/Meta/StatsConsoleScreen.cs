@@ -167,7 +167,7 @@ namespace DLT.Meta
                 IxianHandler.status = NodeStatus.stalled;
             }
 
-            if(Clock.networkTimeDifference != Clock.realNetworkTimeDifference)
+            if(Clock.networkTimeDifference != Clock.realNetworkTimeDifference && connectionsOut > 2)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 dltStatus = "Please make sure that your computer's date and time are correct";
