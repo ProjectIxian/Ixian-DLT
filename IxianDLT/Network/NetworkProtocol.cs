@@ -680,7 +680,7 @@ namespace DLT
                 {
                     Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
 
-                    if (endpoint.isSubscribedToEvent(NetworkEvents.Type.transactionFrom, new Address(t.pubKey).address))
+                    if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionFrom, new Address(t.pubKey).address))
                     {
                         endpoint.sendData(ProtocolMessageCode.newTransaction, t.getBytes(true), null);
                     }
@@ -688,7 +688,7 @@ namespace DLT
                     {
                         foreach (var entry in t.toList)
                         {
-                            if (endpoint.isSubscribedToEvent(NetworkEvents.Type.transactionTo, entry.Key))
+                            if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionTo, entry.Key))
                             {
                                 endpoint.sendData(ProtocolMessageCode.newTransaction, t.getBytes(true), null);
                             }
