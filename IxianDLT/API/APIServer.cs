@@ -581,6 +581,7 @@ namespace DLTNode
             networkArray.Add("Network type", netType);
             networkArray.Add("My time", Clock.getTimestamp());
             networkArray.Add("Network time difference", Clock.networkTimeDifference);
+            networkArray.Add("Real network time difference", Clock.realNetworkTimeDifference);
             networkArray.Add("My External IP", IxianHandler.publicIP);
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
             networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
