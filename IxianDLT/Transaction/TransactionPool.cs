@@ -1947,7 +1947,7 @@ namespace DLT
                     {
                         Logging.info(String.Format("Removing a signer would make using the wallet impossible. Adjusting required signatures: {0} -> {1}.",
                             orig.requiredSigs, orig.allowedSigners.Length));
-                        orig.requiredSigs = (byte)orig.allowedSigners.Length;
+                        Node.walletState.setWalletRequiredSignatures(orig.id, (byte)orig.allowedSigners.Length);
                     }
                     Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
                     Node.walletState.delWalletAllowedSigner(orig.id, multisig_obj.addrToDel);
