@@ -81,13 +81,13 @@ namespace DLT
 
             //    Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
               //      pendingBlocks.Count, pendingWsChunks.Count));
-                if (!Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
+                if (!CoreConfig.preventNetworkOperations && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                 {
                     startWalletStateSync();
                     Thread.Sleep(1000);
                     continue;
                 }
-                if (Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
+                if(CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
                     // Request missing blocks if needed
                     if (receivedAllMissingBlocks == false)
@@ -1009,7 +1009,7 @@ namespace DLT
                     }
                     startSync();
 
-                    if (Config.recoverFromFile || Config.noNetworkSync)
+                    if (Config.recoverFromFile || Config.noNetworkSync || CoreConfig.preventNetworkOperations)
                     {
                         noNetworkSynchronization = false;
                     }else
