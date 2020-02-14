@@ -114,12 +114,22 @@ namespace DLT
     {
         private byte[] signer;
         private bool adding;
+        private bool adjustSigners;
 
-        public WSJE_AllowedSigner(byte[] address, bool adding_signer, byte[] signer_address)
+        public WSJE_AllowedSigner(byte[] address, bool adding_signer, byte[] signer_address, bool adjust_signers = false)
         {
             targetWallet = address;
             adding = adding_signer;
             signer = signer_address;
+            if (!adding)
+            {
+                // required signatures are adjusted only when removing signer addresses
+                adjustSigners= adjust_signers;
+            }
+            else
+            {
+                adjustSigners = false;
+            }
         }
 
         public WSJE_AllowedSigner(BinaryReader r)
@@ -140,6 +150,14 @@ namespace DLT
                 signer = r.ReadBytes(target_signer_len);
             }
             adding = r.ReadBoolean();
+            if (!adding)
+            {
+                // required signatures are adjusted only when removing signer addresses
+                adjustSigners = r.ReadBoolean();
+            } else
+            {
+                adjustSigners = false;
+            }
         }
 
         public override void writeBytes(BinaryWriter w)
@@ -164,6 +182,11 @@ namespace DLT
                 w.Write((int)0);
             }
             w.Write(adding);
+            if (!adding)
+            {
+                // required signatures are adjusted only when removing signer addresses
+                w.Write(adjustSigners);
+            }
         }
 
         public override bool apply()
@@ -175,10 +198,10 @@ namespace DLT
             }
             if(adding)
             {
-                return Node.walletState.addWalletAllowedSignerInternal(targetWallet, signer);
+                return Node.walletState.addWalletAllowedSignerInternal(targetWallet, signer, adjustSigners);
             } else
             {
-                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer);
+                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer, adjustSigners);
             }
         }
 
@@ -191,11 +214,11 @@ namespace DLT
             }
             if (adding)
             {
-                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer);
+                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer, adjustSigners);
             }
             else
             {
-                return Node.walletState.addWalletAllowedSignerInternal(targetWallet, signer);
+                return Node.walletState.addWalletAllowedSignerInternal(targetWallet, signer, adjustSigners);
             }
         }
     }

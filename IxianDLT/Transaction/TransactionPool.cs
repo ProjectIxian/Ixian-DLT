@@ -1943,14 +1943,15 @@ namespace DLT
                         return null;
                     }
 
+                    bool adjust_req_sigs = false;
                     if (orig.requiredSigs > orig.countAllowedSigners)
                     {
                         Logging.info(String.Format("Removing a signer would make using the wallet impossible. Adjusting required signatures: {0} -> {1}.",
                             orig.requiredSigs, orig.allowedSigners.Length));
-                        Node.walletState.setWalletRequiredSignatures(orig.id, (byte)orig.allowedSigners.Length);
+                        adjust_req_sigs = true;
                     }
                     Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
-                    Node.walletState.delWalletAllowedSigner(orig.id, multisig_obj.addrToDel);
+                    Node.walletState.delWalletAllowedSigner(orig.id, multisig_obj.addrToDel, adjust_req_sigs);
                 }
                 else if (multisig_type is Transaction.MultisigChSig)
                 {

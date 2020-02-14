@@ -203,7 +203,7 @@ namespace DLT
             }
         }
 
-        public void delWalletAllowedSigner(byte[] id, byte[] signer)
+        public void delWalletAllowedSigner(byte[] id, byte[] signer, bool adjust_req_signers)
         {
             lock (stateLock)
             {
@@ -212,7 +212,7 @@ namespace DLT
                     Logging.warn(String.Format("Wallet {0} attempted to delete signer {1}, but it is not in the allowed signer list.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
-                var change = new WSJE_AllowedSigner(id, false, signer);
+                var change = new WSJE_AllowedSigner(id, false, signer, adjust_req_signers);
                 change.apply();
                 if (wsjTransactions.Count > 0)
                 {
@@ -351,7 +351,7 @@ namespace DLT
             }
         }
 
-        public bool addWalletAllowedSignerInternal(byte[] id, byte[] signer)
+        public bool addWalletAllowedSignerInternal(byte[] id, byte[] signer, bool adjust_req_signers)
         {
             lock(stateLock)
             {
@@ -362,6 +362,12 @@ namespace DLT
                     return false;
                 }
                 w.addValidSigner(signer);
+                if(adjust_req_signers)
+                {
+                    Logging.info("WSJE_AllowedSigner: adjusting required signatures {0} -> {1} as part of reverting a delete signer operation on wallet {2}",
+                        w.requiredSigs, w.requiredSigs + 1, Addr2String(id));
+                    w.requiredSigs += 1;
+                }
                 w.type = WalletType.Multisig;
                 walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
@@ -369,7 +375,7 @@ namespace DLT
             }
         }
 
-        public bool delWalletAllowedSignerInternal(byte[] id, byte[] signer)
+        public bool delWalletAllowedSignerInternal(byte[] id, byte[] signer, bool adjust_req_signers)
         {
             lock(stateLock)
             {
@@ -379,7 +385,13 @@ namespace DLT
                     Logging.error(String.Format("WSJE_AllowedSigner cannot remove nonexistant signer! Wallet: {0}, signer: {1}", Addr2String(id), signer));
                     return false;
                 }
-                if(w.countAllowedSigners <= w.requiredSigs)
+                if (adjust_req_signers)
+                {
+                    Logging.info("WSJE_AllowedSigner: adjusting required signatures {0} -> {1} as part of a delete signer operation on wallet {2}",
+                        w.requiredSigs, w.requiredSigs + 1, Addr2String(id));
+                    w.requiredSigs -= 1;
+                }
+                else if(w.countAllowedSigners < w.requiredSigs) // at this point the sig adjustment has alredy been applied
                 {
                     Logging.error(String.Format("WSJE_AllowedSigner removing signer would make the wallet inoperable. Wallet: {0}, Allowed signers(before): {1}, Required Signatures: {2}",
                         Addr2String(id), w.countAllowedSigners, w.requiredSigs));
