@@ -388,7 +388,7 @@ namespace DLT
                 if (adjust_req_signers)
                 {
                     Logging.info("WSJE_AllowedSigner: adjusting required signatures {0} -> {1} as part of a delete signer operation on wallet {2}",
-                        w.requiredSigs, w.requiredSigs + 1, Addr2String(id));
+                        w.requiredSigs, w.requiredSigs - 1, Addr2String(id));
                     w.requiredSigs -= 1;
                 }
                 else if(w.countAllowedSigners < w.requiredSigs) // at this point the sig adjustment has alredy been applied

@@ -573,8 +573,8 @@ namespace DLT
                             return;
 
                         // Cap total block headers sent
-                        if (totalCount > 100)
-                            totalCount = 100;
+                        if (totalCount > 1000)
+                            totalCount = 1000;
 
                         if (endpoint != null)
                         {
