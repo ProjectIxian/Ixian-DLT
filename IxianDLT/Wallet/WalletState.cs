@@ -401,6 +401,7 @@ namespace DLT
                 if (w.countAllowedSigners == 0)
                 {
                     w.type = WalletType.Normal;
+                    w.allowedSigners = null;
                 }
                 walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
