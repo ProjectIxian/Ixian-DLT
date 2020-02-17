@@ -32,7 +32,7 @@ namespace DLT
             {
                 lock (blocks)
                 {
-                    return blocks.LongCount();
+                    return blocks.Count;
                 }
             }
         }
@@ -62,7 +62,7 @@ namespace DLT
                     // Check if this is a full history node
                     if (Config.storeFullHistory == false)
                     {
-                        Storage.removeBlock(block); // Remove from storage
+                        Node.storage.removeBlock(block.blockNum); // Remove from storage
                     }
 
                     lock (blocksDictionary)
@@ -109,7 +109,7 @@ namespace DLT
                     {
                         blocksDictionary.Add(b.blockNum, b);
                     }
-                    Storage.insertBlock(b);
+                    Node.storage.insertBlock(b);
                     return true;
                 }
                 // check for invalid block appending
@@ -140,7 +140,7 @@ namespace DLT
             if (add_to_storage)
             {
                 // Add block to storage
-                Storage.insertBlock(b);
+                Node.storage.insertBlock(b);
             }
 
             ConsensusConfig.redactedWindowSize = ConsensusConfig.getRedactedWindowSize(b.version);
@@ -161,8 +161,10 @@ namespace DLT
                 compactBlockSigs(b);
             }
 
-            lastBlockReceivedTime = Clock.getTimestamp();
+            // Cleanup transaction pool
+            TransactionPool.performCleanup();
 
+            lastBlockReceivedTime = Clock.getTimestamp();
             return true;
         }
 
@@ -198,7 +200,7 @@ namespace DLT
             // Search storage
             if (search_in_storage || compacted_block)
             {
-                block = Storage.getBlock(blocknum);
+                block = Node.storage.getBlock(blocknum);
                 if (block != null && compacted_block)
                 {
                     block.powField = pow_field;
@@ -268,7 +270,7 @@ namespace DLT
             // Search storage
             if (search_in_storage || compacted_block)
             {
-                block = Storage.getBlockByHash(hash);
+                block = Node.storage.getBlockByHash(hash);
                 if (block != null && compacted_block)
                 {
                     block.powField = pow_field;
@@ -326,8 +328,12 @@ namespace DLT
                 for (int i = 0; i < 10; i++)
                 {
                     ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
-                    Block b = blocks.Find(x => x.blockNum == consensus_block_num);
-                    if(b == null)
+                    Block b = null;
+                    if(blocksDictionary.ContainsKey(consensus_block_num))
+                    {
+                        b = blocksDictionary[consensus_block_num];
+                    }
+                    if (b == null)
                     {
                         break;
                     }
@@ -505,7 +511,6 @@ namespace DLT
                     }
                     if (entry.Value.powField != null)
                     {
-                        // TODO: an additional verification would be nice
                         solved_blocks++;
                     }
                 }
@@ -628,7 +633,7 @@ namespace DLT
                 block.pruneSignatures();
             }
 
-            Meta.Storage.insertBlock(block);
+            Node.storage.insertBlock(block);
 
             if (compacted)
             {
@@ -653,6 +658,11 @@ namespace DLT
                     }
                 }
             }
+        }
+
+        public Block getGenesisBlock()
+        {
+            return genesisBlock;
         }
     }
 }

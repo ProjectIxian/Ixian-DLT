@@ -52,6 +52,9 @@ namespace DLT
         private static List<ulong> solvedBlocks = new List<ulong>(); // Maintain a list of solved blocks to prevent duplicate work
         private static long solvedBlockCount = 0;
 
+        static object activePoolBlockLock = new object();
+        static Block activePoolBlock = null;
+
 
         public Miner()
         {
@@ -338,12 +341,32 @@ namespace DLT
                     blockFound = false;
                 }
             }
+
+            lock (activePoolBlockLock)
+            {
+                if (activePoolBlock != null)
+                {
+                    Block tmpBlock = Node.blockChain.getBlock(activePoolBlock.blockNum, false, false);
+                    if (tmpBlock == null || tmpBlock.powField != null)
+                    {
+                        activePoolBlock = null;
+                    }
+                }
+            }
         }
 
         // Static function used by the getMiningBlock API call
         public static Block getMiningBlock(BlockSearchMode searchMode)
         {
             Block candidate_block = null;
+
+            lock (activePoolBlockLock)
+            {
+                if (activePoolBlock != null)
+                {
+                    return activePoolBlock;
+                }
+            }
 
             List<Block> blockList = null;
 
@@ -360,7 +383,7 @@ namespace DLT
             else if (searchMode == BlockSearchMode.randomLowestDifficulty)
             {
                 Random rnd = new Random();
-                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(500)).ToList();
+                blockList = Node.blockChain.getBlocks(block_offset, (int)Node.blockChain.Count - block_offset).Where(x => x.powField == null).OrderBy(x => x.difficulty).Skip(rnd.Next(200)).ToList();
             }
             else if (searchMode == BlockSearchMode.latestBlock)
             {
@@ -398,6 +421,14 @@ namespace DLT
                     {
                         // Block is not solved, select it
                         candidate_block = block;
+
+                        if(searchMode == BlockSearchMode.random || searchMode == BlockSearchMode.randomLowestDifficulty)
+                        {
+                            lock (activePoolBlockLock)
+                            {
+                                activePoolBlock = candidate_block;
+                            }
+                        }
                         break;
                     }
                 }

@@ -11,11 +11,12 @@ namespace DLT
     {
         public abstract class IStorage
         {
-            public string pathBase;
+            protected string pathBase;
             // Threading
             private Thread thread = null;
             private bool running = false;
             private ThreadLiveCheck TLC;
+            private DateTime lastCleanupPass = DateTime.Now;
 
             protected enum QueueStorageCode
             {
@@ -27,6 +28,7 @@ namespace DLT
             protected struct QueueStorageMessage
             {
                 public QueueStorageCode code;
+                public int retryCount;
                 public object data;
             }
 
@@ -102,17 +104,73 @@ namespace DLT
                         }
                         else
                         {
-                            // Sleep for 10ms to prevent cpu waste
+                            if ((DateTime.Now - lastCleanupPass).TotalSeconds > 60.0)
+                            {
+                                lastCleanupPass = DateTime.Now;
+                                // this is only enabled on Rocks for now
+                                if (this is RocksDBStorage)
+                                {
+                                    cleanupCache();
+                                }
+                            }
+                            // Sleep for 10ms to yield CPU schedule slot
                             Thread.Sleep(10);
                         }
                     }
                     catch (Exception e)
                     {
                         Logging.error("Exception occured in storage thread loop: " + e);
+                        debugDumpCrashObject(active_message);
+                        active_message.retryCount += 1;
+                        if(active_message.retryCount > 10)
+                        {
+                            Logging.error("Too many retries, aborting...");
+                            shutdown();
+                            throw new Exception("Too many storage retries. Aborting storage thread.");
+                        }
+                        lock(queueStatements)
+                        {
+                            queueStatements.Add(active_message);
+                        }
+
                     }
                     Thread.Yield();
                 }
-                cleanupCache();
+                shutdown();
+            }
+
+            private void debugDumpCrashObject(QueueStorageMessage message)
+            {
+                Logging.error("Crashed on message: (code: {0}, retry count: {1})", message.code.ToString(), message.retryCount);
+                if (message.retryCount == 1 || message.retryCount >= 10)
+                {
+                    if (message.code == QueueStorageCode.insertBlock)
+                    {
+                        debugDumpCrashBlock((Block)message.data);
+                    }
+                    else if (message.code == QueueStorageCode.insertTransaction)
+                    {
+                        debugDumpCrashTX((Transaction)message.data);
+                    }
+                    else
+                    {
+                        Logging.error("Message is 'updateTXAppliedFlag'.");
+                    }
+                }
+            }
+
+            private void debugDumpCrashBlock(Block b)
+            {
+                Logging.error("Block #{0}, checksum: {1}.", b.blockNum, Base58Check.Base58CheckEncoding.EncodePlain(b.blockChecksum));
+                Logging.error("Transactions: {0}, signatures: {1}, timestamp: {2}.", b.transactions.Count, b.signatures.Count, b.timestamp);
+                Logging.error("Complete block: {0}", Base58Check.Base58CheckEncoding.EncodePlain(b.getBytes()));
+            }
+
+            private void debugDumpCrashTX(Transaction tx)
+            {
+                Logging.error("Transaction {0}, checksum: {1}", tx.id, Base58Check.Base58CheckEncoding.EncodePlain(tx.checksum));
+                Logging.error("Type: {0}, amount: {1}", tx.type, tx.amount);
+                Logging.error("Complete transaction: {0}", Base58Check.Base58CheckEncoding.EncodePlain(tx.getBytes()));
             }
 
             public virtual bool redactBlockStorage(ulong removeBlocksBelow)
@@ -146,6 +204,7 @@ namespace DLT
                 QueueStorageMessage message = new QueueStorageMessage
                 {
                     code = QueueStorageCode.insertBlock,
+                    retryCount = 0,
                     data = new Block(block)
                 };
 
@@ -162,6 +221,7 @@ namespace DLT
                 QueueStorageMessage message = new QueueStorageMessage
                 {
                     code = QueueStorageCode.insertTransaction,
+                    retryCount = 0,
                     data = new Transaction(transaction)
                 };
 
@@ -202,7 +262,7 @@ namespace DLT
             /// </summary>
             /// <param name="checksum">Block checksum of the previous Superblock.</param>
             /// <returns>Null if the bloud could not be found in storage.</returns>
-            public abstract Block getBlocksByLastSBHash(byte[] checksum);
+            public abstract Block getBlockByLastSBHash(byte[] checksum);
             /// <summary>
             /// Retrieves all Blocks between two block heights, inclusive on both ends.
             /// Note: If `from` is larger than `to`, or both parameters are 0, an empty collection is returned.
@@ -216,9 +276,9 @@ namespace DLT
             /// Retrieves a Transaction by its txid.
             /// </summary>
             /// <param name="txid">Transaction ID of the required Transaction.</param>
-            /// <param name="block_num">Block height of the Block where the Transaction can be found. This parameter may be 0, in which case all storage will be searched.</param>
+            /// <param name="block_num">Block height of the Block where the Transaction can be found.</param>
             /// <returns>Null if this transaction can't be found in storage.</returns>
-            public abstract Transaction getTransaction(string txid, ulong block_num = 0);
+            public abstract Transaction getTransaction(string txid, ulong block_num);
             /// <summary>
             /// Retrieves all Transactions with the specified type from the given block range.
             /// Note: If `block_to` is 0, only Block `block_from` will be searched. If both parameters are 0, all Blocks will be searched.
@@ -274,7 +334,7 @@ namespace DLT
             public abstract IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to);
             //
             // Remove
-            public abstract bool removeBlock(ulong block_num, bool remove_transactions);
+            public abstract bool removeBlock(ulong block_num, bool remove_transactions = true);
             public abstract bool removeTransaction(string txid, ulong block_num = 0);
             //
             // Prepare and cleanup
@@ -290,7 +350,7 @@ namespace DLT
                 Logging.info("Block storage provider: {0}", name);
                 switch(name)
                 {
-                    //case "SQLite": return new SQLiteStorage();
+                    case "SQLite": return new SQLiteStorage();
                     case "RocksDB": return new RocksDBStorage();
                     default: throw new Exception(String.Format("Unknown blocks storage provider: {0}", name));
                 }

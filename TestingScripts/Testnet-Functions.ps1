@@ -303,16 +303,12 @@ function Check-TXExecuted {
         [int]$APIPort,
         [string]$TXID
     )
-    $transactions = Invoke-DLTApi -APIPort $APIPort -Command "tx"
-    if($transactions -eq $null) {
-        Write-Host -ForegroundColor Red "Error while attempting to fetch transaction list from node $($APIPort)"
+    $transaction = Invoke-DLTApi -APIPort $APIPort -Command "gettransaction?id=$($TXID)"
+    if($transaction -eq $null) {
+        Write-Host -ForegroundColor Red "Error retrieving transaction with id $($TXID)."
         return $false
     }
-    $txids = $transactions.PSObject.Properties | foreach { $_.Name }
-    if(($txids.Contains($TXID)) -eq $false) {
-        return $false
-    }
-    if($transactions."$TXID".applied -gt 0) {
+    if($transaction.applied -gt 0) {
         return $true
     } else {
         return $false

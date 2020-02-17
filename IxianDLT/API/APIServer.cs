@@ -497,7 +497,7 @@ namespace DLTNode
                 count = (string)parameters["count"];
             }
 
-            Transaction[] transactions = TransactionPool.getLastTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
+            Transaction[] transactions = TransactionPool.getLastTransactions(Int32.Parse(fromIndex), Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -553,7 +553,7 @@ namespace DLTNode
                 count = (string)parameters["count"];
             }
 
-            Transaction[] transactions = TransactionPool.getAppliedTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
+            Transaction[] transactions = TransactionPool.getAppliedTransactions(Int32.Parse(fromIndex), Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -580,12 +580,13 @@ namespace DLTNode
             }
             networkArray.Add("Network type", netType);
             networkArray.Add("My time", Clock.getTimestamp());
-            networkArray.Add("Network time difference", Core.networkTimeDifference);
+            networkArray.Add("Network time difference", Clock.networkTimeDifference);
+            networkArray.Add("Real network time difference", Clock.realNetworkTimeDifference);
             networkArray.Add("My External IP", IxianHandler.publicIP);
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
             networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
                 + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                + ", Storage: " + Storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount() + ", Pending Transactions: " + PendingTransactions.pendingTransactionCount());
+                + ", Storage: " + Node.storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount() + ", Pending Transactions: " + PendingTransactions.pendingTransactionCount());
             networkArray.Add("Node Deprecation Block Limit", Config.nodeDeprecationBlock);
 
             string dltStatus = "Active";
@@ -605,6 +606,8 @@ namespace DLTNode
             networkArray.Add("Update", checkUpdate());
 
             networkArray.Add("DLT Status", dltStatus);
+
+            networkArray.Add("Core Status", IxianHandler.status);
 
             string bpStatus = "Stopped";
             if (Node.blockProcessor.operating)
@@ -627,11 +630,11 @@ namespace DLTNode
                 networkArray.Add("Applied TX Count", TransactionPool.getTransactionCount() - TransactionPool.getUnappliedTransactions().Count());
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
-                networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum(true)));
-
-                networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
-                networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients(true));
+                networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
             }
+
+            networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
+            networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients(true));
 
             networkArray.Add("Masters", PresenceList.countPresences('M'));
             networkArray.Add("Relays", PresenceList.countPresences('R'));
@@ -809,7 +812,7 @@ namespace DLTNode
             }
 
             ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
-            Block block = Node.blockChain.getBlock(blocknum);
+            Block block = Node.blockChain.getBlock(blocknum, false, false);
             if (block == null)
             {
                 Logging.info("Received incorrect verify block number from miner.");
@@ -867,7 +870,7 @@ namespace DLTNode
             }
 
             ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
-            Block block = Node.blockChain.getBlock(blocknum);
+            Block block = Node.blockChain.getBlock(blocknum, false, false);
             if (block == null)
             {
                 Logging.info("Received incorrect block number from miner.");

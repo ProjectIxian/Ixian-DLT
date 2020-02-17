@@ -81,13 +81,13 @@ namespace DLT
 
             //    Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
               //      pendingBlocks.Count, pendingWsChunks.Count));
-                if (!Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
+                if (!CoreConfig.preventNetworkOperations && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                 {
                     startWalletStateSync();
                     Thread.Sleep(1000);
                     continue;
                 }
-                if (Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
+                if(CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
                     // Request missing blocks if needed
                     if (receivedAllMissingBlocks == false)
@@ -142,7 +142,7 @@ namespace DLT
                 return false;
             }
 
-            long currentTime = Core.getCurrentTimestamp();
+            long currentTime = Clock.getTimestamp();
 
             // Check if the block has already been requested
             lock (requestedBlockTimes)
@@ -192,14 +192,13 @@ namespace DLT
                 int requested_count = 0;
 
                 // whatever is left in missingBlocks is what we need to request
-                Logging.info(String.Format("{0} blocks are missing before node is synchronized...", missingBlocks.Count()));
                 if (missingBlocks.Count() == 0)
                 {
                     receivedAllMissingBlocks = true;
                     return false;
                 }
 
-                List<ulong> tmpMissingBlocks = new List<ulong>(missingBlocks);
+                List<ulong> tmpMissingBlocks = new List<ulong>(missingBlocks.Take(maxBlockRequests * 2));
 
                 foreach (ulong blockNum in tmpMissingBlocks)
                 {
@@ -224,10 +223,6 @@ namespace DLT
                     {
                         if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
                         {
-                            if (!readFromStorage)
-                            {
-                                Thread.Sleep(100);
-                            }
                             break;
                         }
                     }
@@ -265,6 +260,7 @@ namespace DLT
                         }
                     }
                 }
+
                 if (requested_count > 0)
                     return true;
             }
@@ -537,12 +533,15 @@ namespace DLT
                                 }
                                 else
                                 {
-                                    byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                                    if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                    if (b.lastSuperBlockChecksum != null || b.blockNum % Config.saveWalletStateEveryBlock == 0)
                                     {
-                                        Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                        handleWatchDog(true);
-                                        return;
+                                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                        if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                        {
+                                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                            handleWatchDog(true);
+                                            return;
+                                        }
                                     }
                                 }
                                 if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
@@ -602,10 +601,6 @@ namespace DLT
 
                             Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                             resetWatchDog(b.blockNum);
-                            if (missingBlocks != null)
-                            {
-                                missingBlocks.RemoveAll(x => x <= b.blockNum);
-                            }
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
@@ -620,9 +615,9 @@ namespace DLT
                     }
 
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-
                 } while (pendingBlocks.Count > 0 && running);
             }
+
             if (!sleep && Node.blockChain.getLastBlockNum() >= syncToBlock)
             {
                 if(verifyLastBlock())
@@ -686,12 +681,21 @@ namespace DLT
         private void stopSyncStartBlockProcessing()
         {
 
+            if(CoreConfig.preventNetworkOperations)
+            {
+                Logging.info("Data verification successfully completed.");
+                IxianHandler.forceShutdown = true;
+                return;
+            }
+
             // Don't finish sync if we never synchronized from network
             if (noNetworkSynchronization == true)
             {
                 Thread.Sleep(500);
                 return;
             }
+
+            IxianHandler.status = NodeStatus.ready;
 
             // if we reach here, we are synchronized
             syncDone = true;
@@ -1005,7 +1009,7 @@ namespace DLT
                     }
                     startSync();
 
-                    if (Config.recoverFromFile || Config.noNetworkSync)
+                    if (Config.recoverFromFile || Config.noNetworkSync || CoreConfig.preventNetworkOperations)
                     {
                         noNetworkSynchronization = false;
                     }else

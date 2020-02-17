@@ -246,9 +246,23 @@ namespace DLT
             }
 
             // lock transaction v2 with block v3
-            if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= 3)
+            if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= BlockVer.v3)
             {
                 Logging.warn(String.Format("Transaction version is too low, network is using v2 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
+            // lock transaction v3 with block v6
+            if (transaction.version < 3 && Node.blockChain.getLastBlockVersion() >= BlockVer.v6)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v3 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
+            // lock transaction v4 with block v7
+            if (transaction.version < 4 && Node.blockChain.getLastBlockVersion() >= BlockVer.v7)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v4 as the lowest valid version. TXid: {0}.", transaction.id));
                 return false;
             }
 
@@ -306,6 +320,21 @@ namespace DLT
             {
                 Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
                 return false;
+            }
+
+            byte[] data_checksum = transaction.calculateDataChecksum();
+            if(transaction.data != null && transaction.version >= 4)
+            {
+                if(transaction.dataChecksum == null)
+                {
+                    Logging.warn("Adding transaction {{ {0} }}, but data checksum is null!", transaction.id);
+                    return false;
+                }
+                if (!data_checksum.SequenceEqual(transaction.dataChecksum))
+                {
+                    Logging.warn("Adding transaction {{ {0} }}, but data checksum doesn't equal to calculated data checksum!", transaction.id);
+                    return false;
+                }
             }
 
             IxiNumber totalAmount = new IxiNumber(0);
@@ -424,7 +453,7 @@ namespace DLT
             {
                 ulong tmp = 0;
                 string tmp2 = "";
-                if (!Node.blockSync.synchronizing && !verifyPoWTransaction(transaction, out tmp, out tmp2))
+                if (!Node.blockSync.synchronizing && !verifyPoWTransaction(transaction, out tmp, out tmp2, -1, !transaction.fromLocalStorage))
                 {
                     return false;
                 }
@@ -578,7 +607,7 @@ namespace DLT
                         }
                         if (insertTx)
                         {
-                            Meta.Storage.insertTransaction(t);
+                            Node.storage.insertTransaction(t);
                         }
                     }
 
@@ -911,7 +940,7 @@ namespace DLT
 
                 /*var sw = new System.Diagnostics.Stopwatch();
                 sw.Start();*/
-                transaction = Storage.getTransaction(txid, block_num);
+                transaction = Node.storage.getTransaction(txid, block_num);
                 /*sw.Stop();
                 TimeSpan elapsed = sw.Elapsed;
                 Logging.info(string.Format("StopWatch duration: {0}ms", elapsed.TotalMilliseconds));*/
@@ -936,12 +965,12 @@ namespace DLT
             return true;
         }
 
-        public static Transaction[] getLastTransactions()
+        public static Transaction[] getLastTransactions(int from_index, int to_index)
         {
             lock (transactions)
             {
                 List<Transaction> full_tx_list = new List<Transaction>();
-                foreach (var entry in transactions)
+                foreach (var entry in transactions.Skip(from_index).Take(to_index))
                 {
                     Transaction tx = entry.Value;
                     if (tx == null)
@@ -954,12 +983,12 @@ namespace DLT
             }
         }
 
-        public static Transaction[] getAppliedTransactions()
+        public static Transaction[] getAppliedTransactions(int from_index, int to_index)
         {
             lock (transactions)
             {
                 List<Transaction> full_tx_list = new List<Transaction>();
-                var tx_list =  transactions.Where(x => x.Value == null || x.Value.applied != 0).ToArray();
+                var tx_list =  transactions.Where(x => x.Value == null || x.Value.applied != 0).Skip(from_index).Take(to_index).ToArray();
                 foreach(var entry in tx_list)
                 {
                     Transaction tx = entry.Value;
@@ -1148,7 +1177,7 @@ namespace DLT
                             b.blockNum, Crypto.hashToString(b.blockChecksum), txid));
                         return false;
                     }
-                    applyPowTransaction(tx, b, blockSolutionsDictionary, null, true, !tx.fromLocalStorage);
+                    applyPowTransaction(tx, b, blockSolutionsDictionary, null);
                     setAppliedFlag(txid, b.blockNum, !tx.fromLocalStorage);
                 }
                 // set PoW fields
@@ -1174,20 +1203,24 @@ namespace DLT
             return true;
         }
 
-        public static bool applyStakingTransactionsFromBlock(Block block, List<Transaction> failed_staking_transactions, bool ws_snapshot = false)
+        public static bool applyStakingTransactionsFromBlock(Block block, List<Transaction> failed_staking_transactions)
         {
             // TODO: move this to a seperate function. Left here for now for dev purposes
             // Apply any staking transactions in the pool at this moment
             List<Transaction> staking_txs = null;
-            if (ws_snapshot)
+            if (Node.walletState.inTransaction)
             {
-                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, block.version, ws_snapshot, block.timestamp);
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - generating staking transactions (transaction = {1})", block.blockNum, Node.walletState.inTransaction); }
+                staking_txs = Node.blockProcessor.generateStakingTransactions(block.blockNum - 6, block.version, block.timestamp);
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - generated {1} staking transactions", block.blockNum, staking_txs.Count); }
             }
             else
             {
                 lock (transactions)
                 {
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - selecting staking transactions from pool (transaction = {1})", block.blockNum, Node.walletState.inTransaction); }
                     staking_txs = transactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.StakingReward && x.applied == 0).ToList();
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - selected {1} staking transactions", block.blockNum, staking_txs.Count); }
                 }
             }
 
@@ -1195,6 +1228,7 @@ namespace DLT
             List<byte[]> blockStakers = new List<byte[]>();
 
             List<string> stakingTxIds = block.transactions.FindAll(x => x.StartsWith("stk-"));
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - block has {1} staking transaction ids", block.blockNum, stakingTxIds.Count); }
 
             foreach (Transaction tx in staking_txs)
             {
@@ -1227,8 +1261,9 @@ namespace DLT
                 // TODO: note that this can backfire when recovering completely from a file
                 if (Node.blockSync.synchronizing && Config.recoverFromFile == false && Config.storeFullHistory == false && Config.fullStorageDataVerification == false)
                     continue;
-               
-                if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers, ws_snapshot))
+
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - applying staking transaction {1}", block.blockNum, tx.id); }
+                if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers))
                 {
                     //Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
                     continue;
@@ -1248,7 +1283,7 @@ namespace DLT
 
         // This applies all the transactions from a block to the actual walletstate.
         // It removes the failed transactions as well from the pool and block.
-        public static bool applyTransactionsFromBlock(Block block, bool ws_snapshot = false)
+        public static bool applyTransactionsFromBlock(Block block)
         {
             if (block == null)
             {
@@ -1265,8 +1300,11 @@ namespace DLT
 
                 List<Transaction> failed_staking_transactions = new List<Transaction>();
 
-                if(!applyStakingTransactionsFromBlock(block, failed_staking_transactions, ws_snapshot))
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionsFromBlock (transaction = {1})", block.blockNum, Node.walletState.inTransaction); }
+
+                if (!applyStakingTransactionsFromBlock(block, failed_staking_transactions))
                 {
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock failed!", block.blockNum); }
                     return false;
                 }
 
@@ -1295,7 +1333,7 @@ namespace DLT
                     return false;
                 }
 
-
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applying other transactions ({1} transactions)!", block.blockNum, block.transactions.Count); }
                 foreach (string txid in block.transactions)
                 {
                     // Skip staking txids
@@ -1312,7 +1350,7 @@ namespace DLT
                     }
 
                     Transaction tx = getTransaction(txid, block.blockNum);
-
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Type: {2}, Amount: {3}", block.blockNum, tx.id, tx.type, tx.amount.getAmount()); }
                     if (tx == null)
                     {
                         Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
@@ -1336,7 +1374,7 @@ namespace DLT
                     } 
 
                     // Special case for Genesis transactions
-                    if (applyGenesisTransaction(tx, block, failed_transactions, ws_snapshot))
+                    if (applyGenesisTransaction(tx, block, failed_transactions))
                     {
                         continue;
                     }
@@ -1344,25 +1382,30 @@ namespace DLT
 
                     if(block.version >= BlockVer.v3)
                     {
+                        if (Config.fullBlockLogging) { Logging.info("Checking if transaction has a public key set - {0} B", tx.pubKey == null ? 0 : tx.pubKey.Length); }
                         byte[] tmp_address = (new Address(tx.pubKey)).address;
                         // Update the walletstate public key
-                        byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
+                        byte[] pubkey = Node.walletState.getWallet(tmp_address).publicKey;
                         // Generate an address from the public key and compare it with the sender
                         if (pubkey == null)
                         {
+                            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, tx.id, 
+                                Base58Check.Base58CheckEncoding.EncodePlain(tmp_address)); }
                             // There is no supplied public key, extract it from transaction
                             pubkey = tx.pubKey;
                             if (pubkey != null)
                             {
                                 // Update the walletstate public key
-                                Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                                Node.walletState.setWalletPublicKey(tmp_address, pubkey);
                             }
                         }
                     }
 
                     // Special case for PoWSolution transactions
-                    if (applyPowTransaction(tx, block, blockSolutionsDictionary, failed_transactions, ws_snapshot))
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as PoW", block.blockNum, tx.id); }
+                    if (applyPowTransaction(tx, block, blockSolutionsDictionary, failed_transactions))
                     {
+                        if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: as PoW succeeded", block.blockNum, tx.id, tx.type, tx.amount.getAmount()); }
                         continue;
                     }
 
@@ -1380,7 +1423,7 @@ namespace DLT
                     {
                         byte[] tmp_address = (new Address(tx.pubKey)).address;
                         // Update the walletstate public key
-                        byte[] pubkey = Node.walletState.getWallet(tmp_address, ws_snapshot).publicKey;
+                        byte[] pubkey = Node.walletState.getWallet(tmp_address).publicKey;
                         // Generate an address from the public key and compare it with the sender
                         if (pubkey == null)
                         {
@@ -1389,7 +1432,7 @@ namespace DLT
                             if (pubkey != null)
                             {
                                 // Update the walletstate public key
-                                Node.walletState.setWalletPublicKey(tmp_address, pubkey, ws_snapshot);
+                                Node.walletState.setWalletPublicKey(tmp_address, pubkey);
                             }
                         }
                     }
@@ -1397,20 +1440,20 @@ namespace DLT
                     // Special case for Multisig
                     if (tx.type == (int)Transaction.Type.MultisigTX)
                     {
-                        List<string> related_tx_ids = applyMultisigTransaction(tx, block, failed_transactions, ws_snapshot);
+                        List<string> related_tx_ids = applyMultisigTransaction(tx, block, failed_transactions);
                         if(related_tx_ids == null)
                         {
                             Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
                             return false;
                         }else
                         {
-                            applyMultisigRelatedTransactions(related_tx_ids, block, failed_transactions, ws_snapshot);
+                            applyMultisigRelatedTransactions(related_tx_ids, block, failed_transactions);
                         }
                         continue;
                     }
                     if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
-                        List<string> related_tx_ids = applyMultisigChangeTransaction(tx, block, failed_transactions, ws_snapshot);
+                        List<string> related_tx_ids = applyMultisigChangeTransaction(tx, block, failed_transactions);
                         if (related_tx_ids == null)
                         {
                             Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
@@ -1418,7 +1461,7 @@ namespace DLT
                         }
                         else
                         {
-                            applyMultisigRelatedTransactions(related_tx_ids, block, failed_transactions, ws_snapshot);
+                            applyMultisigRelatedTransactions(related_tx_ids, block, failed_transactions);
                         }
                         continue;
                     }else if(tx.type == (int)Transaction.Type.MultisigAddTxSignature)
@@ -1428,21 +1471,23 @@ namespace DLT
                     }
 
                     // If we reached this point, it means this is a normal transaction
-                    applyNormalTransaction(tx, block, failed_transactions, ws_snapshot);
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as normal", block.blockNum, tx.id); }
+                    applyNormalTransaction(tx, block, failed_transactions);
 
                 }
 
                 // Finally, Check if we have any miners to reward
                 if (blockSolutionsDictionary.Count > 0)
                 {
-                    rewardMiners(block.blockNum, blockSolutionsDictionary, ws_snapshot);
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Block solutions: {1} - rewarding miners...", block.blockNum, blockSolutionsDictionary.Count); }
+                    rewardMiners(block.blockNum, blockSolutionsDictionary);
                 }
 
                 // Clear the solutions dictionary
                 blockSolutionsDictionary.Clear();
 
                 // double-check if there are any unapplied transactions and if so reject the block
-                if (!ws_snapshot)
+                if (!Node.walletState.inTransaction)
                 {
                     foreach (string txid in block.transactions)
                     {
@@ -1492,7 +1537,7 @@ namespace DLT
         // Checks if a transaction is a pow transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
         // be careful when changing/updating ws_snapshot related things in this function as the parameter relies on sync as well
-        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<object[]>> blockSolutionsDictionary, List<Transaction> failedTransactions, bool ws_snapshot = false, bool verify_pow = true)
+        public static bool applyPowTransaction(Transaction tx, Block block, IDictionary<ulong, List<object[]>> blockSolutionsDictionary, List<Transaction> failedTransactions)
         {
             if (tx.type != (int)Transaction.Type.PoWSolution)
             {
@@ -1513,9 +1558,15 @@ namespace DLT
             }
 
             // Update the block's applied field
-            if (!ws_snapshot)
+            if (!Node.walletState.inTransaction)
             {
                 setAppliedFlag(tx.id, block.blockNum);
+            }
+
+            bool verify_pow = true;
+            if(tx.fromLocalStorage && !Config.fullStorageDataVerification)
+            {
+                verify_pow = false;
             }
 
             // Verify if the solution is correct
@@ -1559,7 +1610,7 @@ namespace DLT
 
         // Checks if a transaction is a genesis transaction and applies it.
         // Returns true if it's a PoW transaction, otherwise false
-        public static bool applyGenesisTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
+        public static bool applyGenesisTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
         {
             if (tx.type != (int)Transaction.Type.Genesis)
             {
@@ -1578,10 +1629,10 @@ namespace DLT
             // Apply the amount
             foreach (var entry in tx.toList)
             {
-                Node.walletState.setWalletBalance(entry.Key, entry.Value, ws_snapshot);
+                Node.walletState.setWalletBalance(entry.Key, entry.Value);
             }
 
-            if (!ws_snapshot)
+            if (!Node.walletState.inTransaction)
             {
                 setAppliedFlag(tx.id, block.blockNum);
             }
@@ -1591,7 +1642,7 @@ namespace DLT
 
         // Checks if a transaction is a staking transaction and applies it.
         // Returns true if it's a Staking transaction, otherwise false
-        public static bool applyStakingTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, List<byte[]> blockStakers, bool ws_snapshot = false)
+        public static bool applyStakingTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, List<byte[]> blockStakers)
         {
             if (tx.type != (int)Transaction.Type.StakingReward)
             {
@@ -1615,7 +1666,7 @@ namespace DLT
                     return true;
                 }
 
-                Wallet staking_wallet = Node.walletState.getWallet(toEntry.Key, ws_snapshot);
+                Wallet staking_wallet = Node.walletState.getWallet(toEntry.Key);
                 IxiNumber staking_balance_before = staking_wallet.balance;
 
                 IxiNumber tx_amount = toEntry.Value;
@@ -1655,12 +1706,12 @@ namespace DLT
                 // Deposit the amount
                 IxiNumber staking_balance_after = staking_balance_before + tx_amount;
 
-                Node.walletState.setWalletBalance(toEntry.Key, staking_balance_after, ws_snapshot);
+                Node.walletState.setWalletBalance(toEntry.Key, staking_balance_after);
 
                 blockStakers.Add(toEntry.Key);
             }
 
-            if (!ws_snapshot)
+            if (!Node.walletState.inTransaction)
             {
                 setAppliedFlag(tx.id, block.blockNum);
             }
@@ -1668,33 +1719,7 @@ namespace DLT
             return true;
         }
 
-        // Rolls back a normal transaction
-        public static bool rollBackNormalTransaction(Transaction tx)
-        {
-            // TODO TODO TODO TODO implement this eventually
-            // Calculate the transaction amount without fee
-            IxiNumber txAmountWithoutFee = tx.amount - tx.fee;
-
-            //Wallet source_wallet = Node.walletState.getWallet(tx.from);
-            //Wallet dest_wallet = Node.walletState.getWallet(tx.to);
-
-            //IxiNumber source_balance_before = source_wallet.balance;
-            //IxiNumber dest_balance_before = dest_wallet.balance;
-
-            // Withdraw the full amount, including fee
-            //IxiNumber source_balance_after = source_balance_before + tx.amount + tx.fee;
-
-            // Deposit the amount without fee, as the fee is distributed by the network a few blocks later
-            //IxiNumber dest_balance_after = dest_balance_before - tx.amount;
-
-            // Update the walletstate
-            //Node.walletState.setWalletBalance(tx.from, source_balance_after, false);
-            //Node.walletState.setWalletBalance(tx.to, dest_balance_after, false);
-
-            return true;
-        }
-
-        public static List<string> applyMultisigTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
+        public static List<string> applyMultisigTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
         {
             if (tx.type == (int)Transaction.Type.MultisigTX)
             {
@@ -1719,7 +1744,7 @@ namespace DLT
                 }
                 object multisig_type = tx.GetMultisigData();
                 byte[] from_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
-                Wallet orig = Node.walletState.getWallet(from_address, ws_snapshot);
+                Wallet orig = Node.walletState.getWallet(from_address);
                 if (orig is null)
                 {
                     Logging.error(String.Format("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(from_address)));
@@ -1779,7 +1804,7 @@ namespace DLT
                     return null;
                 }
                 // it processes as normal
-                if(applyNormalTransaction(tx, block, failed_transactions, ws_snapshot))
+                if(applyNormalTransaction(tx, block, failed_transactions))
                 {
                     return related_tx_ids;
                 }
@@ -1787,7 +1812,7 @@ namespace DLT
             return null;
         }
 
-        public static bool applyMultisigRelatedTransactions(List<string> related_tx_ids, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
+        public static bool applyMultisigRelatedTransactions(List<string> related_tx_ids, Block block, List<Transaction> failed_transactions)
         {
             foreach (string txid in related_tx_ids)
             {
@@ -1818,7 +1843,7 @@ namespace DLT
                     {
                         byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
 
-                        Wallet source_wallet = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                        Wallet source_wallet = Node.walletState.getWallet(tmp_address);
                         IxiNumber source_balance_before = source_wallet.balance;
                         if (source_balance_before < entry.Value)
                         {
@@ -1830,10 +1855,10 @@ namespace DLT
                         // Withdraw the full amount, including fee
                         IxiNumber source_balance_after = source_balance_before - entry.Value;
 
-                        Node.walletState.setWalletBalance(tmp_address, source_balance_after, ws_snapshot);
+                        Node.walletState.setWalletBalance(tmp_address, source_balance_after);
                     }
 
-                    if (!ws_snapshot)
+                    if (!Node.walletState.inTransaction)
                     {
                         setAppliedFlag(tx.id, block.blockNum);
                     }
@@ -1848,7 +1873,7 @@ namespace DLT
             return true;
         }
 
-        public static List<string> applyMultisigChangeTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
+        public static List<string> applyMultisigChangeTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
         {
             if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
@@ -1867,7 +1892,7 @@ namespace DLT
 
                 object multisig_type = tx.GetMultisigData();
                 byte[] target_wallet_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
-                Wallet orig = Node.walletState.getWallet(target_wallet_address, ws_snapshot);
+                Wallet orig = Node.walletState.getWallet(target_wallet_address);
                 if (orig is null)
                 {
                     Logging.error(String.Format("Multisig change transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Base58Check.Base58CheckEncoding.EncodePlain(target_wallet_address)));
@@ -1904,9 +1929,7 @@ namespace DLT
                     }
 
                     Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
-                    orig.addValidSigner(multisig_obj.addrToAdd);
-                    orig.type = WalletType.Multisig;
-                    Node.walletState.setWallet(orig, ws_snapshot);
+                    Node.walletState.addWalletAllowedSigner(orig.id, multisig_obj.addrToAdd);
                 }
                 else if (multisig_type is Transaction.MultisigAddrDel)
                 {
@@ -1935,21 +1958,15 @@ namespace DLT
                         return null;
                     }
 
+                    bool adjust_req_sigs = false;
                     if (orig.requiredSigs > orig.countAllowedSigners)
                     {
                         Logging.info(String.Format("Removing a signer would make using the wallet impossible. Adjusting required signatures: {0} -> {1}.",
                             orig.requiredSigs, orig.allowedSigners.Length));
-                        orig.requiredSigs = (byte)orig.allowedSigners.Length;
+                        adjust_req_sigs = true;
                     }
                     Logging.info(String.Format("Removing multisig address {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
-                    orig.delValidSigner(multisig_obj.addrToDel);
-                    if (orig.countAllowedSigners <= 0)
-                    {
-                        Logging.info(String.Format("Wallet {0} changes back to a single-sig wallet.", Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
-                        orig.type = WalletType.Normal;
-                        orig.allowedSigners = null;
-                    }
-                    Node.walletState.setWallet(orig, ws_snapshot);
+                    Node.walletState.delWalletAllowedSigner(orig.id, multisig_obj.addrToDel, adjust_req_sigs);
                 }
                 else if (multisig_type is Transaction.MultisigChSig)
                 {
@@ -1980,15 +1997,14 @@ namespace DLT
                         return null;
                     }
                     Logging.info(String.Format("Changing multisig wallet {0} required sigs {1} -> {2}.", Base58Check.Base58CheckEncoding.EncodePlain(orig.id), orig.requiredSigs, multisig_obj.reqSigs));
-                    orig.requiredSigs = multisig_obj.reqSigs;
-                    Node.walletState.setWallet(orig, ws_snapshot);
+                    Node.walletState.setWalletRequiredSignatures(orig.id, multisig_obj.reqSigs);
                 }
 
                 foreach (var entry in tx.fromList)
                 {
                     byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
 
-                    Wallet source_wallet = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                    Wallet source_wallet = Node.walletState.getWallet(tmp_address);
                     IxiNumber source_balance_before = source_wallet.balance;
                     // Withdraw the full amount, including fee
                     IxiNumber source_balance_after = source_balance_before - entry.Value;
@@ -2000,10 +2016,10 @@ namespace DLT
                         return null;
                     }
 
-                    Node.walletState.setWalletBalance(tmp_address, source_balance_after, ws_snapshot);
+                    Node.walletState.setWalletBalance(tmp_address, source_balance_after);
                 }
 
-                if (!ws_snapshot)
+                if (!Node.walletState.inTransaction)
                 {
                     setAppliedFlag(tx.id, block.blockNum);
                 }
@@ -2014,8 +2030,9 @@ namespace DLT
 
 
         // Applies a normal transaction
-        public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions, bool ws_snapshot = false)
+        public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
         {
+            // TODO: WSJ is withdrawing and depositing same addresses allowed in a single transaction?
             ulong minBh = 0;
             if (block.blockNum > ConsensusConfig.getRedactedWindowSize(block.version))
             {
@@ -2056,7 +2073,7 @@ namespace DLT
             {
                 byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
 
-                Wallet source_wallet = Node.walletState.getWallet(tmp_address, ws_snapshot);
+                Wallet source_wallet = Node.walletState.getWallet(tmp_address);
                 IxiNumber source_balance_before = source_wallet.balance;
                 // Withdraw the full amount, including fee
                 IxiNumber source_balance_after = source_balance_before - entry.Value;
@@ -2068,7 +2085,7 @@ namespace DLT
                     return false;
                 }
 
-                Node.walletState.setWalletBalance(tmp_address, source_balance_after, ws_snapshot);
+                Node.walletState.setWalletBalance(tmp_address, source_balance_after);
                 total_amount += entry.Value;
             }
 
@@ -2079,11 +2096,10 @@ namespace DLT
                 return false;
             }
 
-
             total_amount = 0;
             foreach (var entry in tx.toList)
             {
-                Wallet dest_wallet = Node.walletState.getWallet(entry.Key, ws_snapshot);
+                Wallet dest_wallet = Node.walletState.getWallet(entry.Key);
                 IxiNumber dest_balance_before = dest_wallet.balance;
 
 
@@ -2092,7 +2108,15 @@ namespace DLT
 
 
                 // Update the walletstate
-                Node.walletState.setWalletBalance(entry.Key, dest_balance_after, ws_snapshot);
+                if (Config.fullBlockLogging)
+                {
+                    Logging.info("Normal transaction {{ {3} }} updates wallet {0} balance: {1} -> {2}.",
+                        WalletState.Addr2String(entry.Key),
+                        dest_balance_before.ToString(),
+                        dest_balance_after.ToString(),
+                        tx.id);
+                }
+                Node.walletState.setWalletBalance(entry.Key, dest_balance_after);
                 total_amount += entry.Value;
             }
 
@@ -2103,7 +2127,7 @@ namespace DLT
                 return false;
             }
 
-            if (!ws_snapshot)
+            if (!Node.walletState.inTransaction)
             {
                 setAppliedFlag(tx.id, block.blockNum);
             }
@@ -2112,7 +2136,7 @@ namespace DLT
         }
 
         // Go through a dictionary of block numbers and respective miners and reward them
-        public static void rewardMiners(ulong sent_block_num, IDictionary<ulong, List<object[]>> blockSolutionsDictionary, bool ws_snapshot = false)
+        public static void rewardMiners(ulong sent_block_num, IDictionary<ulong, List<object[]>> blockSolutionsDictionary)
         {
             for (int i = 0; i < blockSolutionsDictionary.Count; i++)
             {
@@ -2140,25 +2164,23 @@ namespace DLT
                 IxiNumber powRewardPart = pow_reward / miners_count;
 
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
-
                 foreach (var entry in miners_to_reward)
                 {
                     // TODO add another address checksum here, just in case
                     // Update the wallet state
-                    Wallet miner_wallet = Node.walletState.getWallet((byte[])entry[0], ws_snapshot);
+                    Wallet miner_wallet = Node.walletState.getWallet((byte[])entry[0]);
                     IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
-                    Node.walletState.setWalletBalance(miner_wallet.id, miner_balance_after, ws_snapshot);
+                    Node.walletState.setWalletBalance(miner_wallet.id, miner_balance_after);
 
                     if (miner_wallet.id.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
                     {
                         ActivityStorage.updateValue(Encoding.UTF8.GetBytes(((Transaction)entry[2]).id), powRewardPart);
                     }
-
                 }
 
-                // Ignore during snapshot
-                if (ws_snapshot == false)
+                // Ignore if we're in a bigger transaction, which is not yet complete
+                if (!Node.walletState.inTransaction)
                 {
                     // Set the powField as a checksum of all miners for this block
                     block.powField = BitConverter.GetBytes(sent_block_num);

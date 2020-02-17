@@ -33,7 +33,7 @@ namespace DLT
 
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
-            public static bool disableMiner = false; // Flag to disable miner
+            public static bool disableMiner = false; // Flag to disable miner - deprecated
             public static bool workerOnly = false; // Flag to disable masternode capability
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
@@ -50,6 +50,7 @@ namespace DLT
                     return dataFolderPath + Path.DirectorySeparatorChar + "blocks";
                 }
             }
+            public static bool optimizeDBStorage = false;
             public static string configFilename = "ixian.cfg";
             public static string walletFile = "ixian.wal";
             public static string genesisFile = "genesis.dat";
@@ -67,18 +68,20 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.6g"; // DLT Node version
+            public static readonly string version = "xdc-0.6.7"; // DLT Node version
+
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 1000000 + (ulong)(new Random()).Next(500); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 1200000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
             // Debugging values
             public static string networkDumpFile = "";
             public static int benchmarkKeys = 0;
+            public static bool fullBlockLogging = false; // use with care - it will explode the log files
 
             // Development/testing options
             public static bool generateWalletOnly = false;
@@ -113,8 +116,8 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--disableMiner] [--onlyShowAddresses] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
-                Console.WriteLine(" [--recover] [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--walletPassword]");
+                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
+                Console.WriteLine(" [--recover] [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -134,7 +137,6 @@ namespace DLT
                 Console.WriteLine("    --maxLogCount\t Specify maximum number of log files");
                 Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
-                Console.WriteLine("    --disableMiner\t Disable miner");
                 Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
                 Console.WriteLine("    --walletPassword\t Specify the password for the wallet (be careful with this)");
                 Console.WriteLine("");
@@ -144,8 +146,10 @@ namespace DLT
                 Console.WriteLine("    --benchmarkKeys\t Perform a key-generation benchmark, then exit");
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
-				Console.WriteLine("    --verifyStorage\t Full local storage blocks and transactions verification");
+				Console.WriteLine("    --verifyStorage\t Start node with full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
+                Console.WriteLine("    --optimizeDBStorage\t Only for RocksDB: Performs manual compaction on all databases before starting the node. MAY TAKE SOME TIME!");
+                Console.WriteLine("    --offline\t\t Start node in offline mode - does not connect to the Ixian network or accepts any incoming connections from other nodes");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue syntax.");
@@ -168,7 +172,6 @@ namespace DLT
                 Console.WriteLine("    addTestnetPeer\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
                 Console.WriteLine("    maxLogSize\t\t Specify maximum log file size in MB (same as --maxLogSize CLI)");
                 Console.WriteLine("    maxLogCount\t\t Specify maximum number of log files (same as --maxLogCount CLI)");
-                Console.WriteLine("    disableMiner\t 1 to disable the miner, 0 to enable (same as --disableMiner CLI)");
                 Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
                 Console.WriteLine("    forceTimeOffset\t Forces network time offset to the specified value (same as --forceTimeOffset CLI)");
                 Console.WriteLine("    walletNotify\t Execute command when a wallet transaction changes");
@@ -250,12 +253,6 @@ namespace DLT
                             break;
                         case "maxLogCount":
                             maxLogCount = int.Parse(value);
-                            break;
-                        case "disableMiner":
-                            if (int.Parse(value) != 0)
-                            {
-                                disableMiner = true;
-                            }
                             break;
                         case "disableWebStart":
                             if (int.Parse(value) != 0)
@@ -381,7 +378,7 @@ namespace DLT
 
                 cmd_parser.Setup<string>("dataFolderPath").Callback(value => dataFolderPath = value).Required();
 
-                cmd_parser.Setup<bool>("disableMiner").Callback(value => disableMiner = true).Required();
+                cmd_parser.Setup<bool>("optimizeDBStorage").Callback(value => optimizeDBStorage = value).Required();
 
                 cmd_parser.Setup<bool>("verifyStorage").Callback(value => fullStorageDataVerification = true).Required();
 
@@ -403,10 +400,10 @@ namespace DLT
 
                 cmd_parser.Setup<bool>("devInsertFromJson").Callback(value => devInsertFromJson = true).Required();
 
+                cmd_parser.Setup<bool>("offline").Callback(value => CoreConfig.preventNetworkOperations = true).Required();
+
                 cmd_parser.Parse(args);
 
-
-                Storage.path = dataFolderPath + Path.DirectorySeparatorChar + "blocks";
                 WalletStateStorage.path = dataFolderPath + Path.DirectorySeparatorChar + "ws";
 
                 if (start_clean > 0)

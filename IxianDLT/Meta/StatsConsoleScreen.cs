@@ -74,8 +74,10 @@ namespace DLT.Meta
 
         public void drawScreen()
         {
-            if (Storage.upgrading)
+            if (Node.storage.isUpgrading())
+            {
                 Console.Clear();
+            }
 
             Console.SetCursorPosition(0, 0);
 
@@ -129,9 +131,9 @@ namespace DLT.Meta
             }
             writeLine("────────────────────────────────────────────────────────────");
 
-            if (Storage.upgrading)
+            if (Node.storage.isUpgrading())
             {
-                writeLine(" Upgrading database: " + Storage.upgradeProgress + "/" + Storage.upgradeMaxBlockNum);
+                writeLine(" Upgrading database: " + Node.storage.upgradePercentage() + " %");
             }
 
             if (Node.serverStarted == false)
@@ -162,6 +164,13 @@ namespace DLT.Meta
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 dltStatus = "No fully signed block received for over 30 minutes";
+                IxianHandler.status = NodeStatus.stalled;
+            }
+
+            if(Clock.networkTimeDifference != Clock.realNetworkTimeDifference && connectionsOut > 2)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                dltStatus = "Please make sure that your computer's date and time are correct";
             }
 
             if (Node.blockProcessor.networkUpgraded)

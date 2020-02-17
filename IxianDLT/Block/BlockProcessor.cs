@@ -651,6 +651,28 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
+            Block genesis_block = Node.blockChain.getGenesisBlock();
+            if (genesis_block != null)
+            {
+                if (b.blockNum == 1)
+                {
+                    if (!b.blockChecksum.SequenceEqual(genesis_block.blockChecksum))
+                    {
+                        Logging.error("Received block {0} that's different from genesis block, discarding the block.", b.blockNum);
+                        return BlockVerifyStatus.PotentiallyForkedBlock;
+                    }
+                }
+                else if (b.lastSuperBlockNum == 1)
+                {
+                    if (!b.lastSuperBlockChecksum.SequenceEqual(genesis_block.blockChecksum))
+                    {
+                        Logging.error("Received block {0} that's different from genesis block, discarding the block.", b.blockNum);
+                        return BlockVerifyStatus.PotentiallyForkedBlock;
+                    }
+                }
+            }
+
+
             if (Node.blockChain.Count > 0 && b.blockNum + 5 <= Node.blockChain.getLastBlockNum())
             {
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
@@ -683,6 +705,10 @@ namespace DLT
                 if(pendingSuperBlocks.Count() > 0 && pendingSuperBlocks.OrderBy(x=> x.Key).Last().Key > b.blockNum)
                 {
                     //skip_sig_verification = true; // TODO TODO TODO TODO TODO enable this and add additional hardening by verifying block's checksum against the SB segments when fully activating superblocks
+                }
+                if(b.fromLocalStorage && !Config.fullStorageDataVerification)
+                {
+                    skip_sig_verification = true;
                 }
                 // Verify signatures
                 if (!b.verifySignatures(skip_sig_verification))
@@ -841,11 +867,26 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version > BlockVer.v2)
+                else if (b.version <= BlockVer.v5)
                 {
                     if (t.version < 2 || t.version > 3)
                     {
                         Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 2 or 3!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }
+                else if (b.version == BlockVer.v6)
+                {
+                    if (t.version < 3 || t.version > 4)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 3 or 4!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }else if (b.version >= BlockVer.v7)
+                {
+                    if (t.version != 4)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 4!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -1042,19 +1083,30 @@ namespace DLT
                     else if(b.blockNum == last_block_num + 1)
                     {
                         Node.walletState.setCachedBlockVersion(b.version);
-                        Node.walletState.snapshot();
-                        if (applyAcceptedBlock(b, true))
+                        IxiNumber totalSupplyBefore = Node.walletState.calculateTotalSupply();
+                        ulong wsj_tx = Node.walletState.beginTransaction();
+                        if (Config.fullBlockLogging) { Logging.info("Starting WSJ transaction for block verification: {0}", wsj_tx); }
+                        if (applyAcceptedBlock(b))
                         {
                             if (b.version < BlockVer.v5 || b.lastSuperBlockChecksum != null)
                             {
-                                ws_checksum = Node.walletState.calculateWalletStateChecksum(true);
+                                ws_checksum = Node.walletState.calculateWalletStateChecksum();
                             }
                             else
                             {
-                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum();
+                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(wsj_tx);
                             }
+                        } else
+                        {
+                            Logging.error(String.Format("Block #{0} failed applying!", b.blockNum));
                         }
-                        Node.walletState.revert();
+                        if (Config.fullBlockLogging) { Logging.info("Reverting WSJ transaction for block verification: {0}", wsj_tx); }
+                        Node.walletState.revertTransaction(wsj_tx);
+                        IxiNumber totalSupplyAfter = Node.walletState.calculateTotalSupply();
+                        if(totalSupplyBefore != totalSupplyAfter)
+                        {
+                            Logging.error(String.Format("Block #{0} did not cleanly revert!", b.blockNum));
+                        }
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {
                             Logging.error(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
@@ -1486,7 +1538,7 @@ namespace DLT
                     Logging.warn(String.Format("Signature freeze checksum verification failed on current localNewBlock #{0}, waiting for the correct target block.", localNewBlock.blockNum));
                     TimeSpan current_block_processing_time = DateTime.UtcNow - currentBlockStartTime;
                     Random rnd = new Random();
-                    if (current_block_processing_time.TotalSeconds > (blockGenerationInterval * 2) + rnd.Next(30)) // can't get target block for 2 block times + random seconds, we don't want all nodes sending at once
+                    if (current_block_processing_time.TotalSeconds > (blockGenerationInterval * 4) + rnd.Next(30)) // can't get target block for 4 block times + random seconds, we don't want all nodes sending at once
                     {
                         blacklistBlock(localNewBlock);
                         localNewBlock = null;
@@ -1627,6 +1679,8 @@ namespace DLT
                             // Reset transaction limits
                             //TransactionPool.resetSocketTransactionLimits();
 
+                            IxianHandler.status = NodeStatus.ready;
+
                             if (highestNetworkBlockNum > last_block_num)
                             {
                                 ProtocolMessage.broadcastGetBlock(last_block_num + 1, null, null, 1);
@@ -1729,7 +1783,7 @@ namespace DLT
 
         // Applies the block
         // Returns false if walletstate is not correct
-        public bool applyAcceptedBlock(Block b, bool ws_snapshot = false)
+        public bool applyAcceptedBlock(Block b)
         {
             if (Node.blockChain.getBlock(b.blockNum) != null)
             {
@@ -1738,19 +1792,22 @@ namespace DLT
             }
 
             // Distribute staking rewards first
-            distributeStakingRewards(b, b.version, ws_snapshot);
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (version {1})", b.blockNum, b.version); }
+            distributeStakingRewards(b, b.version);
 
             // Apply transactions from block
-            if (!TransactionPool.applyTransactionsFromBlock(b, ws_snapshot))
+            if (!TransactionPool.applyTransactionsFromBlock(b))
             {
                 return false;
             }
 
             // Apply transaction fees
-            applyTransactionFeeRewards(b, ws_snapshot);
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
+            applyTransactionFeeRewards(b);
 
             // Update wallet state public keys
-            updateWalletStatePublicKeys(b.blockNum, ws_snapshot);
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> updateWalletStatePublicKeys (version {1})", b.blockNum, b.version); }
+            updateWalletStatePublicKeys(b.blockNum);
 
             if(ws_snapshot == false)
             {
@@ -1761,7 +1818,7 @@ namespace DLT
             return true;
         }
 
-        public bool rollBackAcceptedBlock(Block b, bool ws_snapshot = false)
+        public bool rollBackAcceptedBlock(Block b)
         {
             return false; // TODO TODO TODO partially implemented
 
@@ -1785,7 +1842,7 @@ namespace DLT
             return true; */
         }
 
-        public void applyTransactionFeeRewards(Block b, bool ws_snapshot = false)
+        public void applyTransactionFeeRewards(Block b)
         {
             byte[] sigfreezechecksum = null;
             lock (localBlockLock)
@@ -1879,10 +1936,10 @@ namespace DLT
             IxiNumber foundationAward = tFeeAmount * ConsensusConfig.foundationFeePercent / 100;
 
             // Award foundation fee
-            Wallet foundation_wallet = Node.walletState.getWallet(ConsensusConfig.foundationAddress, ws_snapshot);
+            Wallet foundation_wallet = Node.walletState.getWallet(ConsensusConfig.foundationAddress);
             IxiNumber foundation_balance_before = foundation_wallet.balance;
             IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
-            Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after, ws_snapshot);
+            Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
             //Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
             // Subtract the foundation award from total fee amount
@@ -1914,7 +1971,7 @@ namespace DLT
             if (remainder > (long) 0)
             {
                 foundation_balance_after = foundation_balance_after + remainder;
-                Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after, ws_snapshot);
+                Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
                 //Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
             }
 
@@ -1925,11 +1982,11 @@ namespace DLT
                 byte[] addressBytes =  (new Address(sig[1])).address;
 
                 // Update the walletstate and deposit the award
-                Wallet signer_wallet = Node.walletState.getWallet(addressBytes, ws_snapshot);
+                Wallet signer_wallet = Node.walletState.getWallet(addressBytes);
                 IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
-                Node.walletState.setWalletBalance(addressBytes, balance_after, ws_snapshot);
-                if(!ws_snapshot)
+                Node.walletState.setWalletBalance(addressBytes, balance_after);
+                if(!Node.walletState.inTransaction)
                 {
                     if (signer_wallet.id.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
                     {
@@ -2049,9 +2106,9 @@ namespace DLT
                 }
 
                 // lock transaction v2 with block v3
-                if (block_version >= 3 && transaction.version < 2)
+                if (block_version >= BlockVer.v6 && transaction.version < 3)
                 {
-                    if (Node.blockChain.getLastBlockVersion() >= 3)
+                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v6)
                     {
                         TransactionPool.removeTransaction(transaction.id);
                     }
@@ -2263,7 +2320,7 @@ namespace DLT
 
                     // Create a new block and add all the transactions in the pool
                     localNewBlock = new Block();
-                    localNewBlock.timestamp = Core.getCurrentTimestamp();
+                    localNewBlock.timestamp = Clock.getNetworkTimestamp();
 
                     Block last_block = Node.blockChain.getLastBlock();
                     if (last_block != null)
@@ -2285,7 +2342,7 @@ namespace DLT
                     Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
 
                     // Apply staking transactions to block. 
-                    List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version, false, localNewBlock.timestamp);
+                    List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version, localNewBlock.timestamp);
                     foreach (Transaction transaction in staking_transactions)
                     {
                         localNewBlock.addTransaction(transaction.id);
@@ -2320,25 +2377,25 @@ namespace DLT
                     localNewBlock.difficulty = calculateDifficulty(block_version);
 
                     // Simulate applying a block to see what the walletstate would look like
-                    Node.walletState.snapshot();
-                    if (!applyAcceptedBlock(localNewBlock, true))
+                    ulong wsj_tx = Node.walletState.beginTransaction();
+                    if (!applyAcceptedBlock(localNewBlock))
                     {
                         Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
                         localNewBlock = null;
-                        Node.walletState.revert();
+                        Node.walletState.revertTransaction(wsj_tx);
                         return;
                     }
                     if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
                     {
-                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum());
+                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum(wsj_tx));
                     }
                     else
                     {
-                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum(true));
+                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
                     }
                     Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
                     Logging.info(String.Format("While generating new block: Node's blockversion: {0}", IxianHandler.getLastBlockVersion()));
-                    Node.walletState.revert();
+                    Node.walletState.revertTransaction(wsj_tx);
 
                     localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
 
@@ -2713,7 +2770,7 @@ namespace DLT
         }
 
         // Generate all the staking transactions for this block
-        public List<Transaction> generateStakingTransactions(ulong targetBlockNum, int block_version, bool ws_snapshot = false, long block_timestamp = 0)
+        public List<Transaction> generateStakingTransactions(ulong targetBlockNum, int block_version, long block_timestamp = 0)
         {
             List<Transaction> transactions = new List<Transaction>();
 
@@ -2730,6 +2787,7 @@ namespace DLT
             }
 
             IxiNumber totalIxis = Node.walletState.calculateTotalSupply();
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> generateStakingTransactions (total supply = {1})", targetBlockNum, totalIxis.getAmount()); }
             //Logging.info(String.Format("totalIxis = {0}", totalIxis.ToString()));
             IxiNumber inflationPA = new IxiNumber("0.1"); // 0.1% inflation per year for the first month
 
@@ -2792,7 +2850,7 @@ namespace DLT
             {
                 if(block_version < BlockVer.v5)
                 {
-                    Wallet wallet = Node.walletState.getWallet(wallet_addr, ws_snapshot);
+                    Wallet wallet = Node.walletState.getWallet(wallet_addr);
                     if (wallet.balance.getAmount() > 0)
                     {
                         totalIxisStaked += wallet.balance;
@@ -2905,7 +2963,7 @@ namespace DLT
 
 
         // Distribute the staking rewards according to the 5th last block signatures
-        public bool distributeStakingRewards(Block b, int block_version, bool ws_snapshot = false)
+        public bool distributeStakingRewards(Block b, int block_version)
         {
             // Prevent distribution if we don't have 10 fully generated blocks yet
             if (Node.blockChain.getLastBlockNum() < 10)
@@ -2913,15 +2971,18 @@ namespace DLT
                 return false;
             }
 
-            if (ws_snapshot == false)
+            if (!Node.walletState.inTransaction)
             {
-                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, block_version, ws_snapshot, b.timestamp);
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (transaction = {1})", b.blockNum, Node.walletState.inTransaction); }
+                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, block_version, b.timestamp);
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards: generated {1} staking transactions:", b.blockNum, transactions.Count); }
                 foreach (Transaction transaction in transactions)
                 {
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Staking transaction {{ {1} }} -> {2} IxiCash to {3} recipients", b.blockNum, transaction.id, transaction.amount.getAmount(), transaction.toList.Count); }
                     TransactionPool.addTransaction(transaction, true);
                 }
             }
-            
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (done)", b.blockNum); }
             return true;
         }
 
@@ -2975,7 +3036,7 @@ namespace DLT
 
 
         // Updates the walletstate public keys. Called from BlockProcessor applyAcceptedBlock()
-        public bool updateWalletStatePublicKeys(ulong blockNum, bool ws_snapshot = false)
+        public bool updateWalletStatePublicKeys(ulong blockNum)
         {
             Block targetBlock = Node.blockChain.getBlock(blockNum - 6, false);
             if (targetBlock == null)
@@ -3004,8 +3065,7 @@ namespace DLT
                     Wallet signerWallet = Node.walletState.getWallet(signerAddress);
                     if (signerWallet.publicKey == null)
                     {
-                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
-                        continue;
+                        throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
                     }
                 }
                 else
@@ -3017,7 +3077,7 @@ namespace DLT
                     if (signerWallet.publicKey == null)
                     {
                         // Set the WS public key
-                        Node.walletState.setWalletPublicKey(p_address.address, signerPubKey, ws_snapshot);
+                        Node.walletState.setWalletPublicKey(p_address.address, signerPubKey);
                     }
                 }
             }
