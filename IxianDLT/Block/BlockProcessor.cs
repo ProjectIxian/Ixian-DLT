@@ -1809,12 +1809,6 @@ namespace DLT
             if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> updateWalletStatePublicKeys (version {1})", b.blockNum, b.version); }
             updateWalletStatePublicKeys(b.blockNum);
 
-            if(ws_snapshot == false)
-            {
-                // Cleanup transaction pool
-                TransactionPool.performCleanup();
-            }
-
             return true;
         }
 
