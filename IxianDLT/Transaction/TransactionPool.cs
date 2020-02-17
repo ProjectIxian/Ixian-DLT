@@ -322,6 +322,21 @@ namespace DLT
                 return false;
             }
 
+            byte[] data_checksum = transaction.calculateDataChecksum();
+            if(transaction.data != null && transaction.version >= 4)
+            {
+                if(transaction.dataChecksum == null)
+                {
+                    Logging.warn("Adding transaction {{ {0} }}, but data checksum is null!", transaction.id);
+                    return false;
+                }
+                if (!data_checksum.SequenceEqual(transaction.dataChecksum))
+                {
+                    Logging.warn("Adding transaction {{ {0} }}, but data checksum doesn't equal to calculated data checksum!", transaction.id);
+                    return false;
+                }
+            }
+
             IxiNumber totalAmount = new IxiNumber(0);
             foreach (var entry in transaction.fromList)
             {
