@@ -630,7 +630,6 @@ namespace DLTNode
                 networkArray.Add("Applied TX Count", TransactionPool.getTransactionCount() - TransactionPool.getUnappliedTransactions().Count());
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
-                networkArray.Add("WS Delta Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
             }
 
             networkArray.Add("Network Clients", NetworkServer.getConnectedClients());

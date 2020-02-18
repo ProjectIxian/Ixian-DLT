@@ -640,7 +640,7 @@ namespace DLT
                         Logging.warn("Neighbor {0} requested PIT information for block {0}, which was below the minimal PIT version.", endpoint.fullAddress, block_num);
                         return;
                     }
-                    PrefixInclusionTree pit = new PrefixInclusionTree();
+                    PrefixInclusionTree pit = new PrefixInclusionTree(44, 3);
                     List<string> interesting_transactions = new List<string>();
                     foreach(var tx in b.transactions)
                     {
