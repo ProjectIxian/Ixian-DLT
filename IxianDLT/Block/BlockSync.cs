@@ -1004,6 +1004,12 @@ namespace DLT
                                 wsSyncConfirmedBlockNum = block_height;
                                 wsSynced = true;
                                 wsSyncConfirmedVersion = Node.walletState.version;
+                            }else
+                            {
+                                // TODO TODO TODO: this should be handled so that it reads previous WS from storage and so on until things match; for now this will do
+                                // Seperate handling for non full history nodes
+                                Logging.error("onHelloDataReceived: WS Checksum doesn't match the block.");
+                                Node.walletState.clear();
                             }
                         }
                     }
