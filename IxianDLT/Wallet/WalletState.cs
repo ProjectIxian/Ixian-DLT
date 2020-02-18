@@ -189,9 +189,15 @@ namespace DLT
         {
             lock (stateLock)
             {
-                if (getWallet(id).isValidSigner(signer))
+                Wallet w = getWallet(id);
+                if (w.isValidSigner(signer))
                 {
                     Logging.warn(String.Format("Wallet {0} attempted to add signer {1}, but it is already in the allowed signer list.", Addr2String(id), Addr2String(signer)));
+                    return;
+                }
+                if(w.countAllowedSigners > 250)
+                {
+                    Logging.warn(String.Format("Wallet {0} attempted to add signer {1}, but it already has maximum allowed signers.", Addr2String(id), Addr2String(signer)));
                     return;
                 }
                 var change = new WSJE_AllowedSigner(id, true, signer);

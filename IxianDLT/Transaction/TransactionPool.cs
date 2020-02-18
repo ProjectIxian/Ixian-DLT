@@ -1928,6 +1928,13 @@ namespace DLT
                         return null;
                     }
 
+                    if (orig.countAllowedSigners > 250)
+                    {
+                        Logging.warn(String.Format("MS Wallet {0} attempted to add signer {1}, but it already has maximum allowed signers.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
+                        failed_transactions.Add(tx);
+                        return null;
+                    }
+
                     Logging.info(String.Format("Adding multisig address {0} to wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(orig.id)));
                     Node.walletState.addWalletAllowedSigner(orig.id, multisig_obj.addrToAdd);
                 }
