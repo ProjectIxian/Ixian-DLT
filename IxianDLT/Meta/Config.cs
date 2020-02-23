@@ -68,7 +68,7 @@ namespace DLT
             public static string externalIp = "";
 
             // Read-only values
-            public static readonly string version = "xdc-0.6.7"; // DLT Node version
+            public static readonly string version = "xdc-0.6.7a-dev"; // DLT Node version
 
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
@@ -92,7 +92,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 5;
+            public static int maxBlockVersionToGenerate = 6;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
