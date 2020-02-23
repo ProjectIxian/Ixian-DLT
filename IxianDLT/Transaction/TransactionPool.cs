@@ -798,7 +798,7 @@ namespace DLT
                 if (transaction.type == (int)Transaction.Type.PoWSolution)
                 {
                     type = (int)ActivityType.MiningReward;
-                    value = Miner.calculateRewardForBlock(BitConverter.ToUInt64(transaction.data, 0));
+                    value = IxiUtils.calculateMiningRewardForBlock(BitConverter.ToUInt64(transaction.data, 0));
                 }
             }else
             {
@@ -2167,7 +2167,7 @@ namespace DLT
 
                 IxiNumber miners_count = new IxiNumber(miners_to_reward.Count);
 
-                IxiNumber pow_reward = Miner.calculateRewardForBlock(blockNum);
+                IxiNumber pow_reward = IxiUtils.calculateMiningRewardForBlock(blockNum);
                 IxiNumber powRewardPart = pow_reward / miners_count;
 
                 //Logging.info(String.Format("Rewarding {0} IXI to block #{1} miners", powRewardPart.ToString(), blockNum));
