@@ -1482,7 +1482,7 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated_presence != null)
                                 {
-                                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'R', 'H', 'W' }, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
+                                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
 
                                     // Send this keepalive message to all subscribed clients
                                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, updated_presence.wallet, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
@@ -1498,7 +1498,7 @@ namespace DLT
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'R', 'H', 'W' }, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
+                                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
 
                                     // Send this keepalive message to all subscribed clients
                                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
