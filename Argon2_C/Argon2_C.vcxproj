@@ -78,21 +78,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\argon2.h" />
-    <ClInclude Include="source\blake2\blake2-impl.h" />
-    <ClInclude Include="source\blake2\blake2.h" />
-    <ClInclude Include="source\blake2\blamka-round-opt.h" />
-    <ClInclude Include="source\blake2\blamka-round-ref.h" />
-    <ClInclude Include="source\core.h" />
-    <ClInclude Include="source\encoding.h" />
-    <ClInclude Include="source\thread.h" />
+    <ClInclude Include="src\blake2\blake2-impl.h" />
+    <ClInclude Include="src\blake2\blake2.h" />
+    <ClInclude Include="src\blake2\blamka-round-opt.h" />
+    <ClInclude Include="src\blake2\blamka-round-ref.h" />
+    <ClInclude Include="src\core.h" />
+    <ClInclude Include="src\encoding.h" />
+    <ClInclude Include="src\thread.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\argon2.c" />
-    <ClCompile Include="source\blake2\blake2b.c" />
-    <ClCompile Include="source\core.c" />
-    <ClCompile Include="source\encoding.c" />
-    <ClCompile Include="source\opt.c" />
-    <ClCompile Include="source\thread.c" />
+    <ClCompile Include="src\argon2.c" />
+    <ClCompile Include="src\blake2\blake2b.c" />
+    <ClCompile Include="src\core.c" />
+    <ClCompile Include="src\encoding.c" />
+    <ClCompile Include="src\opt.c" />
+    <ClCompile Include="src\thread.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
