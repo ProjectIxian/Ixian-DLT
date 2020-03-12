@@ -386,7 +386,7 @@ int encode_string(char *dst, size_t dst_len, argon2_context *ctx,
 #define SX(x)                                                                  \
     do {                                                                       \
         char tmp[30];                                                          \
-        sprintf_s(tmp, 30, "%lu", (unsigned long)(x));                         \
+        snprintf(tmp, 30, "%lu", (unsigned long)(x));                         \
         SS(tmp);                                                               \
     } while ((void)0, 0)
 
