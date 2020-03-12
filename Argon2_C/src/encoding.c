@@ -383,12 +383,21 @@ int encode_string(char *dst, size_t dst_len, argon2_context *ctx,
         dst_len -= pp_len;                                                     \
     } while ((void)0, 0)
 
-#define SX(x)                                                                  \
-    do {                                                                       \
-        char tmp[30];                                                          \
-        snprintf(tmp, 30, "%lu", (unsigned long)(x));                         \
-        SS(tmp);                                                               \
-    } while ((void)0, 0)
+#ifdef _WIN32
+	#define SX(x)                                                                  \
+		do {                                                                       \
+			char tmp[30];                                                          \
+			sprintf_s(tmp, 30, "%lu", (unsigned long)(x));                         \
+			SS(tmp);                                                               \
+		} while ((void)0, 0)
+#else
+	#define SX(x)                                                                  \
+		do {                                                                       \
+			char tmp[30];                                                          \
+			sprintf(tmp, "%lu", (unsigned long)(x));                               \
+			SS(tmp);                                                               \
+		} while ((void)0, 0)
+#endif
 
 #define SB(buf, len)                                                           \
     do {                                                                       \
