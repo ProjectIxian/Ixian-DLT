@@ -850,6 +850,12 @@ namespace DLT
                     continue;
                 }
 
+                if (t.applied > 0)
+                {
+                    Logging.error("Block #{0} includes a transaction that has already been applied in previous block #{1}.", b.blockNum, t.applied);
+                    return BlockVerifyStatus.Invalid;
+                }
+
                 // lock transaction v1 with block v2
                 if (b.version < BlockVer.v2)
                 {
