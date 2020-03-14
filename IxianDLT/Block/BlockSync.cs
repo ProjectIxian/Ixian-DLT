@@ -684,7 +684,11 @@ namespace DLT
             if(CoreConfig.preventNetworkOperations)
             {
                 Logging.info("Data verification successfully completed.");
+
                 IxianHandler.forceShutdown = true;
+
+                syncDone = true;
+                synchronizing = false;
                 return;
             }
 
