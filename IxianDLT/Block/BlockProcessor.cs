@@ -838,7 +838,7 @@ namespace DLT
                     if (fetchTransactions)
                     {
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
-                        ProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
+                        CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
                         hasAllTransactions = false;
                         missing++;
                     }

@@ -477,7 +477,7 @@ namespace DLT
                                     }
                                 }else
                                 {
-                                    ProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
+                                    CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
                                     missing = true;
                                 }
                             }

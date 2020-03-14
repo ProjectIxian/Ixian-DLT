@@ -2406,7 +2406,7 @@ namespace DLT
 
                         if ((bool)PendingTransactions.pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
                         {
-                            ProtocolMessage.broadcastGetTransaction(t.id, 0);
+                            CoreProtocolMessage.broadcastGetTransaction(t.id, 0);
                             PendingTransactions.pendingTransactions[idx][3] = true;
                         }
 

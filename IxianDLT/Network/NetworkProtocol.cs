@@ -774,32 +774,6 @@ namespace DLT
                 }
             }
 
-            public static bool broadcastGetTransaction(string txid, ulong block_num, RemoteEndpoint endpoint = null)
-            {
-                using (MemoryStream mw = new MemoryStream())
-                {
-                    using (BinaryWriter writerw = new BinaryWriter(mw))
-                    {
-                        writerw.Write(txid);
-                        writerw.Write(block_num);
-#if TRACE_MEMSTREAM_SIZES
-                        Logging.info(String.Format("NetworkProtocol::broadcastGetTransaction: {0}", mw.Length));
-#endif
-
-                        if (endpoint != null)
-                        {
-                            if (endpoint.isConnected())
-                            {
-                                endpoint.sendData(ProtocolMessageCode.getTransaction, mw.ToArray());
-                                return true;
-                            }
-                        }
-                        // TODO TODO TODO TODO TODO determine if historic transaction and send to 'H' instead of 'M'
-                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getTransaction, mw.ToArray(), block_num);
-                    }
-                }
-            }
-
             public static bool broadcastGetBlockTransactions(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
             {
                 using (MemoryStream mw = new MemoryStream())
