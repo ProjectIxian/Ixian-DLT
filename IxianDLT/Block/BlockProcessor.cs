@@ -1160,17 +1160,27 @@ namespace DLT
                     {
                         Logging.info(String.Format("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count()));
                         List<byte[][]> added_signatures = localNewBlock.addSignaturesFrom(b);
-                        if (added_signatures != null)
+                        if (added_signatures != null || localNewBlock.getSignatureCount() >= Node.blockChain.getRequiredConsensus())
                         {
-                            currentBlockStartTime = DateTime.UtcNow;
-                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                            //if (!Node.isMasterNode())
-                            //    return;
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
                             Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount()));
 
-                            // TODO TODO TODO send only added sigs
-                            ProtocolMessage.broadcastNewBlock(localNewBlock);
+                            if (added_signatures != null)
+                            {
+                                currentBlockStartTime = DateTime.UtcNow;
+                                lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                                if (Node.isMasterNode())
+                                {
+                                    // TODO TODO TODO send only added sigs
+                                    ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                }
+                            }else if(localNewBlock.signatures.Count != b.signatures.Count)
+                            {
+                                if (Node.isMasterNode())
+                                {
+                                    ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
+                                }
+                            }
 
                             acceptLocalNewBlock();
                         }
