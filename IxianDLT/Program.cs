@@ -247,7 +247,6 @@ namespace DLTNode
                     else
                     {
                         Logging.info("Generating a new wallet.");
-                        CryptoManager.initLib();
                         WalletStorage wst = new WalletStorage(Config.walletFile);
                         wst.generateWallet(Config.dangerCommandlinePasswordCleartextUnsafe);
                     }
@@ -299,9 +298,6 @@ namespace DLTNode
             Logging.info(String.Format("Server Port: {0}", Config.serverPort));
             Logging.info(String.Format("API Port: {0}", Config.apiPort));
             Logging.info(String.Format("Wallet File: {0}", Config.walletFile));
-
-            // Initialize the crypto manager
-            CryptoManager.initLib();
 
             // Initialize the node
             node = new Node();
