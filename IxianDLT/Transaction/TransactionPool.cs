@@ -266,6 +266,21 @@ namespace DLT
                 return false;
             }
 
+            // lock transaction v5 with block v8
+            if (transaction.version < 5 && Node.blockChain.getLastBlockVersion() >= BlockVer.v8)
+            {
+                Logging.warn(String.Format("Transaction version is too low, network is using v5 as the lowest valid version. TXid: {0}.", transaction.id));
+                return false;
+            }
+
+            if(transaction.type == (int)Transaction.Type.StakingReward)
+            {
+                if (transaction.version != Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()))
+                {
+                    return false;
+                }
+            }
+
             // Check the block height
             ulong minBh = 0;
             if (blocknum > ConsensusConfig.getRedactedWindowSize())
