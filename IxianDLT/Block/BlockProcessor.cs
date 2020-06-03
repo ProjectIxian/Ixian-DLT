@@ -888,11 +888,19 @@ namespace DLT
                         Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 3 or 4!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
-                }else if (b.version >= BlockVer.v7)
+                }
+                else if (b.version == BlockVer.v7)
                 {
-                    if (t.version != 4)
+                    if (t.version < 4 || t.version > 5)
                     {
-                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 4!", t.version);
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 4 or 5!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }else if (b.version >= BlockVer.v8)
+                {
+                    if (t.version != 5)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 5!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -2115,10 +2123,30 @@ namespace DLT
                     break;
                 }
 
-                // lock transaction v2 with block v3
-                if (block_version >= BlockVer.v6 && transaction.version < 3)
+                // lock transaction v3 with block v6; TODO can be removed after upgrade to v8
+                if (block_version == BlockVer.v6 && (transaction.version < 3 || transaction.version > 4))
                 {
-                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v6)
+                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v6 && transaction.version < 3)
+                    {
+                        TransactionPool.removeTransaction(transaction.id);
+                    }
+                    continue;
+                }
+
+                // lock transaction v4 with block v7; TODO can be removed after upgrade to v8
+                if (block_version == BlockVer.v7 && (transaction.version < 4 || transaction.version > 5))
+                {
+                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v7 && transaction.version < 4)
+                    {
+                        TransactionPool.removeTransaction(transaction.id);
+                    }
+                    continue;
+                }
+
+                // lock transaction v5 with block v8
+                if (block_version == BlockVer.v8 && transaction.version != 5)
+                {
+                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v8 && transaction.version < 5)
                     {
                         TransactionPool.removeTransaction(transaction.id);
                     }
