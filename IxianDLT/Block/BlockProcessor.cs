@@ -645,10 +645,29 @@ namespace DLT
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
             Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
 
-            if (prevBlock != null && !b.lastBlockChecksum.SequenceEqual(prevBlock.blockChecksum)) // block found but checksum doesn't match
+            if (prevBlock != null)
             {
-                Logging.warn(String.Format("Received block #{0} with invalid lastBlockChecksum!", b.blockNum));
-                return BlockVerifyStatus.Invalid;
+                // checksum doesn't match
+                if (!b.lastBlockChecksum.SequenceEqual(prevBlock.blockChecksum) 
+                {
+                    Logging.warn("Received block #{0} with invalid lastBlockChecksum!", b.blockNum);
+                    return BlockVerifyStatus.PotentiallyForkedBlock;
+                }
+                if (b.version >= BlockVer.v7)
+                {
+                    // if received block's timestamp is lower than previous block's timestamp + 20 seconds
+                    if (b.timestamp < prevBlock.timestamp + 20)
+                    {
+                        Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + 20);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                    // if received block's timestamp is higher than network time + 60 seconds
+                    if (b.timestamp > Clock.getNetworkTimestamp() + 60)
+                    {
+                        Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at most {2}!", b.blockNum, b.timestamp, Clock.getNetworkTimestamp() + 60);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }
             }
 
             Block genesis_block = Node.blockChain.getGenesisBlock();
