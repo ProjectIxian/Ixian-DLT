@@ -648,7 +648,7 @@ namespace DLT
             if (prevBlock != null)
             {
                 // checksum doesn't match
-                if (!b.lastBlockChecksum.SequenceEqual(prevBlock.blockChecksum) 
+                if (!b.lastBlockChecksum.SequenceEqual(prevBlock.blockChecksum))
                 {
                     Logging.warn("Received block #{0} with invalid lastBlockChecksum!", b.blockNum);
                     return BlockVerifyStatus.PotentiallyForkedBlock;
