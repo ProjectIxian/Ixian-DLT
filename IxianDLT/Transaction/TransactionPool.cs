@@ -246,30 +246,30 @@ namespace DLT
             }
 
             // lock transaction v2 with block v3
-            if (transaction.version < 2 && Node.blockChain.getLastBlockVersion() >= BlockVer.v3)
+            if (Node.blockChain.getLastBlockVersion() >= BlockVer.v3 && transaction.version != 2)
             {
-                Logging.warn(String.Format("Transaction version is too low, network is using v2 as the lowest valid version. TXid: {0}.", transaction.id));
+                Logging.warn(String.Format("Transaction version is too low, expecting v2. TXid: {0}.", transaction.id));
                 return false;
             }
 
             // lock transaction v3 with block v6
-            if (transaction.version < 3 && Node.blockChain.getLastBlockVersion() >= BlockVer.v6)
+            if (Node.blockChain.getLastBlockVersion() >= BlockVer.v6 && transaction.version != 3 && transaction.version != 4)
             {
-                Logging.warn(String.Format("Transaction version is too low, network is using v3 as the lowest valid version. TXid: {0}.", transaction.id));
+                Logging.warn(String.Format("Transaction version is too low, expecting v3 or v4. TXid: {0}.", transaction.id));
                 return false;
             }
 
             // lock transaction v4 with block v7
-            if (transaction.version < 4 && Node.blockChain.getLastBlockVersion() >= BlockVer.v7)
+            if (Node.blockChain.getLastBlockVersion() >= BlockVer.v7 && transaction.version != 4 && transaction.version != 5)
             {
-                Logging.warn(String.Format("Transaction version is too low, network is using v4 as the lowest valid version. TXid: {0}.", transaction.id));
+                Logging.warn(String.Format("Transaction version is too low, expecting v4 or v5. TXid: {0}.", transaction.id));
                 return false;
             }
 
             // lock transaction v5 with block v8
-            if (transaction.version < 5 && Node.blockChain.getLastBlockVersion() >= BlockVer.v8)
+            if (Node.blockChain.getLastBlockVersion() >= BlockVer.v8 && transaction.version != 5)
             {
-                Logging.warn(String.Format("Transaction version is too low, network is using v5 as the lowest valid version. TXid: {0}.", transaction.id));
+                Logging.warn(String.Format("Transaction version is too low, expecting v5. TXid: {0}.", transaction.id));
                 return false;
             }
 
@@ -277,6 +277,7 @@ namespace DLT
             {
                 if (transaction.version != Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()))
                 {
+                    Logging.warn("Invalid transaction version {0}, expecting {1}. TXid: {2}.", transaction.version, Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()), transaction.id);
                     return false;
                 }
             }
