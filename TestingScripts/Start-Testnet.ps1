@@ -209,7 +209,7 @@ function Spinup-AnotherNode {
     [void]$Clients.Add($dltClient)
     Write-Host -ForegroundColor Yellow "-> Process ID: $($dltClientProcess.ID)"
     Write-Host -ForegroundColor Cyan -NoNewline "-> Generating transaction for initial funds: "
-    $tx = Send-TransactionTN -Clients $DLTProcesses -FromClient 0 -ToClient $nIndex -Amount 50000
+    $tx = Send-TransactionTN -Clients $DLTProcesses -FromClient 0 -ToClient $nIndex -Amount 500000
     Write-Host -ForegroundColor Gray "$($tx)"
 }
 
@@ -493,7 +493,7 @@ if($ClearState.IsPresent) {
                         Write-Host -ForegroundColor Cyan "Creating transactions to give other nodes required minimum funds..."
                         foreach($n in $DLTProcesses) {
                             if($n.idx -lt 2) { continue }
-                            $tx = Send-TransactionTN -Clients $DLTProcesses -FromClient 0 -ToClient $n.idx -Amount 100000
+                            $tx = Send-TransactionTN -Clients $DLTProcesses -FromClient 0 -ToClient $n.idx -Amount 500000
                             if($tx -eq $null) {
                                 Write-Host -ForegroundColor Magenta "Error sending initial funds to client $($n.idx). Aborting."
                                 $wasError = $true
