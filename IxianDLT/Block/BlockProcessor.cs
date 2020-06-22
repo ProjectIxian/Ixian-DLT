@@ -149,9 +149,18 @@ namespace DLT
                                 }
                                 else
                                 {
-                                    if ((Node.isElectedToGenerateNextBlock(getElectedNodeOffset()) && timeSinceLastBlock.TotalSeconds >= blockGenerationInterval) || Node.blockChain.getLastBlockNum() < 10)
+                                    if (timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)
                                     {
-                                        generateNextBlock = true;
+                                        if (Node.blockChain.getLastBlockNum() < 7)
+                                        {
+                                            if(Node.genesisNode)
+                                            {
+                                                generateNextBlock = true;
+                                            }
+                                        }else if(Node.isElectedToGenerateNextBlock(getElectedNodeOffset()))
+                                        {
+                                            generateNextBlock = true;
+                                        }
                                     }
                                 }
                             }
