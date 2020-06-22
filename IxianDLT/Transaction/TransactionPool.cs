@@ -250,7 +250,7 @@ namespace DLT
             {
                 if (transaction.version > 1)
                 {
-                    Logging.warn(String.Format("Transaction version is too low, expecting v0 or v1. TXid: {0}.", transaction.id));
+                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v0 or v1. TXid: {1}.", transaction.version, transaction.id));
                     return false;
                 }
             }
@@ -258,7 +258,7 @@ namespace DLT
             {
                 if (transaction.version < 1 || transaction.version > 2)
                 {
-                    Logging.warn(String.Format("Transaction version is too low, expecting v1 or v2. TXid: {0}.", transaction.id));
+                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v1 or v2. TXid: {1}.", transaction.version, transaction.id));
                     return false;
                 }
             }
@@ -266,7 +266,7 @@ namespace DLT
             {
                 if (transaction.version < 2 || transaction.version > 3)
                 {
-                    Logging.warn(String.Format("Transaction version is too low, expecting v2 or v3. TXid: {0}.", transaction.id));
+                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v2 or v3. TXid: {1}.", transaction.version, transaction.id));
                     return false;
                 }
             }
@@ -274,7 +274,7 @@ namespace DLT
             {
                 if (transaction.version < 3 || transaction.version > 4)
                 {
-                    Logging.warn(String.Format("Transaction version is too low, expecting v3 or v4. TXid: {0}.", transaction.id));
+                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v3 or v4. TXid: {1}.", transaction.version, transaction.id));
                     return false;
                 }
             }
@@ -282,7 +282,7 @@ namespace DLT
             {
                 if (transaction.version < 4 || transaction.version > 5)
                 {
-                    Logging.warn(String.Format("Transaction version is too low, expecting v4 or v5. TXid: {0}.", transaction.id));
+                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v4 or v5. TXid: {1}.", transaction.version, transaction.id));
                     return false;
                 }
             }
@@ -290,7 +290,7 @@ namespace DLT
             {
                 if (transaction.version != 5)
                 {
-                    Logging.warn(String.Format("Transaction version is too low, expecting v5. TXid: {0}.", transaction.id));
+                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v5. TXid: {1}.", transaction.version, transaction.id));
                     return false;
                 }
             }
