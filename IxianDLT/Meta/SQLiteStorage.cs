@@ -136,66 +136,82 @@ namespace DLT
                         }
                         return (SQLiteConnection)connectionCache[path][0];
                     }
-
                     SQLiteConnection connection = new SQLiteConnection(path);
-                    connection.ExecuteScalar<string>("PRAGMA journal_mode=WAL;");
-                    //connection.ExecuteScalar<string>("PRAGMA locking_mode=EXCLUSIVE;");
-                    if (cache)
+                    try
                     {
-                        connectionCache.Add(path, new object[2] { connection, Clock.getTimestamp() });
-                    }
+                        connection.ExecuteScalar<string>("PRAGMA journal_mode=WAL;");
+                        //connection.ExecuteScalar<string>("PRAGMA locking_mode=EXCLUSIVE;");
 
-                    // check if database exists
-                    var tableInfo = connection.GetTableInfo("transactions");
-                    if (!tableInfo.Any())
+                        // check if database exists
+                        var tableInfo = connection.GetTableInfo("transactions");
+                        if (!tableInfo.Any())
+                        {
+
+                            // The database needs to be prepared first
+                            // Create the blocks table
+                            string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, `lastSuperBlockChecksum` BLOB, `lastSuperBlockNum` INTEGER, `superBlockSegments` BLOB, `compactedSigs` INTEGER, PRIMARY KEY(`blockNum`));";
+                            executeSQL(connection, sql);
+
+                            sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `dataChecksum` BLOB, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
+                            executeSQL(connection, sql);
+                            sql = "CREATE INDEX `type` ON `transactions` (`type`);";
+                            executeSQL(connection, sql);
+                            sql = "CREATE INDEX `toList` ON `transactions` (`toList`);";
+                            executeSQL(connection, sql);
+                            sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
+                            executeSQL(connection, sql);
+                            sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
+                            executeSQL(connection, sql);
+                        }
+                        else if (!tableInfo.Exists(x => x.Name == "fromList"))
+                        {
+                            string sql = "ALTER TABLE `transactions` ADD COLUMN `fromList` TEXT;";
+                            executeSQL(connection, sql);
+                            sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
+                            executeSQL(connection, sql);
+                        }
+                        else if (!tableInfo.Exists(x => x.Name == "dataChecksum"))
+                        {
+                            string sql = "ALTER TABLE `transactions` ADD COLUMN `dataChecksum` BLOB;";
+                            executeSQL(connection, sql);
+                        }
+
+                        tableInfo = connection.GetTableInfo("blocks");
+                        if (!tableInfo.Exists(x => x.Name == "compactedSigs"))
+                        {
+                            string sql = "ALTER TABLE `blocks` ADD COLUMN `compactedSigs` INTEGER;";
+                            executeSQL(connection, sql);
+
+                            sql = "ALTER TABLE `blocks` ADD COLUMN `lastSuperBlockChecksum` BLOB;";
+                            executeSQL(connection, sql);
+
+                            sql = "ALTER TABLE `blocks` ADD COLUMN `lastSuperBlockNum` INTEGER;";
+                            executeSQL(connection, sql);
+
+                            sql = "ALTER TABLE `blocks` ADD COLUMN `superBlockSegments` BLOB;";
+                            executeSQL(connection, sql);
+                        }
+
+                        if (cache)
+                        {
+                            connectionCache.Add(path, new object[2] { connection, Clock.getTimestamp() });
+                        }
+                        return connection;
+                    }
+                    catch (Exception)
                     {
+                        connection.Close();
+                        connection.Dispose();
 
-                        // The database needs to be prepared first
-                        // Create the blocks table
-                        string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, `lastSuperBlockChecksum` BLOB, `lastSuperBlockNum` INTEGER, `superBlockSegments` BLOB, `compactedSigs` INTEGER, PRIMARY KEY(`blockNum`));";
-                        executeSQL(connection, sql);
+                        // Fix for occasional locked database error
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        // End of fix
 
-                        sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `dataChecksum` BLOB, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
-                        executeSQL(connection, sql);
-                        sql = "CREATE INDEX `type` ON `transactions` (`type`);";
-                        executeSQL(connection, sql);
-                        sql = "CREATE INDEX `toList` ON `transactions` (`toList`);";
-                        executeSQL(connection, sql);
-                        sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
-                        executeSQL(connection, sql);
-                        sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
-                        executeSQL(connection, sql);
+                        File.Delete(path);
+
+                        throw;
                     }
-                    else if (!tableInfo.Exists(x => x.Name == "fromList"))
-                    {
-                        string sql = "ALTER TABLE `transactions` ADD COLUMN `fromList` TEXT;";
-                        executeSQL(connection, sql);
-                        sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
-                        executeSQL(connection, sql);
-                    }
-                    else if (!tableInfo.Exists(x => x.Name == "dataChecksum"))
-                    {
-                        string sql = "ALTER TABLE `transactions` ADD COLUMN `dataChecksum` BLOB;";
-                        executeSQL(connection, sql);
-                    }
-
-                    tableInfo = connection.GetTableInfo("blocks");
-                    if (!tableInfo.Exists(x => x.Name == "compactedSigs"))
-                    {
-                        string sql = "ALTER TABLE `blocks` ADD COLUMN `compactedSigs` INTEGER;";
-                        executeSQL(connection, sql);
-
-                        sql = "ALTER TABLE `blocks` ADD COLUMN `lastSuperBlockChecksum` BLOB;";
-                        executeSQL(connection, sql);
-
-                        sql = "ALTER TABLE `blocks` ADD COLUMN `lastSuperBlockNum` INTEGER;";
-                        executeSQL(connection, sql);
-
-                        sql = "ALTER TABLE `blocks` ADD COLUMN `superBlockSegments` BLOB;";
-                        executeSQL(connection, sql);
-                    }
-
-                    return connection;
                 }
             }
 
@@ -1041,17 +1057,11 @@ namespace DLT
             // Escape and execute an sql command
             private bool executeSQL(SQLiteConnection connection, string sql, params object[] sqlParameters)
             {
-                try
+                if (connection.Execute(sql, sqlParameters) > 0)
                 {
-                    connection.Execute(sql, sqlParameters);
+                    return true;
                 }
-                catch (Exception e)
-                {
-                    Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
-                    // TODO TODO TODO TODO this may indicate a corrupt database, usually exception message is simply Corrupt, probably in this case we should delete the file and re-create it
-                    return false;
-                }
-                return true;
+                return false;
             }
 
             // Shuffle data storage bytes
