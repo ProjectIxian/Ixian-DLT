@@ -69,12 +69,11 @@ namespace DLT
 
                 while (running || pending_statements == true)
                 {
+                    bool message_found = false;
                     pending_statements = false;
                     TLC.Report();
                     try
                     {
-                        bool message_found = false;
-
                         lock (queueStatements)
                         {
                             int statements_count = queueStatements.Count();
@@ -86,7 +85,6 @@ namespace DLT
                                 }
                                 QueueStorageMessage candidate = queueStatements[0];
                                 active_message = candidate;
-                                queueStatements.Remove(candidate);
                                 message_found = true;
                             }
                         }
@@ -100,6 +98,10 @@ namespace DLT
                             else if (active_message.code == QueueStorageCode.insertBlock)
                             {
                                 insertBlockInternal((Block)active_message.data);
+                            }
+                            lock (queueStatements)
+                            {
+                                queueStatements.Remove(active_message);
                             }
                         }
                         else
@@ -120,19 +122,21 @@ namespace DLT
                     catch (Exception e)
                     {
                         Logging.error("Exception occured in storage thread loop: " + e);
-                        debugDumpCrashObject(active_message);
-                        active_message.retryCount += 1;
-                        if(active_message.retryCount > 10)
+                        if (message_found)
                         {
-                            Logging.error("Too many retries, aborting...");
-                            shutdown();
-                            throw new Exception("Too many storage retries. Aborting storage thread.");
+                            debugDumpCrashObject(active_message);
+                            active_message.retryCount += 1;
+                            if(active_message.retryCount > 10)
+                            {
+                                lock (queueStatements)
+                                {
+                                    queueStatements.Remove(active_message);
+                                }
+                                Logging.error("Too many retries, aborting...");
+                                shutdown();
+                                throw new Exception("Too many storage retries. Aborting storage thread.");
+                            }
                         }
-                        lock(queueStatements)
-                        {
-                            queueStatements.Add(active_message);
-                        }
-
                     }
                     Thread.Yield();
                 }
