@@ -665,15 +665,15 @@ namespace DLT
                 if (b.version >= BlockVer.v7)
                 {
                     // if received block's timestamp is lower than previous block's timestamp + 20 seconds
-                    if (b.timestamp < prevBlock.timestamp + 20)
+                    if (b.timestamp < prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference)
                     {
-                        Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + 20);
+                        Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference);
                         return BlockVerifyStatus.Invalid;
                     }
                     // if received block's timestamp is higher than network time + 60 seconds
-                    if (b.timestamp > Clock.getNetworkTimestamp() + 60)
+                    if (b.timestamp > Clock.getNetworkTimestamp() + ConsensusConfig.maxBlockNetworkTimeDifference)
                     {
-                        Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at most {2}!", b.blockNum, b.timestamp, Clock.getNetworkTimestamp() + 60);
+                        Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at most {2}!", b.blockNum, b.timestamp, Clock.getNetworkTimestamp() + ConsensusConfig.maxBlockNetworkTimeDifference);
                         return BlockVerifyStatus.Invalid;
                     }
                 }
