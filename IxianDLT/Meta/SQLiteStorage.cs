@@ -136,6 +136,7 @@ namespace DLT
                         }
                         return (SQLiteConnection)connectionCache[path][0];
                     }
+
                     SQLiteConnection connection = new SQLiteConnection(path);
                     try
                     {
@@ -144,24 +145,41 @@ namespace DLT
 
                         // check if database exists
                         var tableInfo = connection.GetTableInfo("transactions");
+
                         if (!tableInfo.Any())
                         {
-
                             // The database needs to be prepared first
                             // Create the blocks table
-                            string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, `lastSuperBlockChecksum` BLOB, `lastSuperBlockNum` INTEGER, `superBlockSegments` BLOB, `compactedSigs` INTEGER, PRIMARY KEY(`blockNum`));";
-                            executeSQL(connection, sql);
+                            try
+                            {
+                                string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, `lastSuperBlockChecksum` BLOB, `lastSuperBlockNum` INTEGER, `superBlockSegments` BLOB, `compactedSigs` INTEGER, PRIMARY KEY(`blockNum`));";
+                                executeSQL(connection, sql);
 
-                            sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `dataChecksum` BLOB, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
-                            executeSQL(connection, sql);
-                            sql = "CREATE INDEX `type` ON `transactions` (`type`);";
-                            executeSQL(connection, sql);
-                            sql = "CREATE INDEX `toList` ON `transactions` (`toList`);";
-                            executeSQL(connection, sql);
-                            sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
-                            executeSQL(connection, sql);
-                            sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
-                            executeSQL(connection, sql);
+                                sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `dataChecksum` BLOB, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
+                                executeSQL(connection, sql);
+                                sql = "CREATE INDEX `type` ON `transactions` (`type`);";
+                                executeSQL(connection, sql);
+                                sql = "CREATE INDEX `toList` ON `transactions` (`toList`);";
+                                executeSQL(connection, sql);
+                                sql = "CREATE INDEX `fromList` ON `transactions` (`fromList`);";
+                                executeSQL(connection, sql);
+                                sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
+                                executeSQL(connection, sql);
+                            }catch(Exception e)
+                            {
+                                connection.Close();
+                                connection.Dispose();
+                                connection = null;
+
+                                // Fix for occasional locked database error
+                                GC.Collect();
+                                GC.WaitForPendingFinalizers();
+                                // End of fix
+
+                                File.Delete(path);
+
+                                throw e;
+                            }
                         }
                         else if (!tableInfo.Exists(x => x.Name == "fromList"))
                         {
@@ -200,16 +218,16 @@ namespace DLT
                     }
                     catch (Exception)
                     {
-                        connection.Close();
-                        connection.Dispose();
+                        if (connection != null)
+                        {
+                            connection.Close();
+                            connection.Dispose();
 
-                        // Fix for occasional locked database error
-                        GC.Collect();
-                        GC.WaitForPendingFinalizers();
-                        // End of fix
-
-                        File.Delete(path);
-
+                            // Fix for occasional locked database error
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                            // End of fix
+                        }
                         throw;
                     }
                 }
