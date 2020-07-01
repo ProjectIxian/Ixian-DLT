@@ -116,7 +116,7 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
+                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
                 Console.WriteLine(" [--recover] [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
@@ -130,7 +130,7 @@ namespace DLT
                 Console.WriteLine("    -i\t\t\t External IP Address to use");
                 Console.WriteLine("    -w\t\t\t Specify location of the ixian.wal file");
                 Console.WriteLine("    -n\t\t\t Specify which seed node to use");
-                Console.WriteLine("    --worker\t\t Enables mining and disables masternode functionality");
+                Console.WriteLine("    --worker\t\t Disables masternode functionality");
                 Console.WriteLine("    --threads\t\t Specify number of threads to use for mining (default 1)");
                 Console.WriteLine("    --config\t\t Specify config filename (default ixian.cfg)");
                 Console.WriteLine("    --maxLogSize\t Specify maximum log file size in MB");
@@ -139,6 +139,7 @@ namespace DLT
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
                 Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
                 Console.WriteLine("    --walletPassword\t Specify the password for the wallet (be careful with this)");
+                Console.WriteLine("    --blockStorage\t Specify storage provider for block and transaction storage (SQLite or RocksDB)");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -174,6 +175,7 @@ namespace DLT
                 Console.WriteLine("    maxLogCount\t\t Specify maximum number of log files (same as --maxLogCount CLI)");
                 Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
                 Console.WriteLine("    forceTimeOffset\t Forces network time offset to the specified value (same as --forceTimeOffset CLI)");
+                Console.WriteLine("    blockStorage\t Specify storage provider for block and transaction (same as --blockStorage CLI)");
                 Console.WriteLine("    walletNotify\t Execute command when a wallet transaction changes");
                 Console.WriteLine("    blockNotify\t\t Execute command when the block changes");
 
@@ -304,6 +306,9 @@ namespace DLT
 
                 // second pass
                 cmd_parser = new FluentCommandLineParser();
+
+                // Block storage provider
+                cmd_parser.Setup<string>("blockStorage").Callback(value => blockStorageProvider = value).Required();
 
                 // testnet
                 cmd_parser.Setup<bool>('t', "testnet").Callback(value => CoreConfig.isTestNet = true).Required();
