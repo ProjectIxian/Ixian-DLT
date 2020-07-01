@@ -116,8 +116,9 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
-                Console.WriteLine(" [--recover] [--forceTimeOffset 0] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline]");
+                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
+                Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--forceTimeOffset 0] [--verifyStorage]");
+                Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -149,8 +150,8 @@ namespace DLT
                 Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
 				Console.WriteLine("    --verifyStorage\t Start node with full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
-                Console.WriteLine("    --optimizeDBStorage\t Only for RocksDB: Performs manual compaction on all databases before starting the node. MAY TAKE SOME TIME!");
-                Console.WriteLine("    --offline\t\t Start node in offline mode - does not connect to the Ixian network or accepts any incoming connections from other nodes");
+                Console.WriteLine("    --optimizeDBStorage\t RocksDB only: manually compacts all databases before starting the node. MAY TAKE SOME TIME!");
+                Console.WriteLine("    --offline\t\t Offline mode - does not connect to other nodes or accepts any connections from other nodes");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue syntax.");
