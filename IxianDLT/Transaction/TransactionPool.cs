@@ -209,7 +209,7 @@ namespace DLT
             return true;
         }
 
-        public static bool verifyTransaction(Transaction transaction)
+        public static bool verifyTransaction(Transaction transaction, RemoteEndpoint endpoint)
         {
             ulong blocknum = Node.blockChain.getLastBlockNum();
             if (blocknum < 1)
@@ -341,7 +341,10 @@ namespace DLT
                 return false;
             }
 
-            PendingTransactions.increaseReceivedCount(transaction.id);
+            if (endpoint != null && endpoint.presenceAddress.type == 'M')
+            {
+                PendingTransactions.increaseReceivedCount(transaction.id, endpoint.presence.wallet);
+            }
 
             lock (transactions)
             {
@@ -875,11 +878,11 @@ namespace DLT
 
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint skipEndpoint = null, bool verifyTx = true)
+        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint endpoint = null, bool verifyTx = true)
         {
             if (verifyTx)
             {
-                if (!verifyTransaction(transaction))
+                if (!verifyTransaction(transaction, endpoint))
                 {
                     return false;
                 }
@@ -923,7 +926,7 @@ namespace DLT
 
             // Broadcast this transaction to the network
             if (no_broadcast == false)
-                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), null, skipEndpoint);
+                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), null, endpoint);
 
             // Send transaction events to all subscribed clients
             // TODO: optimize this further to decrease cpu time in the current thread
@@ -2393,20 +2396,16 @@ namespace DLT
                 lock (PendingTransactions.pendingTransactions)
                 {
                     long cur_time = Clock.getTimestamp();
-                    List<object[]> tmp_pending_transactions = new List<object[]>(PendingTransactions.pendingTransactions);
+                    List<PendingTransaction> tmp_pending_transactions = new List<PendingTransaction>(PendingTransactions.pendingTransactions);
                     int idx = 0;
                     foreach (var entry in tmp_pending_transactions)
                     {
-                        Transaction t = (Transaction)entry[0];
-                        long tx_time = (long)entry[1];
-                        if ((int)entry[2] > 3) // already received 3+ feedback
-                        {
-                            continue;
-                        }
+                        Transaction t = entry.transaction;
+                        long tx_time = entry.addedTimestamp;
 
                         if (t.applied != 0)
                         {
-                            PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
                             continue;
                         }
 
@@ -2414,7 +2413,7 @@ namespace DLT
                         if (last_block_height > ConsensusConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - ConsensusConfig.getRedactedWindowSize())
                         {
                             ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                            PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                            PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
                             continue;
                         }
 
@@ -2427,32 +2426,43 @@ namespace DLT
                             if (tmpBlock == null || tmpBlock.powField != null)
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                                PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                                PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
                                 continue;
                             }
                         }
                         else
                         {
                             // check if transaction is still valid
-                            if (getTransaction(t.id) == null && !verifyTransaction(t))
+                            if (getTransaction(t.id) == null && !verifyTransaction(t, null))
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
-                                PendingTransactions.pendingTransactions.RemoveAll(x => ((Transaction)x[0]).id.SequenceEqual(t.id));
+                                PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
                                 continue;
                             }
                         }
 
-                        if ((bool)PendingTransactions.pendingTransactions[idx][3] == false && cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
+                        if ((int)entry.confirmedNodeList.Count() > 3) // already received 3+ feedback
                         {
-                            CoreProtocolMessage.broadcastGetTransaction(t.id, 0);
-                            PendingTransactions.pendingTransactions[idx][3] = true;
+                            continue;
                         }
 
                         if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                         {
                             CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes(), null);
-                            PendingTransactions.pendingTransactions[idx][1] = cur_time;
+                            entry.addedTimestamp = cur_time;
+                            entry.confirmedNodeList.Clear();
                         }
+
+                        if (entry.confirmedNodeList.Count() > 3) // already received 3+ feedback
+                        {
+                            continue;
+                        }
+
+                        if (cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
+                        {
+                            CoreProtocolMessage.broadcastGetTransaction(t.id, 0);
+                        }
+
                         idx++;
                     }
                 }
