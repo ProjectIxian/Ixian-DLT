@@ -216,8 +216,9 @@ namespace DLT
                         }
                         return connection;
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
+                        Logging.error("Error opening SQLiteConnection file {0}, exception: {1}", path, e);
                         if (connection != null)
                         {
                             connection.Close();
