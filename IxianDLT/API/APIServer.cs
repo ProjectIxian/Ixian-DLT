@@ -354,9 +354,14 @@ namespace DLTNode
                 }
             }
 
+            string to = null;
+            if (parameters.ContainsKey("to"))
+            {
+                to = (string)parameters["to"];
+            }
 
             // Used for performing various tests.
-            StressTest.start(type_string, txnum);
+            StressTest.start(type_string, txnum, to);
 
             return new JsonResponse { result = "Stress test started", error = error };
         }

@@ -21,11 +21,17 @@ namespace DLTNode
         static int port = 10515;
 
         static int txspamNum = 1000; // Set the initial number of spam transactions
+        static byte[] txspamTo = ConsensusConfig.foundationAddress;
 
-        public static void start(string type, int txnum = 0)
+        public static void start(string type, int txnum = 0, string to = null)
         {
             if (txnum != 0)
                 txspamNum = txnum;
+
+            if(to != null)
+            {
+                txspamTo = Base58Check.Base58CheckEncoding.DecodePlain(to);
+            }
 
             new Thread(() =>
             {
@@ -197,20 +203,23 @@ namespace DLTNode
 
             int nonce = 0;
 
+            byte[] to = txspamTo;
+            IxiNumber amount = ConsensusConfig.transactionPrice;
+            IxiNumber fee = ConsensusConfig.transactionPrice;
+            byte[] from = Node.walletStorage.getPrimaryAddress();
+            byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
+
             for (int i = 0; i < txspamNum; i++)
             {
-                IxiNumber amount = new IxiNumber("0.01");
-                IxiNumber fee = ConsensusConfig.transactionPrice;
-                byte[] to = ConsensusConfig.foundationAddress;
-                byte[] from = Node.walletStorage.getPrimaryAddress();
-
-                byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
-                // Check if this wallet's public key is already in the WalletState
-                Wallet mywallet = Node.walletState.getWallet(from);
-                if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+                if (pubKey != null)
                 {
-                    // Walletstate public key matches, we don't need to send the public key in the transaction
-                    pubKey = null;
+                    // Check if this wallet's public key is already in the WalletState
+                    Wallet mywallet = Node.walletState.getWallet(from);
+                    if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+                    {
+                        // Walletstate public key matches, we don't need to send the public key in the transaction
+                        pubKey = null;
+                    }
                 }
 
                 Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
