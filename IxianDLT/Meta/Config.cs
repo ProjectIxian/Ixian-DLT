@@ -117,7 +117,7 @@ namespace DLT
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
                 Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
-                Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--forceTimeOffset 0] [--verifyStorage]");
+                Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage]");
                 Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
@@ -175,7 +175,6 @@ namespace DLT
                 Console.WriteLine("    maxLogSize\t\t Specify maximum log file size in MB (same as --maxLogSize CLI)");
                 Console.WriteLine("    maxLogCount\t\t Specify maximum number of log files (same as --maxLogCount CLI)");
                 Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
-                Console.WriteLine("    forceTimeOffset\t Forces network time offset to the specified value (same as --forceTimeOffset CLI)");
                 Console.WriteLine("    blockStorage\t Specify storage provider for block and transaction (same as --blockStorage CLI)");
                 Console.WriteLine("    walletNotify\t Execute command when a wallet transaction changes");
                 Console.WriteLine("    blockNotify\t\t Execute command when the block changes");
@@ -262,9 +261,6 @@ namespace DLT
                             {
                                 disableWebStart = true;
                             }
-                            break;
-                        case "forceTimeOffset":
-                            CoreConfig.forceTimeOffset = int.Parse(value);
                             break;
                         case "blockStorage":
                             blockStorageProvider = value;
@@ -393,8 +389,6 @@ namespace DLT
 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
-
-                cmd_parser.Setup<int>("forceTimeOffset").Callback(value => CoreConfig.forceTimeOffset = value).Required();
 
                 cmd_parser.Setup<int>("benchmarkKeys").Callback(value => benchmarkKeys = value).SetDefault(0);
 
