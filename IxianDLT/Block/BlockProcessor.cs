@@ -29,10 +29,10 @@ namespace DLT
         public bool operating { get; private set; }
         public ulong firstSplitOccurence { get; private set; }
 
-        Block localNewBlock; // Block being worked on currently
+        public Block localNewBlock; // Block being worked on currently
         public readonly object localBlockLock = new object(); // used because localNewBlock can change while this lock should be held.
-        DateTime lastBlockStartTime;
-        DateTime currentBlockStartTime;
+        public DateTime lastBlockStartTime;
+        public DateTime currentBlockStartTime;
 
         object superBlockLock = new object();
         Dictionary<ulong, SuperBlockSegment> cache_currentSuperBlockSegments = null; // Current superblock being worked on currently
@@ -42,6 +42,8 @@ namespace DLT
         long lastUpgradeTry = 0;
 
         int blockGenerationInterval = ConsensusConfig.blockGenerationInterval;
+
+        long averageBlockGenerationInterval = ConsensusConfig.blockGenerationInterval;
 
         public bool firstBlockAfterSync;
 
@@ -54,7 +56,7 @@ namespace DLT
 
         public ulong highestNetworkBlockNum = 0;
 
-        Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
+        public Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
 
         Dictionary<ulong, Block> pendingSuperBlocks = new Dictionary<ulong, Block>();
 
@@ -1719,6 +1721,21 @@ namespace DLT
                             }
 
                             block_accepted = true;
+
+                            // Adjust block generation time to get close to the block generation interval target
+                            Block tmp_prev_block = Node.blockChain.getBlock(current_block.blockNum - 1);
+                            if (tmp_prev_block != null)
+                            {
+                                averageBlockGenerationInterval = (averageBlockGenerationInterval + (current_block.timestamp - tmp_prev_block.timestamp)) / 2;
+
+                                if (averageBlockGenerationInterval > ConsensusConfig.blockGenerationInterval + 1)
+                                {
+                                    blockGenerationInterval = ConsensusConfig.minBlockTimeDifference + 1;
+                                } else if (averageBlockGenerationInterval + 1 < ConsensusConfig.blockGenerationInterval)
+                                {
+                                    blockGenerationInterval = ConsensusConfig.blockGenerationInterval;
+                                }
+                            }
 
                             if (Node.miner.searchMode == BlockSearchMode.latestBlock)
                             {
