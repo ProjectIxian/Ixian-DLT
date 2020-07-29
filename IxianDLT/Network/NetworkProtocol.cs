@@ -1261,11 +1261,7 @@ namespace DLT
                                                     break;
 
                                                 case ProtocolByeCode.insufficientFunds:
-                                                    if (Config.disableMiner == false)
-                                                    {
-                                                        Logging.info("Reconnecting in Worker mode.");
-                                                        Node.convertToWorkerNode();
-                                                    }
+                                                    Logging.info("Insufficient funds to connect as master node.");
                                                     break;
 
                                                 default:

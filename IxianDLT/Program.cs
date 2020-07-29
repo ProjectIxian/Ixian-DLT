@@ -12,7 +12,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
-using System.Timers;
 
 namespace DLTNode
 {
@@ -20,9 +19,11 @@ namespace DLTNode
     {
         private static Node node = null;
 
-        private static System.Timers.Timer mainLoopTimer;
+        private static Thread mainLoopThread;
 
         public static bool noStart = false;
+
+        public static bool running = false;
 
         static void checkRequiredFiles()
         {
@@ -311,98 +312,107 @@ namespace DLTNode
             // Start the actual DLT node
             node.start(verboseConsoleOutputSetting);
 
+            if(mainLoopThread != null)
+            {
+                mainLoopThread.Abort();
+                mainLoopThread = null;
+            }
 
-            // Setup a timer to handle routine updates
-            mainLoopTimer = new System.Timers.Timer(1000);
-            mainLoopTimer.Elapsed += new ElapsedEventHandler(onUpdate);
-            mainLoopTimer.Start();
+            running = true;
+
+            mainLoopThread = new Thread(mainLoop);
+            mainLoopThread.Name = "Main_Loop_Thread";
+            mainLoopThread.Start();
 
             if (ConsoleHelpers.verboseConsoleOutput)
                 Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
 
         }
 
-        static void onUpdate(object source, ElapsedEventArgs e)
+        static void mainLoop()
         {
-            if (Console.KeyAvailable)
+            while (running)
             {
-                ConsoleKeyInfo key = Console.ReadKey();
-                if (key.Key == ConsoleKey.W)
+                try
                 {
-                    string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
-                    Logging.info(String.Format("WalletState checksum: ({0} wallets, inTransaction: {1}) : {2}",
-                        Node.walletState.numWallets, Node.walletState.inTransaction, ws_checksum));
-                }
-                else if (key.Key == ConsoleKey.V)
-                {
-                    ConsoleHelpers.verboseConsoleOutput = !ConsoleHelpers.verboseConsoleOutput;
-                    Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
-                    Console.CursorVisible = ConsoleHelpers.verboseConsoleOutput;
-                    if (ConsoleHelpers.verboseConsoleOutput == false)
-                        Node.statsConsoleScreen.clearScreen();
-                }               
-                else if (key.Key == ConsoleKey.H)
-                {
-                    ulong[] temp = new ulong[ProtocolMessage.recvByteHist.Length];
-                    lock (ProtocolMessage.recvByteHist)
+                    if (Console.KeyAvailable)
                     {
-                        ProtocolMessage.recvByteHist.CopyTo(temp, 0);
-                    }
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
-                    for (int i = 0; i < temp.Length; i++)
-                    {
-                        Console.WriteLine(String.Format("[{0}]: {1}", i, temp[i]));
-                    }
-                    Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
-                    Console.ResetColor();
-                }
-                else if(key.Key == ConsoleKey.Escape)
-                {
-                    ConsoleHelpers.verboseConsoleOutput = true;
-                    Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
-                    IxianHandler.forceShutdown = true;
-                }
-                else if (key.Key == ConsoleKey.M)
-                {
-                    if (Node.miner != null)
-                        Node.miner.pause = !Node.miner.pause;
+                        ConsoleKeyInfo key = Console.ReadKey();
+                        if (key.Key == ConsoleKey.W)
+                        {
+                            string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
+                            Logging.info(String.Format("WalletState checksum: ({0} wallets, inTransaction: {1}) : {2}",
+                                Node.walletState.numWallets, Node.walletState.inTransaction, ws_checksum));
+                        }
+                        else if (key.Key == ConsoleKey.V)
+                        {
+                            ConsoleHelpers.verboseConsoleOutput = !ConsoleHelpers.verboseConsoleOutput;
+                            Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
+                            Console.CursorVisible = ConsoleHelpers.verboseConsoleOutput;
+                            if (ConsoleHelpers.verboseConsoleOutput == false)
+                                Node.statsConsoleScreen.clearScreen();
+                        }
+                        else if (key.Key == ConsoleKey.H)
+                        {
+                            ulong[] temp = new ulong[ProtocolMessage.recvByteHist.Length];
+                            lock (ProtocolMessage.recvByteHist)
+                            {
+                                ProtocolMessage.recvByteHist.CopyTo(temp, 0);
+                            }
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
+                            for (int i = 0; i < temp.Length; i++)
+                            {
+                                Console.WriteLine(String.Format("[{0}]: {1}", i, temp[i]));
+                            }
+                            Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
+                            Console.ResetColor();
+                        }
+                        else if (key.Key == ConsoleKey.Escape)
+                        {
+                            ConsoleHelpers.verboseConsoleOutput = true;
+                            Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
+                            IxianHandler.forceShutdown = true;
+                        }
+                        else if (key.Key == ConsoleKey.M)
+                        {
+                            if (Node.miner != null)
+                                Node.miner.pause = !Node.miner.pause;
 
-                    if (ConsoleHelpers.verboseConsoleOutput == false)
-                        Node.statsConsoleScreen.clearScreen();
-                }
-                else if (key.Key == ConsoleKey.N)
-                {
-                    if (Node.miner != null)
-                        Node.miner.forceSearchForBlock();
-                }
-                else if (key.Key == ConsoleKey.B)
-                {
-                    if (Node.miner != null)
-                    {
-                        // Adjust the search mode
-                        Node.miner.searchMode++;
-                        if (Node.miner.searchMode > BlockSearchMode.random)
-                            Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
+                            if (ConsoleHelpers.verboseConsoleOutput == false)
+                                Node.statsConsoleScreen.clearScreen();
+                        }
+                        else if (key.Key == ConsoleKey.N)
+                        {
+                            if (Node.miner != null)
+                                Node.miner.forceSearchForBlock();
+                        }
+                        else if (key.Key == ConsoleKey.B)
+                        {
+                            if (Node.miner != null)
+                            {
+                                // Adjust the search mode
+                                Node.miner.searchMode++;
+                                if (Node.miner.searchMode > BlockSearchMode.random)
+                                    Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
 
-                        // Force a new block search using the newly chosen method
-                        Node.miner.forceSearchForBlock();
+                                // Force a new block search using the newly chosen method
+                                Node.miner.forceSearchForBlock();
+                            }
+                        }
+
                     }
+                }catch(Exception e)
+                {
+                    Logging.error("Exception occured in mainLoop: " + e);
                 }
-
-            }
-            if (Node.update() == false)
-            {
-                IxianHandler.forceShutdown = true;
+                Thread.Sleep(1000);
             }
         }
 
         static void onStop()
         {
-            if (mainLoopTimer != null)
-            {
-                mainLoopTimer.Stop();
-            }
+            running = false;
 
             if (noStart == false)
             {

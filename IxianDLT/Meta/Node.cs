@@ -69,6 +69,8 @@ namespace DLT.Meta
                 NetDump.Instance.start(Config.networkDumpFile);
             }
 
+            UpdateVerify.init(Config.checkVersionUrl, Config.checkVersionSeconds);
+
             NetworkUtils.configureNetwork(Config.externalIp, Config.serverPort);
 
             // Load or Generate the wallet
@@ -295,19 +297,11 @@ namespace DLT.Meta
         // Start the node
         public void start(bool verboseConsoleOutput)
         {
-            char node_type = 'M'; // TODO TODO TODO TODO change this to 'W' or 'C' after the upgrade
-
-            if (Config.disableMiner)
-            {
-                node_type = 'M';
-            }
+            char node_type = 'W';
 
             // Check if we're in worker-only mode
             if (Config.workerOnly)
             {
-                // Enable miner
-                Config.disableMiner = false;
-                node_type = 'W';
                 CoreConfig.simultaneousConnectedNeighbors = 4;
             }
 
@@ -466,7 +460,7 @@ namespace DLT.Meta
                     }
 
                     // Start the network client manager
-                    NetworkClientManager.start();
+                    NetworkClientManager.start(true);
                 }
             }
 
@@ -542,11 +536,11 @@ namespace DLT.Meta
             }else if(floodPause == true && total_queued_messages < 100)
             {
                 Logging.warn("Data after flooding processed, reconnecting the node.");
-                NetworkClientManager.start();
                 if (isMasterNode())
                 {
                     NetworkServer.beginNetworkOperations();
                 }
+                NetworkClientManager.start(false);
                 floodPause = false;
             }
 
@@ -665,23 +659,11 @@ namespace DLT.Meta
                     else
                     if (nodeBalance < ConsensusConfig.minimumMasterNodeFunds)
                     {
-                        if (Config.disableMiner == false || CoreConfig.isTestNet)
+                        if (!isWorkerNode())
                         {
-                            if(Config.disableMiner)
-                            {
-                                miner.pause = true;
-                            }
-                            if (!isWorkerNode())
-                            {
-                                Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a worker node.",
-                                    ConsensusConfig.minimumMasterNodeFunds));
-                                convertToWorkerNode();
-                            }
-                        }else
-                        {
-                            Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a client node.",
+                            Logging.error(string.Format("Your balance is less than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a worker node.",
                                 ConsensusConfig.minimumMasterNodeFunds));
-                            convertToClientNode();
+                            convertToWorkerNode();
                         }
                         return false;
                     }
@@ -762,10 +744,22 @@ namespace DLT.Meta
                 // Sleep a while to prevent cpu usage
                 Thread.Sleep(10000);
 
-                TransactionPool.processPendingTransactions();
+                try
+                {
+                    TransactionPool.processPendingTransactions();
 
-                // Cleanup the presence list
-                PresenceList.performCleanup();
+                    // Cleanup the presence list
+                    PresenceList.performCleanup();
+
+                    if (update() == false)
+                    {
+                        IxianHandler.forceShutdown = true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logging.error("Exception occurent in Node.performMaintenance: " + e);
+                }
             }
         }
 
@@ -778,18 +772,6 @@ namespace DLT.Meta
             CoreConfig.simultaneousConnectedNeighbors = 4;
 
             PresenceList.myPresenceType = 'W';
-
-            NetworkClientManager.restartClients();
-            NetworkServer.stopNetworkOperations();
-        }
-
-        // Convert this masternode to a worker node
-        public static void convertToClientNode()
-        {
-            if (PresenceList.myPresenceType == 'C')
-                return;
-
-            PresenceList.myPresenceType = 'C';
 
             NetworkClientManager.restartClients();
             NetworkServer.stopNetworkOperations();
@@ -812,7 +794,6 @@ namespace DLT.Meta
                 PresenceList.myPresenceType = 'M';
             }
 
-            NetworkClientManager.restartClients();
             if (!Node.isMasterNode())
             {
                 Logging.info("Network server is not enabled in modes other than master node.");
@@ -822,6 +803,8 @@ namespace DLT.Meta
             {
                 NetworkServer.restartNetworkOperations();
             }
+
+            NetworkClientManager.restartClients();
         }
 
         public static bool isWorkerNode()
