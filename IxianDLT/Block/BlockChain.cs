@@ -83,6 +83,28 @@ namespace DLT
         {
             lock (blocks)
             {
+                if(blocks.Count > 0)
+                {
+                    Block prev_block = blocks[blocks.Count - 1];
+                    // check for invalid block appending
+                    if (b.blockNum != prev_block.blockNum + 1)
+                    {
+                        Logging.warn(String.Format("Attempting to add non-sequential block #{0} after block #{1}.",
+                            b.blockNum,
+                            prev_block.blockNum));
+                        return false;
+                    }
+                    if (!b.lastBlockChecksum.SequenceEqual(prev_block.blockChecksum))
+                    {
+                        Logging.error(String.Format("Attempting to add a block #{0} with invalid lastBlockChecksum!", b.blockNum));
+                        return false;
+                    }
+                    if (b.signatureFreezeChecksum != null && blocks.Count > 5 && !blocks[blocks.Count - 5].calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
+                    {
+                        Logging.error(String.Format("Attempting to add a block #{0} with invalid sigFreezeChecksum!", b.blockNum));
+                        return false;
+                    }
+                }
                 if (b.blockNum > lastBlockNum)
                 {
                     lastBlock = b;
@@ -112,24 +134,7 @@ namespace DLT
                     Node.storage.insertBlock(b);
                     return true;
                 }
-                // check for invalid block appending
-                if (b.blockNum != blocks[blocks.Count - 1].blockNum + 1)
-                {
-                    Logging.warn(String.Format("Attempting to add non-sequential block #{0} after block #{1}.",
-                        b.blockNum,
-                        blocks[blocks.Count - 1].blockNum));
-                    return false;
-                }
-                if (!b.lastBlockChecksum.SequenceEqual(blocks[blocks.Count - 1].blockChecksum))
-                {
-                    Logging.error(String.Format("Attempting to add a block #{0} with invalid lastBlockChecksum!", b.blockNum));
-                    return false;
-                }
-                if (b.signatureFreezeChecksum != null && blocks.Count > 5 && !blocks[blocks.Count - 5].calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
-                {
-                    Logging.error(String.Format("Attempting to add a block #{0} with invalid sigFreezeChecksum!", b.blockNum));
-                    return false;
-                }
+
                 blocks.Add(b);
                 lock (blocksDictionary)
                 {
