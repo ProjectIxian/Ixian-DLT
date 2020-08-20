@@ -56,7 +56,7 @@ namespace DLT
 
         public ulong highestNetworkBlockNum = 0;
 
-        public Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
+        private Dictionary<ulong, Dictionary<byte[], DateTime>> blockBlacklist = new Dictionary<ulong, Dictionary<byte[], DateTime>>();
 
         Dictionary<ulong, Block> pendingSuperBlocks = new Dictionary<ulong, Block>();
 
@@ -1128,8 +1128,8 @@ namespace DLT
                     {
                         Node.walletState.setCachedBlockVersion(b.version);
                         IxiNumber totalSupplyBefore = Node.walletState.calculateTotalSupply();
-                        ulong wsj_tx = Node.walletState.beginTransaction();
-                        if (Config.fullBlockLogging) { Logging.info("Starting WSJ transaction for block verification: {0}", wsj_tx); }
+                        Node.walletState.beginTransaction(b.blockNum);
+                        if (Config.fullBlockLogging) { Logging.info("Starting WSJ transaction for block verification: {0}", b.blockNum); }
                         if (applyAcceptedBlock(b))
                         {
                             if (b.version < BlockVer.v5 || b.lastSuperBlockChecksum != null)
@@ -1138,14 +1138,14 @@ namespace DLT
                             }
                             else
                             {
-                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(wsj_tx);
+                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(b.blockNum);
                             }
                         } else
                         {
                             Logging.error(String.Format("Block #{0} failed applying!", b.blockNum));
                         }
-                        if (Config.fullBlockLogging) { Logging.info("Reverting WSJ transaction for block verification: {0}", wsj_tx); }
-                        Node.walletState.revertTransaction(wsj_tx);
+                        if (Config.fullBlockLogging) { Logging.info("Reverting WSJ transaction for block verification: {0}", b.blockNum); }
+                        Node.walletState.revertTransaction(b.blockNum);
                         IxiNumber totalSupplyAfter = Node.walletState.calculateTotalSupply();
                         if(totalSupplyBefore != totalSupplyAfter)
                         {
@@ -1279,7 +1279,7 @@ namespace DLT
         }
 
         // Adds a block to the blacklist
-        private void blacklistBlock(Block b)
+        public void blacklistBlock(Block b)
         {
             lock (blockBlacklist)
             {
@@ -2460,17 +2460,17 @@ namespace DLT
                     localNewBlock.difficulty = calculateDifficulty(block_version);
 
                     // Simulate applying a block to see what the walletstate would look like
-                    ulong wsj_tx = Node.walletState.beginTransaction();
+                    Node.walletState.beginTransaction(localNewBlock.blockNum);
                     if (!applyAcceptedBlock(localNewBlock))
                     {
                         Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
                         localNewBlock = null;
-                        Node.walletState.revertTransaction(wsj_tx);
+                        Node.walletState.revertTransaction(localNewBlock.blockNum);
                         return;
                     }
                     if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
                     {
-                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum(wsj_tx));
+                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum(localNewBlock.blockNum));
                     }
                     else
                     {
@@ -2478,7 +2478,7 @@ namespace DLT
                     }
                     Logging.info(String.Format("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum)));
                     Logging.info(String.Format("While generating new block: Node's blockversion: {0}", IxianHandler.getLastBlockVersion()));
-                    Node.walletState.revertTransaction(wsj_tx);
+                    Node.walletState.revertTransaction(localNewBlock.blockNum);
 
                     localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
 

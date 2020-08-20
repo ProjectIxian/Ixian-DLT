@@ -25,13 +25,13 @@ namespace DLT
         private byte[] cachedChecksum = null;
         private int cachedBlockVersion = 0;
 
-        private List<WSJTransaction> wsjTransactions = new List<WSJTransaction>();
-        private ulong txIDNumber;
+        private WSJTransaction wsjTransaction = null;
+        private List<WSJTransaction> processedWsjTransactions = new List<WSJTransaction>(); // keep last 6 WSJ states for block reorg purposes
         public bool inTransaction
         {
             get
             {
-                return wsjTransactions.Count > 0;
+                return wsjTransaction != null;
             }
         }
 
@@ -45,7 +45,6 @@ namespace DLT
 
         public WalletState()
         {
-            txIDNumber = 1;
         }
 
         public WalletState(IEnumerable<Wallet> genesisState)
@@ -66,25 +65,24 @@ namespace DLT
                 walletState.Clear();
                 cachedChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
-                wsjTransactions.Clear();
-                txIDNumber = 0;
+                wsjTransaction = null;
+                processedWsjTransactions.Clear();
             }
         }
 
         // WSJ Stuff
-        public ulong beginTransaction()
+        public bool beginTransaction(ulong block_num)
         {
             lock(stateLock)
             {
-                if(wsjTransactions.Count > 0)
+                if(wsjTransaction != null)
                 {
                     // Transaction is already open
-                    return 0;
+                    return false;
                 }
-                txIDNumber += 1;
-                var tx = new WSJTransaction(txIDNumber);
-                wsjTransactions.Add(tx);
-                return tx.wsjTxNumber;
+                var tx = new WSJTransaction(block_num);
+                wsjTransaction = tx;
+                return true;
             }
         }
 
@@ -97,21 +95,39 @@ namespace DLT
             // data has already been changed in the WalletState directly
             lock (stateLock)
             {
-                wsjTransactions.Clear();
+                processedWsjTransactions.Add(wsjTransaction);
+                if(processedWsjTransactions.Count > 8)
+                {
+                    processedWsjTransactions.RemoveAt(0);
+                }
+                wsjTransaction = null;
             }
         }
 
         public bool revertTransaction(ulong transaction_id)
         {
-            if(transaction_id == 0 || wsjTransactions.Count == 0)
+            if(transaction_id == 0)
             {
-                return true;
+                return false;
             }
             lock(stateLock)
             {
-                WSJTransaction wsjt = wsjTransactions[0];
-                bool result = wsjt.revert();
-                wsjTransactions.Clear();
+                bool result = false;
+                if(wsjTransaction.wsjTxNumber == transaction_id)
+                {
+                    WSJTransaction wsjt = wsjTransaction;
+                    result = wsjt.revert();
+                    wsjTransaction = null;
+                }else
+                {
+                    WSJTransaction wsjt = processedWsjTransactions.Find(x => x.wsjTxNumber == transaction_id);
+                    if(wsjt == null)
+                    {
+                        return false;
+                    }
+                    result = wsjt.revert();
+                    processedWsjTransactions.Remove(wsjt);
+                }
                 cachedTotalSupply = new IxiNumber(0);
                 return result;
             }
@@ -119,11 +135,11 @@ namespace DLT
 
         private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id)
         {
-            if (wsjTransactions.Count == 0)
+            if (wsjTransaction == null)
             {
                 return Enumerable.Empty<Wallet>();
             }
-            return wsjTransactions[0].getAffectedWallets();
+            return wsjTransaction.getAffectedWallets();
         }
 
         public IxiNumber getWalletBalance(byte[] id)
@@ -154,9 +170,9 @@ namespace DLT
                 Wallet wallet = getWallet(id);
                 var change = new WSJE_Balance(wallet.id, wallet.balance, new_balance);
                 change.apply();
-                if (wsjTransactions.Count > 0)
+                if (wsjTransaction != null)
                 {
-                    wsjTransactions.Last().addChange(change);
+                    wsjTransaction.addChange(change);
                 }
             }
         }
@@ -178,9 +194,9 @@ namespace DLT
                 }
                 var change = new WSJE_Pubkey(id, public_key);
                 change.apply();
-                if (wsjTransactions.Count > 0)
+                if (wsjTransaction != null)
                 {
-                    wsjTransactions.Last().addChange(change);
+                    wsjTransaction.addChange(change);
                 }
             }
         }
@@ -202,9 +218,9 @@ namespace DLT
                 }
                 var change = new WSJE_AllowedSigner(id, true, signer);
                 change.apply();
-                if (wsjTransactions.Count > 0)
+                if (wsjTransaction != null)
                 {
-                    wsjTransactions.Last().addChange(change);
+                    wsjTransaction.addChange(change);
                 }
             }
         }
@@ -220,9 +236,9 @@ namespace DLT
                 }
                 var change = new WSJE_AllowedSigner(id, false, signer, adjust_req_signers);
                 change.apply();
-                if (wsjTransactions.Count > 0)
+                if (wsjTransaction != null)
                 {
-                    wsjTransactions.Last().addChange(change);
+                    wsjTransaction.addChange(change);
                 }
             }
         }
@@ -237,9 +253,9 @@ namespace DLT
             }
             var change = new WSJE_Signers(id, w.requiredSigs, req_sigs);
             change.apply();
-            if (wsjTransactions.Count > 0)
+            if (wsjTransaction != null)
             {
-                wsjTransactions.Last().addChange(change);
+                wsjTransaction.addChange(change);
             }
         }
 
@@ -248,9 +264,9 @@ namespace DLT
             Wallet w = getWallet(id);
             var change = new WSJE_Data(id, w.data, new_data);
             change.apply();
-            if (wsjTransactions.Count > 0)
+            if (wsjTransaction != null)
             {
-                wsjTransactions.Last().addChange(change);
+                wsjTransaction.addChange(change);
             }
         }
         #endregion
@@ -519,7 +535,7 @@ namespace DLT
         {
             lock (stateLock)
             {
-                if(wsjTransactions.Count == 0)
+                if (wsjTransaction == null)
                 {
                     Logging.error(String.Format("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id));
                     return null;
