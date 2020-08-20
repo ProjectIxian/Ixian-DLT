@@ -40,9 +40,6 @@ namespace DLT
 
         private bool running = false;
 
-        private ulong watchDogBlockNum = 0;
-        private DateTime watchDogTime = DateTime.UtcNow;
-
         private bool noNetworkSynchronization = false; // Flag to determine if it ever started a network sync
 
         private bool syncDone = false;
@@ -157,10 +154,6 @@ namespace DLT
                         // Re-request block
                         if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1, true) == false)
                         {
-                            if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
-                            {
-                                watchDogTime = DateTime.UtcNow;
-                            }
                             Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
                         }
@@ -242,10 +235,6 @@ namespace DLT
                         // Didn't find the block in storage, request it from the network
                         if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1, true) == false)
                         {
-                            if (watchDogBlockNum > 0 && (blockNum == watchDogBlockNum - 4 || blockNum == watchDogBlockNum + 1))
-                            {
-                                watchDogTime = DateTime.UtcNow;
-                            }
                             Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
                         }
@@ -370,8 +359,6 @@ namespace DLT
                 // Loop until we have no more pending blocks
                 do
                 {
-                    handleWatchDog();
-
                     ulong next_to_apply = lowestBlockNum;
                     if (Node.blockChain.Count > 0)
                     {
@@ -539,7 +526,6 @@ namespace DLT
                                         if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                         {
                                             Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                            handleWatchDog(true);
                                             return;
                                         }
                                     }
@@ -566,7 +552,6 @@ namespace DLT
                                         Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
                                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                                         requestBlockAgain(b.blockNum);
-                                        handleWatchDog(true);
                                         return;
                                     }
                                 }
@@ -600,7 +585,6 @@ namespace DLT
                             }
 
                             Node.blockChain.appendBlock(b, !b.fromLocalStorage);
-                            resetWatchDog(b.blockNum);
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
@@ -622,12 +606,10 @@ namespace DLT
             {
                 if(verifyLastBlock())
                 {
-                    resetWatchDog(0);
                     sleep = false;
                 }
                 else
                 {
-                    handleWatchDog(true);
                     sleep = true;
                 }
             }
@@ -670,8 +652,6 @@ namespace DLT
                     return false;
                 }
             }
-
-            resetWatchDog(0);
 
             stopSyncStartBlockProcessing();
 
@@ -1032,96 +1012,6 @@ namespace DLT
             if (from_network)
             {
                 noNetworkSynchronization = false;
-            }
-        }
-
-        private void resetWatchDog(ulong blockNum)
-        {
-            watchDogBlockNum = blockNum;
-            watchDogTime = DateTime.UtcNow;
-        }
-
-        private void handleWatchDog(bool forceWsUpdate = false)
-        {
-            if (syncDone)
-            {
-                return;
-            }
-
-            if (!forceWsUpdate && watchDogBlockNum == 0)
-            {
-                return;
-            }
-
-            if (forceWsUpdate || (DateTime.UtcNow - watchDogTime).TotalSeconds > 1200) // stuck on the same block for 1200 seconds
-            {
-                wsSyncConfirmedBlockNum = 0;
-                if (Config.fullStorageDataVerification == false)
-                {
-                    ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
-                    if (lastBlockHeight > 100)
-                    {
-                        Logging.info("Restoring WS to " + (lastBlockHeight - 100));
-                        wsSyncConfirmedBlockNum = WalletStateStorage.restoreWalletState(lastBlockHeight - 100);
-                    }
-                }
-
-                if (wsSyncConfirmedBlockNum == 0)
-                {
-                    Logging.info("Resetting sync to begin from 0");
-                    Node.walletState.clear();
-                }
-                else
-                {
-                    Block b = Node.blockChain.getBlock(wsSyncConfirmedBlockNum, true);
-                    if (b != null)
-                    {
-                        if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
-                        {
-                            // skip WS checksum check
-                        }else
-                        {
-                            int block_version = b.version;
-                            Node.walletState.setCachedBlockVersion(block_version);
-                            if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(b.walletStateChecksum))
-                            {
-                                b = null;
-                            }
-                        }
-                    }
-                    if(b == null)
-                    {
-                        Logging.error("BlockSync WatchDog: Wallet state mismatch");
-                        return;
-                    }
-                }
-
-                lastBlockToReadFromStorage = wsSyncConfirmedBlockNum;
-
-                resetWatchDog(0);
-
-                Node.blockChain.clear();
-
-                TransactionPool.clear();
-
-                lock (pendingBlocks)
-                {
-                    ulong firstBlock = getLowestBlockNum();
-                    ulong lastBlock = lastBlockToReadFromStorage;
-                    if(syncTargetBlockNum > lastBlock)
-                    {
-                        lastBlock = syncTargetBlockNum;
-                    }
-                    missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
-                    missingBlocks.Sort();
-                    pendingBlocks.Clear();
-                    receivedAllMissingBlocks = false;
-                    noNetworkSynchronization = true;
-                }
-                lock (requestedBlockTimes)
-                {
-                    requestedBlockTimes.Clear();
-                }
             }
         }
     }
