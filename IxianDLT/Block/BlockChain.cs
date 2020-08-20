@@ -26,6 +26,9 @@ namespace DLT
 
         Block genesisBlock = null;
 
+        ulong reorgBlockStart = 0;
+        Dictionary<ulong, WSJTransaction> wsjTransactions = new Dictionary<ulong, WSJTransaction>();
+
         public long Count
         {
             get
@@ -668,6 +671,67 @@ namespace DLT
         public Block getGenesisBlock()
         {
             return genesisBlock;
+        }
+
+        public bool revertBlock()
+        {
+            ulong block_to_revert = lastBlockNum;
+            if(reorgBlockStart == 0)
+            {
+                reorgBlockStart = lastBlockNum;
+            }
+
+            // Re-org blockchain for max 6 blocks
+            if (block_to_revert + 6 < reorgBlockStart)
+            {
+                Logging.error("Cannot revert block " + block_to_revert + ", blockchain re-org started on " + reorgBlockStart);
+                return false;
+            }
+
+            Logging.info("Reverting block " + block_to_revert);
+            if(!wsjTransactions.ContainsKey(block_to_revert))
+            {
+                Logging.error("Cannot revert block " + block_to_revert + ", block's WSJ transaction does not exist.");
+                return false;
+            }
+
+            if(!revertBlockTransactions(lastBlock))
+            {
+                return false;
+            }
+
+            Node.walletState.revertTransaction(lastBlockNum);
+
+            if (lastSuperBlockNum == lastBlockNum)
+            {
+                Block super_block = getBlock(lastSuperBlockNum, true, true);
+                lastSuperBlockNum = super_block.lastSuperBlockNum;
+                lastSuperBlockChecksum = super_block.lastSuperBlockChecksum;
+            }
+
+            Node.blockProcessor.blacklistBlock(lastBlock);
+
+            lastBlock = getBlock(block_to_revert - 1, true, true);
+            lastBlockVersion = lastBlock.version;
+            lastBlockReceivedTime = lastBlock.timestamp;
+            lastBlockNum = block_to_revert - 1;
+
+            return true;
+        }
+
+        private bool revertBlockTransactions(Block block)
+        {
+            foreach(var tx_id in block.transactions)
+            {
+                Transaction tx = TransactionPool.getTransaction(tx_id, block.blockNum, true);
+                if(tx == null)
+                {
+                    Logging.error("Cannot revert transaction " + tx_id + ", transaction doesn't exist.");
+                    continue;
+                }
+                tx.applied = 0;
+            }
+            return true;
         }
     }
 }
