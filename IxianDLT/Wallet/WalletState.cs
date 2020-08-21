@@ -135,11 +135,20 @@ namespace DLT
 
         private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id)
         {
-            if (wsjTransaction == null)
+            if (wsjTransaction.wsjTxNumber == transaction_id)
             {
-                return Enumerable.Empty<Wallet>();
+                WSJTransaction wsjt = wsjTransaction;
+                return wsjt.getAffectedWallets();
             }
-            return wsjTransaction.getAffectedWallets();
+            else
+            {
+                WSJTransaction wsjt = processedWsjTransactions.Find(x => x.wsjTxNumber == transaction_id);
+                if (wsjt == null)
+                {
+                    return null;
+                }
+                return wsjt.getAffectedWallets();
+            }
         }
 
         public IxiNumber getWalletBalance(byte[] id)
@@ -535,11 +544,6 @@ namespace DLT
         {
             lock (stateLock)
             {
-                if (wsjTransaction == null)
-                {
-                    Logging.error(String.Format("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id));
-                    return null;
-                }
                 using (MemoryStream m = new MemoryStream())
                 {
                     using (BinaryWriter w = new BinaryWriter(m))
@@ -547,6 +551,11 @@ namespace DLT
                         w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
                         // TODO: WSJ: Kludge until Blockversion upgrade, so we can replace WS Deltas with WSJ
                         var altered_wallets = getAlteredWalletsSinceWSJTX(transaction_id);
+                        if(altered_wallets == null)
+                        {
+                            Logging.error("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id);
+                            return null;
+                        }
                         int i = 0;
                         foreach (var altered_wallet in altered_wallets)
                         {
