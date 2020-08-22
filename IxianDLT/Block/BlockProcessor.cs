@@ -100,7 +100,7 @@ namespace DLT
             Logging.info("BlockProcessor stopped.");
         }
 
-        private void handleForkedFlag()
+        public void handleForkedFlag()
         {
             if (!Config.disableChainReorg)
             {

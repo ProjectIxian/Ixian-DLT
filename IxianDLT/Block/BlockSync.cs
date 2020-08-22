@@ -494,6 +494,10 @@ namespace DLT
                             Logging.warn(String.Format("Block #{0} {1} is invalid. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             requestBlockAgain(b.blockNum);
+                            if(b_status == BlockVerifyStatus.PotentiallyForkedBlock && b.blockNum + 5 > lastBlockToReadFromStorage)
+                            {
+                                Node.blockProcessor.handleForkedFlag();
+                            }
                             return;
                         }
 
