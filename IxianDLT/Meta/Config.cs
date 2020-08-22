@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Policy;
 
 namespace DLT
 {
@@ -67,8 +68,10 @@ namespace DLT
 
             public static string externalIp = "";
 
+            public static bool disableChainReorg = false;
+
             // Read-only values
-            public static readonly string version = "xdc-0.6.9a"; // DLT Node version
+            public static readonly string version = "xdc-0.7.0-dev"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -119,7 +122,7 @@ namespace DLT
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
                 Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
                 Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage]");
-                Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline]");
+                Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -153,6 +156,7 @@ namespace DLT
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
                 Console.WriteLine("    --optimizeDBStorage\t RocksDB only: manually compacts all databases before starting the node. MAY TAKE SOME TIME!");
                 Console.WriteLine("    --offline\t\t Offline mode - does not connect to other nodes or accepts any connections from other nodes");
+                Console.WriteLine("    --disableChainReorg\t Disables blockchain reorganization");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue syntax.");
@@ -402,6 +406,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("devInsertFromJson").Callback(value => devInsertFromJson = true).Required();
 
                 cmd_parser.Setup<bool>("offline").Callback(value => CoreConfig.preventNetworkOperations = true).Required();
+
+                cmd_parser.Setup<bool>("disableChainReorg").Callback(value => disableChainReorg = true).Required();
 
                 cmd_parser.Parse(args);
 

@@ -102,11 +102,14 @@ namespace DLT
 
         private void handleForkedFlag()
         {
-            lastBlockStartTime = DateTime.UtcNow;
-            forkedFlag = false;
-            blacklistBlock(Node.blockChain.getLastBlock());
-            Node.blockChain.revertLastBlock();
-            ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null);
+            if (!Config.disableChainReorg)
+            {
+                lastBlockStartTime = DateTime.UtcNow;
+                forkedFlag = false;
+                blacklistBlock(Node.blockChain.getLastBlock());
+                Node.blockChain.revertLastBlock();
+                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null);
+            }
         }
 
         // Check passed time since last block generation and if needed generate a new block
