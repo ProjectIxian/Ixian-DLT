@@ -417,49 +417,44 @@ namespace DLT.Meta
 
                 }
 
-                if (Config.recoverFromFile)
+                // Start block sync
+                ulong blockNum = WalletStateStorage.restoreWalletState(lastLocalBlockNum);
+                if(blockNum > 0)
                 {
-                    Block b = storage.getBlock(lastLocalBlockNum);
-                    blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
+                    Block b = blockChain.getBlock(blockNum, true);
+                    if (b != null)
+                    {
+                        blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
+                    }else
+                    {
+                        walletState.clear();
+                    }
+                }else
+                {
+                    blockSync.lastBlockToReadFromStorage = lastLocalBlockNum;
+
+                    if (CoreConfig.preventNetworkOperations)
+                    {
+                        walletState.clear();
+                        Block b = storage.getBlock(lastLocalBlockNum);
+                        blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
+                    }
+                }
+
+                // Start the server for ping purposes
+                serverStarted = true;
+                if (!isMasterNode())
+                {
+                    Logging.info("Network server is not enabled in modes other than master node.");
                 }
                 else
                 {
-                    ulong blockNum = WalletStateStorage.restoreWalletState(lastLocalBlockNum);
-                    if(blockNum > 0)
-                    {
-                        Block b = blockChain.getBlock(blockNum, true);
-                        if (b != null)
-                        {
-                            blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
-                        }else
-                        {
-                            walletState.clear();
+                    NetworkServer.beginNetworkOperations();
+                }
 
-                        }
-                    }else
-                    {
-                        blockSync.lastBlockToReadFromStorage = lastLocalBlockNum;
-
-                        if (CoreConfig.preventNetworkOperations)
-                        {
-                            walletState.clear();
-                            Block b = storage.getBlock(lastLocalBlockNum);
-                            blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
-                        }
-                    }
-
-                    // Start the server for ping purposes
-                    serverStarted = true;
-                    if (!isMasterNode())
-                    {
-                        Logging.info("Network server is not enabled in modes other than master node.");
-                    }
-                    else
-                    {
-                        NetworkServer.beginNetworkOperations();
-                    }
-
-                    // Start the network client manager
+                // Start the network client manager
+                if (!Config.recoverFromFile)
+                {
                     NetworkClientManager.start(true);
                 }
             }
@@ -758,7 +753,7 @@ namespace DLT.Meta
                 }
                 catch (Exception e)
                 {
-                    Logging.error("Exception occurent in Node.performMaintenance: " + e);
+                    Logging.error("Exception occured in Node.performMaintenance: " + e);
                 }
             }
         }
