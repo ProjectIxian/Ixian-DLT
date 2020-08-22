@@ -553,7 +553,7 @@ namespace DLT
                         var altered_wallets = getAlteredWalletsSinceWSJTX(transaction_id);
                         if(altered_wallets == null)
                         {
-                            Logging.error("Attempted to calcualte WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id);
+                            Logging.error("Attempted to calculate WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id);
                             return null;
                         }
                         int i = 0;
