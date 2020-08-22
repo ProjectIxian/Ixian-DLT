@@ -108,14 +108,11 @@ namespace DLT
                         return false;
                     }
                 }
-                if (b.blockNum > lastBlockNum)
+                lastBlock = b;
+                lastBlockNum = b.blockNum;
+                if (b.version != lastBlockVersion)
                 {
-                    lastBlock = b;
-                    lastBlockNum = b.blockNum;
-                    if (b.version != lastBlockVersion)
-                    {
-                        lastBlockVersion = b.version;
-                    }
+                    lastBlockVersion = b.version;
                 }
 
                 if (b.lastSuperBlockChecksum != null || b.blockNum == 1)
@@ -142,6 +139,11 @@ namespace DLT
                 lock (blocksDictionary)
                 {
                     blocksDictionary.Add(b.blockNum, b);
+                }
+
+                if(reorgBlockStart <= b.blockNum)
+                {
+                    reorgBlockStart = 0;
                 }
             }
 
@@ -662,7 +664,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.error("Error updating block {0}", new_block.blockNum);
+                        Logging.error("Error updating block #{0}", new_block.blockNum);
                     }
                 }
             }
@@ -673,49 +675,70 @@ namespace DLT
             return genesisBlock;
         }
 
-        public bool revertBlock()
+        public bool revertLastBlock()
         {
-            ulong block_to_revert = lastBlockNum;
-            if(reorgBlockStart == 0)
+            lock (blocks)
             {
-                reorgBlockStart = lastBlockNum;
+                ulong block_to_revert = lastBlockNum;
+                if (reorgBlockStart == 0)
+                {
+                    reorgBlockStart = lastBlockNum;
+                }
+
+                // Re-org blockchain for max 6 blocks
+                if (block_to_revert + 6 < reorgBlockStart)
+                {
+                    Logging.error("Cannot revert block #" + block_to_revert + ", blockchain re-org started on " + reorgBlockStart);
+                    return false;
+                }
+
+                Logging.info("Reverting block #" + block_to_revert);
+                if (!wsjTransactions.ContainsKey(block_to_revert))
+                {
+                    Logging.error("Cannot revert block #" + block_to_revert + ", block's WSJ transaction does not exist.");
+                    return false;
+                }
+
+                if (!revertBlockTransactions(lastBlock))
+                {
+                    return false;
+                }
+
+                Node.walletState.revertTransaction(lastBlockNum);
+
+                if (lastSuperBlockNum == lastBlockNum)
+                {
+                    Block super_block = getBlock(lastSuperBlockNum, true, true);
+                    lastSuperBlockNum = super_block.lastSuperBlockNum;
+                    lastSuperBlockChecksum = super_block.lastSuperBlockChecksum;
+                }
+
+                Node.blockProcessor.blacklistBlock(lastBlock);
+
+                lastBlock = getBlock(block_to_revert - 1, true, true);
+                lastBlockVersion = lastBlock.version;
+                lastBlockReceivedTime = lastBlock.timestamp;
+                lastBlockNum = block_to_revert - 1;
+
+                if (lastBlock.version >= BlockVer.v5 && lastBlock.lastSuperBlockChecksum == null)
+                {
+                    if (!Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum).SequenceEqual(lastBlock.walletStateChecksum))
+                    {
+                        Logging.error("Fatal error occured: Wallet state is incorrect after reverting block #" + lastBlock.blockNum);
+                        Node.stop();
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(lastBlock.walletStateChecksum))
+                    {
+                        Logging.error("Fatal error occured: Wallet state is incorrect after reverting block #" + lastBlock.blockNum);
+                        Node.stop();
+                        return false;
+                    }
+                }
             }
-
-            // Re-org blockchain for max 6 blocks
-            if (block_to_revert + 6 < reorgBlockStart)
-            {
-                Logging.error("Cannot revert block " + block_to_revert + ", blockchain re-org started on " + reorgBlockStart);
-                return false;
-            }
-
-            Logging.info("Reverting block " + block_to_revert);
-            if(!wsjTransactions.ContainsKey(block_to_revert))
-            {
-                Logging.error("Cannot revert block " + block_to_revert + ", block's WSJ transaction does not exist.");
-                return false;
-            }
-
-            if(!revertBlockTransactions(lastBlock))
-            {
-                return false;
-            }
-
-            Node.walletState.revertTransaction(lastBlockNum);
-
-            if (lastSuperBlockNum == lastBlockNum)
-            {
-                Block super_block = getBlock(lastSuperBlockNum, true, true);
-                lastSuperBlockNum = super_block.lastSuperBlockNum;
-                lastSuperBlockChecksum = super_block.lastSuperBlockChecksum;
-            }
-
-            Node.blockProcessor.blacklistBlock(lastBlock);
-
-            lastBlock = getBlock(block_to_revert - 1, true, true);
-            lastBlockVersion = lastBlock.version;
-            lastBlockReceivedTime = lastBlock.timestamp;
-            lastBlockNum = block_to_revert - 1;
-
             return true;
         }
 

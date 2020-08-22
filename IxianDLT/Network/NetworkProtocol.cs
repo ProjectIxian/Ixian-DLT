@@ -960,19 +960,6 @@ namespace DLT
 
                                         int wsLen = reader.ReadInt32();
 
-                                        if(last_block_num <= IxianHandler.getLastBlockHeight())
-                                        {
-                                            Block b = Node.blockChain.getBlock(last_block_num);
-                                            if(b != null)
-                                            {
-                                                if(!b.blockChecksum.SequenceEqual(block_checksum))
-                                                {
-                                                    CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.forked, string.Format("This node is on a forked network on block {0}, disconnecting.", last_block_num), last_block_num.ToString(), true);
-                                                    return;
-                                                }
-                                            }
-                                        }
-
                                         byte[] walletstate_checksum = reader.ReadBytes(wsLen);
                                         int consensus = reader.ReadInt32(); // deprecated
 
@@ -1233,10 +1220,6 @@ namespace DLT
                                             switch(byeCode)
                                             {
                                                 case ProtocolByeCode.bye: // all good
-                                                    break;
-
-                                                case ProtocolByeCode.forked: // forked node disconnected
-                                                    Logging.info(string.Format("Disconnected with message: {0} {1}", byeMessage, byeData));
                                                     break;
 
                                                 case ProtocolByeCode.deprecated: // deprecated node disconnected

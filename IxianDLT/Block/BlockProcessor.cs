@@ -64,6 +64,8 @@ namespace DLT
 
         private ThreadLiveCheck TLC;
 
+        private bool forkedFlag = false; // flag that indicates if the next block is forked
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.UtcNow;
@@ -96,6 +98,15 @@ namespace DLT
         {
             operating = false;
             Logging.info("BlockProcessor stopped.");
+        }
+
+        private void handleForkedFlag()
+        {
+            lastBlockStartTime = DateTime.UtcNow;
+            forkedFlag = false;
+            blacklistBlock(Node.blockChain.getLastBlock());
+            Node.blockChain.revertLastBlock();
+            ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null);
         }
 
         // Check passed time since last block generation and if needed generate a new block
@@ -174,7 +185,14 @@ namespace DLT
                                 localNewBlock = null;
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                                 block_version = Node.blockChain.getLastBlockVersion();
-                                generateNextBlock = true;
+                                if (forkedFlag)
+                                {
+                                    handleForkedFlag();
+                                }
+                                else
+                                {
+                                    generateNextBlock = true;
+                                }
                             }
                         }
 
@@ -537,22 +555,38 @@ namespace DLT
                         }
                         else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
-                            // the block is valid but block checksum is different, meaning lastBlockChecksum passes, check sig count, if it passes, it's forked, if not, resend our block
-                            if (b.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(b.blockNum))
+                            Logging.info("Block #{0} ({1}) is forked", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                            if (Node.isMasterNode())
                             {
-                                ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
+                                if (!forkedFlag)
+                                {
+                                    forkedFlag = true;
+                                    ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
+                                }
+                            }else
+                            {
+                                handleForkedFlag();
+                            }
+                            // TODO: Blacklisting point
+                        }
+                        else if(block_status == BlockVerifyStatus.Invalid)
+                        {
+                            Logging.info("Block #{0} ({1}) is invalid", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                        }else if(block_status == BlockVerifyStatus.PotentiallyForkedBlock)
+                        {
+                            Logging.info("Block #{0} ({1}) is forked", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                            if(Node.isMasterNode())
+                            {
+                                if (!forkedFlag)
+                                {
+                                    forkedFlag = true;
+                                    ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
+                                }
                             }
                             else
                             {
-                                // the block is invalid, we should disconnect the node as it is likely on a forked network
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                                handleForkedFlag();
                             }
-                        }
-                        else if(block_status == BlockVerifyStatus.Invalid || block_status == BlockVerifyStatus.PotentiallyForkedBlock)
-                        {
-                            Logging.info("Block is invalid");
-                            // the block is invalid, we should disconnect the node as it is likely on a forked network
-                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
                         }
                     }
                 }else // b.blockNum < Node.blockChain.getLastBlockNum() - 5
@@ -575,19 +609,13 @@ namespace DLT
                     }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
                         Block localBlock = Node.blockChain.getBlock(b.blockNum);
-                        if (localBlock != null && b.lastBlockChecksum.SequenceEqual(localBlock.lastBlockChecksum) && !verifyBlockSignatures(b))
-                        {
-                            ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
-                        }else
-                        {
-                            // the block is different than our own, we should disconnect the node as it is likely on a forked network
-                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidChecksum, "Block #"+b.blockNum+", has a different checksum, you are possibly on a forked network", b.blockNum.ToString());
-                        }
+                        ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
+                        // TODO: Blacklisting point
                     }
                     else
                     {
                         // the block is invalid, we should disconnect the node as it is likely on a forked network
-                        CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                        CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalid, "Block #" + b.blockNum + " is invalid, you are possibly on a non-compatible network", b.blockNum.ToString());
                     }
                 }
                 return;
@@ -611,9 +639,29 @@ namespace DLT
             if(b_status == BlockVerifyStatus.Invalid)
             {
                 // the block is invalid, we should disconnect the node as it is likely on a forked network
-                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalidForked, "Block #" + b.blockNum + " is invalid, you are possibly on a forked network", b.blockNum.ToString());
+                Logging.info("Block #{0} ({1}) is invalid", b.blockNum, Crypto.hashToString(b.blockChecksum));
                 return;
-            }else if (b_status != BlockVerifyStatus.Valid)
+            }
+            else if (b_status == BlockVerifyStatus.PotentiallyForkedBlock)
+            {
+                Logging.info("Block #{0} ({1}) is forked", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                if (Node.isMasterNode())
+                {
+                    if (!forkedFlag)
+                    {
+                        forkedFlag = true;
+                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getLastBlock(), null, endpoint);
+                    }
+                }
+                else
+                {
+                    handleForkedFlag();
+                }
+                // TODO: Blacklisting point
+                // TODO: implement for superblocks
+                return;
+            }
+            else if (b_status != BlockVerifyStatus.Valid)
             {
                 Logging.warn(String.Format("Received block #{0} ({1}) which was not valid!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
                 // TODO: Blacklisting point
@@ -1670,20 +1718,14 @@ namespace DLT
                             Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
                                 Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(ws_checksum)));
                             Logging.error(String.Format("Node reports block version: {0}", IxianHandler.getLastBlockVersion()));
-                            // TODO TODO TODO TODO TODO Connect this with WSJ
-                            rollBackAcceptedBlock(localNewBlock);
-                            if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(last_block.walletStateChecksum))
-                            {
-                                Logging.error(String.Format("Fatal error occured while rolling back accepted block #{0}!.", localNewBlock.blockNum));
-                                // TODO TODO TODO maybe do something else instead?
-                                operating = false;
-                                Node.stop();
-                                return false;
-                            }
-                            localNewBlock.logBlockDetails();
+                            // TODO TODO perhaps try reverting the block
+                            operating = false;
+                            Node.stop();
+                            return false;
+                            /*localNewBlock.logBlockDetails();
                             requestBlockNum = localNewBlock.blockNum;
                             localNewBlock = null;
-                            requestBlockAgain = true;
+                            requestBlockAgain = true;*/
                         }
                         else
                         {
@@ -1696,6 +1738,7 @@ namespace DLT
                             last_block_num = localNewBlock.blockNum;
                             Block current_block = localNewBlock;
                             localNewBlock = null;
+                            forkedFlag = false;
 
                             if (Config.blockNotifyCommand != "")
                             {
@@ -1879,30 +1922,6 @@ namespace DLT
             updateWalletStatePublicKeys(b.blockNum);
 
             return true;
-        }
-
-        public bool rollBackAcceptedBlock(Block b)
-        {
-            return false; // TODO TODO TODO partially implemented
-
-            /*for(int i = 0; i < b.transactions.Count; i++)
-            {
-                Transaction t = TransactionPool.getTransaction(b.transactions[i]);
-                if(t == null)
-                {
-                    return false;
-                }
-
-                if (t.applied == b.blockNum)
-                {
-                    TransactionPool.rollBackNormalTransaction(t);
-                    TransactionPool.rollBackPoWTransaction(t);
-                    TransactionPool.rollBackStakingTransaction(t);
-                    TransactionPool.rollBackTransactionFeeReward(t);
-                    t.applied = 0;
-                } // else the tx was either not applied - could be failed, or applied to some previous block
-            }
-            return true; */
         }
 
         public void applyTransactionFeeRewards(Block b)
