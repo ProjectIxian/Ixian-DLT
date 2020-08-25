@@ -379,6 +379,7 @@ namespace DLT.Meta
                 distributeGenesisFunds(genesisFunds);
 
                 genesisNode = true;
+                PresenceList.myPresenceType = 'M';
                 blockProcessor.resumeOperation();
                 serverStarted = true;
                 if (!isMasterNode())
@@ -453,10 +454,7 @@ namespace DLT.Meta
                 }
 
                 // Start the network client manager
-                if (!Config.recoverFromFile)
-                {
-                    NetworkClientManager.start(true);
-                }
+                NetworkClientManager.start(false);
             }
 
             PresenceList.startKeepAlive();
@@ -750,6 +748,9 @@ namespace DLT.Meta
                     {
                         IxianHandler.forceShutdown = true;
                     }
+
+                    // Remove expired peers from blacklist
+                    PeerStorage.updateBlacklist();
                 }
                 catch (Exception e)
                 {
