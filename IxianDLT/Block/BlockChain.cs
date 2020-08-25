@@ -27,7 +27,6 @@ namespace DLT
         Block genesisBlock = null;
 
         ulong reorgBlockStart = 0;
-        Dictionary<ulong, WSJTransaction> wsjTransactions = new Dictionary<ulong, WSJTransaction>();
 
         public long Count
         {
@@ -693,18 +692,14 @@ namespace DLT
                 }
 
                 Logging.info("Reverting block #" + block_to_revert);
-                if (!wsjTransactions.ContainsKey(block_to_revert))
+
+                Node.walletState.revertTransaction(block_to_revert);
+
+                if (!revertBlockTransactions(lastBlock))
                 {
                     Logging.error("Cannot revert block #" + block_to_revert + ", block's WSJ transaction does not exist.");
                     return false;
                 }
-
-                if (!revertBlockTransactions(lastBlock))
-                {
-                    return false;
-                }
-
-                Node.walletState.revertTransaction(lastBlockNum);
 
                 if (lastSuperBlockNum == lastBlockNum)
                 {
