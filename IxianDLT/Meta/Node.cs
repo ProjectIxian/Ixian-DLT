@@ -454,7 +454,13 @@ namespace DLT.Meta
                 }
 
                 // Start the network client manager
-                NetworkClientManager.start(false);
+                if (Config.recoverFromFile)
+                {
+                    NetworkClientManager.start(0);
+                }else
+                {
+                    NetworkClientManager.start(1);
+                }
             }
 
             PresenceList.startKeepAlive();
@@ -533,7 +539,7 @@ namespace DLT.Meta
                 {
                     NetworkServer.beginNetworkOperations();
                 }
-                NetworkClientManager.start(false);
+                NetworkClientManager.start();
                 floodPause = false;
             }
 
