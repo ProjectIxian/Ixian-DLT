@@ -45,6 +45,8 @@ namespace DLT
         private bool syncDone = false;
         private ThreadLiveCheck TLC;
 
+        private ulong lastProcessedBlockNum = 0;
+        private long lastProcessedBlockTime = 0;
         public BlockSync()
         {
             synchronizing = false;
@@ -319,6 +321,11 @@ namespace DLT
         {
             lock (pendingBlocks)
             {
+                if(lastProcessedBlockNum == blockNum)
+                {
+                    lastProcessedBlockTime = Clock.getTimestamp();
+                }
+
                 if (missingBlocks != null)
                 {
                     if (!missingBlocks.Contains(blockNum))
@@ -485,17 +492,34 @@ namespace DLT
 
                         if (b_status == BlockVerifyStatus.Indeterminate)
                         {
-                            Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
+                            if(lastProcessedBlockNum < b.blockNum)
+                            {
+                                lastProcessedBlockNum = b.blockNum;
+                                lastProcessedBlockTime = Clock.getTimestamp();
+                            }
+
+
+                            if(Clock.getTimestamp() - lastProcessedBlockTime > ConsensusConfig.blockGenerationInterval * 2)
+                            {
+                                Logging.info("Sync: Discarding indeterminate block #{0}, due to timeout...", b.blockNum);
+                                Node.blockProcessor.blacklistBlock(b);
+                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                requestBlockAgain(b.blockNum);
+                            }else
+                            {
+                                Logging.info("Sync: Waiting for missing transactions from block #{0}...", b.blockNum);
+                            }
+
                             Thread.Sleep(100);
-                            // TODO TODO TODO timeout after some time and blacklist the block
                             return;
                         }
                         if (b_status != BlockVerifyStatus.Valid)
                         {
                             Logging.warn(String.Format("Block #{0} {1} is invalid. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                            Node.blockProcessor.blacklistBlock(b);
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             requestBlockAgain(b.blockNum);
-                            if(b_status == BlockVerifyStatus.PotentiallyForkedBlock && b.blockNum + 5 > lastBlockToReadFromStorage)
+                            if(b_status == BlockVerifyStatus.PotentiallyForkedBlock && b.blockNum + 7 > lastBlockToReadFromStorage)
                             {
                                 Node.blockProcessor.handleForkedFlag();
                             }
@@ -534,7 +558,13 @@ namespace DLT
                                 if (!applied)
                                 {
                                     Node.walletState.revertTransaction(b.blockNum);
-                                } else
+                                    Node.blockChain.revertBlockTransactions(b);
+                                    Node.blockProcessor.blacklistBlock(b);
+                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                    requestBlockAgain(b.blockNum);
+                                    return;
+                                }
+                                else
                                 {
                                     if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                                     {
@@ -549,6 +579,10 @@ namespace DLT
                                             {
                                                 Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
                                                 Node.walletState.revertTransaction(b.blockNum);
+                                                Node.blockChain.revertBlockTransactions(b);
+                                                Node.blockProcessor.blacklistBlock(b);
+                                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                                requestBlockAgain(b.blockNum);
                                                 return;
                                             }
                                         }
@@ -574,6 +608,7 @@ namespace DLT
                                     if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                     {
                                         Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
+                                        Node.blockProcessor.blacklistBlock(b);
                                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                                         requestBlockAgain(b.blockNum);
                                         return;
@@ -589,6 +624,8 @@ namespace DLT
                             {
                                 if (!TransactionPool.setAppliedFlagToTransactionsFromBlock(b))
                                 {
+                                    Node.blockChain.revertBlockTransactions(b);
+                                    Node.blockProcessor.blacklistBlock(b);
                                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                                     requestBlockAgain(b.blockNum);
                                     return;
@@ -613,6 +650,7 @@ namespace DLT
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
                             // invalid sigfreeze, waiting for the correct block
+                            Node.blockProcessor.blacklistBlock(b);
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             return;
                         }
@@ -623,6 +661,7 @@ namespace DLT
                     }
 
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                    Node.blockProcessor.cleanupBlockBlacklist();
                 } while (pendingBlocks.Count > 0 && running);
             }
 
@@ -858,6 +897,11 @@ namespace DLT
             if (synchronizing == false) return;
             lock (pendingBlocks)
             {
+                if(Node.blockProcessor.isBlockBlacklisted(b, ConsensusConfig.blockGenerationInterval * 3))
+                {
+                    return;
+                }
+
                 // Remove from requestedblocktimes, as the block has been received 
                 lock (requestedBlockTimes)
                 {

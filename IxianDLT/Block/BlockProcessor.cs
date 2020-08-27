@@ -1353,8 +1353,13 @@ namespace DLT
         }
 
         // Returns true if block is blacklisted
-        private bool isBlockBlacklisted(Block b)
+        // When expiration_time is set to 0, it will use the default blockGenerationInterval * 10;
+        public bool isBlockBlacklisted(Block b, int expiration_time = 0)
         {
+            if(expiration_time == 0)
+            {
+                expiration_time = blockGenerationInterval * 10;
+            }
             lock (blockBlacklist)
             {
                 if (blockBlacklist.ContainsKey(b.blockNum))
@@ -1363,7 +1368,7 @@ namespace DLT
                     if (bbl.ContainsKey(b.blockChecksum))
                     {
                         DateTime dt = bbl[b.blockChecksum];
-                        if ((DateTime.UtcNow - dt).TotalSeconds > blockGenerationInterval * 10)
+                        if ((DateTime.UtcNow - dt).TotalSeconds > expiration_time)
                         {
                             blockBlacklist[b.blockNum].Remove(b.blockChecksum);
                             if (blockBlacklist[b.blockNum].Count() == 0)
@@ -1401,7 +1406,7 @@ namespace DLT
         }
 
         // Removes blocks with older block height from the blacklist
-        private void cleanupBlockBlacklist()
+        public void cleanupBlockBlacklist()
         {
             ulong blockNum = Node.blockChain.getLastBlockNum();
             lock (blockBlacklist)
@@ -1836,6 +1841,7 @@ namespace DLT
                         localNewBlock.logBlockDetails();
                         requestBlockNum = localNewBlock.blockNum;
                         Node.walletState.revertTransaction(localNewBlock.blockNum);
+                        Node.blockChain.revertBlockTransactions(localNewBlock);
                         localNewBlock = null;
                         requestBlockAgain = true;
                     }else

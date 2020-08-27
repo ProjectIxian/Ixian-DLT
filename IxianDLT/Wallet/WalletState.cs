@@ -95,7 +95,7 @@ namespace DLT
             lock (stateLock)
             {
                 processedWsjTransactions.Add(wsjTransaction);
-                if(processedWsjTransactions.Count > 8)
+                if(processedWsjTransactions.Count > 10)
                 {
                     processedWsjTransactions.RemoveAt(0);
                 }
@@ -465,7 +465,15 @@ namespace DLT
                     w.type = WalletType.Normal;
                     w.allowedSigners = null;
                 }
-                walletState.AddOrReplace(id, w);
+                if (cachedBlockVersion >= 5 && w.isEmptyWallet())
+                {
+                    Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
+                    walletState.Remove(id);
+                }
+                else
+                {
+                    walletState.AddOrReplace(id, w);
+                }
                 cachedChecksum = null;
                 return true;
             }

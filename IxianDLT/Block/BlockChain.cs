@@ -690,8 +690,8 @@ namespace DLT
                 reorgBlockStart = block_num_to_revert;
             }
 
-            // Re-org blockchain for max 6 blocks
-            if (block_num_to_revert + 6 < reorgBlockStart)
+            // Re-org blockchain for max 7 blocks
+            if (block_num_to_revert + 7 < reorgBlockStart)
             {
                 Logging.error("Cannot revert block #" + block_num_to_revert + ", blockchain re-org started on " + reorgBlockStart);
                 return false;
@@ -740,7 +740,7 @@ namespace DLT
             return true;
         }
 
-        private bool revertBlockTransactions(Block block)
+        public bool revertBlockTransactions(Block block)
         {
             foreach(var tx_id in block.transactions)
             {
