@@ -310,12 +310,12 @@ namespace DLT
             {
                 minBh = blocknum - ConsensusConfig.getRedactedWindowSize();
             }
-            ulong highest_block_num = IxianHandler.getLastBlockHeight() + 5;
+            ulong highest_block_num = IxianHandler.getLastBlockHeight() + 10;
             if(Node.blockProcessor.highestNetworkBlockNum > highest_block_num)
             {
-                highest_block_num = Node.blockProcessor.highestNetworkBlockNum + 5;
+                highest_block_num = Node.blockProcessor.highestNetworkBlockNum + 10;
             }
-            if (minBh > transaction.blockHeight || (transaction.blockHeight > blocknum + 5 && transaction.blockHeight > highest_block_num))
+            if (minBh > transaction.blockHeight || (transaction.blockHeight > blocknum + 10 && transaction.blockHeight > highest_block_num))
             {
                 Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", transaction.id, transaction.blockHeight, minBh, highest_block_num));
                 return false;

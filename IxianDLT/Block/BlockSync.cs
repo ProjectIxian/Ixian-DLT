@@ -428,8 +428,8 @@ namespace DLT
                     try
                     {
 
-                        Logging.info(String.Format("Sync: Applying block #{0}/{1}.",
-                            b.blockNum, syncToBlock));
+                        Logging.info("Sync: Applying block #{0}/{1}.",
+                            b.blockNum, syncToBlock);
 
                         bool ignoreWalletState = true;
 
@@ -487,6 +487,7 @@ namespace DLT
                         {
                             Logging.info(String.Format("Waiting for missing transactions from block #{0}...", b.blockNum));
                             Thread.Sleep(100);
+                            // TODO TODO TODO timeout after some time and blacklist the block
                             return;
                         }
                         if (b_status != BlockVerifyStatus.Valid)
@@ -516,27 +517,46 @@ namespace DLT
                         {
                             if (Node.blockChain.Count <= 5 || sigFreezeCheck)
                             {
-                                Node.blockProcessor.applyAcceptedBlock(b);
+                                Node.walletState.beginTransaction(b.blockNum, false);
+                                bool applied = false;
+                                try
+                                {
+                                    applied = Node.blockProcessor.applyAcceptedBlock(b);
 
-                                if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
-                                {
-                                    // skip WS checksum check
-                                }
-                                else
-                                {
-                                    if (b.lastSuperBlockChecksum != null || b.blockNum % Config.saveWalletStateEveryBlock == 0)
+                                    if(applied)
                                     {
-                                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                                        if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                        Node.walletState.commitTransaction(b.blockNum);
+                                    }
+                                }catch(Exception e)
+                                {
+                                    Logging.error("Error occured during block sync, while applying/commiting transactions: " + e);
+                                }
+                                if (!applied)
+                                {
+                                    Node.walletState.revertTransaction(b.blockNum);
+                                } else
+                                {
+                                    if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
+                                    {
+                                        // skip WS checksum check
+                                    }
+                                    else
+                                    {
+                                        if (b.lastSuperBlockChecksum != null)
                                         {
-                                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
-                                            return;
+                                            byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                            if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                            {
+                                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                                Node.walletState.revertTransaction(b.blockNum);
+                                                return;
+                                            }
                                         }
                                     }
-                                }
-                                if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
-                                {
-                                    DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
+                                    if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
+                                    {
+                                        DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
+                                    }
                                 }
                             }
                         }

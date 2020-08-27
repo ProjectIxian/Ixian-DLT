@@ -986,7 +986,7 @@ namespace DLT
                                         }
 
                                         ulong highest_block_height = IxianHandler.getHighestKnownNetworkBlockHeight();
-                                        if (last_block_num + 10 < highest_block_height)
+                                        if (last_block_num + 15 < highest_block_height)
                                         {
                                             CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is too far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
                                             return;

@@ -29,10 +29,7 @@ namespace DLT
         private List<WSJTransaction> processedWsjTransactions = new List<WSJTransaction>(); // keep last 6 WSJ states for block reorg purposes
         public bool inTransaction
         {
-            get
-            {
-                return wsjTransaction != null;
-            }
+            get; private set;
         }
 
         private IxiNumber cachedTotalSupply = new IxiNumber(0);
@@ -66,12 +63,13 @@ namespace DLT
                 cachedChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
                 wsjTransaction = null;
+                inTransaction = false;
                 processedWsjTransactions.Clear();
             }
         }
 
         // WSJ Stuff
-        public bool beginTransaction(ulong block_num)
+        public bool beginTransaction(ulong block_num, bool in_transaction = true)
         {
             lock(stateLock)
             {
@@ -82,6 +80,7 @@ namespace DLT
                 }
                 var tx = new WSJTransaction(block_num);
                 wsjTransaction = tx;
+                inTransaction = in_transaction;
                 return true;
             }
         }
@@ -101,6 +100,31 @@ namespace DLT
                     processedWsjTransactions.RemoveAt(0);
                 }
                 wsjTransaction = null;
+                inTransaction = false;
+            }
+        }
+
+        public bool canRevertTransaction(ulong transaction_id)
+        {
+            if (transaction_id == 0)
+            {
+                return false;
+            }
+            lock (stateLock)
+            {
+                if (wsjTransaction != null && wsjTransaction.wsjTxNumber == transaction_id)
+                {
+                    return true;
+                }
+                else
+                {
+                    WSJTransaction wsjt = processedWsjTransactions.Find(x => x.wsjTxNumber == transaction_id);
+                    if (wsjt == null)
+                    {
+                        return false;
+                    }
+                    return true;
+                }
             }
         }
 
@@ -113,12 +137,14 @@ namespace DLT
             lock(stateLock)
             {
                 bool result = false;
-                if(wsjTransaction.wsjTxNumber == transaction_id)
+                if(wsjTransaction != null && wsjTransaction.wsjTxNumber == transaction_id)
                 {
                     WSJTransaction wsjt = wsjTransaction;
                     result = wsjt.revert();
                     wsjTransaction = null;
-                }else
+                    inTransaction = false;
+                }
+                else
                 {
                     WSJTransaction wsjt = processedWsjTransactions.Find(x => x.wsjTxNumber == transaction_id);
                     if(wsjt == null)
@@ -135,7 +161,7 @@ namespace DLT
 
         private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id)
         {
-            if (wsjTransaction.wsjTxNumber == transaction_id)
+            if (wsjTransaction != null && wsjTransaction.wsjTxNumber == transaction_id)
             {
                 WSJTransaction wsjt = wsjTransaction;
                 return wsjt.getAffectedWallets();
@@ -334,7 +360,7 @@ namespace DLT
                     }
                 }
 
-                if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
+                if (cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     walletState.Remove(id);
@@ -360,14 +386,19 @@ namespace DLT
                     // we reach this point because processing transactions updates wallet public keys first and then sets their balance,
                     // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0, then it tries to remove public key on it
                     // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
+                    if (cachedBlockVersion >= 5)
+                    {
+                        Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
+                        walletState.Remove(id);
+                    }
                     return true;
                 }
                 if(w.publicKey != null && public_key != null)
                 {
-                    Logging.error(String.Format("WSJE_PublicKey attempted to set public key on wallet {0} which already has a public key.", Addr2String(id)));
+                    Logging.error("WSJE_PublicKey attempted to set public key on wallet {0} which already has a public key.", Addr2String(id));
                 } else if(w.publicKey == null && public_key == null)
                 {
-                    Logging.error(String.Format("WSJE_PublicKey attempted to clear public key on wallet {0} which doesn't have a public key.", Addr2String(id)));
+                    Logging.error("WSJE_PublicKey attempted to clear public key on wallet {0} which doesn't have a public key.", Addr2String(id));
                     return false;
                 }
                 if((public_key != null && public_key.Length < 50) || DLT.Meta.Config.fullBlockLogging)

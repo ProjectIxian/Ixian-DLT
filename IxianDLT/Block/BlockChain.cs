@@ -4,6 +4,7 @@ using IXICore.Meta;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DLT
@@ -676,62 +677,64 @@ namespace DLT
 
         public bool revertLastBlock()
         {
-            lock (blocks)
+            Block block_to_revert = lastBlock;
+            ulong block_num_to_revert = block_to_revert.blockNum;
+            if(!Node.walletState.canRevertTransaction(block_num_to_revert))
             {
-                ulong block_to_revert = lastBlockNum;
-                if (reorgBlockStart == 0)
-                {
-                    reorgBlockStart = lastBlockNum;
-                }
+                Logging.error("Cannot revert block #" + block_num_to_revert + ", WSJ transaction is missing.");
+                return false;
+            }
 
-                // Re-org blockchain for max 6 blocks
-                if (block_to_revert + 6 < reorgBlockStart)
+            if (reorgBlockStart == 0)
+            {
+                reorgBlockStart = block_num_to_revert;
+            }
+
+            // Re-org blockchain for max 6 blocks
+            if (block_num_to_revert + 6 < reorgBlockStart)
+            {
+                Logging.error("Cannot revert block #" + block_num_to_revert + ", blockchain re-org started on " + reorgBlockStart);
+                return false;
+            }
+
+            Logging.info("Reverting block #" + block_num_to_revert);
+
+            Node.blockProcessor.blacklistBlock(block_to_revert);
+
+            removeBlock(block_num_to_revert);
+
+            lastBlock = getBlock(block_num_to_revert - 1, true, true);
+            lastBlockVersion = lastBlock.version;
+            lastBlockReceivedTime = lastBlock.timestamp;
+            lastBlockNum = block_num_to_revert - 1;
+
+            if (lastSuperBlockNum == block_num_to_revert)
+            {
+                Block super_block = getBlock(lastSuperBlockNum, true, true);
+                lastSuperBlockNum = super_block.lastSuperBlockNum;
+                lastSuperBlockChecksum = super_block.lastSuperBlockChecksum;
+            }
+
+            Node.walletState.revertTransaction(block_num_to_revert);
+
+            revertBlockTransactions(block_to_revert);
+
+            if (lastBlock.version >= BlockVer.v5 && lastBlock.lastSuperBlockChecksum == null)
+            {
+                if (!Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum).SequenceEqual(lastBlock.walletStateChecksum))
                 {
-                    Logging.error("Cannot revert block #" + block_to_revert + ", blockchain re-org started on " + reorgBlockStart);
+                    Logging.error("Fatal error occured: Delta Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum)), Node.walletState.numWallets);
+                    Node.stop();
                     return false;
                 }
-
-                Logging.info("Reverting block #" + block_to_revert);
-
-                Node.walletState.revertTransaction(block_to_revert);
-
-                if (!revertBlockTransactions(lastBlock))
+            }
+            else
+            {
+                if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(lastBlock.walletStateChecksum))
                 {
-                    Logging.error("Cannot revert block #" + block_to_revert + ", block's WSJ transaction does not exist.");
+                    Logging.error("Fatal error occured: Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()), Node.walletState.numWallets);
+                    Node.stop();
                     return false;
-                }
-
-                if (lastSuperBlockNum == lastBlockNum)
-                {
-                    Block super_block = getBlock(lastSuperBlockNum, true, true);
-                    lastSuperBlockNum = super_block.lastSuperBlockNum;
-                    lastSuperBlockChecksum = super_block.lastSuperBlockChecksum;
-                }
-
-                Node.blockProcessor.blacklistBlock(lastBlock);
-
-                lastBlock = getBlock(block_to_revert - 1, true, true);
-                lastBlockVersion = lastBlock.version;
-                lastBlockReceivedTime = lastBlock.timestamp;
-                lastBlockNum = block_to_revert - 1;
-
-                if (lastBlock.version >= BlockVer.v5 && lastBlock.lastSuperBlockChecksum == null)
-                {
-                    if (!Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum).SequenceEqual(lastBlock.walletStateChecksum))
-                    {
-                        Logging.error("Fatal error occured: Wallet state is incorrect after reverting block #" + lastBlock.blockNum);
-                        Node.stop();
-                        return false;
-                    }
-                }
-                else
-                {
-                    if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(lastBlock.walletStateChecksum))
-                    {
-                        Logging.error("Fatal error occured: Wallet state is incorrect after reverting block #" + lastBlock.blockNum);
-                        Node.stop();
-                        return false;
-                    }
                 }
             }
             return true;
@@ -747,7 +750,34 @@ namespace DLT
                     Logging.error("Cannot revert transaction " + tx_id + ", transaction doesn't exist.");
                     continue;
                 }
-                tx.applied = 0;
+                if(tx.type == (int)Transaction.Type.StakingReward)
+                {
+                    TransactionPool.removeTransaction(tx.id);
+                }else
+                {
+                    tx.applied = 0;
+                    if (tx.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        ulong pow_blocknum = 0;
+                        using (MemoryStream m = new MemoryStream(tx.data))
+                        {
+                            using (BinaryReader reader = new BinaryReader(m))
+                            {
+                                pow_blocknum = reader.ReadUInt64();
+                            }
+                        }
+
+                        Block pow_block = Node.blockChain.getBlock(pow_blocknum, true, true);
+                        // Check if the block is valid
+                        if (pow_block == null)
+                        {
+                            Logging.error("PoW target block {0} not found", pow_blocknum);
+                            continue;
+                        }
+                        pow_block.powField = null;
+                        updateBlock(pow_block);
+                    }
+                }
             }
             return true;
         }

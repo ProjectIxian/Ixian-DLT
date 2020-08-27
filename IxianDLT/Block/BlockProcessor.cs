@@ -104,10 +104,13 @@ namespace DLT
         {
             if (!Config.disableChainReorg)
             {
-                lastBlockStartTime = DateTime.UtcNow;
-                forkedFlag = false;
-                blacklistBlock(Node.blockChain.getLastBlock());
-                Node.blockChain.revertLastBlock();
+                lock(localBlockLock)
+                {
+                    lastBlockStartTime = DateTime.UtcNow;
+                    forkedFlag = false;
+                    blacklistBlock(Node.blockChain.getLastBlock());
+                    Node.blockChain.revertLastBlock();
+                }
                 ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null);
             }
         }
@@ -188,6 +191,7 @@ namespace DLT
                                 localNewBlock = null;
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                                 block_version = Node.blockChain.getLastBlockVersion();
+                                sleep = true;
                                 if (forkedFlag)
                                 {
                                     handleForkedFlag();
@@ -1405,7 +1409,7 @@ namespace DLT
                 Dictionary<ulong, Dictionary<byte[], DateTime>> tmpList = new Dictionary<ulong, Dictionary<byte[], DateTime>>(blockBlacklist);
                 foreach (var i in tmpList)
                 {
-                    if (i.Key <= blockNum)
+                    if (i.Key < blockNum)
                     {
                         blockBlacklist.Remove(i.Key);
                     }
@@ -1698,6 +1702,7 @@ namespace DLT
                         return false;
                     }
 
+                    Node.walletState.beginTransaction(localNewBlock.blockNum, false);
                     // accept this block, apply its transactions, recalc consensus, etc
                     if (applyAcceptedBlock(localNewBlock) == true)
                     {
@@ -1718,9 +1723,8 @@ namespace DLT
                         }
                         if (!ws_checksum_ok)
                         {
-                            Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect, rolling back transactions!. Block's WS: {1}, actualy WS: {2}", localNewBlock.blockNum,
-                                Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(ws_checksum)));
-                            Logging.error(String.Format("Node reports block version: {0}", IxianHandler.getLastBlockVersion()));
+                            Logging.error("After applying block #{0} v{1}, walletStateChecksum is incorrect, shutting down!. Block's WS: {2}, actual WS: {3}", localNewBlock.blockNum,
+                                localNewBlock.version, Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(ws_checksum));
                             // TODO TODO perhaps try reverting the block
                             operating = false;
                             Node.stop();
@@ -1732,6 +1736,7 @@ namespace DLT
                         }
                         else
                         {
+                            Node.walletState.commitTransaction(localNewBlock.blockNum);
                             // append current block
                             Node.blockChain.appendBlock(localNewBlock);
 
@@ -1827,10 +1832,10 @@ namespace DLT
                     }
                     else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
                     {
-                        // TODO TODO TODO Partial rollback may be needed here
                         Logging.error(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
                         localNewBlock.logBlockDetails();
                         requestBlockNum = localNewBlock.blockNum;
+                        Node.walletState.revertTransaction(localNewBlock.blockNum);
                         localNewBlock = null;
                         requestBlockAgain = true;
                     }else
@@ -2486,8 +2491,8 @@ namespace DLT
                     if (!applyAcceptedBlock(localNewBlock))
                     {
                         Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
-                        localNewBlock = null;
                         Node.walletState.revertTransaction(localNewBlock.blockNum);
+                        localNewBlock = null;
                         return;
                     }
                     if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
