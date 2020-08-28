@@ -1833,6 +1833,8 @@ namespace DLT
                             {
                                 WalletStateStorage.saveWalletState(last_block_num);
                             }
+
+                            //chainReorgTest(last_block_num);
                         }
                     }
                     else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
@@ -1879,6 +1881,7 @@ namespace DLT
                     lastChainReorgBlockNumTest = block_num;
                     lock (localBlockLock)
                     {
+                        Node.blockChain.revertLastBlock(false);
                         Node.blockChain.revertLastBlock(false);
                         Node.blockChain.revertLastBlock(false);
                     }
