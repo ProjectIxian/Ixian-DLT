@@ -675,7 +675,7 @@ namespace DLT
             return genesisBlock;
         }
 
-        public bool revertLastBlock()
+        public bool revertLastBlock(bool blacklist = true)
         {
             Block block_to_revert = lastBlock;
             ulong block_num_to_revert = block_to_revert.blockNum;
@@ -699,7 +699,10 @@ namespace DLT
 
             Logging.info("Reverting block #" + block_num_to_revert);
 
-            Node.blockProcessor.blacklistBlock(block_to_revert);
+            if (blacklist)
+            {
+                Node.blockProcessor.blacklistBlock(block_to_revert);
+            }
 
             removeBlock(block_num_to_revert);
 
@@ -710,7 +713,7 @@ namespace DLT
 
             if (lastSuperBlockNum == block_num_to_revert)
             {
-                Block super_block = getBlock(lastSuperBlockNum, true, true);
+                Block super_block = block_to_revert;
                 lastSuperBlockNum = super_block.lastSuperBlockNum;
                 lastSuperBlockChecksum = super_block.lastSuperBlockChecksum;
             }
@@ -718,6 +721,8 @@ namespace DLT
             Node.walletState.revertTransaction(block_num_to_revert);
 
             revertBlockTransactions(block_to_revert);
+
+            Node.blockProcessor.resetSuperBlockCache();
 
             if (lastBlock.version >= BlockVer.v5 && lastBlock.lastSuperBlockChecksum == null)
             {

@@ -360,7 +360,7 @@ namespace DLT
                     }
                 }
 
-                if (cachedBlockVersion >= 5 && w.isEmptyWallet())
+                if ((!inTransaction || is_reverting) && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     walletState.Remove(id);
@@ -375,7 +375,7 @@ namespace DLT
             }
         }
 
-        public bool setWalletPublicKeyInternal(byte[] id, byte[] public_key)
+        public bool setWalletPublicKeyInternal(byte[] id, byte[] public_key, bool is_reverting = false)
         {
             lock(stateLock)
             {
@@ -386,11 +386,16 @@ namespace DLT
                     // we reach this point because processing transactions updates wallet public keys first and then sets their balance,
                     // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0, then it tries to remove public key on it
                     // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
-                    if (cachedBlockVersion >= 5)
+                    if ((!inTransaction || is_reverting) && cachedBlockVersion >= 5)
                     {
                         Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                         walletState.Remove(id);
+                    }else
+                    {
+                        w.publicKey = public_key;
+                        walletState.AddOrReplace(id, w);
                     }
+                    cachedChecksum = null;
                     return true;
                 }
                 if(w.publicKey != null && public_key != null)
@@ -437,7 +442,7 @@ namespace DLT
             }
         }
 
-        public bool delWalletAllowedSignerInternal(byte[] id, byte[] signer, bool adjust_req_signers)
+        public bool delWalletAllowedSignerInternal(byte[] id, byte[] signer, bool adjust_req_signers, bool is_reverting = false)
         {
             lock(stateLock)
             {
@@ -465,7 +470,8 @@ namespace DLT
                     w.type = WalletType.Normal;
                     w.allowedSigners = null;
                 }
-                if (cachedBlockVersion >= 5 && w.isEmptyWallet())
+
+                if ((!inTransaction || is_reverting) && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     walletState.Remove(id);

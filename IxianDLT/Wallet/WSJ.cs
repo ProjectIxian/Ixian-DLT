@@ -214,7 +214,7 @@ namespace DLT
             }
             if (adding)
             {
-                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer, adjustSigners);
+                return Node.walletState.delWalletAllowedSignerInternal(targetWallet, signer, adjustSigners, true);
             }
             else
             {
@@ -357,7 +357,7 @@ namespace DLT
                 Logging.error("WSJE_Pubkey entry is missing target wallet!");
                 return false;
             }
-            return Node.walletState.setWalletPublicKeyInternal(targetWallet, null);
+            return Node.walletState.setWalletPublicKeyInternal(targetWallet, null, true);
         }
     }
 

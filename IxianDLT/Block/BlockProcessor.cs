@@ -1869,6 +1869,23 @@ namespace DLT
             return block_accepted;
         }
 
+        ulong lastChainReorgBlockNumTest = 0;
+        public void chainReorgTest(ulong block_num)
+        {
+            if (IxianHandler.publicPort == 10007)
+            {
+                if (lastChainReorgBlockNumTest < block_num)
+                {
+                    lastChainReorgBlockNumTest = block_num;
+                    lock (localBlockLock)
+                    {
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                    }
+                }
+            }
+        }
+
         public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint)
         {
             if(Node.blockChain.Count <= 5)
@@ -3199,6 +3216,17 @@ namespace DLT
             }
 
             return true;
+        }
+
+        public void resetSuperBlockCache()
+        {
+            lock (superBlockLock)
+            {
+                cache_currentSuperBlockSegments = null;
+                cache_lastSuperBlockNum = 0;
+                cache_lastSuperBlockChecksum = null;
+                pendingSuperBlocks.Clear();
+            }
         }
     }
 }
