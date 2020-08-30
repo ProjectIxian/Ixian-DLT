@@ -182,7 +182,7 @@ namespace DLT
             return getWallet(id).balance;
         }
 
-        public Wallet getWallet(byte[] id)
+        public Wallet getWallet(byte[] id, bool return_null_on_missing = false)
         {
             lock (stateLock)
             {
@@ -191,7 +191,11 @@ namespace DLT
                 {
                     // copy
                     candidateWallet = new Wallet(walletState[id]);
+                }else if(return_null_on_missing)
+                {
+                    return null;
                 }
+                
                 return candidateWallet;
             }
         }
@@ -202,7 +206,11 @@ namespace DLT
         {
             lock (stateLock)
             {
-                Wallet wallet = getWallet(id);
+                Wallet wallet = getWallet(id, true);
+                if(wallet == null)
+                {
+                    wallet = createWallet(id);
+                }
                 var change = new WSJE_Balance(wallet.id, wallet.balance, new_balance);
                 change.apply();
                 if (wsjTransaction != null)
@@ -217,7 +225,12 @@ namespace DLT
         {
             lock (stateLock)
             {
-                if (getWallet(id).publicKey != null)
+                Wallet wallet = getWallet(id, true);
+                if (wallet == null)
+                {
+                    wallet = createWallet(id);
+                }
+                if (wallet.publicKey != null)
                 {
                     Logging.warn(String.Format("Wallet {0} attempted to set public key, but it is already set.", Addr2String(id)));
                     return;
@@ -304,6 +317,39 @@ namespace DLT
                 wsjTransaction.addChange(change);
             }
         }
+
+        public Wallet createWallet(byte[] id)
+        {
+            Wallet w = getWallet(id, true);
+            if(w != null)
+            {
+                Logging.warn("Wallet {0} is already created.", Addr2String(id));
+                return null;
+            }
+            var change = new WSJE_Create(id);
+            change.apply();
+            if (wsjTransaction != null)
+            {
+                wsjTransaction.addChange(change);
+            }
+            return new Wallet(id, 0);
+        }
+
+        public void removeWallet(byte[] id)
+        {
+            Wallet w = getWallet(id, true);
+            if (w == null)
+            {
+                Logging.warn("Wallet {0} is already created.", Addr2String(id));
+                return;
+            }
+            var change = new WSJE_Destroy(id, w);
+            change.apply();
+            if (wsjTransaction != null)
+            {
+                wsjTransaction.addChange(change);
+            }
+        }
         #endregion
 
         #region Internal (WSJ) Wallet manipulation methods
@@ -360,10 +406,10 @@ namespace DLT
                     }
                 }
 
-                if ((!inTransaction || is_reverting) && cachedBlockVersion >= 5 && w.isEmptyWallet())
+                if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
-                    walletState.Remove(id);
+                    removeWallet(id);
                 }
                 else
                 {
@@ -386,11 +432,12 @@ namespace DLT
                     // we reach this point because processing transactions updates wallet public keys first and then sets their balance,
                     // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0, then it tries to remove public key on it
                     // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
-                    if ((!inTransaction || is_reverting) && cachedBlockVersion >= 5)
+                    if (!inTransaction && cachedBlockVersion >= 5)
                     {
                         Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
-                        walletState.Remove(id);
-                    }else
+                        removeWallet(id);
+                    }
+                    else
                     {
                         w.publicKey = public_key;
                         walletState.AddOrReplace(id, w);
@@ -471,10 +518,10 @@ namespace DLT
                     w.allowedSigners = null;
                 }
 
-                if ((!inTransaction || is_reverting) && cachedBlockVersion >= 5 && w.isEmptyWallet())
+                if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
-                    walletState.Remove(id);
+                    removeWallet(id);
                 }
                 else
                 {
@@ -522,6 +569,30 @@ namespace DLT
                 w.data = new_data;
                 walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
+                return true;
+            }
+        }
+        public bool removeWalletInternal(byte[] id)
+        {
+            lock (stateLock)
+            {
+                Wallet w = getWallet(id, true);
+                if (w != null)
+                {
+                    walletState.Remove(id);
+                }
+                cachedChecksum = null;
+                cachedTotalSupply = 0;
+                return true;
+            }
+        }
+        public bool setWalletInternal(byte[] id, Wallet w)
+        {
+            lock (stateLock)
+            {
+                walletState.AddOrReplace(id, w);
+                cachedChecksum = null;
+                cachedTotalSupply = 0;
                 return true;
             }
         }

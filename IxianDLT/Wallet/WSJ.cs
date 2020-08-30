@@ -15,7 +15,9 @@ namespace DLT
         MS_AllowedSigner = 2,
         MS_RequiredSignatures = 3,
         Pubkey = 4,
-        Data = 5
+        Data = 5,
+        Create = 6,
+        Destroy = 7
     }
 
     public abstract class WSJEntry
@@ -450,6 +452,135 @@ namespace DLT
         }
     }
 
+    public class WSJE_Create : WSJEntry
+    {
+        public WSJE_Create(byte[] address)
+        {
+            targetWallet = address;
+        }
+
+        public WSJE_Create(BinaryReader r)
+        {
+            int type = r.ReadInt32();
+            if (type != (int)WSJEntryType.Create)
+            {
+                throw new Exception(String.Format("Incorrect WSJ Entry type: {0}. Expected: {1}.", type, (int)WSJEntryType.Create));
+            }
+            int target_wallet_len = r.ReadInt32();
+            if (target_wallet_len > 0)
+            {
+                targetWallet = r.ReadBytes(target_wallet_len);
+            }
+        }
+
+        public override void writeBytes(BinaryWriter w)
+        {
+            w.Write((int)WSJEntryType.Create);
+            if (targetWallet != null)
+            {
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
+            }
+            else
+            {
+                w.Write((int)0);
+            }
+        }
+
+        public override bool apply()
+        {
+            if (targetWallet == null)
+            {
+                Logging.error("WSJE_Create entry is missing target wallet!");
+                return false;
+            }
+            return true;
+        }
+
+        public override bool revert()
+        {
+            if (targetWallet == null)
+            {
+                Logging.error("WSJE_Create entry is missing target wallet!");
+                return false;
+            }
+            return Node.walletState.removeWalletInternal(targetWallet);
+        }
+    }
+
+    public class WSJE_Destroy : WSJEntry
+    {
+        private Wallet wallet;
+
+        public WSJE_Destroy(byte[] address, Wallet old_wallet)
+        {
+            targetWallet = address;
+            wallet = old_wallet;
+        }
+
+        public WSJE_Destroy(BinaryReader r)
+        {
+            int type = r.ReadInt32();
+            if (type != (int)WSJEntryType.Destroy)
+            {
+                throw new Exception(String.Format("Incorrect WSJ Entry type: {0}. Expected: {1}.", type, (int)WSJEntryType.Destroy));
+            }
+            int target_wallet_len = r.ReadInt32();
+            if (target_wallet_len > 0)
+            {
+                targetWallet = r.ReadBytes(target_wallet_len);
+            }
+            int wallet_len = r.ReadInt32();
+            if (wallet_len > 0)
+            {
+                wallet = new Wallet(r.ReadBytes(wallet_len));
+            }
+        }
+
+        public override void writeBytes(BinaryWriter w)
+        {
+            w.Write((int)WSJEntryType.Destroy);
+            if (targetWallet != null)
+            {
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
+            }
+            else
+            {
+                w.Write((int)0);
+            }
+            if (wallet != null)
+            {
+                byte[] wallet_bytes = wallet.getBytes();
+                w.Write(wallet_bytes.Length);
+                w.Write(wallet_bytes);
+            }
+            else
+            {
+                w.Write((int)0);
+            }
+        }
+
+        public override bool apply()
+        {
+            if (targetWallet == null)
+            {
+                Logging.error("WSJE_Destroy entry is missing target wallet!");
+                return false;
+            }
+            return Node.walletState.removeWalletInternal(targetWallet);
+        }
+
+        public override bool revert()
+        {
+            if (targetWallet == null || (wallet == null))
+            {
+                Logging.error("WSJE_Destroy entry is missing target wallet or wallet data!");
+                return false;
+            }
+            return Node.walletState.setWalletInternal(targetWallet, wallet);
+        }
+    }
 
     public class WSJTransaction
     {
@@ -483,6 +614,8 @@ namespace DLT
                                 case (int)WSJEntryType.MS_RequiredSignatures: entries.Add(new WSJE_Signers(r)); break;
                                 case (int)WSJEntryType.Pubkey: entries.Add(new WSJE_Pubkey(r)); break;
                                 case (int)WSJEntryType.Data: entries.Add(new WSJE_Data(r)); break;
+                                case (int)WSJEntryType.Create: entries.Add(new WSJE_Create(r)); break;
+                                case (int)WSJEntryType.Destroy: entries.Add(new WSJE_Destroy(r)); break;
                                 default:
                                     throw new Exception(String.Format("Unknown WSJ Entry Type: {0}.", type));
                             }
