@@ -573,7 +573,7 @@ namespace DLT
 
         public override bool revert()
         {
-            if (targetWallet == null || (wallet == null))
+            if (targetWallet == null || wallet == null)
             {
                 Logging.error("WSJE_Destroy entry is missing target wallet or wallet data!");
                 return false;
