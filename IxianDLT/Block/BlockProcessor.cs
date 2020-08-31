@@ -1884,6 +1884,11 @@ namespace DLT
                         Node.blockChain.revertLastBlock(false);
                         Node.blockChain.revertLastBlock(false);
                         Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
                     }
                 }
             }
@@ -1929,7 +1934,7 @@ namespace DLT
 
         // Applies the block
         // Returns false if walletstate is not correct
-        public bool applyAcceptedBlock(Block b)
+        public bool applyAcceptedBlock(Block b, bool generating_new = false)
         {
             if (Node.blockChain.getBlock(b.blockNum) != null)
             {
@@ -1942,7 +1947,7 @@ namespace DLT
             distributeStakingRewards(b, b.version);
 
             // Apply transactions from block
-            if (!TransactionPool.applyTransactionsFromBlock(b))
+            if (!TransactionPool.applyTransactionsFromBlock(b, generating_new))
             {
                 return false;
             }
@@ -2204,7 +2209,7 @@ namespace DLT
             List<Transaction> pool_transactions = unapplied_transactions.Where(x => x.type == (int)Transaction.Type.PoWSolution).ToList<Transaction>(); // add PoW first
             pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.ChangeMultisigWallet)); // then add MS wallet changes
             pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.MultisigTX)); // then add MS TXs
-            pool_transactions.AddRange(unapplied_transactions.Where(x => x.type != (int)Transaction.Type.PoWSolution && x.type != (int)Transaction.Type.ChangeMultisigWallet && x.type != (int)Transaction.Type.MultisigTX)); // finally add all other TXs
+            pool_transactions.AddRange(unapplied_transactions.Where(x => x.type != (int)Transaction.Type.PoWSolution && x.type != (int)Transaction.Type.ChangeMultisigWallet && x.type != (int)Transaction.Type.MultisigTX && x.type != (int)Transaction.Type.MultisigAddTxSignature)); // finally add all other TXs
 
             ulong normal_transactions = 0; // Keep a counter of normal transactions for the limiter
 
@@ -2319,7 +2324,7 @@ namespace DLT
 
                 if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
                 {
-                    if (normal_transactions > 1500)
+                    if (normal_transactions >= ConsensusConfig.maximumTransactionsPerBlock - 251)
                     {
                         continue;
                     }
@@ -2330,12 +2335,6 @@ namespace DLT
                     }
                     total_transactions += ms_transactions;
                     normal_transactions += ms_transactions;
-                }
-                else if (transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
-                {
-                    localNewBlock.addTransaction(transaction.id);
-                    total_transactions++;
-                    normal_transactions++;
                 }
 
                 total_amount += total_tx_amount;
@@ -2514,7 +2513,7 @@ namespace DLT
 
                     // Simulate applying a block to see what the walletstate would look like
                     Node.walletState.beginTransaction(localNewBlock.blockNum);
-                    if (!applyAcceptedBlock(localNewBlock))
+                    if (!applyAcceptedBlock(localNewBlock, true))
                     {
                         Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
                         Node.walletState.revertTransaction(localNewBlock.blockNum);

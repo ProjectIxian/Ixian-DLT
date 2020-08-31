@@ -1324,7 +1324,7 @@ namespace DLT
 
         // This applies all the transactions from a block to the actual walletstate.
         // It removes the failed transactions as well from the pool and block.
-        public static bool applyTransactionsFromBlock(Block block)
+        public static bool applyTransactionsFromBlock(Block block, bool generating_new = false)
         {
             if (block == null)
             {
@@ -1485,8 +1485,13 @@ namespace DLT
                         if(related_tx_ids == null)
                         {
                             Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
+                            if(generating_new)
+                            {
+                                continue;
+                            }
                             return false;
-                        }else
+                        }
+                        else
                         {
                             applyMultisigRelatedTransactions(related_tx_ids, block, failed_transactions);
                         }
@@ -1498,6 +1503,10 @@ namespace DLT
                         if (related_tx_ids == null)
                         {
                             Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
+                            if (generating_new)
+                            {
+                                continue;
+                            }
                             return false;
                         }
                         else
