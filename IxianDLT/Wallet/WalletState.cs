@@ -344,10 +344,7 @@ namespace DLT
                 return;
             }
             var change = new WSJE_Destroy(id, w);
-            if(is_reverting || !inTransaction)
-            {
-                change.apply();
-            }
+            change.apply();
             if (wsjTransaction != null)
             {
                 wsjTransaction.addChange(change);
@@ -409,11 +406,13 @@ namespace DLT
                     }
                 }
 
-                walletState.AddOrReplace(id, w);
                 if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     removeWallet(id, is_reverting);
+                }else
+                {
+                    walletState.AddOrReplace(id, w);
                 }
                 cachedChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
@@ -432,12 +431,14 @@ namespace DLT
                     // we reach this point because processing transactions updates wallet public keys first and then sets their balance,
                     // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0, then it tries to remove public key on it
                     // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
-                    w.publicKey = public_key;
-                    walletState.AddOrReplace(id, w);
                     if (!inTransaction && cachedBlockVersion >= 5)
                     {
                         Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                         removeWallet(id, is_reverting);
+                    }else
+                    {
+                        w.publicKey = public_key;
+                        walletState.AddOrReplace(id, w);
                     }
                     cachedChecksum = null;
                     return true;
@@ -515,11 +516,13 @@ namespace DLT
                     w.allowedSigners = null;
                 }
 
-                walletState.AddOrReplace(id, w);
                 if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
                 {
                     Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     removeWallet(id, is_reverting);
+                }else
+                {
+                    walletState.AddOrReplace(id, w);
                 }
                 cachedChecksum = null;
                 return true;
@@ -652,7 +655,6 @@ namespace DLT
 
         public byte[] calculateWalletStateDeltaChecksum(ulong transaction_id, bool block_debug = false)
         {
-            //return calculateWalletStateChecksum();
             lock (stateLock)
             {
                 using (MemoryStream m = new MemoryStream())
