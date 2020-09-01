@@ -677,6 +677,12 @@ namespace DLT
 
         public bool revertLastBlock(bool blacklist = true)
         {
+            if(lastBlockNum == 1)
+            {
+                Logging.error("Cannot revert block #1.");
+                return false;
+            }
+
             Block block_to_revert = lastBlock;
             ulong block_num_to_revert = block_to_revert.blockNum;
             if(!Node.walletState.canRevertTransaction(block_num_to_revert))
