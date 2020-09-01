@@ -1872,7 +1872,7 @@ namespace DLT
         }
 
         ulong lastChainReorgBlockNumTest = 0;
-        public void chainReorgTest(ulong block_num)
+        public bool chainReorgTest(ulong block_num)
         {
             if (IxianHandler.publicPort == 10007)
             {
@@ -1882,16 +1882,21 @@ namespace DLT
                     lock (localBlockLock)
                     {
                         Node.blockChain.revertLastBlock(false);
-                        Node.blockChain.revertLastBlock(false);
-                        Node.blockChain.revertLastBlock(false);
-                        Node.blockChain.revertLastBlock(false);
-                        Node.blockChain.revertLastBlock(false);
-                        Node.blockChain.revertLastBlock(false);
-                        Node.blockChain.revertLastBlock(false);
-                        Node.blockChain.revertLastBlock(false);
+                        if (block_num > 10)
+                        {
+                            Node.blockChain.revertLastBlock(false);
+                            Node.blockChain.revertLastBlock(false);
+                            Node.blockChain.revertLastBlock(false);
+                            Node.blockChain.revertLastBlock(false);
+                            Node.blockChain.revertLastBlock(false);
+                            Node.blockChain.revertLastBlock(false);
+                            Node.blockChain.revertLastBlock(false);
+                        }
                     }
+                    return true;
                 }
             }
+            return false;
         }
 
         public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint)
@@ -2335,6 +2340,12 @@ namespace DLT
                     }
                     total_transactions += ms_transactions;
                     normal_transactions += ms_transactions;
+                }
+                else if (transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
+                {
+                    localNewBlock.addTransaction(transaction.id);
+                    total_transactions++;
+                    normal_transactions++;
                 }
 
                 total_amount += total_tx_amount;
