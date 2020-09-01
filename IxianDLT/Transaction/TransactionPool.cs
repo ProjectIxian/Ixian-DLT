@@ -1822,7 +1822,7 @@ namespace DLT
                         if (num_multisig_txs < orig.requiredSigs)
                         {
                             Logging.error(String.Format("Multisig transaction {{ {0} }} doesn't have enough signatures!", tx.id));
-                            // ignore if it doesn't have enough sigs - it will either accumulate more sigs, or be pruned after a timeout period but still reject the block
+                            failed_transactions.Add(tx);
                             return null;
                         }
 
@@ -1954,7 +1954,8 @@ namespace DLT
                 int num_valid_sigs = related_tx_ids.Count + 1;
                 if (num_valid_sigs < orig.requiredSigs)
                 {
-                    Logging.info(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                    Logging.error(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                    failed_transactions.Add(tx);
                     return null;
                 }
 
