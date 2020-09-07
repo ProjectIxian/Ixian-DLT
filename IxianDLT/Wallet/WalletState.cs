@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DLT.Meta;
 
 namespace DLT
 {
@@ -406,7 +407,8 @@ namespace DLT
                     }
                 }
 
-                if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
+                if (w.isEmptyWallet() 
+                    && ((!inTransaction && cachedBlockVersion >= BlockVer.v5) || cachedBlockVersion >= BlockVer.v8))
                 {
                     Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     removeWallet(id, is_reverting);
@@ -422,7 +424,7 @@ namespace DLT
 
         public bool setWalletPublicKeyInternal(byte[] id, byte[] public_key, bool is_reverting = false)
         {
-            lock(stateLock)
+            lock (stateLock)
             {
                 Wallet w = getWallet(id);
                 if(w.isEmptyWallet() && public_key == null)
@@ -431,14 +433,10 @@ namespace DLT
                     // we reach this point because processing transactions updates wallet public keys first and then sets their balance,
                     // and reverting the WSJ causes the wallet to be deleted when its balance is reset to 0, then it tries to remove public key on it
                     // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
-                    if (!inTransaction && cachedBlockVersion >= 5)
+                    if ((!inTransaction && cachedBlockVersion >= BlockVer.v5) || cachedBlockVersion >= BlockVer.v8)
                     {
                         Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                         removeWallet(id, is_reverting);
-                    }else
-                    {
-                        w.publicKey = public_key;
-                        walletState.AddOrReplace(id, w);
                     }
                     cachedChecksum = null;
                     return true;
@@ -453,7 +451,7 @@ namespace DLT
                 }
                 if((public_key != null && public_key.Length < 50) || DLT.Meta.Config.fullBlockLogging)
                 {
-                    Logging.info("WSJE_PublicKey: Setting public key ({0}B) for wallet {1}. (Transaction: {2})", public_key.Length, Addr2String(id), inTransaction);
+                    Logging.info("WSJE_PublicKey: Setting public key ({0}) for wallet {1}. (Transaction: {2})", public_key != null?public_key.Length+"B":"null", Addr2String(id), inTransaction);
                 }
                 w.publicKey = public_key;
 
@@ -516,9 +514,10 @@ namespace DLT
                     w.allowedSigners = null;
                 }
 
-                if (!inTransaction && cachedBlockVersion >= 5 && w.isEmptyWallet())
+                if (w.isEmptyWallet()
+                    && ((!inTransaction && cachedBlockVersion >= BlockVer.v5) || cachedBlockVersion >= BlockVer.v8))
                 {
-                    Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
+                        Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Addr2String(id));
                     removeWallet(id, is_reverting);
                 }else
                 {

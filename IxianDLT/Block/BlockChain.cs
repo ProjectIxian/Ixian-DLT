@@ -675,7 +675,7 @@ namespace DLT
             return genesisBlock;
         }
 
-        public bool revertLastBlock(bool blacklist = true)
+        public bool revertLastBlock(bool blacklist = true, bool legacy_dual_revert = true)
         {
             if(lastBlockNum == 1)
             {
@@ -732,11 +732,18 @@ namespace DLT
 
             if (lastBlock.version >= BlockVer.v5 && lastBlock.lastSuperBlockChecksum == null)
             {
-                if (!Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum).SequenceEqual(lastBlock.walletStateChecksum))
+                if (lastBlock.version >= BlockVer.v8)
                 {
-                    Logging.error("Fatal error occured: Delta Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum)), Node.walletState.numWallets);
-                    Node.stop();
-                    return false;
+                    if (!Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum).SequenceEqual(lastBlock.walletStateChecksum))
+                    {
+                        Logging.error("Fatal error occured: Delta Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum)), Node.walletState.numWallets);
+                        Node.stop();
+                        return false;
+                    }
+                }else if(legacy_dual_revert)
+                {
+                    revertLastBlock(blacklist, false);
+                    return true;
                 }
             }
             else

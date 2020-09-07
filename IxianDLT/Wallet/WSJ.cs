@@ -663,6 +663,8 @@ namespace DLT
 
         public IEnumerable<Wallet> getAffectedWallets()
         {
+            // TODO TODO TODO Block v8 SortedSet can be replaced with something faster (i.e. List) and should exclude duplicate entries as the order
+            // of the entries is determined by order of transactions on the block
             SortedSet<Wallet> sortedWallets = new SortedSet<Wallet>(new LambdaComparer<Wallet>((a, b) => _ByteArrayComparer.Compare(a.id, b.id) ));
             foreach(var entry in entries)
             {
