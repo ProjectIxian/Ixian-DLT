@@ -715,7 +715,7 @@ namespace DLT
             lastBlock = getBlock(block_num_to_revert - 1, true, true);
             lastBlockVersion = lastBlock.version;
             lastBlockReceivedTime = lastBlock.timestamp;
-            lastBlockNum = block_num_to_revert - 1;
+            lastBlockNum = lastBlock.blockNum;
 
             if (lastSuperBlockNum == block_num_to_revert)
             {
@@ -730,6 +730,15 @@ namespace DLT
 
             Node.blockProcessor.resetSuperBlockCache();
 
+            // edge case for first block of block_version 3
+            if (lastBlockVersion == 3 && getBlock(lastBlockNum - 1, true, true).version == 2)
+            {
+                Node.walletState.setCachedBlockVersion(2);
+            }else
+            {
+                Node.walletState.setCachedBlockVersion(lastBlock.version);
+            }
+
             if (lastBlock.version >= BlockVer.v5 && lastBlock.lastSuperBlockChecksum == null)
             {
                 if (lastBlock.version >= BlockVer.v8)
@@ -742,7 +751,7 @@ namespace DLT
                     }
                 }else if(legacy_dual_revert)
                 {
-                    revertLastBlock(blacklist, false);
+                    revertLastBlock(false, false);
                     return true;
                 }
             }
