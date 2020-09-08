@@ -71,7 +71,7 @@ namespace DLT
             public static bool disableChainReorg = false;
 
             // Read-only values
-            public static readonly string version = "xdc-0.7.0-dev"; // DLT Node version
+            public static readonly string version = "xdc-0.7.0-rc0"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -96,7 +96,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 6;
+            public static int maxBlockVersionToGenerate = 7;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
