@@ -2058,18 +2058,23 @@ namespace DLT
                 return;
             }
 
-            // Calculate the total fee amount
-            IxiNumber foundationAward = tFeeAmount * ConsensusConfig.foundationFeePercent / 100;
+            IxiNumber foundation_balance_after = 0;
+            IxiNumber foundationAward = 0;
+            if (b.version < BlockVer.v8)
+            {
+                // Calculate the total fee amount
+                foundationAward = tFeeAmount * ConsensusConfig.foundationFeePercent / 100;
 
-            // Award foundation fee
-            Wallet foundation_wallet = Node.walletState.getWallet(ConsensusConfig.foundationAddress);
-            IxiNumber foundation_balance_before = foundation_wallet.balance;
-            IxiNumber foundation_balance_after = foundation_balance_before + foundationAward;
-            Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
-            //Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
+                // Award foundation fee
+                Wallet foundation_wallet = Node.walletState.getWallet(ConsensusConfig.foundationAddress);
+                IxiNumber foundation_balance_before = foundation_wallet.balance;
+                foundation_balance_after = foundation_balance_before + foundationAward;
+                Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
+                //Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
-            // Subtract the foundation award from total fee amount
-            tFeeAmount = tFeeAmount - foundationAward;
+                // Subtract the foundation award from total fee amount
+                tFeeAmount = tFeeAmount - foundationAward;
+            }
 
             List<byte[][]> target_block_sigs = null;
             if(targetBlock.frozenSignatures != null)
@@ -2093,12 +2098,15 @@ namespace DLT
 
             IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out IxiNumber remainder);
 
-            // Division of fee amount and sigs left a remainder, distribute that to the foundation wallet
-            if (remainder > (long) 0)
+            if (b.version < BlockVer.v8)
             {
-                foundation_balance_after = foundation_balance_after + remainder;
-                Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
-                //Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
+                // Division of fee amount and sigs left a remainder, distribute that to the foundation wallet
+                if (remainder > (long) 0)
+                {
+                    foundation_balance_after = foundation_balance_after + remainder;
+                    Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
+                    //Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
+                }
             }
 
             // Go through each signature in the block
