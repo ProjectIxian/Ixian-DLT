@@ -523,7 +523,7 @@ namespace DLT.Meta
             // I propose getting average traffic from different types of nodes and detect a node that's sending 
             // disproportionally more messages than the other nodes, provided thatthe network queue is over a certain limit
             int total_queued_messages = NetworkQueue.getQueuedMessageCount() + NetworkQueue.getTxQueuedMessageCount();
-            if(floodPause == false && total_queued_messages > 5000)
+            if(floodPause == false && total_queued_messages > Config.floodMaxQueuedMessages)
             {
                 Logging.warn("Flooding detected, isolating the node.");
                 NetworkClientManager.stop();
@@ -532,7 +532,7 @@ namespace DLT.Meta
                     NetworkServer.stopNetworkOperations();
                 }
                 floodPause = true;
-            }else if(floodPause == true && total_queued_messages < 100)
+            }else if(floodPause == true && total_queued_messages < Config.floodDisableMaxQueuedMessages)
             {
                 Logging.warn("Data after flooding processed, reconnecting the node.");
                 if (isMasterNode())

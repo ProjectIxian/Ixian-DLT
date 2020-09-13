@@ -82,6 +82,9 @@ namespace DLT
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
+            public static readonly int floodMaxQueuedMessages = 5000; // Max queued messages in NetworkQueue before isolating the node for flood prevention
+            public static readonly int floodDisableMaxQueuedMessages = 100; // Max queued messages in NetworkQueue before disabling flood prevention
+
             // Debugging values
             public static string networkDumpFile = "";
             public static int benchmarkKeys = 0;
