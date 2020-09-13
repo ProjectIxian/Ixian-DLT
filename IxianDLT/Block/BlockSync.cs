@@ -396,6 +396,17 @@ namespace DLT
                         break;
                     }
                     b = new Block(b);
+                    if(Node.blockChain.Count == 0 && b.blockNum > 1)
+                    {
+                        Block tmp_b = Node.blockChain.getBlock(b.blockNum - 1, true, true);
+                        if(tmp_b != null)
+                        {
+                            Node.blockChain.setLastBlockVersion(tmp_b.version);
+                        }else
+                        {
+                            Node.blockChain.setLastBlockVersion(b.version);
+                        }
+                    }
 
                     if (b.version > Block.maxVersion)
                     {
@@ -477,7 +488,8 @@ namespace DLT
                             }
                             if(missing)
                             {
-                                sleep = true;
+                                Logging.info("Requesting missing transactions for block {0}", b.blockNum);
+                                Thread.Sleep(100);
                                 break;
                             }
                         }
@@ -557,6 +569,7 @@ namespace DLT
                                 }
                                 if (!applied)
                                 {
+                                    Logging.warn("Error applying Block #{0} {1}. Reverting, discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                                     Node.walletState.revertTransaction(b.blockNum);
                                     Node.blockChain.revertBlockTransactions(b);
                                     Node.blockProcessor.blacklistBlock(b);
@@ -650,8 +663,10 @@ namespace DLT
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
                             // invalid sigfreeze, waiting for the correct block
+                            Logging.warn("Block #{0} {1} doesn't have the correct sigfreezed block. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             Node.blockProcessor.blacklistBlock(b);
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            requestBlockAgain(b.blockNum);
                             return;
                         }
                     }
@@ -659,7 +674,10 @@ namespace DLT
                     {
                         Logging.error(String.Format("Exception occured while syncing block #{0}: {1}", b.blockNum, e));
                     }
-
+                    /*if(!Node.blockProcessor.chainReorgTest(b.blockNum))
+                    {
+                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                    }*/
                     pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                     Node.blockProcessor.cleanupBlockBlacklist();
                 } while (pendingBlocks.Count > 0 && running);
