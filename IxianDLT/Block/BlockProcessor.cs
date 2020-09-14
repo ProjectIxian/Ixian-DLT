@@ -1834,7 +1834,10 @@ namespace DLT
                                 WalletStateStorage.saveWalletState(last_block_num);
                             }
 
-                            //chainReorgTest(last_block_num);
+                            if(Config.enableChainReorgTest)
+                            {
+                                chainReorgTest(last_block_num);
+                            }
                         }
                     }
                     else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
@@ -1874,27 +1877,24 @@ namespace DLT
         ulong lastChainReorgBlockNumTest = 0;
         public bool chainReorgTest(ulong block_num)
         {
-            if (IxianHandler.publicPort == 10007)
+            if (lastChainReorgBlockNumTest < block_num)
             {
-                if (lastChainReorgBlockNumTest < block_num)
+                lastChainReorgBlockNumTest = block_num;
+                lock (localBlockLock)
                 {
-                    lastChainReorgBlockNumTest = block_num;
-                    lock (localBlockLock)
+                    Node.blockChain.revertLastBlock(false);
+                    if (CoreConfig.isTestNet && block_num > 10)
                     {
                         Node.blockChain.revertLastBlock(false);
-                        if (block_num > 10)
-                        {
-                            Node.blockChain.revertLastBlock(false);
-                            Node.blockChain.revertLastBlock(false);
-                            Node.blockChain.revertLastBlock(false);
-                            Node.blockChain.revertLastBlock(false);
-                            Node.blockChain.revertLastBlock(false);
-                            Node.blockChain.revertLastBlock(false);
-                            Node.blockChain.revertLastBlock(false);
-                        }
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
+                        Node.blockChain.revertLastBlock(false);
                     }
-                    return true;
                 }
+                return true;
             }
             return false;
         }

@@ -674,11 +674,16 @@ namespace DLT
                     {
                         Logging.error(String.Format("Exception occured while syncing block #{0}: {1}", b.blockNum, e));
                     }
-                    /*if(!Node.blockProcessor.chainReorgTest(b.blockNum))
+                    if(Config.enableChainReorgTest)
+                    {
+                        if(!Node.blockProcessor.chainReorgTest(b.blockNum))
+                        {
+                            pendingBlocks.RemoveAll(x => x.blockNum + 6 < b.blockNum);
+                        }
+                    }else
                     {
                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                    }*/
-                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                    }
                     Node.blockProcessor.cleanupBlockBlacklist();
                 } while (pendingBlocks.Count > 0 && running);
             }
