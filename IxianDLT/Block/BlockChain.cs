@@ -94,35 +94,38 @@ namespace DLT
                     return false;
                 }
 
-                if(lastBlockNum <= (ulong)redacted_window_size)
+                while(blocks.Count() < redacted_window_size)
                 {
-                    return false;
-                }
-
-                ulong block_num_to_unredact = lastBlockNum - (ulong)redacted_window_size;
-
-                Block b = getBlock(block_num_to_unredact, true, true);
-
-                lock(blocksDictionary)
-                {
-                    if (blocksDictionary.ContainsKey(block_num_to_unredact))
+                    if (lastBlockNum <= (ulong)redacted_window_size)
                     {
-                        Logging.warn("Won't unredact chain, block #{0} is already in memory.", block_num_to_unredact);
                         return false;
                     }
 
-                    blocksDictionary.Add(block_num_to_unredact, b);
+                    ulong block_num_to_unredact = lastBlockNum - (ulong)blocks.Count();
+
+                    Block b = getBlock(block_num_to_unredact, true, true);
+
+                    lock (blocksDictionary)
+                    {
+                        if (blocksDictionary.ContainsKey(block_num_to_unredact))
+                        {
+                            Logging.warn("Won't unredact chain, block #{0} is already in memory.", block_num_to_unredact);
+                            return false;
+                        }
+
+                        blocksDictionary.Add(block_num_to_unredact, b);
+                    }
+
+                    if (!TransactionPool.unredactTransactionsForBlock(b))
+                    {
+                        TransactionPool.redactTransactionsForBlock(b);
+                        return false;
+                    }
+
+                    blocks.Insert(0, b);
+
+                    Logging.info("UNREDACTED block #{0} to keep the chain length appropriate.", block_num_to_unredact);
                 }
-
-                if(!TransactionPool.unredactTransactionsForBlock(b))
-                {
-                    TransactionPool.redactTransactionsForBlock(b);
-                    return false;
-                }
-
-                blocks.Insert(0, b);
-
-                Logging.info("UNREDACTED block to keep the chain length appropriate.", block_num_to_unredact);
             }
 
             return true;
@@ -776,6 +779,9 @@ namespace DLT
 
             Node.blockProcessor.resetSuperBlockCache();
 
+            ConsensusConfig.redactedWindowSize = ConsensusConfig.getRedactedWindowSize(lastBlockVersion);
+            ConsensusConfig.minRedactedWindowSize = ConsensusConfig.getRedactedWindowSize(lastBlockVersion);
+
             // edge case for first block of block_version 3
             if (lastBlockVersion == 3 && getBlock(lastBlockNum - 1, true, true).version == 2)
             {
@@ -797,7 +803,9 @@ namespace DLT
                     }
                 }else if(legacy_dual_revert)
                 {
+                    unredactChain();
                     revertLastBlock(false, false);
+                    return true;
                 }
             }
             else
