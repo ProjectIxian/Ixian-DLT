@@ -96,7 +96,7 @@ namespace DLT
 
                 while(blocks.Count() < redacted_window_size)
                 {
-                    if (lastBlockNum <= (ulong)redacted_window_size)
+                    if (lastBlockNum < (ulong)redacted_window_size)
                     {
                         return false;
                     }
@@ -773,12 +773,6 @@ namespace DLT
                 lastSuperBlockChecksum = super_block.lastSuperBlockChecksum;
             }
 
-            Node.walletState.revertTransaction(block_num_to_revert);
-
-            revertBlockTransactions(block_to_revert);
-
-            Node.blockProcessor.resetSuperBlockCache();
-
             ConsensusConfig.redactedWindowSize = ConsensusConfig.getRedactedWindowSize(lastBlockVersion);
             ConsensusConfig.minRedactedWindowSize = ConsensusConfig.getRedactedWindowSize(lastBlockVersion);
 
@@ -786,10 +780,19 @@ namespace DLT
             if (lastBlockVersion == 3 && getBlock(lastBlockNum - 1, true, true).version == 2)
             {
                 Node.walletState.setCachedBlockVersion(2);
-            }else
+            }
+            else
             {
                 Node.walletState.setCachedBlockVersion(lastBlock.version);
             }
+
+            unredactChain();
+
+            Node.walletState.revertTransaction(block_num_to_revert);
+
+            revertBlockTransactions(block_to_revert);
+
+            Node.blockProcessor.resetSuperBlockCache();
 
             if (lastBlock.version >= BlockVer.v5 && lastBlock.lastSuperBlockChecksum == null)
             {
@@ -803,7 +806,6 @@ namespace DLT
                     }
                 }else if(legacy_dual_revert)
                 {
-                    unredactChain();
                     revertLastBlock(false, false);
                     return true;
                 }
@@ -817,7 +819,6 @@ namespace DLT
                     return false;
                 }
             }
-            unredactChain();
             return true;
         }
 
