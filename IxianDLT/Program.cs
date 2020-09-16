@@ -174,7 +174,13 @@ namespace DLTNode
             IXICore.Utils.ConsoleHelpers.prepareWindowsConsole();
 
             // Start logging
-            Logging.start(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location));
+            if(!Logging.start(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)))
+            {
+                IxianHandler.forceShutdown = true;
+                Logging.info("Press ENTER to exit.");
+                Console.ReadLine();
+                return;
+            }
 
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e) {
                 ConsoleHelpers.verboseConsoleOutput = true;
