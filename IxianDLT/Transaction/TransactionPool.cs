@@ -995,12 +995,34 @@ namespace DLT
         {
             if (block == null)
                 return false;
-            
+
             lock (transactions)
             {
                 foreach (string txid in block.transactions)
                 {
                     transactions.Remove(txid);
+                }
+            }
+            return true;
+        }
+
+        // Re-adds all transactions from storage to TransactionPool linked to a block.
+        public static bool unredactTransactionsForBlock(Block block)
+        {
+            if (block == null)
+                return false;
+
+            lock (transactions)
+            {
+                foreach (string txid in block.transactions)
+                {
+                    Transaction tx = getTransaction(txid, block.blockNum, true);
+                    if(tx == null)
+                    {
+                        Logging.error("Error occured while fetching transaction {9} for block #{1} from storage.", txid, block.blockNum);
+                        return false;
+                    }
+                    transactions.Add(txid, tx);
                 }
             }
             return true;

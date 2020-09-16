@@ -82,6 +82,52 @@ namespace DLT
             }
         }
 
+        // Reverts redaction for a single block
+        private bool unredactChain()
+        {
+            lock(blocks)
+            {
+                int redacted_window_size = (int)ConsensusConfig.getRedactedWindowSize(getLastBlockVersion());
+                if (blocks.Count() == redacted_window_size)
+                {
+                    Logging.warn("Won't unredact chain, block count is already correct.");
+                    return false;
+                }
+
+                if(lastBlockNum <= (ulong)redacted_window_size)
+                {
+                    return false;
+                }
+
+                ulong block_num_to_unredact = lastBlockNum - (ulong)redacted_window_size;
+
+                Block b = getBlock(block_num_to_unredact, true, true);
+
+                lock(blocksDictionary)
+                {
+                    if (blocksDictionary.ContainsKey(block_num_to_unredact))
+                    {
+                        Logging.warn("Won't unredact chain, block #{0} is already in memory.", block_num_to_unredact);
+                        return false;
+                    }
+
+                    blocksDictionary.Add(block_num_to_unredact, b);
+                }
+
+                if(!TransactionPool.unredactTransactionsForBlock(b))
+                {
+                    TransactionPool.redactTransactionsForBlock(b);
+                    return false;
+                }
+
+                blocks.Insert(0, b);
+
+                Logging.info("UNREDACTED block to keep the chain length appropriate.", block_num_to_unredact);
+            }
+
+            return true;
+        }
+
         public bool appendBlock(Block b, bool add_to_storage = true)
         {
             lock (blocks)
@@ -511,15 +557,15 @@ namespace DLT
             {
                 firstBlockNum = Node.blockChain.getLastBlockNum() - redacted_window_size;
             }
-            lock (blocksDictionary)
+            lock (blocks)
             {
-                foreach (KeyValuePair<ulong, Block> entry in blocksDictionary)
+                foreach (Block b in blocks)
                 {
-                    if (entry.Key < firstBlockNum)
+                    if (b.blockNum < firstBlockNum)
                     {
                         continue;
                     }
-                    if (entry.Value.powField != null)
+                    if (b.powField != null)
                     {
                         solved_blocks++;
                     }
@@ -752,7 +798,6 @@ namespace DLT
                 }else if(legacy_dual_revert)
                 {
                     revertLastBlock(false, false);
-                    return true;
                 }
             }
             else
@@ -764,6 +809,7 @@ namespace DLT
                     return false;
                 }
             }
+            unredactChain();
             return true;
         }
 
