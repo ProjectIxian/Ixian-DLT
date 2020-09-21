@@ -112,7 +112,9 @@ namespace DLT
                             // never close the currently used sqlConnection
                             continue;
                         }
-                        ((SQLiteConnection)entry.Value[0]).Close();
+                        SQLiteConnection connection = (SQLiteConnection)entry.Value[0];
+                        connection.Close();
+                        connection.Dispose();
                         connectionCache.Remove(entry.Key);
 
                         // Fix for occasional locked database error
@@ -629,65 +631,72 @@ namespace DLT
                     compactedSigs = blk.compactedSigs
                 };
 
-                // Add signatures
-                string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
-                int sigcounter = 0;
-                foreach (string s1 in split_str)
+                try
                 {
-                    sigcounter++;
-                    if (sigcounter == 1)
+
+                    // Add signatures
+                    string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
+                    int sigcounter = 0;
+                    foreach (string s1 in split_str)
                     {
-                        continue;
+                        sigcounter++;
+                        if (sigcounter == 1)
+                        {
+                            continue;
+                        }
+
+                        string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                        if (split_sig.Length < 2)
+                        {
+                            continue;
+                        }
+                        byte[][] newSig = new byte[2][];
+                        if (split_sig[0] != "0")
+                        {
+                            newSig[0] = Convert.FromBase64String(split_sig[0]);
+                        }
+                        newSig[1] = Convert.FromBase64String(split_sig[1]);
+                        if (!block.containsSignature(new Address(newSig[1], null, false)))
+                        {
+                            block.signatures.Add(newSig);
+                        }
                     }
 
-                    string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                    if (split_sig.Length < 2)
+                    // Add transaction
+                    string[] split_str2 = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
+                    int txcounter = 0;
+                    foreach (string s1 in split_str2)
                     {
-                        continue;
+                        txcounter++;
+                        if (txcounter == 1)
+                        {
+                            continue;
+                        }
+
+                        block.addTransaction(s1);
                     }
-                    byte[][] newSig = new byte[2][];
-                    if (split_sig[0] != "0")
+
+                    if (blk.superBlockSegments != null)
                     {
-                        newSig[0] = Convert.FromBase64String(split_sig[0]);
+                        for (int i = 0; i < blk.superBlockSegments.Length;)
+                        {
+                            ulong seg_block_num = BitConverter.ToUInt64(blk.superBlockSegments, i);
+                            i += 8;
+                            int seg_bc_len = BitConverter.ToInt32(blk.superBlockSegments, i);
+                            i += 4;
+                            byte[] seg_bc = new byte[seg_bc_len];
+                            Array.Copy(blk.superBlockSegments, i, seg_bc, 0, seg_bc_len);
+                            i += seg_bc_len;
+
+                            block.superBlockSegments.Add(seg_block_num, new SuperBlockSegment(seg_block_num, seg_bc));
+                        }
                     }
-                    newSig[1] = Convert.FromBase64String(split_sig[1]);
-                    if (!block.containsSignature(new Address(newSig[1], null, false)))
-                    {
-                        block.signatures.Add(newSig);
-                    }
+                    block.fromLocalStorage = true;
                 }
-
-                // Add transaction
-                string[] split_str2 = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
-                int txcounter = 0;
-                foreach (string s1 in split_str2)
+                catch (Exception e)
                 {
-                    txcounter++;
-                    if (txcounter == 1)
-                    {
-                        continue;
-                    }
-
-                    block.addTransaction(s1);
+                    Logging.error("Error reading block #{0} from storage: ", blk.blockNum, e);
                 }
-
-                if (blk.superBlockSegments != null)
-                {
-                    for (int i = 0; i < blk.superBlockSegments.Length;)
-                    {
-                        ulong seg_block_num = BitConverter.ToUInt64(blk.superBlockSegments, i);
-                        i += 8;
-                        int seg_bc_len = BitConverter.ToInt32(blk.superBlockSegments, i);
-                        i += 4;
-                        byte[] seg_bc = new byte[seg_bc_len];
-                        Array.Copy(blk.superBlockSegments, i, seg_bc, 0, seg_bc_len);
-                        i += seg_bc_len;
-
-                        block.superBlockSegments.Add(seg_block_num, new SuperBlockSegment(seg_block_num, seg_bc));
-                    }
-                }
-
-                block.fromLocalStorage = true;
 
                 return block;
             }
