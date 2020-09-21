@@ -974,40 +974,11 @@ namespace DLT
                     applied = (ulong)tx.applied
                 };
 
-                // Add toList
-                string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
-                int sigcounter = 0;
-                foreach (string s1 in split_str)
+                try
                 {
-                    sigcounter++;
-                    if (sigcounter == 1)
-                    {
-                        continue;
-                    }
-
-                    string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                    if (split_to.Length < 2)
-                    {
-                        continue;
-                    }
-                    byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
-                    IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                    transaction.toList.AddOrReplace(address, amount);
-                }
-
-                if (tx.from != null)
-                {
-                    if (tx.pubKey == null)
-                    {
-                        transaction.pubKey = tx.from;
-                    }
-                    transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
-                }
-                else
-                {
-                    // Add fromList
-                    split_str = tx.fromList.Split(new string[] { "||" }, StringSplitOptions.None);
-                    sigcounter = 0;
+                    // Add toList
+                    string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
+                    int sigcounter = 0;
                     foreach (string s1 in split_str)
                     {
                         sigcounter++;
@@ -1016,18 +987,53 @@ namespace DLT
                             continue;
                         }
 
-                        string[] split_from = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                        if (split_from.Length < 2)
+                        string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                        if (split_to.Length < 2)
                         {
                             continue;
                         }
-                        byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_from[0]);
-                        IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_from[1])));
-                        transaction.fromList.AddOrReplace(address, amount);
+                        byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
+                        IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
+                        transaction.toList.AddOrReplace(address, amount);
                     }
-                }
 
-                transaction.fromLocalStorage = true;
+                    if (tx.from != null)
+                    {
+                        if (tx.pubKey == null)
+                        {
+                            transaction.pubKey = tx.from;
+                        }
+                        transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
+                    }
+                    else
+                    {
+                        // Add fromList
+                        split_str = tx.fromList.Split(new string[] { "||" }, StringSplitOptions.None);
+                        sigcounter = 0;
+                        foreach (string s1 in split_str)
+                        {
+                            sigcounter++;
+                            if (sigcounter == 1)
+                            {
+                                continue;
+                            }
+
+                            string[] split_from = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                            if (split_from.Length < 2)
+                            {
+                                continue;
+                            }
+                            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_from[0]);
+                            IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_from[1])));
+                            transaction.fromList.AddOrReplace(address, amount);
+                        }
+                    }
+
+                    transaction.fromLocalStorage = true;
+                }catch(Exception e)
+                {
+                    Logging.error("Error reading transaction #{0} from storage: ", tx.id, e);
+                }
 
                 return transaction;
             }
