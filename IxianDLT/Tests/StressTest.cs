@@ -20,19 +20,8 @@ namespace DLTNode
         static string hostname = "192.168.1.101";
         static int port = 10515;
 
-        static int txspamNum = 1000; // Set the initial number of spam transactions
-        static byte[] txspamTo = ConsensusConfig.foundationAddress;
-
-        public static void start(string type, int txnum = 0, string to = null)
+        public static void start(string type, int tx_count, string to, int threads = 1)
         {
-            if (txnum != 0)
-                txspamNum = txnum;
-
-            if(to != null)
-            {
-                txspamTo = Base58Check.Base58CheckEncoding.DecodePlain(to);
-            }
-
             new Thread(() =>
             {
                 // Run protocol spam
@@ -45,11 +34,11 @@ namespace DLTNode
 
                 // Run transaction spam test
                 if (type.Equals("txspam", StringComparison.Ordinal))
-                    startTxSpamTest();
+                    startTxSpamTest(tx_count, Base58Check.Base58CheckEncoding.DecodePlain(to), threads);
 
                 // Run the transaction spam file generation test
                 if (type.Equals("txfilegen", StringComparison.Ordinal))
-                    startTxFileGenTest();
+                    startTxFileGenTest(tx_count);
 
                 // Run the transaction spam file test
                 if (type.Equals("txfilespam", StringComparison.Ordinal))
@@ -197,41 +186,43 @@ namespace DLTNode
             Logging.info("Ending spam connect test");
         }
 
-        public static void startTxSpamTest()
+        public static void startTxSpamTest(int tx_count, byte[] to, int threads)
         {
             Logging.info("Starting tx spam test");
 
-            int nonce = 0;
-
-            byte[] to = txspamTo;
             IxiNumber amount = ConsensusConfig.transactionPrice;
             IxiNumber fee = ConsensusConfig.transactionPrice;
             byte[] from = Node.walletStorage.getPrimaryAddress();
             byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
 
-            for (int i = 0; i < txspamNum; i++)
+            for (int thread = 0; thread < threads; thread++)
             {
-                if (pubKey != null)
+                new Thread(() =>
                 {
-                    // Check if this wallet's public key is already in the WalletState
-                    Wallet mywallet = Node.walletState.getWallet(from);
-                    if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+                    for (int i = 0; i < tx_count; i++)
                     {
-                        // Walletstate public key matches, we don't need to send the public key in the transaction
-                        pubKey = null;
-                    }
-                }
+                        if (pubKey != null)
+                        {
+                            // Check if this wallet's public key is already in the WalletState
+                            Wallet mywallet = Node.walletState.getWallet(from);
+                            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+                            {
+                                // Walletstate public key matches, we don't need to send the public key in the transaction
+                                pubKey = null;
+                            }
+                        }
 
-                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
-                // Console.WriteLine("> sending {0}", transaction.id);
-                TransactionPool.addTransaction(transaction);
-                nonce++;
+                        Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                        // Console.WriteLine("> sending {0}", transaction.id);
+                        TransactionPool.addTransaction(transaction);
+                    }
+                }).Start();
             }
 
             Logging.info("Ending tx spam test");
         }
 
-        public static void startTxFileGenTest()
+        public static void startTxFileGenTest(int tx_count)
         {
             Logging.info("Starting tx file gen test");
 
@@ -248,8 +239,8 @@ namespace DLTNode
 
             int nonce = 0; // Set the starting nonce
 
-            writer.Write(txspamNum);
-            for (int i = 0; i < txspamNum; i++)
+            writer.Write(tx_count);
+            for (int i = 0; i < tx_count; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = ConsensusConfig.transactionPrice;

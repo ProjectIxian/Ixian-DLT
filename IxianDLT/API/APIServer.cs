@@ -340,7 +340,7 @@ namespace DLTNode
                 type_string = (string)parameters["type"];
             }
 
-            int txnum = 0;
+            int txnum = 1000;
             if (parameters.ContainsKey("num"))
             {
                 string txnumstr = (string)parameters["num"];
@@ -360,8 +360,13 @@ namespace DLTNode
                 to = (string)parameters["to"];
             }
 
+            int threads = 1;
+            if (parameters.ContainsKey("threads"))
+            {
+                threads = Convert.ToInt32((string)parameters["threads"]);
+            }
             // Used for performing various tests.
-            StressTest.start(type_string, txnum, to);
+            StressTest.start(type_string, txnum, to, threads);
 
             return new JsonResponse { result = "Stress test started", error = error };
         }
