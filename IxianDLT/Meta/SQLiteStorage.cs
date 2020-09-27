@@ -1066,7 +1066,7 @@ namespace DLT
                     }
 
                     // Now remove the block itself from storage
-                    string sql = "DELETE FROM blocks where `blockNum` = ?";
+                    string sql = "DELETE FROM blocks where `blockNum` = ? LIMIT 1";
                     return executeSQL(sql, blockNum);
                 }
             }
@@ -1077,7 +1077,7 @@ namespace DLT
             {
                 lock (storageLock)
                 {
-                    string sql = "DELETE FROM transactions where `id` = ?";
+                    string sql = "DELETE FROM transactions where `id` = ? LIMIT 1";
                     return executeSQL(sql, txid);
                 }
             }
