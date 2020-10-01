@@ -329,7 +329,9 @@ namespace DLT
                     dataFolderPath = "data-testnet";
                     PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "testnet-peers.dat");
                     genesisFile = "testnet-genesis.dat";
-                }else
+                    ActivityStorage.filename = "testnet-activity.dat";
+                }
+                else
                 {
                     Config.serverPort = defaultServerPort;
                     PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location));
