@@ -522,7 +522,7 @@ namespace DLT
             // Check if the block needs to be refreshed
             if (updatestorage_block != null)
             {
-                Node.blockChain.updateBlock(updatestorage_block);
+                updateBlock(updatestorage_block);
 
                 Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
                 return true;
@@ -572,9 +572,9 @@ namespace DLT
                     ulong solved_blocks = 0;
 
                     ulong firstBlockNum = 1;
-                    if (Node.blockChain.getLastBlockNum() > redacted_window_size)
+                    if (getLastBlockNum() > redacted_window_size)
                     {
-                        firstBlockNum = Node.blockChain.getLastBlockNum() - redacted_window_size;
+                        firstBlockNum = getLastBlockNum() - redacted_window_size;
                     }
 
                     foreach (Block b in blocks)
@@ -872,7 +872,7 @@ namespace DLT
                             }
                         }
 
-                        Block pow_block = Node.blockChain.getBlock(pow_blocknum, true, true);
+                        Block pow_block = getBlock(pow_blocknum, true, true);
                         // Check if the block is valid
                         if (pow_block == null)
                         {
