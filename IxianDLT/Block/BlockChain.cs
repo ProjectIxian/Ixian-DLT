@@ -29,6 +29,9 @@ namespace DLT
 
         ulong reorgBlockStart = 0;
 
+        ulong solvedBlocksCount = 0;
+        ulong solvedBlocksRedactedWindowSize = 0;
+
         public long Count
         {
             get
@@ -66,6 +69,11 @@ namespace DLT
                     if (Config.storeFullHistory == false)
                     {
                         Node.storage.removeBlock(block.blockNum); // Remove from storage
+                    }
+
+                    if (block.powField != null)
+                    {
+                        decreaseSolvedBlocksCount();
                     }
 
                     lock (blocksDictionary)
@@ -123,6 +131,11 @@ namespace DLT
                     }
 
                     blocks.Insert(0, b);
+
+                    if(b.powField != null)
+                    {
+                        increaseSolvedBlocksCount();
+                    }
 
                     Logging.info("UNREDACTED block #{0} to keep the chain length appropriate.", block_num_to_unredact);
                 }
@@ -552,29 +565,39 @@ namespace DLT
         // Get the number of PoW solved blocks
         public ulong getSolvedBlocksCount(ulong redacted_window_size)
         {
-            // TODO TODO TODO TODO cache
-            ulong solved_blocks = 0;
-
-            ulong firstBlockNum = 1;
-            if (Node.blockChain.getLastBlockNum() > redacted_window_size)
+            lock(blocks)
             {
-                firstBlockNum = Node.blockChain.getLastBlockNum() - redacted_window_size;
-            }
-            lock (blocks)
-            {
-                foreach (Block b in blocks)
+                if(redacted_window_size != solvedBlocksRedactedWindowSize)
                 {
-                    if (b.blockNum < firstBlockNum)
+                    ulong solved_blocks = 0;
+
+                    ulong firstBlockNum = 1;
+                    if (Node.blockChain.getLastBlockNum() > redacted_window_size)
                     {
-                        continue;
+                        firstBlockNum = Node.blockChain.getLastBlockNum() - redacted_window_size;
                     }
-                    if (b.powField != null)
+
+                    foreach (Block b in blocks)
                     {
-                        solved_blocks++;
+                        if (b.blockNum < firstBlockNum)
+                        {
+                            continue;
+                        }
+                        if (b.powField != null)
+                        {
+                            solved_blocks++;
+                        }
                     }
+
+                    solvedBlocksRedactedWindowSize = redacted_window_size;
+                    solvedBlocksCount = solved_blocks;
+                    return solved_blocks;
+                }
+                else
+                {
+                    return solvedBlocksCount;
                 }
             }
-            return solved_blocks;
         }
 
         public long getTimeSinceLastBLock()
@@ -856,12 +879,32 @@ namespace DLT
                             Logging.error("PoW target block {0} not found", pow_blocknum);
                             continue;
                         }
+                        if (block.powField != null)
+                        {
+                            decreaseSolvedBlocksCount();
+                        }
                         pow_block.powField = null;
                         updateBlock(pow_block);
                     }
                 }
             }
             return true;
+        }
+
+        public void increaseSolvedBlocksCount()
+        {
+            lock (blocks)
+            {
+                solvedBlocksCount++;
+            }
+        }
+
+        public void decreaseSolvedBlocksCount()
+        {
+            lock (blocks)
+            {
+                solvedBlocksCount--;
+            }
         }
     }
 }
