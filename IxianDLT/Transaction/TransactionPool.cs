@@ -16,6 +16,7 @@ namespace DLT
     class TransactionPool
     {
         public static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
+        public static readonly Dictionary<string, Transaction> unappliedTransactions = new Dictionary<string, Transaction>();
 
         static TransactionPool()
         {
@@ -25,7 +26,7 @@ namespace DLT
         {
         }
 
-        public static bool verifyMultisigTransaction(Transaction transaction)
+        public static bool verifyMultisigTransaction(Transaction transaction, RemoteEndpoint endpoint)
         {
             // multisig verification
             if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
@@ -77,9 +78,11 @@ namespace DLT
                         Transaction tmp_tx = getTransaction(orig_txid, 0);
                         if (tmp_tx == null)
                         {
-                            if(!Node.walletStorage.isMyAddress((new Address(signer_pub_key, signer_nonce)).address))
+                            Logging.warn(String.Format("Orig txid {0} doesn't exist, requesting from network.", orig_txid));
+                            CoreProtocolMessage.broadcastGetTransaction(orig_txid, 0, endpoint);
+                            if (!Node.walletStorage.isMyAddress((new Address(signer_pub_key, signer_nonce)).address))
                             {
-                                Logging.warn(String.Format("Orig txid {0} doesn't exist.", orig_txid));
+                                CoreProtocolMessage.broadcastGetTransaction(transaction.id, 0, endpoint);
                                 return false;
                             }
                         }else if(tmp_tx.applied != 0)
@@ -350,7 +353,7 @@ namespace DLT
                 }
             }
 
-            if (!verifyMultisigTransaction(transaction))
+            if (!verifyMultisigTransaction(transaction, endpoint))
             {
                 return false;
             }
