@@ -82,11 +82,16 @@ namespace DLT
                     }
                     blocks.RemoveAt(0); // Remove from memory
                 }
-                if (begin_size > blocks.Count())
+                int redacted_block_count = begin_size - blocks.Count();
+                if (redacted_block_count > 0)
                 {
-                    Logging.info(String.Format("REDACTED {0} blocks to keep the chain length appropriate.", begin_size - blocks.Count()));
+                    Logging.info("REDACTED {0} blocks to keep the chain length appropriate.", redacted_block_count);
                 }
-                return begin_size - blocks.Count();
+                if(redacted_block_count > 1)
+                {
+                    solvedBlocksRedactedWindowSize = 0;
+                }
+                return redacted_block_count;
             }
         }
 
