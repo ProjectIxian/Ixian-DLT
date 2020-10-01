@@ -336,11 +336,6 @@ namespace DLT
                 return false;
             }
 
-            if(!verifyMultisigTransaction(transaction))
-            {
-                return false;
-            }
-
             if (endpoint != null && endpoint.presenceAddress != null && endpoint.presenceAddress.type == 'M')
             {
                 PendingTransactions.increaseReceivedCount(transaction.id, endpoint.presence.wallet);
@@ -353,6 +348,11 @@ namespace DLT
                 {
                     return false;
                 }
+            }
+
+            if (!verifyMultisigTransaction(transaction))
+            {
+                return false;
             }
 
             // Calculate the transaction checksum and compare it
@@ -591,7 +591,7 @@ namespace DLT
                 Logging.warn(string.Format("Invalid nonce for transaction id: {0}", transaction.id));
                 return false;
             }
-
+            
             // Finally, verify the signature
             if (transaction.verifySignature(pubkey, signer_nonce) == false)
             {
