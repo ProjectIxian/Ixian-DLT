@@ -884,7 +884,7 @@ namespace DLT
                             Logging.error("PoW target block {0} not found", pow_blocknum);
                             continue;
                         }
-                        if (block.powField != null)
+                        if (pow_block.powField != null)
                         {
                             decreaseSolvedBlocksCount();
                         }
