@@ -917,9 +917,15 @@ namespace DLT
                         continue;
                 }
 
-                Transaction t = TransactionPool.getTransaction(txid, b.blockNum);
+                Transaction t = TransactionPool.getUnappliedTransaction(txid);
                 if (t == null)
                 {
+                    t = TransactionPool.getAppliedTransaction(txid, b.blockNum);
+                    if(t != null)
+                    {
+                        Logging.error("Block #{0} includes a transaction that has already been applied in previous block #{1}.", b.blockNum, t.applied);
+                        return BlockVerifyStatus.PotentiallyForkedBlock;
+                    }
                     if (fetchTransactions)
                     {
                         Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
@@ -933,12 +939,6 @@ namespace DLT
                         missing++;
                     }
                     continue;
-                }
-
-                if (t.applied > 0)
-                {
-                    Logging.error("Block #{0} includes a transaction that has already been applied in previous block #{1}.", b.blockNum, t.applied);
-                    return BlockVerifyStatus.Invalid;
                 }
 
                 // lock transaction v1 with block v2
@@ -1027,10 +1027,15 @@ namespace DLT
             {
                 foreach (string txid in b.transactions)
                 {
-                    Transaction t = TransactionPool.getTransaction(txid, b.blockNum);
+                    Transaction t = TransactionPool.getUnappliedTransaction(txid);
                     if(t == null)
                     {
                         continue;
+                    }
+                    if(t.blockHeight > b.blockNum)
+                    {
+                        Logging.error("Block #{0} includes a transaction {1} which has a higher blockheight.", b.blockNum, t.id);
+                        return BlockVerifyStatus.Invalid;
                     }
                     if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet || t.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
@@ -1049,8 +1054,8 @@ namespace DLT
                         int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, b) + 1;
                         if (num_valid_multisigs < from_w.requiredSigs)
                         {
-                            Logging.error(String.Format("Block includes a multisig transaction {{ {0} }} which does not have enough signatures to be processed! (Signatures: {1}, Required: {2}",
-                                t.id, num_valid_multisigs, from_w.requiredSigs));
+                            Logging.error("Block #{0} includes a multisig transaction {{ {1} }} which does not have enough signatures to be processed! (Signatures: {2}, Required: {3}",
+                                b.blockNum, t.id, num_valid_multisigs, from_w.requiredSigs);
                             return BlockVerifyStatus.Invalid;
                         }
                     }
@@ -1059,7 +1064,7 @@ namespace DLT
 
             if ((ulong)txCount > ConsensusConfig.maximumTransactionsPerBlock + 10)
             {
-                Logging.warn(String.Format("Block has more transactions than the maximumTransactionsPerBlock setting {0}/{1}", txCount, ConsensusConfig.maximumTransactionsPerBlock + 10));
+                Logging.warn("Block #{0} has more transactions than the maximumTransactionsPerBlock setting {1}/{2}", b.blockNum, txCount, ConsensusConfig.maximumTransactionsPerBlock + 10);
                 return BlockVerifyStatus.Invalid;
             }
             //
@@ -1092,7 +1097,7 @@ namespace DLT
                             }
                             ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
                         }
-                        Logging.info(String.Format("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing));
+                        Logging.info("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing);
                     }
                     if(fetchTransactions)
                     {
@@ -2020,7 +2025,7 @@ namespace DLT
             ulong txcount = 0;
             foreach(string txid in targetBlock.transactions)
             {
-                Transaction tx = TransactionPool.getTransaction(txid, b.blockNum);               
+                Transaction tx = TransactionPool.getAppliedTransaction(txid, b.blockNum);               
                 if (tx != null)
                 {
                     if (tx.type == (int)Transaction.Type.Normal)
@@ -2043,6 +2048,10 @@ namespace DLT
                         tFeeAmount += tx.fee;
                         txcount++;
                     }
+                }else
+                {
+                    Logging.error("Error applying transaction fee reward, transaction {0} is missing", txid);
+                    return;
                 }
             }
 
@@ -2159,7 +2168,7 @@ namespace DLT
                 IxiNumber total_amount = transaction.amount + transaction.fee;
                 foreach (string txid in related_tx_ids)
                 {
-                    Transaction tx = TransactionPool.getTransaction(txid);
+                    Transaction tx = TransactionPool.getUnappliedTransaction(txid);
                     if(!verifyFromListBalance(tx, minusBalances))
                     {
                         minusBalances[address] -= total_amount;
@@ -2200,7 +2209,7 @@ namespace DLT
                     {
                         // TODO TODO TODO TODO TODO, it might not be the best idea to remove overspent transaction here as the block isn't confirmed yet,
                         // we should do this after the block has been confirmed
-                        TransactionPool.removeTransaction(transaction.id);
+                        TransactionPool.removeUnappliedTransaction(transaction.id);
                         return false;
                     }
                     minusBalances[address] = new_minus_balance;
@@ -2244,7 +2253,7 @@ namespace DLT
                 {
                     if (Node.blockChain.getLastBlockVersion() >= BlockVer.v6 && transaction.version < 3)
                     {
-                        TransactionPool.removeTransaction(transaction.id);
+                        TransactionPool.removeUnappliedTransaction(transaction.id);
                     }
                     continue;
                 }
@@ -2254,7 +2263,7 @@ namespace DLT
                 {
                     if (Node.blockChain.getLastBlockVersion() >= BlockVer.v7 && transaction.version < 4)
                     {
-                        TransactionPool.removeTransaction(transaction.id);
+                        TransactionPool.removeUnappliedTransaction(transaction.id);
                     }
                     continue;
                 }
@@ -2264,7 +2273,7 @@ namespace DLT
                 {
                     if (Node.blockChain.getLastBlockVersion() >= BlockVer.v8 && transaction.version < 5)
                     {
-                        TransactionPool.removeTransaction(transaction.id);
+                        TransactionPool.removeUnappliedTransaction(transaction.id);
                     }
                     continue;
                 }
@@ -2277,7 +2286,7 @@ namespace DLT
                 // Skip adding staking rewards
                 if (transaction.type == (int)Transaction.Type.StakingReward)
                 {
-                    TransactionPool.removeTransaction(transaction.id);
+                    TransactionPool.removeUnappliedTransaction(transaction.id);
                     continue;
                 }
 
@@ -2287,9 +2296,13 @@ namespace DLT
                     minBh = localNewBlock.blockNum - ConsensusConfig.getRedactedWindowSize(localNewBlock.version);
                 }
                 // Check the block height
-                if (minBh > transaction.blockHeight || transaction.blockHeight > localNewBlock.blockNum)
+                if (minBh > transaction.blockHeight)
                 {
-                    TransactionPool.removeTransaction(transaction.id);
+                    TransactionPool.removeUnappliedTransaction(transaction.id);
+                    continue;
+                }
+                if(transaction.blockHeight > localNewBlock.blockNum)
+                {
                     continue;
                 }
 
@@ -2301,7 +2314,7 @@ namespace DLT
                     string nonce = "";
                     if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce, block_version))
                     {
-                        TransactionPool.removeTransaction(transaction.id);
+                        TransactionPool.removeUnappliedTransaction(transaction.id);
                         continue;
                     }
                     else
@@ -2321,7 +2334,7 @@ namespace DLT
                             }
                             else
                             {
-                                TransactionPool.removeTransaction(transaction.id);
+                                TransactionPool.removeUnappliedTransaction(transaction.id);
                                 continue;
                             }
                         }

@@ -472,21 +472,26 @@ namespace DLT
                                     break;
                                 }
 
-                                Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
-                                if (t != null)
+                                Transaction t = TransactionPool.getUnappliedTransaction(txid);
+                                if (t == null)
                                 {
-                                    t.applied = 0;
-                                    if(!TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification))
+                                    t = Node.storage.getTransaction(txid, b.blockNum);
+                                    if (t != null)
                                     {
-                                        Logging.error("Error adding a transaction {0} from storage", txid);
+                                        t.applied = 0;
+                                        if (!TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification))
+                                        {
+                                            Logging.error("Error adding a transaction {0} from storage", txid);
+                                        }
                                     }
-                                }else
-                                {
-                                    CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
-                                    missing = true;
+                                    else
+                                    {
+                                        CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
+                                        missing = true;
+                                    }
                                 }
                             }
-                            if(missing)
+                            if (missing)
                             {
                                 Logging.info("Requesting missing transactions for block {0}", b.blockNum);
                                 Thread.Sleep(100);

@@ -200,7 +200,7 @@ namespace DLT.Meta
 
             writeLine(" Connections (I/O):    {0}", connectionsInStr + "/" + connectionsOut);
             writeLine(" Presences:            {0}", PresenceList.getTotalPresences());
-            writeLine(" Transaction Pool:     {0}", TransactionPool.getUnappliedTransactions().Count());
+            writeLine(" Transaction Pool:     {0}", TransactionPool.getUnappliedTransactionCount());
 
             // Mining status
             string mineStatus = "disabled";

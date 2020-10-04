@@ -15,8 +15,9 @@ namespace DLT
 {
     class TransactionPool
     {
-        public static readonly Dictionary<string, Transaction> transactions = new Dictionary<string, Transaction>();
-        public static readonly Dictionary<string, Transaction> unappliedTransactions = new Dictionary<string, Transaction>();
+        static object stateLock = new object();
+        static readonly Dictionary<string, Transaction> appliedTransactions = new Dictionary<string, Transaction>();
+        static readonly Dictionary<string, Transaction> unappliedTransactions = new Dictionary<string, Transaction>();
 
         static TransactionPool()
         {
@@ -75,20 +76,21 @@ namespace DLT
                             return false;
                         }
 
-                        Transaction tmp_tx = getTransaction(orig_txid, 0);
+                        Transaction tmp_tx = getUnappliedTransaction(orig_txid);
                         if (tmp_tx == null)
                         {
-                            Logging.warn(String.Format("Orig txid {0} doesn't exist, requesting from network.", orig_txid));
-                            CoreProtocolMessage.broadcastGetTransaction(orig_txid, 0, endpoint);
-                            if (!Node.walletStorage.isMyAddress((new Address(signer_pub_key, signer_nonce)).address))
+                            tmp_tx = getAppliedTransaction(orig_txid, 0);
+                            if(tmp_tx == null)
                             {
+                                Logging.warn("Orig txid {0} doesn't exist, requesting from network.", orig_txid);
+                                CoreProtocolMessage.broadcastGetTransaction(orig_txid, 0, endpoint);
                                 CoreProtocolMessage.broadcastGetTransaction(transaction.id, 0, endpoint);
                                 return false;
+                            }else
+                            {
+                                Logging.error(String.Format("Orig txid {0} has already been applied.", orig_txid));
+                                return false;
                             }
-                        }else if(tmp_tx.applied != 0)
-                        {
-                            Logging.warn(String.Format("Orig txid {0} has already been applied.", orig_txid));
-                            return false;
                         }else if (tmp_tx.type != (int)Transaction.Type.ChangeMultisigWallet && (tmp_tx.type != (int)Transaction.Type.MultisigTX))
                         {
                             Logging.warn(String.Format("Orig txid {0} is not a multisig transaction.", orig_txid));
@@ -212,7 +214,7 @@ namespace DLT
             return true;
         }
 
-        public static bool verifyTransaction(Transaction transaction, RemoteEndpoint endpoint)
+        public static bool verifyTransaction(Transaction transaction, RemoteEndpoint endpoint, bool full_check = true)
         {
             ulong blocknum = Node.blockChain.getLastBlockNum();
             if (blocknum < 1)
@@ -342,15 +344,6 @@ namespace DLT
             if (endpoint != null && endpoint.presenceAddress != null && endpoint.presenceAddress.type == 'M')
             {
                 PendingTransactions.increaseReceivedCount(transaction.id, endpoint.presence.wallet);
-            }
-
-            lock (transactions)
-            {
-                // Search for duplicates
-                if (transactions.ContainsKey(transaction.id))
-                {
-                    return false;
-                }
             }
 
             if (!verifyMultisigTransaction(transaction, endpoint))
@@ -596,7 +589,7 @@ namespace DLT
             }
             
             // Finally, verify the signature
-            if (transaction.verifySignature(pubkey, signer_nonce) == false)
+            if (full_check && transaction.verifySignature(pubkey, signer_nonce) == false)
             {
                 // Transaction signature is invalid
                 Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
@@ -615,29 +608,46 @@ namespace DLT
             return true;
         }
 
+        public static bool setReadyToApplyFlag(Transaction tx, ulong block_num)
+        {
+            if(tx.applied != 0)
+            {
+                Logging.error("An error occured while setting readyToApply flag to tx " + tx.id + ", tx was already applied.");
+                return false;
+            }
+            if (block_num == 0)
+            {
+                Logging.error("An error occured while setting readyToApply to tx " + tx.id + " block_num was 0.");
+                return false;
+            }
+            tx.readyToApply = block_num;
+            return true;
+        }
+
         public static bool setAppliedFlag(string txid, ulong blockNum, bool add_to_storage = true)
         {
-            Transaction t;
-            lock (transactions)
+            lock (stateLock)
             {
-                if (transactions.ContainsKey(txid))
+                if (unappliedTransactions.ContainsKey(txid))
                 {
-                    t = transactions[txid];
+                    Transaction t = unappliedTransactions[txid];
+                    unappliedTransactions.Remove(txid);
+
                     t.applied = blockNum;
-
-                    if (Node.walletStorage.isMyAddress((new Address(t.pubKey)).address) || Node.walletStorage.extractMyAddressesFromAddressList(t.toList) != null)
-                    {
-                        if (!t.fromLocalStorage)
-                        {
-                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
-                        }
-                        PendingTransactions.remove(t.id);
-                    }
-
                     if (t.applied == 0)
                     {
                         Logging.error("An error occured while adding tx " + txid + " to storage, applied was 0.");
                         return false;
+                    }
+
+                    appliedTransactions.Add(txid, t);
+
+                    if (!t.fromLocalStorage)
+                    {
+                        if (Node.walletStorage.isMyAddress((new Address(t.pubKey)).address) || Node.walletStorage.extractMyAddressesFromAddressList(t.toList) != null)
+                        {
+                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
+                        }
                     }
 
                     PendingTransactions.remove(t.id);
@@ -667,18 +677,18 @@ namespace DLT
 
         public static List<string> getRelatedMultisigTransactions(string txid, Block block, bool remove_failed_transactions = true)
         {
-            lock(transactions)
+            lock(stateLock)
             {
                 List<string> related_transaction_ids = new List<string>();
 
                 List<Transaction> failed_transactions = new List<Transaction>();
                 List<byte[]> signer_addresses = new List<byte[]>();
-                List<string> tmp_transactions = transactions.Keys.ToList();
+                List<string> tmp_transactions = unappliedTransactions.Keys.ToList();
                 if(block != null)
                 {
                     tmp_transactions = block.transactions;
                 }
-                Transaction orig_tx = getTransaction(txid);
+                Transaction orig_tx = getUnappliedTransaction(txid);
                 if(orig_tx != null)
                 {
                     object orig_ms_data = orig_tx.GetMultisigData();
@@ -727,11 +737,11 @@ namespace DLT
 
                 foreach (var tx_key in tmp_transactions)
                 {
-                    if (!transactions.ContainsKey(tx_key))
+                    if (!unappliedTransactions.ContainsKey(tx_key))
                     {
                         continue;
                     }
-                    var tx = transactions[tx_key];
+                    var tx = unappliedTransactions[tx_key];
                     if (tx == null)
                     {
                         continue;
@@ -806,9 +816,9 @@ namespace DLT
                         // Remove from TxPool
                         if (tx.applied == 0)
                         {
-                            lock (transactions)
+                            lock (stateLock)
                             {
-                                transactions.Remove(tx.id);
+                                unappliedTransactions.Remove(tx.id);
                             }
                         }
                         else
@@ -898,27 +908,23 @@ namespace DLT
                 }
             }
 
-            //Logging.info(String.Format("Accepted transaction {{ {0} }}, amount: {1}", transaction.id, transaction.amount));
-            lock (transactions)
+            lock (stateLock)
             {
-                if (transactions.ContainsKey(transaction.id))
+                // Search for duplicates
+                if ((transaction.blockHeight <= Node.blockChain.getLastBlockNum() && appliedTransactions.ContainsKey(transaction.id))
+                    || unappliedTransactions.ContainsKey(transaction.id))
                 {
-                    Logging.warn(String.Format("Duplicate transaction {{ {0} }}: already exists in the Transaction Pool.", transaction.id));
+                    Logging.warn("Duplicate transaction {0}: already exists in the Transaction Pool.", transaction.id);
                     return false;
                 }
-                else
+                unappliedTransactions.Add(transaction.id, transaction);
+                if (!transaction.fromLocalStorage)
                 {
-                    transactions.Add(transaction.id, transaction);
-                    if (!transaction.fromLocalStorage)
-                    {
-                        addTransactionToActivityStorage(transaction);
-                    }
+                    addTransactionToActivityStorage(transaction);
                 }
             }
 
-
             //   Logging.info(String.Format("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount));
-            //Console.WriteLine("Transaction {{ {0} }} has been added.", transaction.id, transaction.amount);
             if (ConsoleHelpers.verboseConsoleOutput)
                 Console.Write("$");
 
@@ -962,17 +968,17 @@ namespace DLT
 
         // Attempts to retrieve a transaction from memory or from storage
         // Returns null if no transaction is found
-        public static Transaction getTransaction(string txid, ulong block_num = 0, bool search_in_storage = false)
+        public static Transaction getAppliedTransaction(string txid, ulong block_num = 0, bool search_in_storage = false)
         {
             Transaction transaction = null;
 
             bool compacted_transaction = false;
 
-            lock(transactions)
+            lock (stateLock)
             {
                 //Logging.info(String.Format("Looking for transaction {{ {0} }}. Pool has {1}.", txid, transactions.Count));
-                compacted_transaction = transactions.ContainsKey(txid);
-                transaction = compacted_transaction ? transactions[txid] : null;
+                compacted_transaction = appliedTransactions.ContainsKey(txid);
+                transaction = compacted_transaction ? appliedTransactions[txid] : null;
             }
 
             if (transaction != null)
@@ -993,17 +999,31 @@ namespace DLT
             return transaction;
         }
 
+        // Attempts to retrieve a transaction from memory or from storage
+        // Returns null if no transaction is found
+        public static Transaction getUnappliedTransaction(string txid)
+        {
+            lock(stateLock)
+            {
+                if(unappliedTransactions.ContainsKey(txid))
+                {
+                    return unappliedTransactions[txid];
+                }
+            }
+            return null;
+        }
+
         // Removes all transactions from TransactionPool linked to a block.
         public static bool redactTransactionsForBlock(Block block)
         {
             if (block == null)
                 return false;
 
-            lock (transactions)
+            lock (stateLock)
             {
                 foreach (string txid in block.transactions)
                 {
-                    transactions.Remove(txid);
+                    appliedTransactions.Remove(txid);
                 }
             }
             return true;
@@ -1015,52 +1035,34 @@ namespace DLT
             if (block == null)
                 return false;
 
-            lock (transactions)
+            lock (stateLock)
             {
                 foreach (string txid in block.transactions)
                 {
-                    Transaction tx = getTransaction(txid, block.blockNum, true);
+                    Transaction tx = getAppliedTransaction(txid, block.blockNum, true);
                     if(tx == null)
                     {
                         Logging.error("Error occured while fetching transaction {9} for block #{1} from storage.", txid, block.blockNum);
                         return false;
                     }
-                    transactions.Add(txid, tx);
+                    appliedTransactions.Add(txid, tx);
                 }
             }
             return true;
         }
 
-        public static Transaction[] getLastTransactions(int from_index, int to_index)
+        public static Transaction[] getAppliedTransactions(int from_index, int count)
         {
-            lock (transactions)
+            lock (stateLock)
             {
                 List<Transaction> full_tx_list = new List<Transaction>();
-                foreach (var entry in transactions.Skip(from_index).Take(to_index))
-                {
-                    Transaction tx = entry.Value;
-                    if (tx == null)
-                    {
-                        tx = getTransaction(entry.Key);
-                    }
-                    full_tx_list.Add(tx);
-                }
-                return full_tx_list.ToArray();
-            }
-        }
-
-        public static Transaction[] getAppliedTransactions(int from_index, int to_index)
-        {
-            lock (transactions)
-            {
-                List<Transaction> full_tx_list = new List<Transaction>();
-                var tx_list =  transactions.Where(x => x.Value == null || x.Value.applied != 0).Skip(from_index).Take(to_index).ToArray();
+                var tx_list = appliedTransactions.Skip(from_index).Take(count).ToArray();
                 foreach(var entry in tx_list)
                 {
                     Transaction tx = entry.Value;
                     if(tx == null)
                     {
-                        tx = getTransaction(entry.Key);
+                        tx = getAppliedTransaction(entry.Key);
                     }
                     full_tx_list.Add(tx);
                 }
@@ -1070,9 +1072,17 @@ namespace DLT
 
         public static Transaction[] getUnappliedTransactions()
         {
-            lock(transactions)
+            lock (stateLock)
             {
-                return transactions.Select(e => e.Value).Where(x => x != null && x.applied == 0).ToArray();
+                return unappliedTransactions.Values.ToArray();
+            }
+        }
+
+        public static Transaction[] getUnappliedTransactions(int from_index, int count)
+        {
+            lock (stateLock)
+            {
+                return unappliedTransactions.Values.Skip(from_index).Take(count).ToArray();
             }
         }
 
@@ -1231,12 +1241,12 @@ namespace DLT
             {
                 return true;
             }
-            lock (transactions)
+            lock (stateLock)
             {
                 Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
                 foreach (string txid in b.transactions)
                 {
-                    Transaction tx = getTransaction(txid, b.blockNum);
+                    Transaction tx = getUnappliedTransaction(txid);
                     if (tx == null)
                     {
                         Logging.error(String.Format("Attempted to set applied to transaction from block #{0} ({1}), but transaction {{ {2} }} was missing.",
@@ -1286,10 +1296,10 @@ namespace DLT
             }
             else
             {
-                lock (transactions)
+                lock (stateLock)
                 {
                     if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - selecting staking transactions from pool (transaction = {1})", block.blockNum, Node.walletState.inTransaction); }
-                    staking_txs = transactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.StakingReward && x.applied == 0).ToList();
+                    staking_txs = unappliedTransactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.StakingReward).ToList();
                     if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - selected {1} staking transactions", block.blockNum, staking_txs.Count); }
                 }
             }
@@ -1308,14 +1318,14 @@ namespace DLT
                 } else
                 {
                     Logging.error(String.Format("Invalid staking txid in transaction pool {0}, removing from pool.", tx.id));
-                    lock(transactions)
+                    lock(stateLock)
                     {
-                        transactions.Remove(tx.id);
+                        unappliedTransactions.Remove(tx.id);
                     }
                     continue;
                 }
 
-                if (tx.applied > 0)
+                if (tx.readyToApply > 0 || tx.applied > 0)
                     continue;
 
                 string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
@@ -1384,10 +1394,10 @@ namespace DLT
                     Logging.warn(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
                     if (tx.applied == 0)
                     {
-                        lock (transactions)
+                        lock (stateLock)
                         {
                             // Remove from TxPool
-                            transactions.Remove(tx.id);
+                            unappliedTransactions.Remove(tx.id);
                         }
                     }
                     else
@@ -1411,7 +1421,7 @@ namespace DLT
                     {
                         if (Node.blockSync.synchronizing && !Config.recoverFromFile && !Config.storeFullHistory)
                         {
-                            if (getTransaction(txid, block.blockNum) == null)
+                            if (getUnappliedTransaction(txid) == null)
                             {
                                 Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
                             }
@@ -1419,7 +1429,7 @@ namespace DLT
                         continue;
                     }
 
-                    Transaction tx = getTransaction(txid, block.blockNum);
+                    Transaction tx = getUnappliedTransaction(txid);
                     if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Type: {2}, Amount: {3}", block.blockNum, tx.id, tx.type, tx.amount.getAmount()); }
                     if (tx == null)
                     {
@@ -1432,16 +1442,6 @@ namespace DLT
                     {
                         continue;
                     }
-
-                    if (tx.applied == block.blockNum)
-                    {
-                        continue;
-                    }else if (tx.applied != 0)
-                    {
-                        Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was already applied in block #{3}.",
-                            block.blockNum, Crypto.hashToString(block.blockChecksum), txid, tx.applied));
-                        return false;
-                    } 
 
                     // Special case for Genesis transactions
                     if (applyGenesisTransaction(tx, block, failed_transactions))
@@ -1570,12 +1570,13 @@ namespace DLT
                 {
                     foreach (string txid in block.transactions)
                     {
-                        Transaction tx = getTransaction(txid, block.blockNum);
-                        if (tx == null || tx.applied != block.blockNum)
+                        Transaction tx = getUnappliedTransaction(txid);
+                        if (tx == null || tx.readyToApply != block.blockNum)
                         {
                             Logging.error(string.Format("Block #{0} has unapplied transactions, rejecting the block.", block.blockNum));
                             return false;
                         }
+                        setAppliedFlag(tx.id, block.blockNum);
                     }
                 }
 
@@ -1586,16 +1587,15 @@ namespace DLT
                     // Remove from TxPool
                     if (tx.applied == 0)
                     {
-                        lock (transactions)
+                        lock (stateLock)
                         {
-                            transactions.Remove(tx.id);
+                            unappliedTransactions.Remove(tx.id);
                         }
                     }
                     else
                     {
                         Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
                     }
-                    //block.transactions.Remove(tx.id);
                 }
                 if (failed_transactions.Count > 0)
                 {
@@ -1639,7 +1639,8 @@ namespace DLT
             // Update the block's applied field
             if (!Node.walletState.inTransaction)
             {
-                setAppliedFlag(tx.id, block.blockNum);
+                //setAppliedFlag(tx.id, block.blockNum);
+                setReadyToApplyFlag(tx, block.blockNum);
             }
 
             bool verify_pow = true;
@@ -1713,7 +1714,8 @@ namespace DLT
 
             if (!Node.walletState.inTransaction)
             {
-                setAppliedFlag(tx.id, block.blockNum);
+                //setAppliedFlag(tx.id, block.blockNum);
+                setReadyToApplyFlag(tx, block.blockNum);
             }
 
             return true;
@@ -1792,7 +1794,8 @@ namespace DLT
 
             if (!Node.walletState.inTransaction)
             {
-                setAppliedFlag(tx.id, block.blockNum);
+                //setAppliedFlag(tx.id, block.blockNum);
+                setReadyToApplyFlag(tx, block.blockNum);
             }
 
             return true;
@@ -1895,7 +1898,7 @@ namespace DLT
         {
             foreach (string txid in related_tx_ids)
             {
-                Transaction tx = getTransaction(txid);
+                Transaction tx = getUnappliedTransaction(txid);
                 if (tx.type == (int)Transaction.Type.MultisigAddTxSignature)
                 {
                     ulong minBh = 0;
@@ -1939,9 +1942,11 @@ namespace DLT
 
                     if (!Node.walletState.inTransaction)
                     {
-                        setAppliedFlag(tx.id, block.blockNum);
+                        //setAppliedFlag(tx.id, block.blockNum);
+                        setReadyToApplyFlag(tx, block.blockNum);
                     }
-                }else
+                }
+                else
                 {
                     Logging.warn(String.Format("Error processing multisig transaction {{ {0} }} in block #{1}, expecting type MultisigAddTxSignature, received {2}.",
                         tx.id, block.blockNum, tx.type));
@@ -2108,7 +2113,8 @@ namespace DLT
 
                 if (!Node.walletState.inTransaction)
                 {
-                    setAppliedFlag(tx.id, block.blockNum);
+                    //setAppliedFlag(tx.id, block.blockNum);
+                    setReadyToApplyFlag(tx, block.blockNum);
                 }
                 return related_tx_ids;
             }
@@ -2216,7 +2222,8 @@ namespace DLT
 
             if (!Node.walletState.inTransaction)
             {
-                setAppliedFlag(tx.id, block.blockNum);
+                //setAppliedFlag(tx.id, block.blockNum);
+                setReadyToApplyFlag(tx, block.blockNum);
             }
 
             return true;
@@ -2281,94 +2288,13 @@ namespace DLT
             }
         }
 
-        // Get the current snapshot of transactions in the pool
-        public static byte[] getBytes()
-        {
-            lock (transactions)
-            {
-                using (MemoryStream m = new MemoryStream())
-                {
-                    using (BinaryWriter writer = new BinaryWriter(m))
-                    {
-                        // Write the number of transactions
-                        int num_transactions = transactions.Count();
-                        writer.Write(num_transactions);
-
-                        // Write each transactions
-                        foreach (Transaction transaction in transactions.Select(e => e.Value))
-                        {
-                            byte[] transaction_data = transaction.getBytes();
-                            int transaction_data_size = transaction_data.Length;
-                            writer.Write(transaction_data_size);
-                            writer.Write(transaction_data);
-                        }
-#if TRACE_MEMSTREAM_SIZES
-                        Logging.info(String.Format("TransactionPool::getBytes: {0}", m.Length));
-#endif
-                    }
-                    return m.ToArray();
-                }
-            }
-        }
-
-        public static bool syncFromBytes(byte[] bytes)
-        {
-            using (MemoryStream m = new MemoryStream(bytes))
-            {
-                using (BinaryReader reader = new BinaryReader(m))
-                {
-                    // Read the number of transactions
-                    int num_transactions = reader.ReadInt32();
-
-                    Logging.info(String.Format("Number of transactions in sync txpool: {0}", num_transactions));
-                    if (num_transactions < 0)
-                        return false;
-
-                    try
-                    {
-                        for (int i = 0; i < num_transactions; i++)
-                        {
-                            int transaction_data_size = reader.ReadInt32();
-                            if (transaction_data_size < 1)
-                                continue;
-                            byte[] transaction_bytes = reader.ReadBytes(transaction_data_size);
-                            Transaction new_transaction = new Transaction(transaction_bytes);
-                            lock (transactions)
-                            {
-                                transactions.Add(new_transaction.id, new_transaction);
-                            }
-
-                            Logging.info(String.Format("SYNC Transaction: {0}", new_transaction.id));
-
-                        }
-                    }
-                    catch(Exception e)
-                    {
-                        Logging.error(string.Format("Error reading transaction pool: {0}", e.ToString()));
-                        return false;
-                    }
-
-                }
-            }
-
-            return true;
-        }
-
-
         // Clears all the transactions in the pool
         public static void clear()
         {
-            lock(transactions)
+            lock(stateLock)
             {
-                transactions.Clear();
-            }
-        }
-
-        public static bool hasTransaction(string txid)
-        {
-            lock(transactions)
-            {
-                return transactions.ContainsKey(txid);
+                appliedTransactions.Clear();
+                unappliedTransactions.Clear();
             }
         }
 
@@ -2385,9 +2311,9 @@ namespace DLT
                 minBlockHeight = Node.blockChain.getLastBlockNum() - ConsensusConfig.getRedactedWindowSize();
             }
 
-            lock (transactions)
+            lock (stateLock)
             {
-                var txList = transactions.Select(e => e.Value).Where(x => x != null && x.applied == 0 && x.type == (int)Transaction.Type.PoWSolution).ToArray();
+                var txList = unappliedTransactions.Select(e => e.Value).Where(x => x != null && x.type == (int)Transaction.Type.PoWSolution).ToArray();
                 foreach (var entry in txList)
                 {
                     ulong blocknum = 0;
@@ -2410,21 +2336,21 @@ namespace DLT
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(entry.id), ActivityStatus.Error, 0);
                             }
-                            transactions.Remove(entry.id);
+                            unappliedTransactions.Remove(entry.id);
                         }
                     }
                     catch (Exception e)
                     {
                         Logging.error("Exception occured in transactionPool.cleanUp() " + e);
                         // remove invalid/corrupt transaction
-                        transactions.Remove(entry.id);
+                        unappliedTransactions.Remove(entry.id);
                     }
                 }
 
-                txList = transactions.Values.Where(x => x != null && x.applied == 0 && x.blockHeight < minBlockHeight).ToArray();
+                txList = unappliedTransactions.Values.Where(x => x != null && x.blockHeight < minBlockHeight).ToArray();
                 foreach (var entry in txList)
                 {
-                    transactions.Remove(entry.id);
+                    unappliedTransactions.Remove(entry.id);
                 }
             }
         }
@@ -2434,7 +2360,7 @@ namespace DLT
         {
             // TODO TODO this has to be refactored and moved to PendingTransactions
             ulong last_block_height = IxianHandler.getLastBlockHeight();
-            lock (transactions) // this lock must be here to prevent deadlocks TODO: improve this at some point
+            lock (stateLock) // this lock must be here to prevent deadlocks TODO: improve this at some point
             {
                 lock (PendingTransactions.pendingTransactions)
                 {
@@ -2476,7 +2402,7 @@ namespace DLT
                         else
                         {
                             // check if transaction is still valid
-                            if (getTransaction(t.id) == null && !verifyTransaction(t, null))
+                            if (getUnappliedTransaction(t.id) == null && !verifyTransaction(t, null, false))
                             {
                                 ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
                                 PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
@@ -2512,30 +2438,46 @@ namespace DLT
             }
         }
 
-        public static long getTransactionCount()
+        public static long getAppliedTransactionCount()
         {
-            lock(transactions)
+            lock(stateLock)
             {
-                return transactions.LongCount();
+                return appliedTransactions.LongCount();
+            }
+        }
+
+        public static long getUnappliedTransactionCount()
+        {
+            lock (stateLock)
+            {
+                return unappliedTransactions.LongCount();
             }
         }
 
         public static void compactTransactionsForBlock(Block b)
         {
-            lock (transactions)
+            lock (stateLock)
             {
                 foreach (var entry in b.transactions)
                 {
-                    transactions[entry] = null;
+                    appliedTransactions[entry] = null;
                 }
             }
         }
 
-        public static bool removeTransaction(string txid)
+        public static bool removeAppliedTransaction(string txid)
         {
-            lock(transactions)
+            lock (stateLock)
             {
-                return transactions.Remove(txid);
+                return appliedTransactions.Remove(txid);
+            }
+        }
+
+        public static bool removeUnappliedTransaction(string txid)
+        {
+            lock (stateLock)
+            {
+                return unappliedTransactions.Remove(txid);
             }
         }
 
@@ -2546,7 +2488,7 @@ namespace DLT
             List<string> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
-                Transaction t = getTransaction(tx_ids[i], block.blockNum);
+                Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
                 if (t == null)
                 {
                     Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
@@ -2564,7 +2506,7 @@ namespace DLT
             List<string> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
-                Transaction t = TransactionPool.getTransaction(tx_ids[i], block.blockNum, true);
+                Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
                 if (t == null)
                 {
                     Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
@@ -2584,13 +2526,30 @@ namespace DLT
             List<string> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
-                Transaction t = TransactionPool.getTransaction(tx_ids[i], block.blockNum);
+                Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
                 if (t == null)
                     Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
                 else
                     val.add(t.amount);
             }
             return val;
+        }
+
+        public static bool unapplyTransaction(string txid)
+        {
+            lock(stateLock)
+            {
+                if(appliedTransactions.ContainsKey(txid))
+                {
+                    Transaction t = appliedTransactions[txid];
+                    appliedTransactions.Remove(txid);
+
+                    t.applied = 0;
+                    unappliedTransactions.AddOrReplace(txid, t);
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

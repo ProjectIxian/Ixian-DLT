@@ -91,7 +91,7 @@ namespace DLT
                                         continue;
                                     }
                                 }
-                                Transaction tx = TransactionPool.getTransaction(txIdArr[tx_index], blockNum, true);
+                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[tx_index], blockNum, true);
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
@@ -678,7 +678,7 @@ namespace DLT
 
                 foreach(var txid in b.transactions)
                 {
-                    Transaction t = TransactionPool.getTransaction(txid, b.blockNum, true);
+                    Transaction t = TransactionPool.getAppliedTransaction(txid, b.blockNum, true);
 
                     if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionFrom, new Address(t.pubKey).address))
                     {
@@ -1136,20 +1136,20 @@ namespace DLT
                                         // Check for a transaction corresponding to this id
                                         if(block_num == 0)
                                         {
-                                            transaction = TransactionPool.getTransaction(txid, 0, false);
+                                            transaction = TransactionPool.getUnappliedTransaction(txid);
                                         }
-                                        else
+                                        if (transaction == null)
                                         {
-                                            transaction = TransactionPool.getTransaction(txid, block_num, true);
+                                            transaction = TransactionPool.getAppliedTransaction(txid, block_num, true);
                                         }
 
                                         if (transaction == null)
                                         {
-                                            Logging.warn(String.Format("I do not have txid '{0}.", txid));
+                                            Logging.warn("I do not have txid '{0}.", txid);
                                             return;
                                         }
 
-                                        Logging.info(String.Format("Sending transaction {0} - {1} - {2}.", transaction.id, Crypto.hashToString(transaction.checksum), transaction.amount));
+                                        Logging.info("Sending transaction {0} - {1} - {2}.", transaction.id, Crypto.hashToString(transaction.checksum), transaction.amount);
 
                                         endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true));
                                     }
@@ -1171,13 +1171,6 @@ namespace DLT
                                 TransactionPool.addTransaction(transaction, false, endpoint);
                             }
                             break;
-
-                        /*case ProtocolMessageCode.updateTransaction:
-                            {
-                                Transaction transaction = new Transaction(data);         
-                                TransactionPool.updateTransaction(transaction);
-                            }
-                            break;*/
 
                         case ProtocolMessageCode.transactionData:
                             {
@@ -1276,19 +1269,6 @@ namespace DLT
                             break;
 
                         case ProtocolMessageCode.newBlock:
-                            {
-                                Block block = new Block(data);
-                                if (endpoint.blockHeight < block.blockNum)
-                                {
-                                    endpoint.blockHeight = block.blockNum;
-                                }
-
-                                //Logging.info(String.Format("Network: Received block #{0} from {1}.", block.blockNum, socket.RemoteEndPoint.ToString()));
-                                Node.blockSync.onBlockReceived(block, endpoint);
-                                Node.blockProcessor.onBlockReceived(block, endpoint);
-                            }
-                            break;
-
                         case ProtocolMessageCode.blockData:
                             {
                                 Block block = new Block(data);
@@ -1541,10 +1521,6 @@ namespace DLT
                                             Transaction tx = new Transaction(txData);
                                             totalTxCount++;
                                             if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
-                                            {
-                                                continue;
-                                            }
-                                            if (TransactionPool.hasTransaction(tx.id))
                                             {
                                                 continue;
                                             }

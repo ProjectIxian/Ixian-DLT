@@ -854,7 +854,7 @@ namespace DLT
         {
             foreach(var tx_id in block.transactions)
             {
-                Transaction tx = TransactionPool.getTransaction(tx_id, block.blockNum, true);
+                Transaction tx = TransactionPool.getAppliedTransaction(tx_id, block.blockNum, true);
                 if(tx == null)
                 {
                     Logging.error("Cannot revert transaction " + tx_id + ", transaction doesn't exist.");
@@ -862,10 +862,10 @@ namespace DLT
                 }
                 if(tx.type == (int)Transaction.Type.StakingReward)
                 {
-                    TransactionPool.removeTransaction(tx.id);
+                    TransactionPool.removeAppliedTransaction(tx.id);
                 }else
                 {
-                    tx.applied = 0;
+                    TransactionPool.unapplyTransaction(tx.id);
                     if (tx.type == (int)Transaction.Type.PoWSolution)
                     {
                         ulong pow_blocknum = 0;

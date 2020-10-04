@@ -306,7 +306,11 @@ namespace DLTNode
             }
 
             string txid_string = (string)parameters["id"];
-            Transaction t = TransactionPool.getTransaction(txid_string, 0, Config.storeFullHistory);
+            Transaction t = TransactionPool.getUnappliedTransaction(txid_string);
+            if(t == null)
+            {
+                t = TransactionPool.getAppliedTransaction(txid_string, 0, Config.storeFullHistory);
+            }
             if (t == null)
             {
                 return new JsonResponse { result = null, error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Transaction not found." } };
@@ -507,7 +511,22 @@ namespace DLTNode
                 count = (string)parameters["count"];
             }
 
-            Transaction[] transactions = TransactionPool.getLastTransactions(Int32.Parse(fromIndex), Int32.Parse(count)).ToArray();
+            int int_count = Int32.Parse(count);
+            int int_from_index = Int32.Parse(fromIndex);
+            long full_tx_count = TransactionPool.getAppliedTransactionCount();
+            List<Transaction> transactions = TransactionPool.getAppliedTransactions(int_from_index, int_count).ToList();
+            int tx_count = transactions.Count;
+            if (tx_count < int_count)
+            {
+                if(int_from_index >= full_tx_count)
+                {
+                    int_from_index = (int)((long)int_from_index - full_tx_count);
+                }else
+                {
+                    int_from_index = 0;
+                }
+                transactions.AddRange(TransactionPool.getUnappliedTransactions(int_from_index, int_count - tx_count));
+            }
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -535,7 +554,7 @@ namespace DLTNode
                 count = (string)parameters["count"];
             }
 
-            Transaction[] transactions = TransactionPool.getUnappliedTransactions().Skip(Int32.Parse(fromIndex)).Take(Int32.Parse(count)).ToArray();
+            Transaction[] transactions = TransactionPool.getUnappliedTransactions(Int32.Parse(fromIndex), Int32.Parse(count)).ToArray();
 
             Dictionary<string, Dictionary<string, object>> tx_list = new Dictionary<string, Dictionary<string, object>>();
 
@@ -638,8 +657,8 @@ namespace DLTNode
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());
                 networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
-                networkArray.Add("Applied TX Count", TransactionPool.getTransactionCount() - TransactionPool.getUnappliedTransactions().Count());
-                networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactions().Count());
+                networkArray.Add("Applied TX Count", TransactionPool.getAppliedTransactionCount());
+                networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactionCount());
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
             }
 
