@@ -912,10 +912,26 @@ namespace DLT
                     }
 
                     ulong db_blocknum = getHighestBlockInStorage();
+                    if(block_num > db_blocknum)
+                    {
+                        return null;
+                    }
+
+                    ulong min_bh = 0;
+                    int txid_sep_pos = txid.IndexOf("-");
+                    if(txid_sep_pos > 0)
+                    {
+                        min_bh = UInt64.Parse(txid.Substring(0, txid_sep_pos));
+                    }
+
                     while (!found)
                     {
                         // Transaction not found yet, seek to another database
                         seekDatabase(db_blocknum);
+                        if(db_blocknum + Config.maxBlocksPerDatabase < min_bh)
+                        {
+                            break;
+                        }
                         try
                         {
                             _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);

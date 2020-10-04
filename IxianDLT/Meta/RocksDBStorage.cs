@@ -1779,6 +1779,7 @@ namespace DLT
 
             public override ulong getHighestBlockInStorage()
             {
+                // TODO Cache
                 // find our absolute highest block db
                 ulong latest_db = 0;
                 foreach(var d in Directory.EnumerateDirectories(pathBase))
@@ -1813,6 +1814,7 @@ namespace DLT
 
             public override ulong getLowestBlockInStorage()
             {
+                // TODO Cache
                 // find our absolute highest block db
                 ulong oldest_db = 0;
                 foreach (var d in Directory.EnumerateDirectories(pathBase))
@@ -1935,7 +1937,22 @@ namespace DLT
                         return db.getTransaction(txid);
                     } else
                     {
-                        foreach(var db in openDatabases.Values)
+                        // TODO implement this
+                        /*ulong db_blocknum = getHighestBlockInStorage();
+                        if (block_num > db_blocknum)
+                        {
+                            return null;
+                        }
+
+                        ulong min_bh = 0;
+                        int txid_sep_pos = txid.IndexOf("-");
+                        if (txid_sep_pos > 0)
+                        {
+                            min_bh = UInt64.Parse(txid.Substring(0, txid_sep_pos));
+                        }*/
+
+                        // TODO this is incorrect
+                        foreach (var db in openDatabases.Values)
                         {
                             if(!db.isOpen)
                             {
