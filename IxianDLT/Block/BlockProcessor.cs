@@ -920,10 +920,9 @@ namespace DLT
                 Transaction t = TransactionPool.getUnappliedTransaction(txid);
                 if (t == null)
                 {
-                    t = TransactionPool.getAppliedTransaction(txid, b.blockNum);
-                    if(t != null)
+                    if(TransactionPool.hasAppliedTransaction(txid))
                     {
-                        Logging.error("Block #{0} includes a transaction that has already been applied in previous block #{1}.", b.blockNum, t.applied);
+                        Logging.error("Block #{0} includes a transaction that has already been applied in previous.", b.blockNum);
                         return BlockVerifyStatus.PotentiallyForkedBlock;
                     }
                     if (fetchTransactions)

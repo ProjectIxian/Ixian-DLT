@@ -79,8 +79,7 @@ namespace DLT
                         Transaction tmp_tx = getUnappliedTransaction(orig_txid);
                         if (tmp_tx == null)
                         {
-                            tmp_tx = getAppliedTransaction(orig_txid, 0);
-                            if(tmp_tx == null)
+                            if(!hasAppliedTransaction(orig_txid))
                             {
                                 Logging.warn("Orig txid {0} doesn't exist, requesting from network.", orig_txid);
                                 CoreProtocolMessage.broadcastGetTransaction(orig_txid, 0, endpoint);
@@ -963,6 +962,14 @@ namespace DLT
                 byte[] addr = new byte[entry.Key.Length];
                 Array.Copy(entry.Key, addr, addr.Length);
                 CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
+            }
+        }
+
+        public static bool hasAppliedTransaction(string txid)
+        {
+            lock(stateLock)
+            {
+                return appliedTransactions.ContainsKey(txid);
             }
         }
 
