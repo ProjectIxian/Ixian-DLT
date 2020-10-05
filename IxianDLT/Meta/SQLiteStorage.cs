@@ -912,16 +912,25 @@ namespace DLT
                     }
 
                     ulong db_blocknum = getHighestBlockInStorage();
-                    if(block_num > db_blocknum)
-                    {
-                        return null;
-                    }
-
                     ulong min_bh = 0;
-                    int txid_sep_pos = txid.IndexOf("-");
-                    if(txid_sep_pos > 0)
+                    if (!found)
                     {
-                        min_bh = UInt64.Parse(txid.Substring(0, txid_sep_pos));
+                        if (block_num > db_blocknum)
+                        {
+                            return null;
+                        }
+
+                        // extract blockheight from txid
+                        int txid_bh_start_index = 0;
+                        if (txid.StartsWith("s"))
+                        {
+                            txid_bh_start_index = txid.IndexOf("-", 4);
+                        }
+                        int txid_sep_pos = txid.IndexOf("-", txid_bh_start_index);
+                        if (txid_sep_pos > 0)
+                        {
+                            min_bh = UInt64.Parse(txid.Substring(txid_bh_start_index, txid_sep_pos));
+                        }
                     }
 
                     while (!found)
