@@ -1274,7 +1274,7 @@ namespace DLT
                         continue;
                     }
 
-                    Block block = Node.blockChain.getBlock(blockNum, false, false);
+                    Block block = Node.blockChain.getBlock(blockNum, false, true);
                     // Check if the block is valid
                     if (block == null)
                         continue;
