@@ -141,6 +141,7 @@ namespace DLT
                     Thread.Yield();
                 }
                 shutdown();
+                Logging.info("Storage stopped.");
             }
 
             private void debugDumpCrashObject(QueueStorageMessage message)

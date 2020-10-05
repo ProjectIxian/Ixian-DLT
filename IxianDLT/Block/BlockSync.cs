@@ -149,6 +149,10 @@ namespace DLT
                 Dictionary<ulong, long> tmpRequestedBlockTimes = new Dictionary<ulong, long>(requestedBlockTimes);
                 foreach (var entry in tmpRequestedBlockTimes)
                 {
+                    if(!running)
+                    {
+                        return false;
+                    }
                     ulong blockNum = entry.Key;
                     // Check if the request expired (after 10 seconds)
                     if (currentTime - requestedBlockTimes[blockNum] > 10)
@@ -197,6 +201,10 @@ namespace DLT
 
                 foreach (ulong blockNum in tmpMissingBlocks)
                 {
+                    if (!running)
+                    {
+                        return false;
+                    }
                     total_count++;
                     lock (requestedBlockTimes)
                     {

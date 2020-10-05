@@ -101,26 +101,29 @@ namespace DLT
 
             protected override void cleanupCache()
             {
-                long curTime = Clock.getTimestamp();
-                Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
-                foreach (var entry in tmpConnectionCache)
+                lock (connectionCache)
                 {
-                    if (curTime - (long)entry.Value[1] > 60)
+                    long curTime = Clock.getTimestamp();
+                    Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
+                    foreach (var entry in tmpConnectionCache)
                     {
-                        if(entry.Value[0] == sqlConnection)
+                        if (curTime - (long)entry.Value[1] > 60)
                         {
-                            // never close the currently used sqlConnection
-                            continue;
-                        }
-                        SQLiteConnection connection = (SQLiteConnection)entry.Value[0];
-                        connection.Close();
-                        connection.Dispose();
-                        connectionCache.Remove(entry.Key);
+                            if (entry.Value[0] == sqlConnection)
+                            {
+                                // never close the currently used sqlConnection
+                                continue;
+                            }
+                            SQLiteConnection connection = (SQLiteConnection)entry.Value[0];
+                            connection.Close();
+                            connection.Dispose();
+                            connectionCache.Remove(entry.Key);
 
-                        // Fix for occasional locked database error
-                        GC.Collect();
-                        GC.WaitForPendingFinalizers();
-                        // End of fix
+                            // Fix for occasional locked database error
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                            // End of fix
+                        }
                     }
                 }
             }
@@ -1208,13 +1211,13 @@ namespace DLT
                         SQLiteConnection connection = (SQLiteConnection)entry.Value[0];
                         connection.Close();
                         connection.Dispose();
-                        connectionCache.Remove(entry.Key);
 
                         // Fix for occasional locked database error
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
                         // End of fix
                     }
+                    connectionCache.Clear();
                 }
             }
         }
