@@ -1031,7 +1031,12 @@ namespace DLT
                     {
                         continue;
                     }
-                    if(t.blockHeight > b.blockNum)
+                    if(b.blockNum >= ConsensusConfig.miningExpirationBlockHeight && t.type == (int)Transaction.Type.PoWSolution)
+                    {
+                        Logging.error("Block #{0} includes a PoW transaction {1}. Mining has stopped after block #{2}.", b.blockNum, t.id, ConsensusConfig.miningExpirationBlockHeight);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                    if (t.blockHeight > b.blockNum)
                     {
                         Logging.error("Block #{0} includes a transaction {1} which has a higher blockheight.", b.blockNum, t.id);
                         return BlockVerifyStatus.Invalid;
@@ -2223,7 +2228,7 @@ namespace DLT
             return true;
         }
 
-        private void generateNewBlockTransactions(int block_version)
+        private void generateNewBlockTransactions(ulong block_num, int block_version)
         {
             ulong total_transactions = 1;
             IxiNumber total_amount = 0;
@@ -2232,7 +2237,11 @@ namespace DLT
             unapplied_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
 
             // TODO TODO optimize this
-            List<Transaction> pool_transactions = unapplied_transactions.Where(x => x.type == (int)Transaction.Type.PoWSolution).ToList<Transaction>(); // add PoW first
+            List<Transaction> pool_transactions = new List<Transaction>();
+            if (block_num < ConsensusConfig.miningExpirationBlockHeight)
+            {
+                pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.PoWSolution).ToList<Transaction>()); // add PoW first
+            }
             pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.ChangeMultisigWallet)); // then add MS wallet changes
             pool_transactions.AddRange(unapplied_transactions.Where(x => x.type == (int)Transaction.Type.MultisigTX)); // then add MS TXs
             pool_transactions.AddRange(unapplied_transactions.Where(x => x.type != (int)Transaction.Type.PoWSolution && x.type != (int)Transaction.Type.ChangeMultisigWallet && x.type != (int)Transaction.Type.MultisigTX && x.type != (int)Transaction.Type.MultisigAddTxSignature)); // finally add all other TXs
@@ -2541,7 +2550,7 @@ namespace DLT
                     }
                     else
                     {
-                        generateNewBlockTransactions(block_version);
+                        generateNewBlockTransactions(localNewBlock.blockNum, block_version);
                     }
 
                     // Calculate mining difficulty

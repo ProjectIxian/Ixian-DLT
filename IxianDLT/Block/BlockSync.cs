@@ -472,6 +472,7 @@ namespace DLT
 
                         if (b.fromLocalStorage)
                         {
+                            // TODO TODO improve this section with NodeStorage.getTransactionsInBlock once rocksdb switch happens
                             bool missing = false;
                             foreach (string txid in b.transactions)
                             {

@@ -1268,12 +1268,6 @@ namespace DLT
                 {
                     ulong blockNum = blockSolutionsDictionary.Keys.ElementAt(i);
 
-                    // Stop rewarding miners after 5th year
-                    if (blockNum >= 5256000)
-                    {
-                        continue;
-                    }
-
                     Block block = Node.blockChain.getBlock(blockNum, false, true);
                     // Check if the block is valid
                     if (block == null)
@@ -2244,12 +2238,6 @@ namespace DLT
             {
                 ulong blockNum = blockSolutionsDictionary.Keys.ElementAt(i);
 
-                // Stop rewarding miners after 5th year
-                if(blockNum >= 5256000)
-                {
-                    continue;
-                }
-
                 Block block = Node.blockChain.getBlock(blockNum);
                 // Check if the block is valid
                 if (block == null)
@@ -2336,7 +2324,12 @@ namespace DLT
                             }
                         }
 
-                        Block block = Node.blockChain.getBlock(blocknum, false, false);
+                        Block block = null;
+                        
+                        if (Node.blockChain.getLastBlockNum() < ConsensusConfig.miningExpirationBlockHeight)
+                        {
+                            block = Node.blockChain.getBlock(blocknum, false, false);
+                        }
 
                         if (block == null || block.powField != null)
                         {
