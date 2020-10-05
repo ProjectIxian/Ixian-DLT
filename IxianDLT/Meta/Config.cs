@@ -69,6 +69,11 @@ namespace DLT
 
             public static bool disableChainReorg = false;
 
+            /// <summary>
+            /// Number of transactions that the node will include in the block.
+            /// </summary>
+            public static ulong maxTransactionsPerBlockToInclude = 2000;
+
             // Read-only values
             public static readonly string version = "xdc-0.7.1-dev"; // DLT Node version
 
@@ -124,7 +129,7 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
+                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite] [--maxTransactionsPerBlockToInclude 19980]");
                 Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage]");
                 Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
@@ -149,6 +154,7 @@ namespace DLT
                 Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
                 Console.WriteLine("    --walletPassword\t Specify the password for the wallet (be careful with this)");
                 Console.WriteLine("    --blockStorage\t Specify storage provider for block and transaction storage (SQLite or RocksDB)");
+                Console.WriteLine("    --maxTransactionsPerBlockToInclude\t Number of transactions that the node will include in the block");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -398,7 +404,8 @@ namespace DLT
 
                 cmd_parser.Setup<bool>("onlyShowAddresses").Callback(value => onlyShowAddresses = true).Required();
 
-
+                cmd_parser.Setup<long>("maxTransactionsPerBlockToInclude").Callback(value => maxTransactionsPerBlockToInclude = (ulong)value).Required();
+                
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 

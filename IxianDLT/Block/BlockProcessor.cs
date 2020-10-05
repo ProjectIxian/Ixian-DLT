@@ -904,6 +904,12 @@ namespace DLT
             int txCount = 0;
             int missing = 0;
 
+            if ((ulong)b.transactions.Count > ConsensusConfig.maximumTransactionsPerBlock + 10)
+            {
+                Logging.warn("Block #{0} has more transactions than the maximumTransactionsPerBlock setting {1}/{2}", b.blockNum, b.transactions.Count, ConsensusConfig.maximumTransactionsPerBlock + 10);
+                return BlockVerifyStatus.Invalid;
+            }
+
             Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
             foreach (string txid in b.transactions)
             {
@@ -1066,11 +1072,6 @@ namespace DLT
                 }
             }
 
-            if ((ulong)txCount > ConsensusConfig.maximumTransactionsPerBlock + 10)
-            {
-                Logging.warn("Block #{0} has more transactions than the maximumTransactionsPerBlock setting {1}/{2}", b.blockNum, txCount, ConsensusConfig.maximumTransactionsPerBlock + 10);
-                return BlockVerifyStatus.Invalid;
-            }
             //
             if (!hasAllTransactions)
             {
@@ -2255,7 +2256,7 @@ namespace DLT
             foreach (var transaction in pool_transactions)
             {
                 // Check if we reached the transaction limit for this block
-                if (normal_transactions >= ConsensusConfig.maximumTransactionsPerBlock)
+                if (normal_transactions >= Config.maxTransactionsPerBlockToInclude)
                 {
                     // Limit all other transactions
                     break;
@@ -2363,7 +2364,7 @@ namespace DLT
 
                 if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
                 {
-                    if (normal_transactions >= ConsensusConfig.maximumTransactionsPerBlock - 251)
+                    if (normal_transactions >= Config.maxTransactionsPerBlockToInclude - 251)
                     {
                         continue;
                     }
