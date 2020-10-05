@@ -208,7 +208,9 @@ namespace DLTNode
 
             if (noStart == false)
             {
-                Console.WriteLine("Ixian DLT is stopping...");
+                ConsoleHelpers.verboseConsoleOutput = true;
+                Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
+                Console.WriteLine("Ixian DLT is stopping, please wait...");
             }
 
             onStop();
@@ -219,7 +221,9 @@ namespace DLTNode
             bool verboseConsoleOutputSetting = ConsoleHelpers.verboseConsoleOutput;
             ConsoleHelpers.verboseConsoleOutput = true;
 
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
             Console.WriteLine(string.Format("IXIAN DLT {0} ({1})", Config.version, CoreConfig.version));
+            Console.ResetColor();
 
             // Check for critical files in the exe dir
             checkRequiredFiles();
