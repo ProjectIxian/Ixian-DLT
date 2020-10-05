@@ -239,6 +239,10 @@ namespace DLT
             // Returns true if connection to matching blocknum range database is established
             private bool seekDatabase(ulong blocknum = 0, bool cache = false)
             {
+                if(!running)
+                {
+                    return false;
+                }
                 lock (storageLock)
                 {
                     ulong db_blocknum = ((ulong)(blocknum / Config.maxBlocksPerDatabase)) * Config.maxBlocksPerDatabase;
@@ -1196,7 +1200,22 @@ namespace DLT
 
             protected override void shutdown()
             {
-                // does nothing for this provider
+                lock(connectionCache)
+                {
+                    sqlConnection = null;
+                    foreach (var entry in connectionCache)
+                    {
+                        SQLiteConnection connection = (SQLiteConnection)entry.Value[0];
+                        connection.Close();
+                        connection.Dispose();
+                        connectionCache.Remove(entry.Key);
+
+                        // Fix for occasional locked database error
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        // End of fix
+                    }
+                }
             }
         }
     }

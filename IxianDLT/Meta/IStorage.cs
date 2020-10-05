@@ -14,7 +14,7 @@ namespace DLT
             protected string pathBase;
             // Threading
             private Thread thread = null;
-            private bool running = false;
+            protected bool running = false;
             private ThreadLiveCheck TLC;
             private DateTime lastCleanupPass = DateTime.Now;
 
