@@ -71,6 +71,18 @@ namespace DLT.Meta
 
             UpdateVerify.init(Config.checkVersionUrl, Config.checkVersionSeconds);
 
+            // Initialize storage
+            if (storage is null)
+            {
+                storage = IStorage.create(Config.blockStorageProvider);
+            }
+            if (!storage.prepareStorage())
+            {
+                Logging.error("Error while preparing block storage! Aborting.");
+                Program.noStart = true;
+                return;
+            }
+
             NetworkUtils.configureNetwork(Config.externalIp, Config.serverPort);
 
             // Load or Generate the wallet
@@ -307,18 +319,6 @@ namespace DLT.Meta
 
             // Generate presence list
             PresenceList.init(IxianHandler.publicIP, Config.serverPort, node_type);
-
-            // Initialize storage
-            if (storage is null)
-            {
-                storage = IStorage.create(Config.blockStorageProvider);
-            }
-            if(!storage.prepareStorage())
-            {
-                Logging.error("Error while preparing block storage! Aborting.");
-                Program.noStart = true;
-                return;
-            }
 
             ActivityStorage.prepareStorage();
 

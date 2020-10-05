@@ -43,13 +43,14 @@ namespace DLT
 
             public virtual bool prepareStorage()
             {
+                running = true;
                 if (!prepareStorageInternal())
                 {
+                    running = false;
                     return false;
                 }
                 // Start thread
                 TLC = new ThreadLiveCheck();
-                running = true;
                 thread = new Thread(new ThreadStart(threadLoop));
                 thread.Name = "Storage_Thread";
                 thread.Start();
