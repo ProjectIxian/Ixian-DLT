@@ -125,8 +125,6 @@ namespace DLT
                             Logging.warn("Won't unredact chain, block #{0} is already in memory.", block_num_to_unredact);
                             return false;
                         }
-
-                        blocksDictionary.Add(block_num_to_unredact, b);
                     }
 
                     if (!TransactionPool.unredactTransactionsForBlock(b))
@@ -136,8 +134,12 @@ namespace DLT
                     }
 
                     blocks.Insert(0, b);
+                    lock (blocksDictionary)
+                    {
+                        blocksDictionary.Add(block_num_to_unredact, b);
+                    }
 
-                    if(b.powField != null)
+                    if (b.powField != null)
                     {
                         increaseSolvedBlocksCount();
                     }
@@ -694,7 +696,7 @@ namespace DLT
             }
         }
 
-        public void updateBlock(Block block)
+        public void updateBlock(Block block, bool update_storage = true)
         {
             bool compacted = false;
             bool compacted_sigs = false;
@@ -720,7 +722,10 @@ namespace DLT
                 block.pruneSignatures();
             }
 
-            Node.storage.insertBlock(block);
+            if(update_storage)
+            {
+                Node.storage.insertBlock(block);
+            }
 
             if (compacted)
             {
@@ -887,9 +892,9 @@ namespace DLT
                         if (pow_block.powField != null)
                         {
                             decreaseSolvedBlocksCount();
+                            pow_block.powField = null;
+                            updateBlock(pow_block);
                         }
-                        pow_block.powField = null;
-                        updateBlock(pow_block);
                     }
                 }
             }

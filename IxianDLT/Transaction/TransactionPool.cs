@@ -1049,7 +1049,7 @@ namespace DLT
                     Transaction tx = getAppliedTransaction(txid, block.blockNum, true);
                     if(tx == null)
                     {
-                        Logging.error("Error occured while fetching transaction {9} for block #{1} from storage.", txid, block.blockNum);
+                        Logging.error("Error occured while fetching transaction {0} for block #{1} from storage.", txid, block.blockNum);
                         return false;
                     }
                     appliedTransactions.Add(txid, tx);
@@ -1282,9 +1282,10 @@ namespace DLT
                     if (block.powField == null)
                     {
                         Node.blockChain.increaseSolvedBlocksCount();
+                        // Set the powField as a checksum of all miners for this block
+                        block.powField = BitConverter.GetBytes(b.blockNum);
+                        Node.blockChain.updateBlock(block);
                     }
-                    // Set the powField as a checksum of all miners for this block
-                    block.powField = BitConverter.GetBytes(b.blockNum);
                 }
             }
             return true;
@@ -2286,10 +2287,10 @@ namespace DLT
                     if (block.powField == null)
                     {
                         Node.blockChain.increaseSolvedBlocksCount();
+                        // Set the powField as a checksum of all miners for this block
+                        block.powField = BitConverter.GetBytes(sent_block_num);
+                        Node.blockChain.updateBlock(block);
                     }
-                    // Set the powField as a checksum of all miners for this block
-                    block.powField = BitConverter.GetBytes(sent_block_num);
-                    Node.blockChain.updateBlock(block);
                 }
 
             }
