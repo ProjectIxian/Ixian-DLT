@@ -1540,7 +1540,7 @@ namespace DLT
 
                     List<byte[][]> added_signatures = local_block.addSignaturesFrom(block);
 
-                    if(added_signatures.Count > 0)
+                    if(added_signatures != null && added_signatures.Count > 0)
                     {
                         Node.blockChain.updateBlock(local_block, false);
                     }
