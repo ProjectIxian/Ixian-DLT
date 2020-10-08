@@ -2969,54 +2969,12 @@ namespace DLT
 
             IxiNumber totalIxis = Node.walletState.calculateTotalSupply();
             if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> generateStakingTransactions (total supply = {1})", targetBlockNum, totalIxis.getAmount()); }
+
             //Logging.info(String.Format("totalIxis = {0}", totalIxis.ToString()));
-            IxiNumber inflationPA = new IxiNumber("0.1"); // 0.1% inflation per year for the first month
-
-            if (targetBlockNum > 86400) // increase inflation to 5% after 1 month
-            {
-                inflationPA = new IxiNumber("5");
-            }
-
-            IxiNumber newIxis = 0;
-            if (!CoreConfig.isTestNet)
-            {
-                if (totalIxis > new IxiNumber("100000000000"))
-                {
-                    newIxis = 1000;
-                }
-                else if (totalIxis > new IxiNumber("50000000000"))
-                {
-                    // Set the annual inflation to 1% after 50bn IXIs in circulation 
-                    inflationPA = new IxiNumber("1");
-                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
-                }
-                else
-                {
-                    // Calculate the amount of new IXIs to be minted
-                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
-                }
-            }else
-            {
-                if (totalIxis > new IxiNumber("200000000000"))
-                {
-                    newIxis = 1000;
-                }else if (totalIxis > new IxiNumber("50000000000"))
-                {
-                    // Set the annual inflation to 1% after 50bn IXIs in circulation
-                    inflationPA = new IxiNumber("1");
-                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
-                }
-                else
-                {
-                    // Calculate the amount of new IXIs to be minted
-                    newIxis = totalIxis * inflationPA / new IxiNumber("100000000"); // approximation of 2*60*24*365*100
-                }
-            }
-            //Logging.info(String.Format("inflationPA = {0}", inflationPA.ToString()));
-
-            //Logging.info(String.Format("newIxis = {0}", newIxis.ToString()));
+            IxiNumber newIxis = ConsensusConfig.calculateSigningRewardForBlock(targetBlockNum, totalIxis);
             //Console.ForegroundColor = ConsoleColor.Magenta;
             //Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
+
             // Retrieve the list of signature wallets
             List<byte[]> signatureWallets = targetBlock.getSignaturesWalletAddresses();
 
