@@ -1153,6 +1153,12 @@ namespace DLT
             if (tx.type != (int)Transaction.Type.PoWSolution)
                 return false;
 
+            if (Node.blockChain.getLastBlockNum() >= ConsensusConfig.miningExpirationBlockHeight)
+            {
+                Logging.warn("Received a PoW transaction {0}. Mining has stopped after block #{1} but current block height is #{2}.", tx.id, ConsensusConfig.miningExpirationBlockHeight, Node.blockChain.getLastBlockNum());
+                return false;
+            }
+
             // Extract the block number and nonce
             using (MemoryStream m = new MemoryStream(tx.data))
             {
