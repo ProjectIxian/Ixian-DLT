@@ -202,8 +202,8 @@ namespace DLT.Meta
                 walletStorage.writeWallet(new_password);
             }
 
+            Logging.info("Wallet Version: {0}", walletStorage.walletVersion);
             Logging.info("Public Node Address: {0}", Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
-
 
             return true;
         }
