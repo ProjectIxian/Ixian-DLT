@@ -177,7 +177,7 @@ namespace DLTNode
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
 
-            sendData(ProtocolMessageCode.newTransaction, tx.getBytes());
+            sendData(ProtocolMessageCode.transactionData, tx.getBytes());
 
 
             disconnect();

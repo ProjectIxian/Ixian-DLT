@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
 using IXICore.Utils;
@@ -890,7 +891,7 @@ namespace DLT
 
         // Adds a non-applied transaction to the memory pool
         // Returns true if the transaction is added to the pool, false otherwise
-        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint endpoint = null, bool verifyTx = true)
+        public static bool addTransaction(Transaction transaction, bool no_broadcast = false, RemoteEndpoint endpoint = null, bool verifyTx = true, bool force_broadcast = false)
         {
             if (verifyTx)
             {
@@ -934,7 +935,15 @@ namespace DLT
 
             // Broadcast this transaction to the network
             if (no_broadcast == false)
-                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, transaction.getBytes(), null, endpoint);
+            {
+                if(force_broadcast)
+                {
+                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData, transaction.getBytes(), null, endpoint);
+                }else
+                {
+                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id)), endpoint, ProtocolMessageCode.transactionData, transaction.getBytes(), null);
+                }
+            }
 
             // Send transaction events to all subscribed clients
             // TODO: optimize this further to decrease cpu time in the current thread
@@ -954,14 +963,14 @@ namespace DLT
 
             // Send transaction FROM event
             byte[] from_addr = new Address(transaction.pubKey).address;
-            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.newTransaction, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
+            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
 
             // Send transaction TO event
             foreach (var entry in transaction.toList)
             {
                 byte[] addr = new byte[entry.Key.Length];
                 Array.Copy(entry.Key, addr, addr.Length);
-                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.newTransaction, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
+                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
             }
         }
 
@@ -2424,7 +2433,7 @@ namespace DLT
 
                         if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                         {
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newTransaction, t.getBytes(), null);
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData, t.getBytes(), null);
                             entry.addedTimestamp = cur_time;
                             entry.confirmedNodeList.Clear();
                         }

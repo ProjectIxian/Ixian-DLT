@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
 using IXICore.Utils;
@@ -1274,8 +1275,11 @@ namespace DLT
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                                 if (Node.isMasterNode())
                                 {
-                                    // TODO TODO TODO send only added sigs
-                                    ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                    foreach(var sig in added_signatures)
+                                    {
+                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], b.blockChecksum), true);
+                                        ProtocolMessage.broadcastBlockSignature(b.blockNum, b.blockChecksum, sig[0], sig[1], null, null);
+                                    }
                                 }
                             }else if(localNewBlock.signatures.Count != b.signatures.Count)
                             {
@@ -1543,9 +1547,17 @@ namespace DLT
                     if(added_signatures != null && added_signatures.Count > 0)
                     {
                         Node.blockChain.updateBlock(local_block, false);
+                        if (Node.isMasterNode())
+                        {
+                            foreach (var sig in added_signatures)
+                            {
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], block.blockChecksum), true);
+                                ProtocolMessage.broadcastBlockSignature(block.blockNum, block.blockChecksum, sig[0], sig[1], null, null);
+                            }
+                        }
                     }
 
-                    if(!freezeSignatures(local_block))
+                    if (!freezeSignatures(local_block))
                     {
                         return false;
                     }
@@ -1690,8 +1702,9 @@ namespace DLT
                             byte[][] signature_data = localNewBlock.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                             if (signature_data != null) 
                             {
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], localNewBlock.blockChecksum), true);
                                 // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                ProtocolMessage.broadcastNewBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1]);
+                                ProtocolMessage.broadcastBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1]);
                             }
                         }
                     }
@@ -1830,7 +1843,7 @@ namespace DLT
                                 highestNetworkBlockNum = 0;
                             }
 
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.newBlock, current_block.getBytes(false), BitConverter.GetBytes(current_block.blockNum));
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.blockData, current_block.getBytes(false), BitConverter.GetBytes(current_block.blockNum));
 
                             if (Node.miner.searchMode != BlockSearchMode.latestBlock)
                             {
@@ -2582,7 +2595,11 @@ namespace DLT
 
                     removeBlockBlacklist(localNewBlock);
 
-                    localNewBlock.applySignature();
+                    byte[][] signature_data = localNewBlock.applySignature();
+                    if (signature_data != null)
+                    {
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], localNewBlock.blockChecksum), true);
+                    }
 
                     localNewBlock.logBlockDetails();
 

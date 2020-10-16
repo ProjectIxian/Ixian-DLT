@@ -1,6 +1,7 @@
 ﻿using DLT.Meta;
 using DLT.Network;
 using IXICore;
+using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
 using System;
@@ -666,8 +667,9 @@ namespace DLT
                                     byte[][] signature_data = b.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                                     if (signature_data != null)
                                     {
+                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], b.blockChecksum), true);
                                         // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                        ProtocolMessage.broadcastNewBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1]);
+                                        ProtocolMessage.broadcastBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1]);
                                     }
                                 }
                             }

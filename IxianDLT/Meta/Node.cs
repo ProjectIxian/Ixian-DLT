@@ -1,5 +1,6 @@
 ﻿using DLT.Network;
 using DLTNode;
+using DLTNode.Inventory;
 using IXICore;
 using IXICore.Meta;
 using IXICore.Network;
@@ -23,6 +24,7 @@ namespace DLT.Meta
         public static Miner miner = null;
         public static WalletState walletState = null;
         public static IStorage storage = null;
+        public static InventoryCacheDLT inventoryCache = null;
 
         public static StatsConsoleScreen statsConsoleScreen = null;
 
@@ -98,6 +100,8 @@ namespace DLT.Meta
 
             // Initialize the wallet state
             walletState = new WalletState();
+
+            inventoryCache = new InventoryCacheDLT();
         }
 
         private bool initWallet()
@@ -750,6 +754,8 @@ namespace DLT.Meta
                     // Cleanup the presence list
                     PresenceList.performCleanup();
 
+                    inventoryCache.processCache();
+
                     if (update() == false)
                     {
                         IxianHandler.forceShutdown = true;
@@ -890,9 +896,9 @@ namespace DLT.Meta
             return false;
         }
 
-        public override bool addTransaction(Transaction transaction)
+        public override bool addTransaction(Transaction transaction, bool force_broadcast)
         {
-            return TransactionPool.addTransaction(transaction);
+            return TransactionPool.addTransaction(transaction, false, null, true, force_broadcast);
         }
 
         public override Wallet getWallet(byte[] id)

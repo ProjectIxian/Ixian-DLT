@@ -1,5 +1,6 @@
 ﻿using DLT.Meta;
 using IXICore;
+using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
 using IXICore.Utils;
@@ -179,25 +180,25 @@ namespace DLT
             }
 
 
-            public static bool broadcastNewBlockSignature(byte[] signature_data, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            public static bool broadcastBlockSignature(byte[] signature_data, byte[] sig_address, ulong block_num, byte[] block_hash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
                 if (endpoint != null)
                 {
                     if (endpoint.isConnected())
                     {
-                        endpoint.sendData(ProtocolMessageCode.newBlockSignature, signature_data);
+                        endpoint.sendData(ProtocolMessageCode.blockSignature, signature_data);
                         return true;
                     }
                     return false;
                 }
                 else
                 {
-                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlockSignature, signature_data, null, skipEndpoint);
+                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(sig_address, block_num, block_hash), skipEndpoint, ProtocolMessageCode.blockSignature, signature_data, null);
                 }
             }
 
 
-            public static bool broadcastNewBlockSignature(ulong block_num, byte[] block_checksum, byte[] signature, byte[] signer_address, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            public static bool broadcastBlockSignature(ulong block_num, byte[] block_checksum, byte[] signature, byte[] signer_address, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
                 byte[] signature_data = null;
 
@@ -224,7 +225,7 @@ namespace DLT
                 }
                 if (signature_data != null)
                 {
-                    return broadcastNewBlockSignature(signature_data, skipEndpoint, endpoint);
+                    return broadcastBlockSignature(signature_data, signer_address, block_num, block_checksum, skipEndpoint, endpoint);
                 }
 
                 return false;
@@ -232,9 +233,9 @@ namespace DLT
 
 
             // Removes event subscriptions for the provided endpoint
-            private static void handleNewBlockSignature(byte[] data, RemoteEndpoint endpoint)
+            private static void handleBlockSignature(byte[] data, RemoteEndpoint endpoint)
             {
-                if(Node.blockSync.synchronizing)
+                if (Node.blockSync.synchronizing)
                 {
                     return;
                 }
@@ -260,6 +261,8 @@ namespace DLT
                         int sig_addr_len = reader.ReadInt32();
                         byte[] sig_addr = reader.ReadBytes(sig_addr_len);
 
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig_addr, checksum), true);
+
                         ulong last_bh = IxianHandler.getLastBlockHeight();
 
                         lock (Node.blockProcessor.localBlockLock)
@@ -273,7 +276,7 @@ namespace DLT
                             }
                         }
 
-                        if(PresenceList.getPresenceByAddress(sig_addr) == null)
+                        if (PresenceList.getPresenceByAddress(sig_addr) == null)
                         {
                             Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
                             return;
@@ -284,9 +287,10 @@ namespace DLT
                             Node.blockProcessor.acceptLocalNewBlock();
                             if (Node.isMasterNode())
                             {
-                                broadcastNewBlockSignature(data, endpoint);
+                                broadcastBlockSignature(data, sig_addr, block_num, checksum, endpoint);
                             }
-                        }else
+                        }
+                        else
                         {
                             // discard - it might have already been applied
                         }
@@ -388,9 +392,115 @@ namespace DLT
                 if (b.frozenSignatures != null)
                 {
                     broadcastBlockSignatures(b.blockNum, b.blockChecksum, b.frozenSignatures, skip_endpoint, endpoint);
-                }else
+                }
+                else
                 {
                     broadcastBlockSignatures(b.blockNum, b.blockChecksum, b.signatures, skip_endpoint, endpoint);
+                }
+            }
+
+            private static void handleGetBlock(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (!Node.isMasterNode())
+                {
+                    Logging.warn("Block data was requested, but this node isn't a master node");
+                    return;
+                }
+
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_number = reader.ReadUInt64();
+                        byte include_transactions = reader.ReadByte();
+                        bool full_header = false;
+                        try
+                        {
+                            full_header = reader.ReadBoolean();
+                        }
+                        catch (Exception)
+                        {
+
+                        }
+
+                        //Logging.info(String.Format("Block #{0} has been requested.", block_number));
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
+
+                        if (block_number > last_block_height)
+                        {
+                            return;
+                        }
+
+                        Block block = null;
+                        if (block_number == last_block_height)
+                        {
+                            bool haveLock = false;
+                            try
+                            {
+                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                                if (!haveLock)
+                                {
+                                    throw new TimeoutException();
+                                }
+
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == last_block_height)
+                                {
+                                    block = tmp;
+                                }
+                            }
+                            finally
+                            {
+                                if (haveLock)
+                                {
+                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
+                        }
+
+                        if (block == null)
+                        {
+                            Logging.warn("Unable to find block #{0} in the chain!", block_number);
+                            return;
+                        }
+                        //Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
+                        // Send the block
+
+                        if (include_transactions == 1)
+                        {
+                            handleGetBlockTransactions(block_number, false, endpoint);
+                        }
+                        else if (include_transactions == 2)
+                        {
+                            handleGetBlockTransactions(block_number, true, endpoint);
+                        }
+
+                        if (!Node.blockProcessor.verifySigFreezedBlock(block))
+                        {
+                            Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
+                        }
+
+                        bool frozen_sigs_only = true;
+
+                        if (block_number + 5 > IxianHandler.getLastBlockHeight())
+                        {
+                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
+                            {
+                                frozen_sigs_only = false;
+                            }
+                        }
+
+                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
+                    }
                 }
             }
 
@@ -401,16 +511,20 @@ namespace DLT
                 // Get the requested block and corresponding signatures
                 Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
 
-                if(b == null || !b.blockChecksum.SequenceEqual(checksum))
+                if (b == null || !b.blockChecksum.SequenceEqual(checksum))
                 {
                     // likely forked
+                    if(b != null)
+                    {
+                        Logging.warn("Received forked block signature for block {0}", blockNum);
+                    }
                     return;
                 }
 
                 broadcastBlockSignatures(b, null, endpoint);
             }
 
-            
+
             private static void handleSigfreezedBlockSignatures(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))
@@ -425,7 +539,7 @@ namespace DLT
                         ulong last_block_height = IxianHandler.getLastBlockHeight();
 
                         Block target_block = Node.blockChain.getBlock(block_num, true);
-                        if(target_block == null)
+                        if (target_block == null)
                         {
                             if (block_num == last_block_height + 1)
                             {
@@ -439,7 +553,8 @@ namespace DLT
                                 Logging.warn("Target block {0} missing", block_num);
                             }
                             return;
-                        }else if(!target_block.blockChecksum.SequenceEqual(checksum))
+                        }
+                        else if (!target_block.blockChecksum.SequenceEqual(checksum))
                         {
                             // incorrect target block
                             Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, checksum);
@@ -496,6 +611,8 @@ namespace DLT
                                 int addr_len = reader.ReadInt32();
                                 byte[] addr = reader.ReadBytes(addr_len);
 
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
+
                                 dummy_block.addSignature(sig, addr);
                             }
 
@@ -524,7 +641,7 @@ namespace DLT
 
                         if (block != null)
                         {
-                            endpoint.sendData(ProtocolMessageCode.newBlock, block.getBytes(full_header), BitConverter.GetBytes(block.blockNum));
+                            endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header), BitConverter.GetBytes(block.blockNum));
 
                             if (include_segments > 0)
                             {
@@ -538,7 +655,7 @@ namespace DLT
 
                                     Block segment_block = Node.blockChain.getBlock(segment.blockNum, true);
 
-                                    endpoint.sendData(ProtocolMessageCode.newBlock, segment_block.getBytes(), BitConverter.GetBytes(segment.blockNum));
+                                    endpoint.sendData(ProtocolMessageCode.blockData, segment_block.getBytes(), BitConverter.GetBytes(segment.blockNum));
                                 }
                             }
                         }
@@ -625,7 +742,8 @@ namespace DLT
                     try
                     {
                         cf = new Cuckoo(filter);
-                    } catch(Exception)
+                    }
+                    catch (Exception)
                     {
                         Logging.warn("The Cuckoo filter in the getPIT message was invalid or corrupted!");
                         return;
@@ -635,23 +753,23 @@ namespace DLT
                     {
                         return;
                     }
-                    if(b.version < BlockVer.v6)
+                    if (b.version < BlockVer.v6)
                     {
                         Logging.warn("Neighbor {0} requested PIT information for block {0}, which was below the minimal PIT version.", endpoint.fullAddress, block_num);
                         return;
                     }
                     PrefixInclusionTree pit = new PrefixInclusionTree(44, 3);
                     List<string> interesting_transactions = new List<string>();
-                    foreach(var tx in b.transactions)
+                    foreach (var tx in b.transactions)
                     {
                         pit.add(tx);
-                        if(cf.Contains(Encoding.UTF8.GetBytes(tx)))
+                        if (cf.Contains(Encoding.UTF8.GetBytes(tx)))
                         {
                             interesting_transactions.Add(tx);
                         }
                     }
                     // make sure we ended up with the correct PIT
-                    if(!b.pitChecksum.SequenceEqual(pit.calculateTreeHash()))
+                    if (!b.pitChecksum.SequenceEqual(pit.calculateTreeHash()))
                     {
                         // This is a serious error, but I am not sure how to respond to it right now.
                         Logging.error("Reconstructed PIT for block {0} does not match the checksum in block header!", block_num);
@@ -671,18 +789,18 @@ namespace DLT
 
             private static void broadcastBlockHeaderTransactions(Block b, RemoteEndpoint endpoint)
             {
-                if(!endpoint.isConnected())
+                if (!endpoint.isConnected())
                 {
                     return;
                 }
 
-                foreach(var txid in b.transactions)
+                foreach (var txid in b.transactions)
                 {
                     Transaction t = TransactionPool.getAppliedTransaction(txid, b.blockNum, true);
 
                     if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionFrom, new Address(t.pubKey).address))
                     {
-                        endpoint.sendData(ProtocolMessageCode.newTransaction, t.getBytes(true), null);
+                        endpoint.sendData(ProtocolMessageCode.transactionData, t.getBytes(true), null);
                     }
                     else
                     {
@@ -690,7 +808,7 @@ namespace DLT
                         {
                             if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionTo, entry.Key))
                             {
-                                endpoint.sendData(ProtocolMessageCode.newTransaction, t.getBytes(true), null);
+                                endpoint.sendData(ProtocolMessageCode.transactionData, t.getBytes(true), null);
                             }
                         }
                     }
@@ -755,7 +873,7 @@ namespace DLT
 
             public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
-                if(!Node.isMasterNode())
+                if (!Node.isMasterNode())
                 {
                     return true;
                 }
@@ -763,14 +881,14 @@ namespace DLT
                 {
                     if (endpoint.isConnected())
                     {
-                        endpoint.sendData(ProtocolMessageCode.newBlock, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
+                        endpoint.sendData(ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
                         return true;
                     }
                     return false;
                 }
                 else
                 {
-                    return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.newBlock, b.getBytes(false), BitConverter.GetBytes(b.blockNum), skipEndpoint);
+                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemBlock(b.blockChecksum, b.blockNum), skipEndpoint, ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
                 }
             }
 
@@ -828,7 +946,7 @@ namespace DLT
 
             public static void syncWalletStateNeighbor(string neighbor)
             {
-                if(NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1], null) == false)
+                if (NetworkClientManager.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1], null) == false)
                 {
                     NetworkServer.sendToClient(neighbor, ProtocolMessageCode.syncWalletState, new byte[1], null);
                 }
@@ -867,7 +985,7 @@ namespace DLT
                         writer.Write(chunk.blockNum);
                         writer.Write(chunk.chunkNum);
                         writer.Write(chunk.wallets.Length);
-                        foreach(Wallet w in chunk.wallets)
+                        foreach (Wallet w in chunk.wallets)
                         {
                             writer.Write(w.id.Length);
                             writer.Write(w.id);
@@ -877,7 +995,8 @@ namespace DLT
                             {
                                 writer.Write(w.data.Length);
                                 writer.Write(w.data);
-                            }else
+                            }
+                            else
                             {
                                 writer.Write((int)0);
                             }
@@ -1003,74 +1122,7 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlock:
                             {
-                                if (!Node.isMasterNode())
-                                {
-                                    Logging.warn("Block data was requested, but this node isn't a master node");
-                                    return;
-                                }
-
-                                if (Node.blockSync.synchronizing)
-                                {
-                                    return;
-                                }
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        ulong block_number = reader.ReadUInt64();
-                                        byte include_transactions = reader.ReadByte();
-                                        bool full_header = false;
-                                        try
-                                        {
-                                            full_header = reader.ReadBoolean();
-                                        }catch(Exception)
-                                        {
-
-                                        }
-
-                                        //Logging.info(String.Format("Block #{0} has been requested.", block_number));
-
-                                        if (block_number > IxianHandler.getLastBlockHeight())
-                                        {
-                                            return;
-                                        }
-
-                                        Block block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
-                                        if (block == null)
-                                        {
-                                            Logging.warn(String.Format("Unable to find block #{0} in the chain!", block_number));
-                                            return;
-                                        }
-                                        //Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
-                                        // Send the block
-
-                                        if(include_transactions == 1)
-                                        {
-                                            handleGetBlockTransactions(block_number, false, endpoint);
-                                        }
-                                        else if(include_transactions == 2)
-                                        {
-                                            handleGetBlockTransactions(block_number, true, endpoint);
-                                        }
-
-                                        if (!Node.blockProcessor.verifySigFreezedBlock(block))
-                                        {
-                                            Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
-                                        }
-
-                                        bool frozen_sigs_only = true;
-
-                                        if(block_number + 5 > IxianHandler.getLastBlockHeight())
-                                        {
-                                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
-                                            {
-                                                frozen_sigs_only = false;
-                                            }
-                                        }
-
-                                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
-                                    }
-                                }
+                                handleGetBlock(data, endpoint);
                             }
                             break;
 
@@ -1134,7 +1186,7 @@ namespace DLT
                                         Transaction transaction = null;
 
                                         // Check for a transaction corresponding to this id
-                                        if(block_num == 0)
+                                        if (block_num == 0)
                                         {
                                             transaction = TransactionPool.getUnappliedTransaction(txid);
                                         }
@@ -1158,6 +1210,7 @@ namespace DLT
                             break;
 
                         case ProtocolMessageCode.newTransaction:
+                        case ProtocolMessageCode.transactionData:
                             {
                                 /*if(TransactionPool.checkSocketTransactionLimits(socket) == true)
                                 {
@@ -1166,19 +1219,11 @@ namespace DLT
                                 }*/
 
                                 Transaction transaction = new Transaction(data);
-                                if (transaction == null)
-                                    return;
-                                TransactionPool.addTransaction(transaction, false, endpoint);
-                            }
-                            break;
-
-                        case ProtocolMessageCode.transactionData:
-                            {
-                                Transaction transaction = new Transaction(data);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id), true);
                                 if (transaction == null)
                                     return;
 
-                                //
+                                bool no_broadcast = false;
                                 if (!Node.blockSync.synchronizing)
                                 {
                                     if (transaction.type == (int)Transaction.Type.StakingReward)
@@ -1186,10 +1231,13 @@ namespace DLT
                                         // Skip received staking transactions if we're not synchronizing
                                         return;
                                     }
+                                }else
+                                {
+                                    no_broadcast = true;
                                 }
 
                                 // Add the transaction to the pool
-                                TransactionPool.addTransaction(transaction, true, endpoint);                               
+                                TransactionPool.addTransaction(transaction, no_broadcast, endpoint);
                             }
                             break;
 
@@ -1204,13 +1252,13 @@ namespace DLT
                                         bool byeV1 = false;
                                         try
                                         {
-                                            ProtocolByeCode byeCode = (ProtocolByeCode) reader.ReadInt32();
+                                            ProtocolByeCode byeCode = (ProtocolByeCode)reader.ReadInt32();
                                             string byeMessage = reader.ReadString();
                                             string byeData = reader.ReadString();
 
                                             byeV1 = true;
 
-                                            switch(byeCode)
+                                            switch (byeCode)
                                             {
                                                 case ProtocolByeCode.bye: // all good
                                                     break;
@@ -1249,7 +1297,7 @@ namespace DLT
                                         {
 
                                         }
-                                        if(byeV1)
+                                        if (byeV1)
                                         {
                                             return;
                                         }
@@ -1272,6 +1320,7 @@ namespace DLT
                         case ProtocolMessageCode.blockData:
                             {
                                 Block block = new Block(data);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.block, block.blockChecksum, true);
                                 if (endpoint.blockHeight < block.blockNum)
                                 {
                                     endpoint.blockHeight = block.blockNum;
@@ -1284,7 +1333,7 @@ namespace DLT
 
                         case ProtocolMessageCode.syncWalletState:
                             {
-                                if(Node.blockSync.startOutgoingWSSync(endpoint) == false)
+                                if (Node.blockSync.startOutgoingWSSync(endpoint) == false)
                                 {
                                     Logging.warn(String.Format("Unable to start synchronizing with neighbor {0}",
                                         endpoint.presence.addresses[0].address));
@@ -1339,7 +1388,7 @@ namespace DLT
                                     }
                                 }
                             }
-                            
+
                             break;
 
                         case ProtocolMessageCode.getWalletStateChunk:
@@ -1364,14 +1413,14 @@ namespace DLT
                                         ulong block_num = reader.ReadUInt64();
                                         int chunk_num = reader.ReadInt32();
                                         int num_wallets = reader.ReadInt32();
-                                        if(num_wallets > CoreConfig.walletStateChunkSplit)
+                                        if (num_wallets > CoreConfig.walletStateChunkSplit)
                                         {
                                             Logging.error(String.Format("Received {0} wallets in a chunk. ( > {1}).",
                                                 num_wallets, CoreConfig.walletStateChunkSplit));
                                             return;
                                         }
                                         Wallet[] wallets = new Wallet[num_wallets];
-                                        for(int i =0;i<num_wallets;i++)
+                                        for (int i = 0; i < num_wallets; i++)
                                         {
                                             int w_idLen = reader.ReadInt32();
                                             byte[] w_id = reader.ReadBytes(w_idLen);
@@ -1426,17 +1475,22 @@ namespace DLT
                         case ProtocolMessageCode.keepAlivePresence:
                             {
                                 byte[] address = null;
-                                bool updated = PresenceList.receiveKeepAlive(data, out address, endpoint);
+                                long last_seen = 0;
+                                byte[] device_id = null;
+
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, Crypto.sha512sqTrunc(data), true);
+
+                                bool updated = PresenceList.receiveKeepAlive(data, out address, out last_seen, out device_id, endpoint);
 
                                 // If a presence entry was updated, broadcast this message again
                                 if (updated)
                                 {
-                                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
+                                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(Crypto.sha512sqTrunc(data), last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, data, address);
 
                                     // Send this keepalive message to all subscribed clients
                                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
                                 }
-                                
+
                             }
                             break;
 
@@ -1466,6 +1520,21 @@ namespace DLT
                                             Logging.warn(string.Format("Node has requested presence information about {0} that is not in our PL.", Base58Check.Base58CheckEncoding.EncodePlain(wallet)));
                                         }
                                     }
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.getKeepAlive:
+                            using (MemoryStream m = new MemoryStream(data))
+                            {
+                                using (BinaryReader reader = new BinaryReader(m))
+                                {
+                                    int address_len = (int)reader.ReadVarInt();
+                                    byte[] address = reader.ReadBytes(address_len);
+                                    int device_len = (int)reader.ReadVarInt();
+                                    byte[] device = reader.ReadBytes(device_len);
+
+                                    endpoint.sendData(ProtocolMessageCode.keepAlivePresence, PresenceList.getPresenceByAddress(address).addresses.Find(x => x.device.SequenceEqual(device)).getKeepAliveBytes(address));
                                 }
                             }
                             break;
@@ -1519,6 +1588,7 @@ namespace DLT
                                             }
                                             byte[] txData = reader.ReadBytes(len);
                                             Transaction tx = new Transaction(txData);
+                                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(tx.id), true);
                                             totalTxCount++;
                                             if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                                             {
@@ -1527,7 +1597,8 @@ namespace DLT
                                             if (!TransactionPool.addTransaction(tx, true))
                                             {
                                                 Logging.error(String.Format("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id));
-                                            }else
+                                            }
+                                            else
                                             {
                                                 processedTxCount++;
                                             }
@@ -1552,9 +1623,9 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.newBlockSignature:
+                        case ProtocolMessageCode.blockSignature:
                             {
-                                handleNewBlockSignature(data, endpoint);
+                                handleBlockSignature(data, endpoint);
                             }
                             break;
 
@@ -1599,16 +1670,126 @@ namespace DLT
                             }
                             break;
 
+                        case ProtocolMessageCode.inventory:
+                            handleInventory(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getBlockSignature:
+                            handleGetBlockSignature(data, endpoint);
+                            break;
+
                         default:
                             break;
                     }
 
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Logging.error(string.Format("Error parsing network message. Details: {0}", e.ToString()));
                 }
-                
+            }
+
+            static void handleGetBlockSignature(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_number = reader.ReadVarUInt();
+                        int address_len = (int)reader.ReadVarInt();
+                        byte[] address = reader.ReadBytes(address_len);
+
+                        //Logging.info(String.Format("Block sig for #{0} has been requested.", block_number));
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
+
+                        if (block_number > last_block_height)
+                        {
+                            return;
+                        }
+
+                        Block block = null;
+                        if (block_number == last_block_height)
+                        {
+                            bool haveLock = false;
+                            try
+                            {
+                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                                if (!haveLock)
+                                {
+                                    throw new TimeoutException();
+                                }
+
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == last_block_height)
+                                {
+                                    block = tmp;
+                                }
+                            }
+                            finally
+                            {
+                                if (haveLock)
+                                {
+                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
+                        }
+
+                        if (block == null)
+                        {
+                            Logging.warn("Unable to find block #{0} in the chain for fetching signature!", block_number);
+                            return;
+                        }
+                        //Logging.info(String.Format("Block signature for #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
+                        byte[] signature = block.getNodeSignature(address);
+                        broadcastBlockSignature(block_number, block.blockChecksum, signature, address, null, endpoint);
+                    }
+                }
+            }
+
+            static void handleInventory(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong item_count = reader.ReadVarUInt();
+                        if(item_count > (ulong)CoreConfig.maxInventoryItems)
+                        {
+                            Logging.warn("Received {0} inventory items, max items is {1}", item_count, CoreConfig.maxInventoryItems);
+                            item_count = (ulong)CoreConfig.maxInventoryItems;
+                        }
+                        for(ulong i = 0; i < item_count; i++)
+                        {
+                            ulong len = reader.ReadVarUInt();
+                            byte[] item_bytes = reader.ReadBytes((int)len);
+                            InventoryItem item = InventoryCache.decodeInventoryItem(item_bytes);
+                            if(item.type == InventoryItemTypes.transaction)
+                            {
+                                PendingTransactions.increaseReceivedCount(UTF8Encoding.UTF8.GetString(item.hash), endpoint.presence.wallet);
+                            }
+                            PendingInventoryItem pii = Node.inventoryCache.get(item.type, item.hash);
+                            bool process = false;
+                            if(pii == null)
+                            {
+                                process = true;
+                            }
+                            pii = Node.inventoryCache.add(item, endpoint);
+                            if (process)
+                            {
+                                Node.inventoryCache.processInventoryItem(pii);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
