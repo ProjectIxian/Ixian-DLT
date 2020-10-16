@@ -1303,23 +1303,25 @@ namespace DLT
                     {
                         int blockSigCount = b.getSignatureCount();
                         int localBlockSigCount = localNewBlock.getSignatureCount();
-                        if(blockSigCount > localBlockSigCount && b.blockNum == localNewBlock.blockNum)
+                        if(b.blockNum == localNewBlock.blockNum)
                         {
-                            Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
-                            localNewBlock = b;
-                            currentBlockStartTime = DateTime.UtcNow;
-                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                            acceptLocalNewBlock();
-                            ProtocolMessage.broadcastNewBlock(b, endpoint, null);
-                        }
-                        else
-                        {
-                            if (!Node.isMasterNode())
+                            if(blockSigCount > localBlockSigCount
+                                || (blockSigCount == localBlockSigCount && b.transactions.Count() >= localNewBlock.transactions.Count()))
+                            {
+                                Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                                localNewBlock = b;
+                                currentBlockStartTime = DateTime.UtcNow;
+                                lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                                acceptLocalNewBlock();
+                                ProtocolMessage.broadcastNewBlock(b, endpoint, null);
                                 return;
-                            // discard with a warning, likely spam, resend our local block
-                            Logging.info(String.Format("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
-                            ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
+                            }
                         }
+                        if (!Node.isMasterNode())
+                            return;
+                        // discard with a warning, likely spam, resend our local block
+                        Logging.info(String.Format("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                        ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
                     }
                 }
                 else // localNewBlock == null
