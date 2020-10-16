@@ -614,9 +614,6 @@ namespace DLTNode
             networkArray.Add("My External IP", IxianHandler.publicIP);
             networkArray.Add("My Listening Port", IxianHandler.publicPort);
             //networkArray.Add("Listening interface", context.Request.RemoteEndPoint.Address.ToString());
-            networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
-                + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                + ", Storage: " + Node.storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount() + ", Pending Transactions: " + PendingTransactions.pendingTransactionCount());
             networkArray.Add("Node Deprecation Block Limit", Config.nodeDeprecationBlock);
 
             string dltStatus = "Active";
@@ -652,6 +649,13 @@ namespace DLTNode
 
             if (parameters.ContainsKey("verbose"))
             {
+                networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
+                    + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
+                    + ", Storage: " + Node.storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount()
+                    + ", Pending Transactions: " + PendingTransactions.pendingTransactionCount()
+                    + ", Inventory: " + Node.inventoryCache.getItemCount()
+                    + ", Activity: " + ActivityStorage.getQueuedQueryCount());
+
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
 
                 networkArray.Add("Wallets", Node.walletState.numWallets);
@@ -660,15 +664,14 @@ namespace DLTNode
                 networkArray.Add("Applied TX Count", TransactionPool.getAppliedTransactionCount());
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactionCount());
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
+
+                networkArray.Add("Masters", PresenceList.countPresences('M'));
+                networkArray.Add("Relays", PresenceList.countPresences('R'));
+                networkArray.Add("Clients", PresenceList.countPresences('C'));
             }
 
             networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
             networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients(true));
-
-            networkArray.Add("Masters", PresenceList.countPresences('M'));
-            networkArray.Add("Relays", PresenceList.countPresences('R'));
-            networkArray.Add("Clients", PresenceList.countPresences('C'));
-
 
             return new JsonResponse { result = networkArray, error = error };
         }
