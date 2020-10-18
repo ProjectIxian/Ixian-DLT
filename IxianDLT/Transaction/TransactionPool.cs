@@ -20,6 +20,12 @@ namespace DLT
         static readonly Dictionary<string, Transaction> appliedTransactions = new Dictionary<string, Transaction>();
         static readonly Dictionary<string, Transaction> unappliedTransactions = new Dictionary<string, Transaction>();
 
+        static readonly List<byte[]> premineAddresses = new List<byte[]>()
+        {
+            Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"),
+            Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz")
+        };
+
         static TransactionPool()
         {
         }
@@ -166,11 +172,8 @@ namespace DLT
                 return true;
             }
 
-            List<byte[]> premine_addresses = new List<byte[]>();
-            premine_addresses.Add(Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"));
-            premine_addresses.Add(Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"));
             byte[] tx_address = (new Address(transaction.pubKey)).address;
-            foreach (byte[] premine_address in premine_addresses)
+            foreach (byte[] premine_address in premineAddresses)
             {
                 if (tx_address.SequenceEqual(premine_address))
                 {
