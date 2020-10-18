@@ -86,8 +86,8 @@ namespace DLT
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
-            public static readonly int floodMaxQueuedMessages = 5000; // Max queued messages in NetworkQueue before isolating the node for flood prevention
-            public static readonly int floodDisableMaxQueuedMessages = 100; // Max queued messages in NetworkQueue before disabling flood prevention
+            public static readonly int floodMaxQueuedMessages = 20000; // Max queued messages in NetworkQueue before isolating the node for flood prevention
+            public static readonly int floodDisableMaxQueuedMessages = 5000; // Max queued messages in NetworkQueue before disabling flood prevention
 
             // Debugging values
             public static string networkDumpFile = "";
@@ -129,16 +129,16 @@ namespace DLT
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite] [--maxTransactionsPerBlockToInclude 19980]");
-                Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage]");
-                Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
+                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite] [--maxTxPerBlock 19980]");
+                Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
+                Console.WriteLine(" [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
                 Console.WriteLine("    -t\t\t\t Starts node in testnet mode");
                 Console.WriteLine("    -s\t\t\t Saves full history");
                 Console.WriteLine("    -x\t\t\t Change password of an existing wallet");
-                Console.WriteLine("    -c\t\t\t Removes blockchain cache, walletstate cache, peers.dat and ixian.log files before starting");
+                Console.WriteLine("    -c\t\t\t Removes blockchain, walletstate, peers.dat, logs and other files before starting");
                 Console.WriteLine("    -p\t\t\t Port to listen on");
                 Console.WriteLine("    -a\t\t\t HTTP/API port to listen on");
                 Console.WriteLine("    -i\t\t\t External IP Address to use");
@@ -154,14 +154,13 @@ namespace DLT
                 Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
                 Console.WriteLine("    --walletPassword\t Specify the password for the wallet (be careful with this)");
                 Console.WriteLine("    --blockStorage\t Specify storage provider for block and transaction storage (SQLite or RocksDB)");
-                Console.WriteLine("    --maxTransactionsPerBlockToInclude\t Number of transactions that the node will include in the block");
+                Console.WriteLine("    --maxTxPerBlock\t Number of transactions that the node will include in the block");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
                 Console.WriteLine("    --netdump\t\t Enable netdump for debugging purposes");
                 Console.WriteLine("    --benchmarkKeys\t Perform a key-generation benchmark, then exit");
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
-                Console.WriteLine("    --forceTimeOffset\t Forces network time offset to a certain value");
 				Console.WriteLine("    --verifyStorage\t Start node with full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
                 Console.WriteLine("    --optimizeDBStorage\t RocksDB only: manually compacts all databases before starting the node. MAY TAKE SOME TIME!");
@@ -404,7 +403,7 @@ namespace DLT
 
                 cmd_parser.Setup<bool>("onlyShowAddresses").Callback(value => onlyShowAddresses = true).Required();
 
-                cmd_parser.Setup<long>("maxTransactionsPerBlockToInclude").Callback(value => maxTransactionsPerBlockToInclude = (ulong)value).Required();
+                cmd_parser.Setup<long>("maxTxPerBlock").Callback(value => maxTransactionsPerBlockToInclude = (ulong)value).Required();
                 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
@@ -434,7 +433,7 @@ namespace DLT
                     bool do_clean = false;
                     if (start_clean > 1)
                     {
-                        Logging.warn("Ixian DLT node started with the forced clean parameter (-c -c).");
+                        Logging.warn("Ixian DLT node started with the forced clean parameter (-c -f).");
                         do_clean = true;
                     }
                     else
