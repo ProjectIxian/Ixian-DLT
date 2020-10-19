@@ -649,12 +649,18 @@ namespace DLTNode
 
             if (parameters.ContainsKey("verbose"))
             {
-                networkArray.Add("Queues", "Rcv: " + NetworkQueue.getQueuedMessageCount() + ", RcvTx: " + NetworkQueue.getTxQueuedMessageCount()
-                    + ", SendClients: " + NetworkServer.getQueuedMessageCount() + ", SendServers: " + NetworkClientManager.getQueuedMessageCount()
-                    + ", Storage: " + Node.storage.getQueuedQueryCount() + ", Logging: " + Logging.getRemainingStatementsCount()
-                    + ", Pending Transactions: " + PendingTransactions.pendingTransactionCount()
-                    + ", Inventory: " + Node.inventoryCache.getItemCount()
-                    + ", Activity: " + ActivityStorage.getQueuedQueryCount());
+                Dictionary<string, object> queues = new Dictionary<string, object>();
+                queues.Add("Rcv", NetworkQueue.getQueuedMessageCount());
+                queues.Add("RcvTx", NetworkQueue.getTxQueuedMessageCount());
+                queues.Add("SendClients", NetworkServer.getQueuedMessageCount());
+                queues.Add("SendServers", NetworkClientManager.getQueuedMessageCount());
+                queues.Add("Logging", Logging.getRemainingStatementsCount());
+                queues.Add("Pending Transactions", PendingTransactions.pendingTransactionCount());
+                queues.Add("Storage", Node.storage.getQueuedQueryCount());
+                queues.Add("Inventory", Node.inventoryCache.getItemCount());
+                queues.Add("Activity", ActivityStorage.getQueuedQueryCount());
+
+                networkArray.Add("Queues", queues);
 
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
 
