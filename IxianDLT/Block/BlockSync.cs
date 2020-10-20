@@ -807,7 +807,7 @@ namespace DLT
 
             if (!Config.recoverFromFile)
             {
-                CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], IxianHandler.getHighestKnownNetworkBlockHeight());
+                CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getUnappliedTransactions, new byte[1], IxianHandler.getHighestKnownNetworkBlockHeight());
 
                 Node.miner.start();
 
