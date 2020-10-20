@@ -109,7 +109,7 @@ namespace DLT
                             if (txs_in_chunk > 0)
                             {
                                 // Send a chunk
-                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                                endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
                             }
                         }
                     }
@@ -151,7 +151,7 @@ namespace DLT
 #if TRACE_MEMSTREAM_SIZES
                         Logging.info(String.Format("NetworkProtocol::handleGetUnappliedTransactions: {0}", mOut.Length));
 #endif
-                            endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                            endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
                         }
                     }
                 }
@@ -300,6 +300,8 @@ namespace DLT
 
             public static void broadcastBlockSignatures(ulong block_num, byte[] block_checksum, List<byte[][]> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
+                int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
+
                 int sig_count = signatures.Count();
 
                 if (sig_count == 0)
@@ -309,20 +311,33 @@ namespace DLT
 
                 using (MemoryStream mOut = new MemoryStream())
                 {
-                    using (BinaryWriter writer = new BinaryWriter(mOut))
+                    for(int i = 0; i < sig_count;)
                     {
-                        writer.Write(block_num);
-
-                        writer.Write(block_checksum.Length);
-                        writer.Write(block_checksum);
-
-                        writer.Write(sig_count);
-
-                        for (int i = 0; i < sig_count; i++)
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
-                            byte[][] sig = signatures[i];
-                            if (sig != null)
+                            writer.Write(block_num);
+
+                            writer.Write(block_checksum.Length);
+                            writer.Write(block_checksum);
+
+                            int next_sig_count;
+                            if (sig_count - i > max_sigs_per_chunk)
                             {
+                                next_sig_count = max_sigs_per_chunk;
+                            }
+                            else
+                            {
+                                next_sig_count = sig_count - i;
+                            }
+                            writer.Write(next_sig_count);
+
+                            for (int j = 0; j < next_sig_count; i++, j++)
+                            {
+                                byte[][] sig = signatures[i];
+                                if (sig == null)
+                                {
+                                    continue;
+                                }
                                 // sig
                                 writer.Write(sig[0].Length);
                                 writer.Write(sig[0]);
@@ -339,12 +354,11 @@ namespace DLT
                         // Send a chunk
                         if (endpoint != null)
                         {
-                            if (endpoint.isConnected())
+                            if (!endpoint.isConnected())
                             {
-                                endpoint.sendData(ProtocolMessageCode.blockSignatures, mOut.ToArray());
                                 return;
                             }
-                            return;
+                            endpoint.sendData(ProtocolMessageCode.blockSignatures, mOut.ToArray(), BitConverter.GetBytes(block_num));
                         }
                         else
                         {
@@ -353,6 +367,8 @@ namespace DLT
                     }
                 }
             }
+
+
 
             private static void handleGetRandomPresences(byte[] data, RemoteEndpoint endpoint)
             {
@@ -599,6 +615,11 @@ namespace DLT
 
                             int sig_count = reader.ReadInt32();
 
+                            if(sig_count > ConsensusConfig.maximumBlockSigners)
+                            {
+                                sig_count = ConsensusConfig.maximumBlockSigners;
+                            }
+
                             Block dummy_block = new Block();
                             dummy_block.blockNum = block_num;
                             dummy_block.blockChecksum = checksum;
@@ -614,6 +635,11 @@ namespace DLT
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
 
                                 dummy_block.addSignature(sig, addr);
+
+                                if(m.Position == m.Length)
+                                {
+                                    break;
+                                }
                             }
 
                             Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
@@ -1524,19 +1550,12 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.getKeepAlive:
-                            using (MemoryStream m = new MemoryStream(data))
-                            {
-                                using (BinaryReader reader = new BinaryReader(m))
-                                {
-                                    int address_len = (int)reader.ReadVarInt();
-                                    byte[] address = reader.ReadBytes(address_len);
-                                    int device_len = (int)reader.ReadVarInt();
-                                    byte[] device = reader.ReadBytes(device_len);
+                        case ProtocolMessageCode.getKeepAlives:
+                            handleGetKeepAlives(data, endpoint);
+                            break;
 
-                                    endpoint.sendData(ProtocolMessageCode.keepAlivePresence, PresenceList.getPresenceByAddress(address).addresses.Find(x => x.device.SequenceEqual(device)).getKeepAliveBytes(address));
-                                }
-                            }
+                        case ProtocolMessageCode.keepAlivesChunk:
+                            handleKeepAlivesChunk(data, endpoint);
                             break;
 
                         // return 10 random presences of the selected type
@@ -1567,7 +1586,7 @@ namespace DLT
                             }
                             break;
 
-                        case ProtocolMessageCode.transactionsChunk:
+                        case ProtocolMessageCode.blockTransactionsChunk:
                             {
                                 using (MemoryStream m = new MemoryStream(data))
                                 {
@@ -1674,8 +1693,20 @@ namespace DLT
                             handleInventory(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.getBlockSignature:
-                            handleGetBlockSignature(data, endpoint);
+                        case ProtocolMessageCode.getSignatures:
+                            handleGetSignatures(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.signaturesChunk:
+                            handleSignaturesChunk(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getTransactions:
+                            handleGetTransactions(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.transactionsChunk:
+                            handleTransactionsChunk(data, endpoint);
                             break;
 
                         default:
@@ -1689,7 +1720,53 @@ namespace DLT
                 }
             }
 
-            static void handleGetBlockSignature(byte[] data, RemoteEndpoint endpoint)
+            static void broadcastGetSignatures(ulong block_num, List<InventoryItemSignature> sig_list, RemoteEndpoint endpoint)
+            {
+                int sig_count = sig_list.Count;
+                int max_sig_per_chunk = ConsensusConfig.maximumBlockSigners;
+                using (MemoryStream mOut = new MemoryStream(max_sig_per_chunk * 570))
+                {
+                    for (int i = 0; i < sig_count;)
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            writer.WriteVarInt(block_num);
+
+                            int next_sig_count;
+                            if (sig_count - i > max_sig_per_chunk)
+                            {
+                                next_sig_count = max_sig_per_chunk;
+                            }
+                            else
+                            {
+                                next_sig_count = sig_count - i;
+                            }
+
+                            writer.WriteVarInt(next_sig_count);
+
+                            for (int j = 0; j < next_sig_count; i++, j++)
+                            {
+                                InventoryItemSignature sig = sig_list[i];
+
+                                long out_rollback_len = mOut.Length;
+
+                                writer.WriteVarInt(sig.address.Length);
+                                writer.Write(sig.address);
+
+                                if (mOut.Length > CoreConfig.maxMessageSize)
+                                {
+                                    mOut.SetLength(out_rollback_len);
+                                    i--;
+                                    break;
+                                }
+                            }
+                        }
+                        endpoint.sendData(ProtocolMessageCode.getSignatures, mOut.ToArray(), null);
+                    }
+                }
+            }
+
+            static void handleGetSignatures(byte[] data, RemoteEndpoint endpoint)
             {
                 if (Node.blockSync.synchronizing)
                 {
@@ -1700,10 +1777,6 @@ namespace DLT
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         ulong block_number = reader.ReadVarUInt();
-                        int address_len = (int)reader.ReadVarInt();
-                        byte[] address = reader.ReadBytes(address_len);
-
-                        //Logging.info(String.Format("Block sig for #{0} has been requested.", block_number));
 
                         ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
 
@@ -1745,12 +1818,199 @@ namespace DLT
 
                         if (block == null)
                         {
-                            Logging.warn("Unable to find block #{0} in the chain for fetching signature!", block_number);
+                            Logging.warn("Unable to find block #{0} in the chain for fetching signatures!", block_number);
                             return;
                         }
-                        //Logging.info(String.Format("Block signature for #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
-                        byte[] signature = block.getNodeSignature(address);
-                        broadcastBlockSignature(block_number, block.blockChecksum, signature, address, null, endpoint);
+
+                        int sig_count = (int)reader.ReadVarUInt();
+
+                        int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
+
+                        using (MemoryStream mOut = new MemoryStream(max_sigs_per_chunk * 570))
+                        {
+                            for(int i = 0; i < sig_count;)
+                            {
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
+                                {
+                                    writer.WriteVarInt(block.blockNum);
+
+                                    writer.WriteVarInt(block.blockChecksum.Length);
+                                    writer.Write(block.blockChecksum);
+
+                                    int next_sig_count;
+                                    if (sig_count - i > max_sigs_per_chunk)
+                                    {
+                                        next_sig_count = max_sigs_per_chunk;
+                                    }
+                                    else
+                                    {
+                                        next_sig_count = sig_count - i;
+                                    }
+                                    writer.WriteVarInt(next_sig_count);
+
+                                    for (int j = 0; j < next_sig_count; i++, j++)
+                                    {
+                                        int address_len = (int)reader.ReadVarInt();
+                                        byte[] address = reader.ReadBytes(address_len);
+
+                                        byte[] signature = block.getNodeSignature(address);
+                                        if (signature == null)
+                                        {
+                                            continue;
+                                        }
+
+                                        writer.WriteVarInt(signature.Length);
+                                        writer.Write(signature);
+
+                                        writer.WriteVarInt(address_len);
+                                        writer.Write(address);
+                                    }
+                                }
+                                endpoint.sendData(ProtocolMessageCode.signaturesChunk, mOut.ToArray(), null);
+                            }
+                        }
+                    }
+                }
+            }
+
+            private static void handleSignaturesChunk(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_num = reader.ReadVarUInt();
+
+                        int checksum_len = (int)reader.ReadVarUInt();
+                        byte[] checksum = reader.ReadBytes(checksum_len);
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
+
+                        if (block_num > last_block_height)
+                        {
+                            return;
+                        }
+
+                        Block block = null;
+                        if (block_num == last_block_height)
+                        {
+                            bool haveLock = false;
+                            try
+                            {
+                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                                if (!haveLock)
+                                {
+                                    throw new TimeoutException();
+                                }
+
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == last_block_height)
+                                {
+                                    block = tmp;
+                                }
+                            }
+                            finally
+                            {
+                                if (haveLock)
+                                {
+                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block = Node.blockChain.getBlock(block_num, false, false);
+                        }
+
+
+                        if (block == null)
+                        {
+                            // target block missing
+                            Logging.warn("Target block {0} for adding sigs is missing", block_num);
+                            return;
+                        }
+                        else if (!block.blockChecksum.SequenceEqual(checksum))
+                        {
+                            // incorrect target block
+                            Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, checksum);
+                            return;
+                        }
+
+
+                        if (block_num + 5 < last_block_height)
+                        {
+                            // block already sigfreezed, do nothing
+                            return;
+                        }
+
+                        int sig_count = (int)reader.ReadVarUInt();
+
+                        if (sig_count > ConsensusConfig.maximumBlockSigners)
+                        {
+                            sig_count = ConsensusConfig.maximumBlockSigners;
+                        }
+
+                        if(block_num + 5 == last_block_height)
+                        {
+                            // handle currently sigfreezing block differently
+
+                            Block dummy_block = new Block();
+                            dummy_block.blockNum = block_num;
+                            dummy_block.blockChecksum = checksum;
+
+                            for (int i = 0; i < sig_count; i++)
+                            {
+                                int sig_len = (int)reader.ReadVarUInt();
+                                byte[] sig = reader.ReadBytes(sig_len);
+
+                                int addr_len = (int)reader.ReadVarUInt();
+                                byte[] addr = reader.ReadBytes(addr_len);
+
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
+
+                                dummy_block.addSignature(sig, addr);
+
+                                if (m.Position == m.Length)
+                                {
+                                    break;
+                                }
+                            }
+
+                            Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
+                        }
+                        else
+                        {
+                            for (int i = 0; i < sig_count; i++)
+                            {
+                                int sig_len = (int)reader.ReadVarUInt();
+                                byte[] sig = reader.ReadBytes(sig_len);
+
+                                int addr_len = (int)reader.ReadVarUInt();
+                                byte[] addr = reader.ReadBytes(addr_len);
+
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
+
+                                if (PresenceList.getPresenceByAddress(addr) == null)
+                                {
+                                    Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
+                                    continue;
+                                }
+
+                                if (Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, addr, endpoint))
+                                {
+                                    if (Node.isMasterNode())
+                                    {
+                                        broadcastBlockSignature(data, addr, block_num, checksum, endpoint);
+                                    }
+                                }
+
+                                if (m.Position == m.Length)
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        Node.blockProcessor.acceptLocalNewBlock();
                     }
                 }
             }
@@ -1767,7 +2027,14 @@ namespace DLT
                             Logging.warn("Received {0} inventory items, max items is {1}", item_count, CoreConfig.maxInventoryItems);
                             item_count = (ulong)CoreConfig.maxInventoryItems;
                         }
-                        for(ulong i = 0; i < item_count; i++)
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight();
+
+                        Dictionary<ulong, List<InventoryItemSignature>> sig_lists = new Dictionary<ulong, List<InventoryItemSignature>>();
+                        List<InventoryItemKeepAlive> ka_list = new List<InventoryItemKeepAlive>();
+                        List<byte[]> tx_list = new List<byte[]>();
+                        bool request_next_block = false;
+                        for (ulong i = 0; i < item_count; i++)
                         {
                             ulong len = reader.ReadVarUInt();
                             byte[] item_bytes = reader.ReadBytes((int)len);
@@ -1776,18 +2043,379 @@ namespace DLT
                             {
                                 PendingTransactions.increaseReceivedCount(UTF8Encoding.UTF8.GetString(item.hash), endpoint.presence.wallet);
                             }
-                            PendingInventoryItem pii = Node.inventoryCache.get(item.type, item.hash);
-                            bool process = false;
-                            if(pii == null)
+                            PendingInventoryItem pii = Node.inventoryCache.add(item, endpoint);
+                            if (!pii.processed && pii.lastRequested == 0)
                             {
-                                process = true;
-                            }
-                            pii = Node.inventoryCache.add(item, endpoint);
-                            if (process)
-                            {
-                                Node.inventoryCache.processInventoryItem(pii);
+                                // first time we're seeing this inventory item
+                                switch(item.type)
+                                {
+                                    case InventoryItemTypes.keepAlive:
+                                        ka_list.Add((InventoryItemKeepAlive)item);
+                                        break;
+
+                                    case InventoryItemTypes.transaction:
+                                        tx_list.Add(item.hash);
+                                        break;
+
+                                    case InventoryItemTypes.blockSignature:
+                                        var iis = (InventoryItemSignature)item;
+                                        if (!sig_lists.ContainsKey(iis.blockNum))
+                                        {
+                                            sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
+                                        }
+                                        sig_lists[iis.blockNum].Add(iis);
+                                        break;
+
+                                    case InventoryItemTypes.block:
+                                        if (((InventoryItemBlock)item).blockNum <= last_block_height)
+                                        {
+                                            Node.inventoryCache.processInventoryItem(pii);
+                                        }else
+                                        {
+                                            request_next_block = true;
+                                        }
+                                        break;
+
+                                    default:
+                                        Node.inventoryCache.processInventoryItem(pii);
+                                        break;
+                                }
                             }
                         }
+                        broadcastGetTransactions(tx_list, endpoint);
+                        broadcastGetKeepAlives(ka_list, endpoint);
+                        foreach(var sig_list in sig_lists)
+                        {
+                            broadcastGetSignatures(sig_list.Key, sig_list.Value, endpoint);
+                        }
+                        if (request_next_block)
+                        {
+                            byte include_tx = 2;
+                            if (Node.isMasterNode())
+                            {
+                                include_tx = 0;
+                            }
+                            broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                        }
+                    }
+                }
+            }
+
+            static void broadcastGetKeepAlives(List<InventoryItemKeepAlive> ka_list, RemoteEndpoint endpoint)
+            {
+                int ka_count = ka_list.Count;
+                int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
+                using (MemoryStream mOut = new MemoryStream(max_ka_per_chunk * 570))
+                {
+                    for (int i = 0; i < ka_count;)
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            int next_ka_count;
+                            if (ka_count - i > max_ka_per_chunk)
+                            {
+                                next_ka_count = max_ka_per_chunk;
+                            }
+                            else
+                            {
+                                next_ka_count = ka_count - i;
+                            }
+                            writer.WriteVarInt(next_ka_count);
+
+                            for (int j = 0; j < next_ka_count; i++, j++)
+                            {
+                                InventoryItemKeepAlive ka = ka_list[i];
+
+                                long rollback_pos = mOut.Position;
+
+                                writer.WriteVarInt(ka.address.Length);
+                                writer.Write(ka.address);
+
+                                writer.WriteVarInt(ka.deviceId.Length);
+                                writer.Write(ka.deviceId);
+
+                                if (mOut.Length > CoreConfig.maxMessageSize)
+                                {
+                                    mOut.Position = rollback_pos;
+                                    i--;
+                                    break;
+                                }
+                            }
+                        }
+                        endpoint.sendData(ProtocolMessageCode.getKeepAlives, mOut.ToArray(), null);
+                    }
+                }
+            }
+
+            static void handleGetKeepAlives(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int ka_count = (int)reader.ReadVarUInt();
+
+                        int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
+
+                        using (MemoryStream mOut = new MemoryStream(max_ka_per_chunk * 570))
+                        {
+                            for (int i = 0; i < ka_count;)
+                            {
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
+                                {
+                                    int next_ka_count;
+                                    if (ka_count - i > max_ka_per_chunk)
+                                    {
+                                        next_ka_count = max_ka_per_chunk;
+                                    }
+                                    else
+                                    {
+                                        next_ka_count = ka_count - i;
+                                    }
+                                    writer.WriteVarInt(next_ka_count);
+
+                                    for (int j = 0; j < next_ka_count; i++, j++)
+                                    {
+                                        long in_rollback_pos = reader.BaseStream.Position;
+                                        long out_rollback_len = mOut.Length;
+
+                                        int address_len = (int)reader.ReadVarUInt();
+                                        byte[] address = reader.ReadBytes(address_len);
+
+                                        int device_len = (int)reader.ReadVarUInt();
+                                        byte[] device = reader.ReadBytes(device_len);
+
+                                        Presence p = PresenceList.getPresenceByAddress(address);
+                                        if(p == null)
+                                        {
+                                            continue;
+                                        }
+
+                                        PresenceAddress pa = p.addresses.Find(x => x.device.SequenceEqual(device));
+                                        if(pa == null)
+                                        {
+                                            continue;
+                                        }
+
+                                        byte[] ka_bytes = pa.getKeepAliveBytes(address);
+                                        byte[] ka_len = VarInt.GetVarIntBytes(ka_bytes.Length);
+                                        writer.Write(ka_len);
+                                        writer.Write(ka_bytes);
+
+                                        if (mOut.Length > CoreConfig.maxMessageSize)
+                                        {
+                                            reader.BaseStream.Position = in_rollback_pos;
+                                            mOut.SetLength(out_rollback_len);
+                                            i--;
+                                            break;
+                                        }
+                                    }
+                                }
+                                endpoint.sendData(ProtocolMessageCode.keepAlivesChunk, mOut.ToArray(), null);
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            private static void handleKeepAlivesChunk(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int ka_count = (int)reader.ReadVarUInt();
+
+                        int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
+
+                        for (int i = 0; i < ka_count; i++)
+                        {
+                            int ka_len = (int)reader.ReadVarUInt();
+                            byte[] ka_bytes = reader.ReadBytes(ka_len);
+
+                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, Crypto.sha512sqTrunc(ka_bytes), true);
+
+                            byte[] address;
+                            long last_seen;
+                            byte[] device_id;
+                            bool updated = PresenceList.receiveKeepAlive(ka_bytes, out address, out last_seen, out device_id, endpoint);
+
+                            // If a presence entry was updated, broadcast this message again
+                            if (updated)
+                            {
+                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(Crypto.sha512sqTrunc(data), last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, data, address);
+
+                                // Send this keepalive message to all subscribed clients
+                                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
+                            }
+
+                            if (m.Position == m.Length)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            static void broadcastGetTransactions(List<byte[]> tx_list, RemoteEndpoint endpoint)
+            {
+                int tx_count = tx_list.Count;
+                int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
+                using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
+                {
+                    for (int i = 0; i < tx_count;)
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            int next_ka_count;
+                            if (tx_count - i > max_tx_per_chunk)
+                            {
+                                next_ka_count = max_tx_per_chunk;
+                            }
+                            else
+                            {
+                                next_ka_count = tx_count - i;
+                            }
+                            writer.WriteVarInt(next_ka_count);
+
+                            for (int j = 0; j < next_ka_count; i++, j++)
+                            {
+                                long rollback_pos = mOut.Position;
+
+                                writer.WriteVarInt(tx_list[i].Length);
+                                writer.Write(tx_list[i]);
+
+                                if (mOut.Length > CoreConfig.maxMessageSize)
+                                {
+                                    mOut.Position = rollback_pos;
+                                    i--;
+                                    break;
+                                }
+                            }
+                        }
+                        endpoint.sendData(ProtocolMessageCode.getTransactions, mOut.ToArray(), null);
+                    }
+                }
+            }
+
+            static void handleGetTransactions(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int tx_count = (int)reader.ReadVarUInt();
+
+                        int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
+
+                        using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
+                        {
+                            for (int i = 0; i < tx_count;)
+                            {
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
+                                {
+                                    int next_tx_count;
+                                    if (tx_count - i > max_tx_per_chunk)
+                                    {
+                                        next_tx_count = max_tx_per_chunk;
+                                    }
+                                    else
+                                    {
+                                        next_tx_count = tx_count - i;
+                                    }
+                                    writer.WriteVarInt(next_tx_count);
+
+                                    for (int j = 0; j < next_tx_count; i++, j++)
+                                    {
+                                        long in_rollback_pos = reader.BaseStream.Position;
+                                        long out_rollback_len = mOut.Length;
+
+                                        int txid_len = (int)reader.ReadVarUInt();
+                                        byte[] txid = reader.ReadBytes(txid_len);
+                                        string txid_str = UTF8Encoding.UTF8.GetString(txid);
+
+                                        Transaction tx = TransactionPool.getUnappliedTransaction(txid_str);
+                                        if (tx == null)
+                                        {
+                                            tx = TransactionPool.getAppliedTransaction(txid_str);
+                                            if (tx == null)
+                                            {
+                                                continue;
+                                            }
+                                        }
+
+                                        byte[] tx_bytes = tx.getBytes();
+                                        byte[] tx_len = VarInt.GetVarIntBytes(tx_bytes.Length);
+                                        writer.Write(tx_len);
+                                        writer.Write(tx_bytes);
+
+                                        if (mOut.Length > CoreConfig.maxMessageSize)
+                                        {
+                                            reader.BaseStream.Position = in_rollback_pos;
+                                            mOut.SetLength(out_rollback_len);
+                                            i--;
+                                            break;
+                                        }
+                                    }
+                                }
+                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray(), null);
+                            }
+                        }
+                    }
+                }
+            }
+
+            private static void handleTransactionsChunk(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int tx_count = (int)reader.ReadVarUInt();
+
+                        int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
+                        if(tx_count > max_tx_per_chunk)
+                        {
+                            tx_count = max_tx_per_chunk;
+                        }
+
+                        var sw = new System.Diagnostics.Stopwatch();
+                        sw.Start();
+                        int processedTxCount = 0;
+                        int totalTxCount = 0;
+                        for (int i = 0; i < tx_count; i++)
+                        {
+                            int tx_len = (int)reader.ReadVarUInt();
+                            byte[] tx_bytes = reader.ReadBytes(tx_len);
+
+                            Transaction tx = new Transaction(tx_bytes);
+
+                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(tx.id), true);
+
+                            totalTxCount++;
+                            if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
+                            {
+                                continue;
+                            }
+                            if (!TransactionPool.addTransaction(tx, false, endpoint))
+                            {
+                                Logging.error("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id);
+                            }
+                            else
+                            {
+                                processedTxCount++;
+                            }
+
+                            if (m.Position == m.Length)
+                            {
+                                break;
+                            }
+                        }
+                        sw.Stop();
+                        TimeSpan elapsed = sw.Elapsed;
+                        Logging.info("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds);
                     }
                 }
             }

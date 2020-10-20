@@ -48,7 +48,10 @@ namespace DLTNode.Inventory
                     include_tx = 0;
                 }
                 ProtocolMessage.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
-                return true;
+                if(iib.blockNum == last_block_height + 1)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -69,7 +72,7 @@ namespace DLTNode.Inventory
                         endpoint.sendData(ProtocolMessageCode.getPresence, mw.ToArray(), null);
                     }
                 }
-                return true;
+                return false;
             }
             else
             {
@@ -78,12 +81,13 @@ namespace DLTNode.Inventory
                 {
                     byte[] address_len_bytes = ((ulong)iika.address.Length).GetVarIntBytes();
                     byte[] device_len_bytes = ((ulong)iika.deviceId.Length).GetVarIntBytes();
-                    byte[] data = new byte[address_len_bytes.Length + iika.address.Length + device_len_bytes.Length + iika.deviceId.Length];
+                    byte[] data = new byte[1 + address_len_bytes.Length + iika.address.Length + device_len_bytes.Length + iika.deviceId.Length];
+                    data[0] = 1;
                     Array.Copy(address_len_bytes, data, address_len_bytes.Length);
                     Array.Copy(iika.address, 0, data, address_len_bytes.Length, iika.address.Length);
                     Array.Copy(device_len_bytes, 0, data, address_len_bytes.Length + iika.address.Length, device_len_bytes.Length);
                     Array.Copy(iika.deviceId, 0, data, address_len_bytes.Length + iika.address.Length + device_len_bytes.Length, iika.deviceId.Length);
-                    endpoint.sendData(ProtocolMessageCode.getKeepAlive, data, null);
+                    endpoint.sendData(ProtocolMessageCode.getKeepAlives, data, null);
                     return true;
                 }
             }
@@ -125,11 +129,12 @@ namespace DLTNode.Inventory
                 }
                 byte[] block_num_bytes = block_num.GetVarIntBytes();
                 byte[] addr_len_bytes = ((ulong)address.Length).GetVarIntBytes();
-                byte[] data = new byte[block_num_bytes.Length + addr_len_bytes.Length + address.Length];
+                byte[] data = new byte[block_num_bytes.Length + 1 + addr_len_bytes.Length + address.Length];
                 Array.Copy(block_num_bytes, data, block_num_bytes.Length);
-                Array.Copy(addr_len_bytes, 0, data, block_num_bytes.Length, addr_len_bytes.Length);
-                Array.Copy(address, 0, data, block_num_bytes.Length + addr_len_bytes.Length, address.Length);
-                endpoint.sendData(ProtocolMessageCode.getBlockSignature, data, null);
+                data[block_num_bytes.Length] = 1;
+                Array.Copy(addr_len_bytes, 0, data, block_num_bytes.Length + 1, addr_len_bytes.Length);
+                Array.Copy(address, 0, data, block_num_bytes.Length + 1 + addr_len_bytes.Length, address.Length);
+                endpoint.sendData(ProtocolMessageCode.getSignatures, data, null);
                 return true;
             }
             return false;
