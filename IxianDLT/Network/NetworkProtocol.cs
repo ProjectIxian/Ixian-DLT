@@ -1730,7 +1730,7 @@ namespace DLT
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
-                            writer.WriteVarInt(block_num);
+                            writer.WriteIxiVarInt(block_num);
 
                             int next_sig_count;
                             if (sig_count - i > max_sig_per_chunk)
@@ -1742,7 +1742,7 @@ namespace DLT
                                 next_sig_count = sig_count - i;
                             }
 
-                            writer.WriteVarInt(next_sig_count);
+                            writer.WriteIxiVarInt(next_sig_count);
 
                             for (int j = 0; j < next_sig_count; i++, j++)
                             {
@@ -1750,7 +1750,7 @@ namespace DLT
 
                                 long out_rollback_len = mOut.Length;
 
-                                writer.WriteVarInt(sig.address.Length);
+                                writer.WriteIxiVarInt(sig.address.Length);
                                 writer.Write(sig.address);
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
@@ -1776,7 +1776,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        ulong block_number = reader.ReadVarUInt();
+                        ulong block_number = reader.ReadIxiVarUInt();
 
                         ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
 
@@ -1822,7 +1822,7 @@ namespace DLT
                             return;
                         }
 
-                        int sig_count = (int)reader.ReadVarUInt();
+                        int sig_count = (int)reader.ReadIxiVarUInt();
 
                         int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
 
@@ -1832,9 +1832,9 @@ namespace DLT
                             {
                                 using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
-                                    writer.WriteVarInt(block.blockNum);
+                                    writer.WriteIxiVarInt(block.blockNum);
 
-                                    writer.WriteVarInt(block.blockChecksum.Length);
+                                    writer.WriteIxiVarInt(block.blockChecksum.Length);
                                     writer.Write(block.blockChecksum);
 
                                     int next_sig_count;
@@ -1846,11 +1846,11 @@ namespace DLT
                                     {
                                         next_sig_count = sig_count - i;
                                     }
-                                    writer.WriteVarInt(next_sig_count);
+                                    writer.WriteIxiVarInt(next_sig_count);
 
                                     for (int j = 0; j < next_sig_count; i++, j++)
                                     {
-                                        int address_len = (int)reader.ReadVarInt();
+                                        int address_len = (int)reader.ReadIxiVarUInt();
                                         byte[] address = reader.ReadBytes(address_len);
 
                                         byte[] signature = block.getNodeSignature(address);
@@ -1859,10 +1859,10 @@ namespace DLT
                                             continue;
                                         }
 
-                                        writer.WriteVarInt(signature.Length);
+                                        writer.WriteIxiVarInt(signature.Length);
                                         writer.Write(signature);
 
-                                        writer.WriteVarInt(address_len);
+                                        writer.WriteIxiVarInt(address_len);
                                         writer.Write(address);
                                     }
                                 }
@@ -1879,9 +1879,9 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        ulong block_num = reader.ReadVarUInt();
+                        ulong block_num = reader.ReadIxiVarUInt();
 
-                        int checksum_len = (int)reader.ReadVarUInt();
+                        int checksum_len = (int)reader.ReadIxiVarUInt();
                         byte[] checksum = reader.ReadBytes(checksum_len);
 
                         ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
@@ -1943,7 +1943,7 @@ namespace DLT
                             return;
                         }
 
-                        int sig_count = (int)reader.ReadVarUInt();
+                        int sig_count = (int)reader.ReadIxiVarUInt();
 
                         if (sig_count > ConsensusConfig.maximumBlockSigners)
                         {
@@ -1960,10 +1960,10 @@ namespace DLT
 
                             for (int i = 0; i < sig_count; i++)
                             {
-                                int sig_len = (int)reader.ReadVarUInt();
+                                int sig_len = (int)reader.ReadIxiVarUInt();
                                 byte[] sig = reader.ReadBytes(sig_len);
 
-                                int addr_len = (int)reader.ReadVarUInt();
+                                int addr_len = (int)reader.ReadIxiVarUInt();
                                 byte[] addr = reader.ReadBytes(addr_len);
 
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
@@ -1982,10 +1982,10 @@ namespace DLT
                         {
                             for (int i = 0; i < sig_count; i++)
                             {
-                                int sig_len = (int)reader.ReadVarUInt();
+                                int sig_len = (int)reader.ReadIxiVarUInt();
                                 byte[] sig = reader.ReadBytes(sig_len);
 
-                                int addr_len = (int)reader.ReadVarUInt();
+                                int addr_len = (int)reader.ReadIxiVarUInt();
                                 byte[] addr = reader.ReadBytes(addr_len);
 
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
@@ -2021,7 +2021,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        ulong item_count = reader.ReadVarUInt();
+                        ulong item_count = reader.ReadIxiVarUInt();
                         if(item_count > (ulong)CoreConfig.maxInventoryItems)
                         {
                             Logging.warn("Received {0} inventory items, max items is {1}", item_count, CoreConfig.maxInventoryItems);
@@ -2036,7 +2036,7 @@ namespace DLT
                         bool request_next_block = false;
                         for (ulong i = 0; i < item_count; i++)
                         {
-                            ulong len = reader.ReadVarUInt();
+                            ulong len = reader.ReadIxiVarUInt();
                             byte[] item_bytes = reader.ReadBytes((int)len);
                             InventoryItem item = InventoryCache.decodeInventoryItem(item_bytes);
                             if(item.type == InventoryItemTypes.transaction)
@@ -2120,7 +2120,7 @@ namespace DLT
                             {
                                 next_ka_count = ka_count - i;
                             }
-                            writer.WriteVarInt(next_ka_count);
+                            writer.WriteIxiVarInt(next_ka_count);
 
                             for (int j = 0; j < next_ka_count; i++, j++)
                             {
@@ -2128,10 +2128,10 @@ namespace DLT
 
                                 long rollback_pos = mOut.Position;
 
-                                writer.WriteVarInt(ka.address.Length);
+                                writer.WriteIxiVarInt(ka.address.Length);
                                 writer.Write(ka.address);
 
-                                writer.WriteVarInt(ka.deviceId.Length);
+                                writer.WriteIxiVarInt(ka.deviceId.Length);
                                 writer.Write(ka.deviceId);
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
@@ -2153,7 +2153,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        int ka_count = (int)reader.ReadVarUInt();
+                        int ka_count = (int)reader.ReadIxiVarUInt();
 
                         int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
 
@@ -2172,17 +2172,17 @@ namespace DLT
                                     {
                                         next_ka_count = ka_count - i;
                                     }
-                                    writer.WriteVarInt(next_ka_count);
+                                    writer.WriteIxiVarInt(next_ka_count);
 
                                     for (int j = 0; j < next_ka_count; i++, j++)
                                     {
                                         long in_rollback_pos = reader.BaseStream.Position;
                                         long out_rollback_len = mOut.Length;
 
-                                        int address_len = (int)reader.ReadVarUInt();
+                                        int address_len = (int)reader.ReadIxiVarUInt();
                                         byte[] address = reader.ReadBytes(address_len);
 
-                                        int device_len = (int)reader.ReadVarUInt();
+                                        int device_len = (int)reader.ReadIxiVarUInt();
                                         byte[] device = reader.ReadBytes(device_len);
 
                                         Presence p = PresenceList.getPresenceByAddress(address);
@@ -2198,7 +2198,7 @@ namespace DLT
                                         }
 
                                         byte[] ka_bytes = pa.getKeepAliveBytes(address);
-                                        byte[] ka_len = VarInt.GetVarIntBytes(ka_bytes.Length);
+                                        byte[] ka_len = IxiVarInt.GetIxiVarIntBytes(ka_bytes.Length);
                                         writer.Write(ka_len);
                                         writer.Write(ka_bytes);
 
@@ -2225,13 +2225,13 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        int ka_count = (int)reader.ReadVarUInt();
+                        int ka_count = (int)reader.ReadIxiVarUInt();
 
                         int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
 
                         for (int i = 0; i < ka_count; i++)
                         {
-                            int ka_len = (int)reader.ReadVarUInt();
+                            int ka_len = (int)reader.ReadIxiVarUInt();
                             byte[] ka_bytes = reader.ReadBytes(ka_len);
 
                             Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, Crypto.sha512sqTrunc(ka_bytes), true);
@@ -2278,13 +2278,13 @@ namespace DLT
                             {
                                 next_ka_count = tx_count - i;
                             }
-                            writer.WriteVarInt(next_ka_count);
+                            writer.WriteIxiVarInt(next_ka_count);
 
                             for (int j = 0; j < next_ka_count; i++, j++)
                             {
                                 long rollback_pos = mOut.Position;
 
-                                writer.WriteVarInt(tx_list[i].Length);
+                                writer.WriteIxiVarInt(tx_list[i].Length);
                                 writer.Write(tx_list[i]);
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
@@ -2306,7 +2306,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        int tx_count = (int)reader.ReadVarUInt();
+                        int tx_count = (int)reader.ReadIxiVarUInt();
 
                         int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
 
@@ -2325,14 +2325,14 @@ namespace DLT
                                     {
                                         next_tx_count = tx_count - i;
                                     }
-                                    writer.WriteVarInt(next_tx_count);
+                                    writer.WriteIxiVarInt(next_tx_count);
 
                                     for (int j = 0; j < next_tx_count; i++, j++)
                                     {
                                         long in_rollback_pos = reader.BaseStream.Position;
                                         long out_rollback_len = mOut.Length;
 
-                                        int txid_len = (int)reader.ReadVarUInt();
+                                        int txid_len = (int)reader.ReadIxiVarUInt();
                                         byte[] txid = reader.ReadBytes(txid_len);
                                         string txid_str = UTF8Encoding.UTF8.GetString(txid);
 
@@ -2347,7 +2347,7 @@ namespace DLT
                                         }
 
                                         byte[] tx_bytes = tx.getBytes();
-                                        byte[] tx_len = VarInt.GetVarIntBytes(tx_bytes.Length);
+                                        byte[] tx_len = IxiVarInt.GetIxiVarIntBytes(tx_bytes.Length);
                                         writer.Write(tx_len);
                                         writer.Write(tx_bytes);
 
@@ -2373,7 +2373,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        int tx_count = (int)reader.ReadVarUInt();
+                        int tx_count = (int)reader.ReadIxiVarUInt();
 
                         int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
                         if(tx_count > max_tx_per_chunk)
@@ -2387,7 +2387,7 @@ namespace DLT
                         int totalTxCount = 0;
                         for (int i = 0; i < tx_count; i++)
                         {
-                            int tx_len = (int)reader.ReadVarUInt();
+                            int tx_len = (int)reader.ReadIxiVarUInt();
                             byte[] tx_bytes = reader.ReadBytes(tx_len);
 
                             Transaction tx = new Transaction(tx_bytes);
