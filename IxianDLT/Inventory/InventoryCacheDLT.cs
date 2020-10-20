@@ -47,7 +47,7 @@ namespace DLTNode.Inventory
                 {
                     include_tx = 0;
                 }
-                ProtocolMessage.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
                 if(iib.blockNum == last_block_height + 1)
                 {
                     return true;

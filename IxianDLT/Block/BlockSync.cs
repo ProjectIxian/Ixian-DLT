@@ -159,7 +159,7 @@ namespace DLT
                     if (currentTime - requestedBlockTimes[blockNum] > 10)
                     {
                         // Re-request block
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1, true) == false)
+                        if (BlockProtocolMessages.broadcastGetBlock(blockNum, null, null, 1, true) == false)
                         {
                             Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
@@ -244,7 +244,7 @@ namespace DLT
                             Logging.warn("Expecting block {0} in storage but had to request it from network.", blockNum);
                         }
                         // Didn't find the block in storage, request it from the network
-                        if (ProtocolMessage.broadcastGetBlock(blockNum, null, null, 1, true) == false)
+                        if (BlockProtocolMessages.broadcastGetBlock(blockNum, null, null, 1, true) == false)
                         {
                             Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
                             Thread.Sleep(500);
@@ -669,7 +669,7 @@ namespace DLT
                                     {
                                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], b.blockChecksum), true);
                                         // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                        ProtocolMessage.broadcastBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1]);
+                                        SignatureProtocolMessages.broadcastBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1]);
                                     }
                                 }
                             }
@@ -734,7 +734,7 @@ namespace DLT
             Random r = new Random();
             syncNeighbor = all_neighbors.ElementAt(r.Next(all_neighbors.Count));
             Logging.info(String.Format("Starting wallet state synchronization from {0}", syncNeighbor));       
-            ProtocolMessage.syncWalletStateNeighbor(syncNeighbor);
+            WalletStateProtocolMessages.syncWalletStateNeighbor(syncNeighbor);
         }
 
         // Verify the last block we have
@@ -824,7 +824,7 @@ namespace DLT
                 int count = 0;
                 foreach(int c in missingWsChunks)
                 {
-                    bool request_sent = ProtocolMessage.getWalletStateChunkNeighbor(syncNeighbor, c);
+                    bool request_sent = WalletStateProtocolMessages.getWalletStateChunkNeighbor(syncNeighbor, c);
                     if(request_sent == false)
                     {
                         Logging.warn(String.Format("Failed to request wallet chunk from {0}. Restarting WalletState synchronization.", syncNeighbor));
@@ -900,7 +900,7 @@ namespace DLT
             {
                 if (chunk_num >= 0 && chunk_num < pendingWsChunks.Count)
                 {
-                    ProtocolMessage.sendWalletStateChunk(endpoint, pendingWsChunks[chunk_num]);
+                    WalletStateProtocolMessages.sendWalletStateChunk(endpoint, pendingWsChunks[chunk_num]);
                     if (chunk_num + 1 == pendingWsChunks.Count)
                     {
                         outgoingSyncComplete();

@@ -112,7 +112,7 @@ namespace DLT
                     blacklistBlock(Node.blockChain.getLastBlock());
                     Node.blockChain.revertLastBlock();
                 }
-                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null);
+                BlockProtocolMessages.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null);
             }
         }
 
@@ -352,7 +352,7 @@ namespace DLT
                         if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
                         {
                             // we already have the correct block but the sender does not, broadcast our block
-                            ProtocolMessage.broadcastNewBlock(targetBlock, null, endpoint);
+                            BlockProtocolMessages.broadcastNewBlock(targetBlock, null, endpoint);
                         }
                         return false;
                     }
@@ -383,7 +383,7 @@ namespace DLT
                     else
                     {
                         Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed but has an incorrect sigfreeze checksum, re-requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                        ProtocolMessage.broadcastGetBlock(b.blockNum, endpoint, null);
+                        BlockProtocolMessages.broadcastGetBlock(b.blockNum, endpoint, null);
                         return false;
                     }
                 }
@@ -486,7 +486,7 @@ namespace DLT
                     Logging.info("Received a future super block {0}.", b.blockNum);
                     //ProtocolMessage.broadcastGetNextSuperBlock(Node.blockChain.getLastSuperBlockNum(), last_accepted_super_block_checksum, 0, null, null);
                 }*/
-                ProtocolMessage.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null, 0, false);
+                BlockProtocolMessages.broadcastGetBlock(Node.blockChain.getLastBlockNum() + 1, null, null, 0, false);
                 return false;
             }
 
@@ -552,10 +552,10 @@ namespace DLT
                                         if (Node.blockChain.refreshSignatures(b))
                                         {
                                             // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                            ProtocolMessage.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
+                                            BlockProtocolMessages.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
                                         }else if (b.getFrozenSignatureCount() < block_to_update.getFrozenSignatureCount())
                                         {
-                                            ProtocolMessage.broadcastNewBlock(block_to_update, null, endpoint); // TODO TODO TODO this can be optimized, to only send new sigs
+                                            BlockProtocolMessages.broadcastNewBlock(block_to_update, null, endpoint); // TODO TODO TODO this can be optimized, to only send new sigs
                                         }
                                     }
                                 }
@@ -569,7 +569,7 @@ namespace DLT
                                 if (!forkedFlag)
                                 {
                                     forkedFlag = true;
-                                    ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
+                                    BlockProtocolMessages.broadcastNewBlock(localBlock, null, endpoint);
                                 }
                             }else
                             {
@@ -588,7 +588,7 @@ namespace DLT
                                 if (!forkedFlag)
                                 {
                                     forkedFlag = true;
-                                    ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
+                                    BlockProtocolMessages.broadcastNewBlock(localBlock, null, endpoint);
                                 }
                             }
                             else
@@ -606,18 +606,18 @@ namespace DLT
                         Block block = Node.blockChain.getBlock(b.blockNum);
                         if (!b.Equals(block))
                         {
-                            ProtocolMessage.broadcastNewBlock(block, null, endpoint);
-                            ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
+                            BlockProtocolMessages.broadcastNewBlock(block, null, endpoint);
+                            BlockProtocolMessages.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
                         }
                     }
                     else if(past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
                     {
                         // the node seems to be way behind, send the current last block
-                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
+                        BlockProtocolMessages.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
                     }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
                         Block localBlock = Node.blockChain.getBlock(b.blockNum);
-                        ProtocolMessage.broadcastNewBlock(localBlock, null, endpoint);
+                        BlockProtocolMessages.broadcastNewBlock(localBlock, null, endpoint);
                         // TODO: Blacklisting point
                     }
                     else
@@ -658,7 +658,7 @@ namespace DLT
                     if (!forkedFlag)
                     {
                         forkedFlag = true;
-                        ProtocolMessage.broadcastNewBlock(Node.blockChain.getLastBlock(), null, endpoint);
+                        BlockProtocolMessages.broadcastNewBlock(Node.blockChain.getLastBlock(), null, endpoint);
                     }
                 }
                 else
@@ -834,7 +834,7 @@ namespace DLT
                 {
                     if (!Node.blockSync.synchronizing)
                     {
-                        ProtocolMessage.broadcastGetBlock(lastBlockNum + 1, null, null);
+                        BlockProtocolMessages.broadcastGetBlock(lastBlockNum + 1, null, null);
                     }
                     Logging.info("Received an indeterminate future block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminateFutureBlock;
@@ -1101,13 +1101,13 @@ namespace DLT
                             {
                                 includeTransactions = 1;
                             }
-                            ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
+                            BlockProtocolMessages.broadcastGetBlock(b.blockNum, null, endpoint, includeTransactions);
                         }
                         Logging.info("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing);
                     }
                     if(fetchTransactions)
                     {
-                        ProtocolMessage.broadcastGetBlock(b.blockNum, null, endpoint, 0);
+                        BlockProtocolMessages.broadcastGetBlock(b.blockNum, null, endpoint, 0);
                     }
                 }
                 Logging.info("Waiting for missing transactions for Block #{0}.", b.blockNum);
@@ -1278,14 +1278,14 @@ namespace DLT
                                     foreach(var sig in added_signatures)
                                     {
                                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], b.blockChecksum), true);
-                                        ProtocolMessage.broadcastBlockSignature(b.blockNum, b.blockChecksum, sig[0], sig[1], null, null);
+                                        SignatureProtocolMessages.broadcastBlockSignature(b.blockNum, b.blockChecksum, sig[0], sig[1], null, null);
                                     }
                                 }
                             }else if(localNewBlock.signatures.Count != b.signatures.Count)
                             {
                                 if (Node.isMasterNode())
                                 {
-                                    ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
+                                    BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, endpoint);
                                 }
                             }
 
@@ -1296,7 +1296,7 @@ namespace DLT
                             if (!Node.isMasterNode())
                                 return;
                             Logging.info(String.Format("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount()));
-                            ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
+                            BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, endpoint);
                         }
                     }
                     else
@@ -1313,7 +1313,7 @@ namespace DLT
                                 currentBlockStartTime = DateTime.UtcNow;
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                                 acceptLocalNewBlock();
-                                ProtocolMessage.broadcastNewBlock(b, endpoint, null);
+                                BlockProtocolMessages.broadcastNewBlock(b, endpoint, null);
                                 return;
                             }
                         }
@@ -1321,7 +1321,7 @@ namespace DLT
                             return;
                         // discard with a warning, likely spam, resend our local block
                         Logging.info(String.Format("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
-                        ProtocolMessage.broadcastNewBlock(localNewBlock, null, endpoint);
+                        BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, endpoint);
                     }
                 }
                 else // localNewBlock == null
@@ -1339,7 +1339,7 @@ namespace DLT
                         currentBlockStartTime = DateTime.UtcNow;
                         firstBlockAfterSync = false;
                         acceptLocalNewBlock();
-                        ProtocolMessage.broadcastNewBlock(b, endpoint, null);
+                        BlockProtocolMessages.broadcastNewBlock(b, endpoint, null);
                     }
                     else
                     {
@@ -1554,7 +1554,7 @@ namespace DLT
                             foreach (var sig in added_signatures)
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], block.blockChecksum), true);
-                                ProtocolMessage.broadcastBlockSignature(block.blockNum, block.blockChecksum, sig[0], sig[1], null, null);
+                                SignatureProtocolMessages.broadcastBlockSignature(block.blockNum, block.blockChecksum, sig[0], sig[1], null, null);
                             }
                         }
                     }
@@ -1706,7 +1706,7 @@ namespace DLT
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], localNewBlock.blockChecksum), true);
                                 // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                ProtocolMessage.broadcastBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1]);
+                                SignatureProtocolMessages.broadcastBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1]);
                             }
                         }
                     }
@@ -1838,7 +1838,7 @@ namespace DLT
 
                             if (highestNetworkBlockNum > last_block_num)
                             {
-                                ProtocolMessage.broadcastGetBlock(last_block_num + 1, null, null, 1);
+                                BlockProtocolMessages.broadcastGetBlock(last_block_num + 1, null, null, 1);
                             }
                             else
                             {
@@ -1855,7 +1855,7 @@ namespace DLT
                             // Broadcast blockheight only if the node is synchronized
                             if (!Node.blockSync.synchronizing)
                             {
-                                ProtocolMessage.broadcastBlockHeight(last_block_num, current_block.blockChecksum);
+                                BlockProtocolMessages.broadcastBlockHeight(last_block_num, current_block.blockChecksum);
                             }
 
                             cleanupBlockBlacklist();
@@ -1898,7 +1898,7 @@ namespace DLT
                 // Show a notification
                 Logging.error(string.Format("Requesting block {0} again due to previous mismatch.", requestBlockNum));
                 // Request the block again
-                ProtocolMessage.broadcastGetBlock(requestBlockNum);
+                BlockProtocolMessages.broadcastGetBlock(requestBlockNum);
             }
 
             return block_accepted;
@@ -1941,7 +1941,7 @@ namespace DLT
                 if (targetBlock == null)
                 {
                     // this shouldn't be possible
-                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5, null, endpoint);
+                    BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
                     return false;
                 }
@@ -1950,7 +1950,7 @@ namespace DLT
                 {
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
                         b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
-                    ProtocolMessage.broadcastGetBlock(b.blockNum - 5, null, endpoint);
+                    BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     return false;
                 }
             }
@@ -1960,7 +1960,7 @@ namespace DLT
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 Logging.error(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
                     b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5));
-                ProtocolMessage.broadcastGetBlock(b.blockNum, endpoint);
+                BlockProtocolMessages.broadcastGetBlock(b.blockNum, endpoint);
                 return false;
             }
 
@@ -2446,7 +2446,7 @@ namespace DLT
                     if (b == null)
                     {
                         Logging.error("Unable to find block {0} while creating superblock {1}.", i, cur_block_height);
-                        ProtocolMessage.broadcastGetBlock(i, endpoint);
+                        BlockProtocolMessages.broadcastGetBlock(i, endpoint);
                         return false;
                     }
 
@@ -2463,13 +2463,13 @@ namespace DLT
                         if (target_block == null)
                         {
                             Logging.error("Unable to find target block {0} while creating superblock {1}.", i - 5, super_block.blockNum);
-                            ProtocolMessage.broadcastGetBlock(i - 5, endpoint);
+                            BlockProtocolMessages.broadcastGetBlock(i - 5, endpoint);
                             return false;
                         }
                         else if (!target_block.calculateSignatureChecksum().SequenceEqual(b.signatureFreezeChecksum))
                         {
                             Logging.error("Target block's {0} signatures don't match sigfreeze, while creating superblock {1}.", i - 5, super_block.blockNum);
-                            ProtocolMessage.broadcastGetBlockSignatures(target_block.blockNum, target_block.blockChecksum, endpoint);
+                            SignatureProtocolMessages.broadcastGetBlockSignatures(target_block.blockNum, target_block.blockChecksum, endpoint);
                             return false;
                         }
                     }
@@ -2609,7 +2609,7 @@ namespace DLT
                     lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10); // TODO TODO TODO make sure that this is ok
 
                     // Broadcast the new block
-                    ProtocolMessage.broadcastNewBlock(localNewBlock);
+                    BlockProtocolMessages.broadcastNewBlock(localNewBlock);
 
                     if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
                     {
@@ -3165,7 +3165,7 @@ namespace DLT
                     return b.addSignature(signature, address_or_pub_key);
                 }else
                 {
-                    ProtocolMessage.broadcastGetBlock(block_num, null, endpoint);
+                    BlockProtocolMessages.broadcastGetBlock(block_num, null, endpoint);
                 }
             }
             else if (block_num == last_block_num + 1)
@@ -3185,7 +3185,7 @@ namespace DLT
                     }
                     else
                     {
-                        ProtocolMessage.broadcastGetBlock(block_num, null, endpoint);
+                        BlockProtocolMessages.broadcastGetBlock(block_num, null, endpoint);
                     }
                 }
             }
