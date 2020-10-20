@@ -362,22 +362,6 @@ namespace DLTNode
                             if (ConsoleHelpers.verboseConsoleOutput == false)
                                 Node.statsConsoleScreen.clearScreen();
                         }
-                        else if (key.Key == ConsoleKey.H)
-                        {
-                            ulong[] temp = new ulong[ProtocolMessage.recvByteHist.Length];
-                            lock (ProtocolMessage.recvByteHist)
-                            {
-                                ProtocolMessage.recvByteHist.CopyTo(temp, 0);
-                            }
-                            Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
-                            for (int i = 0; i < temp.Length; i++)
-                            {
-                                Console.WriteLine(String.Format("[{0}]: {1}", i, temp[i]));
-                            }
-                            Console.WriteLine("==================RECEIVED BYTES HISTOGRAM:===================");
-                            Console.ResetColor();
-                        }
                         else if (key.Key == ConsoleKey.Escape)
                         {
                             ConsoleHelpers.verboseConsoleOutput = true;
@@ -392,19 +376,18 @@ namespace DLTNode
                             if (ConsoleHelpers.verboseConsoleOutput == false)
                                 Node.statsConsoleScreen.clearScreen();
                         }
-                        else if (key.Key == ConsoleKey.N)
-                        {
-                            if (Node.miner != null)
-                                Node.miner.forceSearchForBlock();
-                        }
                         else if (key.Key == ConsoleKey.B)
                         {
                             if (Node.miner != null)
                             {
                                 // Adjust the search mode
-                                Node.miner.searchMode++;
-                                if (Node.miner.searchMode > BlockSearchMode.random)
+                                if (Node.miner.searchMode + 1 > BlockSearchMode.random)
+                                {
                                     Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
+                                }else
+                                {
+                                    Node.miner.searchMode++;
+                                }
 
                                 // Force a new block search using the newly chosen method
                                 Node.miner.forceSearchForBlock();
