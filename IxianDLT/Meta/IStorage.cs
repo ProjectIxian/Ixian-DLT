@@ -102,7 +102,7 @@ namespace DLT
                             }
                             lock (queueStatements)
                             {
-                                queueStatements.Remove(active_message);
+                                queueStatements.RemoveAt(0);
                             }
                         }
                         else
@@ -131,7 +131,7 @@ namespace DLT
                             {
                                 lock (queueStatements)
                                 {
-                                    queueStatements.Remove(active_message);
+                                    queueStatements.RemoveAt(0);
                                 }
                                 Logging.error("Too many retries, aborting...");
                                 shutdown();
