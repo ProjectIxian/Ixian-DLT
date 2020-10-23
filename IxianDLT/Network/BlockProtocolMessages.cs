@@ -45,13 +45,13 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        ulong include_segments = reader.ReadUInt64();
+                        ulong include_segments = reader.ReadIxiVarUInt();
 
                         bool full_header = reader.ReadBoolean();
 
                         Block block = null;
 
-                        int checksum_len = reader.ReadInt32();
+                        int checksum_len = (int)reader.ReadIxiVarUInt();
                         byte[] checksum = reader.ReadBytes(checksum_len);
 
                         block = Node.storage.getBlockByLastSBHash(checksum);
@@ -80,6 +80,7 @@ namespace DLT
                 }
             }
 
+            [Obsolete("handleGetBlockHeaders is deprecated and will be removed in future versions, please use handleGetBlockHeaders2 instead")]
             public static void handleGetBlockHeaders(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))
@@ -107,39 +108,55 @@ namespace DLT
                             return;
 
                         // Cap total block headers sent
-                        if (totalCount > 1000)
-                            totalCount = 1000;
+                        if (totalCount > (ulong)CoreConfig.maximumBlockHeadersPerChunk)
+                            totalCount = (ulong)CoreConfig.maximumBlockHeadersPerChunk;
 
-                        if (endpoint != null)
+                        if (endpoint == null)
                         {
-                            if (endpoint.isConnected())
+                            return;
+                        }
+
+                        if (!endpoint.isConnected())
+                        {
+                            return;
+                        }
+
+                        using (MemoryStream mOut = new MemoryStream())
+                        {
+                            using (BinaryWriter writer = new BinaryWriter(mOut))
                             {
-                                using (MemoryStream mOut = new MemoryStream())
+                                for (ulong i = 0; i < totalCount; i++)
                                 {
+                                    // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
                                     bool found = false;
-                                    using (BinaryWriter writer = new BinaryWriter(mOut))
+                                    while (i < totalCount)
                                     {
-                                        for (ulong i = 0; i < totalCount; i++)
+                                        Block block = Node.blockChain.getBlock(from + i, true, true);
+                                        if (block == null)
+                                            break;
+
+                                        long rollback_pos = mOut.Position;
+
+                                        found = true;
+                                        BlockHeader header = new BlockHeader(block);
+                                        byte[] headerBytes = header.getBytes();
+                                        writer.Write(headerBytes.Length);
+                                        writer.Write(headerBytes);
+
+                                        if (mOut.Length > CoreConfig.maxMessageSize)
                                         {
-                                            // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
-                                            Block block = Node.blockChain.getBlock(from + i, true, true);
-                                            if (block == null)
-                                                break;
-
-                                            found = true;
-                                            BlockHeader header = new BlockHeader(block);
-                                            byte[] headerBytes = header.getBytes();
-                                            writer.Write(headerBytes.Length);
-                                            writer.Write(headerBytes);
-
-                                            broadcastBlockHeaderTransactions(block, endpoint);
+                                            mOut.Position = rollback_pos;
+                                            i--;
+                                            break;
                                         }
+
+                                        broadcastBlockHeaderTransactions(block, endpoint);
                                     }
-                                    if (found)
+                                    if (!found)
                                     {
-                                        // Send the blockheaders
-                                        endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
+                                        break;
                                     }
+                                    endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
                                 }
                             }
                         }
@@ -147,6 +164,90 @@ namespace DLT
                 }
             }
 
+            public static void handleGetBlockHeaders2(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong from = reader.ReadIxiVarUInt();
+                        ulong to = reader.ReadIxiVarUInt();
+
+                        ulong totalCount = to - from;
+                        if (totalCount < 1)
+                            return;
+
+                        ulong lastBlockNum = Node.blockChain.getLastBlockNum();
+
+                        if (from > lastBlockNum - 1)
+                            return;
+
+                        if (to > lastBlockNum)
+                            to = lastBlockNum;
+
+                        // Adjust total count if necessary
+                        totalCount = to - from;
+                        if (totalCount < 1)
+                            return;
+
+                        // Cap total block headers sent
+                        if (totalCount > (ulong)CoreConfig.maximumBlockHeadersPerChunk)
+                            totalCount = (ulong)CoreConfig.maximumBlockHeadersPerChunk;
+
+                        if (endpoint == null)
+                        {
+                            return;
+                        }
+
+                        if (!endpoint.isConnected())
+                        {
+                            return;
+                        }
+
+                        using (MemoryStream mOut = new MemoryStream())
+                        {
+                            using (BinaryWriter writer = new BinaryWriter(mOut))
+                            {
+                                for (ulong i = 0; i < totalCount; i++)
+                                {
+                                    // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
+                                    bool found = false;
+                                    while (i < totalCount)
+                                    {
+                                        Block block = Node.blockChain.getBlock(from + i, true, true);
+                                        if (block == null)
+                                            break;
+
+                                        long rollback_pos = mOut.Position;
+
+                                        found = true;
+                                        BlockHeader header = new BlockHeader(block);
+                                        byte[] headerBytes = header.getBytes();
+                                        writer.WriteIxiVarInt(headerBytes.Length);
+                                        writer.Write(headerBytes);
+
+                                        if (mOut.Length > CoreConfig.maxMessageSize)
+                                        {
+                                            mOut.Position = rollback_pos;
+                                            i--;
+                                            break;
+                                        }
+
+                                        broadcastBlockHeaderTransactions(block, endpoint);
+                                    }
+                                    if (!found)
+                                    {
+                                        break;
+                                    }
+                                    endpoint.sendData(ProtocolMessageCode.blockHeaders2, mOut.ToArray());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            [Obsolete("handleGetPIT is deprecated and will be removed in future versions, please use handleGetPIT2 instead")]
             public static void handleGetPIT(byte[] data, RemoteEndpoint endpoint)
             {
                 MemoryStream ms = new MemoryStream(data);
@@ -204,6 +305,63 @@ namespace DLT
                 }
             }
 
+            public static void handleGetPIT2(byte[] data, RemoteEndpoint endpoint)
+            {
+                MemoryStream ms = new MemoryStream(data);
+                using (BinaryReader r = new BinaryReader(ms))
+                {
+                    ulong block_num = r.ReadIxiVarUInt();
+                    int filter_len = (int)r.ReadIxiVarUInt();
+                    byte[] filter = r.ReadBytes(filter_len);
+                    Cuckoo cf;
+                    try
+                    {
+                        cf = new Cuckoo(filter);
+                    }
+                    catch (Exception)
+                    {
+                        Logging.warn("The Cuckoo filter in the getPIT message was invalid or corrupted!");
+                        return;
+                    }
+                    Block b = Node.blockChain.getBlock(block_num, true, true);
+                    if (b is null)
+                    {
+                        return;
+                    }
+                    if (b.version < BlockVer.v6)
+                    {
+                        Logging.warn("Neighbor {0} requested PIT information for block {0}, which was below the minimal PIT version.", endpoint.fullAddress, block_num);
+                        return;
+                    }
+                    PrefixInclusionTree pit = new PrefixInclusionTree(44, 3);
+                    List<string> interesting_transactions = new List<string>();
+                    foreach (var tx in b.transactions)
+                    {
+                        pit.add(tx);
+                        if (cf.Contains(Encoding.UTF8.GetBytes(tx)))
+                        {
+                            interesting_transactions.Add(tx);
+                        }
+                    }
+                    // make sure we ended up with the correct PIT
+                    if (!b.pitChecksum.SequenceEqual(pit.calculateTreeHash()))
+                    {
+                        // This is a serious error, but I am not sure how to respond to it right now.
+                        Logging.error("Reconstructed PIT for block {0} does not match the checksum in block header!", block_num);
+                        return;
+                    }
+                    byte[] minimal_pit = pit.getMinimumTreeTXList(interesting_transactions);
+                    MemoryStream mOut = new MemoryStream(minimal_pit.Length + 12);
+                    using (BinaryWriter w = new BinaryWriter(mOut, Encoding.UTF8, true))
+                    {
+                        w.WriteIxiVarInt(block_num);
+                        w.WriteIxiVarInt(minimal_pit.Length);
+                        w.Write(minimal_pit);
+                    }
+                    endpoint.sendData(ProtocolMessageCode.pitData2, mOut.ToArray());
+                }
+            }
+
             private static void broadcastBlockHeaderTransactions(Block b, RemoteEndpoint endpoint)
             {
                 if (!endpoint.isConnected())
@@ -240,9 +398,9 @@ namespace DLT
                 {
                     using (BinaryWriter writerw = new BinaryWriter(mw))
                     {
-                        writerw.Write(include_segments);
+                        writerw.WriteIxiVarInt(include_segments);
                         writerw.Write(full_header);
-                        writerw.Write(block_checksum.Length);
+                        writerw.WriteIxiVarInt(block_checksum.Length);
                         writerw.Write(block_checksum);
 #if TRACE_MEMSTREAM_SIZES
                         Logging.info(String.Format("NetworkProtocol::broadcastGetNextSuperBlock: {0}", mw.Length));
@@ -262,6 +420,7 @@ namespace DLT
             }
 
             // Requests block with specified block height from the network, include_transactions value can be 0 - don't include transactions, 1 - include all but staking transactions or 2 - include all, including staking transactions
+            [Obsolete("broadcastGetBlock is deprecated and will be removed in future versions, please use broadcastGetBlock2 instead")]
             public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0, bool full_header = false)
             {
                 using (MemoryStream mw = new MemoryStream())
@@ -288,6 +447,32 @@ namespace DLT
                 }
             }
 
+            public static bool broadcastGetBlock2(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0, bool full_header = false)
+            {
+                using (MemoryStream mw = new MemoryStream())
+                {
+                    using (BinaryWriter writerw = new BinaryWriter(mw))
+                    {
+                        writerw.WriteIxiVarInt(block_num);
+                        writerw.Write(include_transactions);
+                        writerw.Write(full_header);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastGetBlock: {0}", mw.Length));
+#endif
+
+                        if (endpoint != null)
+                        {
+                            if (endpoint.isConnected())
+                            {
+                                endpoint.sendData(ProtocolMessageCode.getBlock2, mw.ToArray());
+                                return true;
+                            }
+                        }
+                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock2, mw.ToArray(), block_num, skipEndpoint);
+                    }
+                }
+            }
+
             public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
                 if (!Node.isMasterNode())
@@ -309,6 +494,7 @@ namespace DLT
                 }
             }
 
+            [Obsolete("handleBlockTransactionsChunk is deprecated and will be removed in future versions, please use handleTransactionsChunk instead")]
             public static void handleBlockTransactionsChunk(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))
@@ -325,7 +511,7 @@ namespace DLT
                             if (m.Position + len > m.Length)
                             {
                                 // TODO blacklist
-                                Logging.warn(String.Format("A node is sending invalid transaction chunks (tx byte len > received data len)."));
+                                Logging.warn("A node is sending invalid transaction chunks (tx byte len > received data len).");
                                 break;
                             }
                             byte[] txData = reader.ReadBytes(len);
@@ -338,7 +524,7 @@ namespace DLT
                             }
                             if (!TransactionPool.addTransaction(tx, true))
                             {
-                                Logging.error(String.Format("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id));
+                                Logging.error("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id);
                             }
                             else
                             {
@@ -347,11 +533,12 @@ namespace DLT
                         }
                         sw.Stop();
                         TimeSpan elapsed = sw.Elapsed;
-                        Logging.info(string.Format("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds));
+                        Logging.info("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds);
                     }
                 }
             }
 
+            [Obsolete("handleGetBlock is deprecated and will be removed in future versions, please use handleGetBlock2 instead")]
             public static void handleGetBlock(byte[] data, RemoteEndpoint endpoint)
             {
                 if (!Node.isMasterNode())
@@ -435,6 +622,111 @@ namespace DLT
                         else if (include_transactions == 2)
                         {
                             TransactionProtocolMessages.handleGetBlockTransactions(block_number, true, endpoint);
+                        }
+
+                        if (!Node.blockProcessor.verifySigFreezedBlock(block))
+                        {
+                            Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
+                        }
+
+                        bool frozen_sigs_only = true;
+
+                        if (block_number + 5 > IxianHandler.getLastBlockHeight())
+                        {
+                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
+                            {
+                                frozen_sigs_only = false;
+                            }
+                        }
+
+                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
+                    }
+                }
+            }
+
+            public static void handleGetBlock2(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (!Node.isMasterNode())
+                {
+                    Logging.warn("Block data was requested, but this node isn't a master node");
+                    return;
+                }
+
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_number = reader.ReadIxiVarUInt();
+                        byte include_transactions = reader.ReadByte();
+                        bool full_header = false;
+                        try
+                        {
+                            full_header = reader.ReadBoolean();
+                        }
+                        catch (Exception)
+                        {
+
+                        }
+
+                        //Logging.info(String.Format("Block #{0} has been requested.", block_number));
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
+
+                        if (block_number > last_block_height)
+                        {
+                            return;
+                        }
+
+                        Block block = null;
+                        if (block_number == last_block_height)
+                        {
+                            bool haveLock = false;
+                            try
+                            {
+                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                                if (!haveLock)
+                                {
+                                    throw new TimeoutException();
+                                }
+
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == last_block_height)
+                                {
+                                    block = tmp;
+                                }
+                            }
+                            finally
+                            {
+                                if (haveLock)
+                                {
+                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
+                        }
+
+                        if (block == null)
+                        {
+                            Logging.warn("Unable to find block #{0} in the chain!", block_number);
+                            return;
+                        }
+                        //Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
+                        // Send the block
+
+                        if (include_transactions == 1)
+                        {
+                            TransactionProtocolMessages.handleGetBlockTransactions2(block_number, false, endpoint);
+                        }
+                        else if (include_transactions == 2)
+                        {
+                            TransactionProtocolMessages.handleGetBlockTransactions2(block_number, true, endpoint);
                         }
 
                         if (!Node.blockProcessor.verifySigFreezedBlock(block))

@@ -2,8 +2,10 @@
 using IXICore;
 using IXICore.Meta;
 using IXICore.Network;
+using IXICore.Utils;
 using System;
 using System.IO;
+using System.Numerics;
 
 namespace DLT
 {
@@ -49,33 +51,35 @@ namespace DLT
                 {
                     using (BinaryWriter writer = new BinaryWriter(m))
                     {
-                        writer.Write(chunk.blockNum);
-                        writer.Write(chunk.chunkNum);
-                        writer.Write(chunk.wallets.Length);
+                        writer.WriteIxiVarInt(chunk.blockNum);
+                        writer.WriteIxiVarInt(chunk.chunkNum);
+                        writer.WriteIxiVarInt(chunk.wallets.Length);
                         foreach (Wallet w in chunk.wallets)
                         {
-                            writer.Write(w.id.Length);
+                            writer.WriteIxiVarInt(w.id.Length);
                             writer.Write(w.id);
-                            writer.Write(w.balance.ToString());
+                            byte[] balance_bytes = w.balance.getAmount().ToByteArray();
+                            writer.WriteIxiVarInt(balance_bytes.Length);
+                            writer.Write(balance_bytes);
 
                             if (w.data != null)
                             {
-                                writer.Write(w.data.Length);
+                                writer.WriteIxiVarInt(w.data.Length);
                                 writer.Write(w.data);
                             }
                             else
                             {
-                                writer.Write((int)0);
+                                writer.WriteIxiVarInt((int)0);
                             }
 
                             if (w.publicKey != null)
                             {
-                                writer.Write(w.publicKey.Length);
+                                writer.WriteIxiVarInt(w.publicKey.Length);
                                 writer.Write(w.publicKey);
                             }
                             else
                             {
-                                writer.Write((int)0);
+                                writer.WriteIxiVarInt((int)0);
                             }
                         }
 #if TRACE_MEMSTREAM_SIZES
@@ -128,6 +132,49 @@ namespace DLT
                     }
                 }
             }
+            public static void handleGetBalance2(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int addrLen = reader.ReadInt32();
+                        byte[] address = reader.ReadBytes(addrLen);
+
+                        // Retrieve the latest balance
+                        IxiNumber balance = Node.walletState.getWalletBalance(address);
+
+                        // Return the balance for the matching address
+                        using (MemoryStream mw = new MemoryStream())
+                        {
+                            using (BinaryWriter writerw = new BinaryWriter(mw))
+                            {
+                                // Send the address
+                                writerw.WriteIxiVarInt(address.Length);
+                                writerw.Write(address);
+                                // Send the balance
+                                byte[] balance_bytes = balance.getAmount().ToByteArray();
+                                writerw.WriteIxiVarInt(balance_bytes.Length);
+                                writerw.Write(balance_bytes);
+
+                                Block tmp_block = IxianHandler.getLastBlock();
+
+                                // Send the block height for this balance
+                                writerw.WriteIxiVarInt(tmp_block.blockNum);
+                                // Send the block checksum for this balance
+                                writerw.WriteIxiVarInt(tmp_block.blockChecksum.Length);
+                                writerw.Write(tmp_block.blockChecksum);
+
+#if TRACE_MEMSTREAM_SIZES
+                                                Logging.info(String.Format("NetworkProtocol::parseProtocolMessage: {0}", mw.Length));
+#endif
+
+                                endpoint.sendData(ProtocolMessageCode.balance2, mw.ToArray());
+                            }
+                        }
+                    }
+                }
+            }
 
             static public void handleWalletStateChunk(byte[] data, RemoteEndpoint endpoint)
             {
@@ -135,9 +182,9 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        ulong block_num = reader.ReadUInt64();
-                        int chunk_num = reader.ReadInt32();
-                        int num_wallets = reader.ReadInt32();
+                        ulong block_num = reader.ReadIxiVarUInt();
+                        int chunk_num = (int)reader.ReadIxiVarUInt();
+                        int num_wallets = (int)reader.ReadIxiVarUInt();
                         if (num_wallets > CoreConfig.walletStateChunkSplit)
                         {
                             Logging.error(String.Format("Received {0} wallets in a chunk. ( > {1}).",
@@ -147,21 +194,23 @@ namespace DLT
                         Wallet[] wallets = new Wallet[num_wallets];
                         for (int i = 0; i < num_wallets; i++)
                         {
-                            int w_idLen = reader.ReadInt32();
+                            int w_idLen = (int)reader.ReadIxiVarUInt();
                             byte[] w_id = reader.ReadBytes(w_idLen);
 
-                            IxiNumber w_balance = new IxiNumber(reader.ReadString());
+                            int w_balanceLen = (int)reader.ReadIxiVarUInt();
+                            byte[] w_balance_bytes = reader.ReadBytes(w_balanceLen);
+                            IxiNumber w_balance = new IxiNumber(new BigInteger(w_balance_bytes));
 
                             wallets[i] = new Wallet(w_id, w_balance);
 
-                            int w_dataLen = reader.ReadInt32();
+                            int w_dataLen = (int)reader.ReadIxiVarUInt();
                             if (w_dataLen > 0)
                             {
                                 byte[] w_data = reader.ReadBytes(w_dataLen);
                                 wallets[i].data = w_data;
                             }
 
-                            int w_publickeyLen = reader.ReadInt32();
+                            int w_publickeyLen = (int)reader.ReadIxiVarUInt();
                             if (w_publickeyLen > 0)
                             {
                                 byte[] w_publickey = reader.ReadBytes(w_publickeyLen);
@@ -199,9 +248,9 @@ namespace DLT
                         int walletstate_version = Node.walletState.version;
 
                         // Return the current walletstate block and walletstate count
-                        writer.Write(walletstate_version);
-                        writer.Write(walletstate_block);
-                        writer.Write(walletstate_count);
+                        writer.WriteIxiVarInt(walletstate_version);
+                        writer.WriteIxiVarInt(walletstate_block);
+                        writer.WriteIxiVarInt(walletstate_count);
 #if TRACE_MEMSTREAM_SIZES
                                         Logging.info(String.Format("NetworkProtocol::parseProtocolMessage2: {0}", m.Length));
 #endif
@@ -218,20 +267,20 @@ namespace DLT
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         ulong walletstate_block = 0;
-                        long walletstate_count = 0;
+                        ulong walletstate_count = 0;
                         int walletstate_version = 0;
                         try
                         {
-                            walletstate_version = reader.ReadInt32();
-                            walletstate_block = reader.ReadUInt64();
-                            walletstate_count = reader.ReadInt64();
+                            walletstate_version = (int)reader.ReadIxiVarUInt();
+                            walletstate_block = reader.ReadIxiVarUInt();
+                            walletstate_count = reader.ReadIxiVarUInt();
                         }
                         catch (Exception e)
                         {
-                            Logging.warn(String.Format("Error while receiving the WalletState header: {0}.", e.Message));
+                            Logging.warn("Error while receiving the WalletState header: {0}.", e.Message);
                             return;
                         }
-                        Node.blockSync.onWalletStateHeader(walletstate_version, walletstate_block, walletstate_count);
+                        Node.blockSync.onWalletStateHeader(walletstate_version, walletstate_block, (long)walletstate_count);
                     }
                 }
             }
@@ -242,7 +291,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        int chunk_num = reader.ReadInt32();
+                        int chunk_num = (int)reader.ReadIxiVarUInt();
                         Node.blockSync.onRequestWalletChunk(chunk_num, endpoint);
                     }
                 }

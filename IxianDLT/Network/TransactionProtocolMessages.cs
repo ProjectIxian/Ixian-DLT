@@ -114,6 +114,103 @@ namespace DLT
                 }
             }
 
+            // Handle the getBlockTransactions message
+            // This is called from NetworkProtocol
+            public static void handleGetBlockTransactions2(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
+            {
+                //Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
+
+                // Get the requested block and corresponding transactions
+                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                List<string> txIdArr = null;
+                if (b != null)
+                {
+                    txIdArr = new List<string>(b.transactions);
+                }
+                else
+                {
+                    // Block is likely local, fetch the transactions
+
+                    bool haveLock = false;
+                    try
+                    {
+                        Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                        if (!haveLock)
+                        {
+                            throw new TimeoutException();
+                        }
+
+                        Block tmp = Node.blockProcessor.getLocalBlock();
+                        if (tmp != null && tmp.blockNum == blockNum)
+                        {
+                            b = tmp;
+                            txIdArr = new List<string>(tmp.transactions);
+                        }
+                    }
+                    finally
+                    {
+                        if (haveLock)
+                        {
+                            Monitor.Exit(Node.blockProcessor.localBlockLock);
+                        }
+                    }
+                }
+
+                if (txIdArr == null)
+                    return;
+
+                int tx_count = txIdArr.Count();
+
+                if (tx_count == 0)
+                    return;
+
+                int num_chunks = tx_count / ConsensusConfig.maximumTransactionsPerChunk + 1;
+                // Go through each chunk
+                for (int i = 0; i < num_chunks; i++)
+                {
+                    using (MemoryStream mOut = new MemoryStream(4096))
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            int txs_in_chunk = 0;
+                            // Generate a chunk of transactions
+                            for (int j = 0; j < ConsensusConfig.maximumTransactionsPerChunk; j++)
+                            {
+                                int tx_index = i * ConsensusConfig.maximumTransactionsPerChunk + j;
+                                if (tx_index > tx_count - 1)
+                                    break;
+
+                                if (!requestAllTransactions)
+                                {
+                                    if (txIdArr[tx_index].StartsWith("stk"))
+                                    {
+                                        continue;
+                                    }
+                                }
+                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[tx_index], blockNum, true);
+                                if (tx != null)
+                                {
+                                    byte[] txBytes = tx.getBytes();
+
+                                    writer.WriteIxiVarInt(txBytes.Length);
+                                    writer.Write(txBytes);
+                                    txs_in_chunk++;
+                                }
+                            }
+
+#if TRACE_MEMSTREAM_SIZES
+                            Logging.info(String.Format("NetworkProtocol::handleGetBlockTransactions: {0}", mOut.Length));
+#endif
+                            if (txs_in_chunk > 0)
+                            {
+                                // Send a chunk
+                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                            }
+                        }
+                    }
+                }
+            }
+
             public static void broadcastGetTransactions(List<byte[]> tx_list, RemoteEndpoint endpoint)
             {
                 int tx_count = tx_list.Count;
@@ -355,27 +452,42 @@ namespace DLT
                 }
             }
 
-            public static bool broadcastGetBlockTransactions(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
+            public static void handleGetTransaction2(byte[] data, RemoteEndpoint endpoint)
             {
-                using (MemoryStream mw = new MemoryStream())
+                if (Node.blockSync.synchronizing)
                 {
-                    using (BinaryWriter writerw = new BinaryWriter(mw))
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
                     {
-                        writerw.Write(blockNum);
-                        writerw.Write(requestAllTransactions);
-#if TRACE_MEMSTREAM_SIZES
-                            Logging.info(String.Format("NetworkProtocol::broadcastGetBlockTransactions: {0}", mw.Length));
-#endif
+                        // Retrieve the transaction id
+                        int txid_len = (int)reader.ReadIxiVarUInt();
+                        byte[] txid = reader.ReadBytes(txid_len);
+                        ulong block_num = reader.ReadIxiVarUInt();
 
-                        if (endpoint != null)
+                        Transaction transaction = null;
+
+                        // Check for a transaction corresponding to this id
+                        if (block_num == 0)
                         {
-                            if (endpoint.isConnected())
-                            {
-                                endpoint.sendData(ProtocolMessageCode.getBlockTransactions, mw.ToArray());
-                                return true;
-                            }
+                            transaction = TransactionPool.getUnappliedTransaction(UTF8Encoding.UTF8.GetString(txid));
                         }
-                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlockTransactions, mw.ToArray(), blockNum);
+                        if (transaction == null)
+                        {
+                            transaction = TransactionPool.getAppliedTransaction(UTF8Encoding.UTF8.GetString(txid), block_num, true);
+                        }
+
+                        if (transaction == null)
+                        {
+                            Logging.warn("I do not have txid '{0}.", UTF8Encoding.UTF8.GetString(txid));
+                            return;
+                        }
+
+                        Logging.info("Sending transaction {0} - {1} - {2}.", transaction.id, Crypto.hashToString(transaction.checksum), transaction.amount);
+
+                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true));
                     }
                 }
             }

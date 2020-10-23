@@ -48,6 +48,10 @@ namespace DLT
                             TransactionProtocolMessages.handleGetTransaction(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.getTransaction2:
+                            TransactionProtocolMessages.handleGetTransaction2(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.newTransaction:
                         case ProtocolMessageCode.transactionData:
                             TransactionProtocolMessages.handleTransactionData(data, endpoint);
@@ -87,7 +91,11 @@ namespace DLT
                             break;
 
                         case ProtocolMessageCode.getPresence:
-                            PresenceProtocolMessages.handleGetPresences(data, endpoint);
+                            PresenceProtocolMessages.handleGetPresence(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getPresence2:
+                            PresenceProtocolMessages.handleGetPresence2(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.getKeepAlives:
@@ -101,21 +109,6 @@ namespace DLT
                         // return 10 random presences of the selected type
                         case ProtocolMessageCode.getRandomPresences:
                             PresenceProtocolMessages.handleGetRandomPresences(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.getBlockTransactions:
-                            {
-                                using (MemoryStream m = new MemoryStream(data))
-                                {
-                                    using (BinaryReader reader = new BinaryReader(m))
-                                    {
-                                        ulong blockNum = reader.ReadUInt64();
-                                        bool requestAllTransactions = reader.ReadBoolean();
-
-                                        TransactionProtocolMessages.handleGetBlockTransactions(blockNum, requestAllTransactions, endpoint);
-                                    }
-                                }
-                            }
                             break;
 
                         case ProtocolMessageCode.getUnappliedTransactions:
@@ -191,6 +184,43 @@ namespace DLT
                             TransactionProtocolMessages.handleTransactionsChunk(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.getBlockHeaders2:
+                            BlockProtocolMessages.handleGetBlockHeaders2(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getPIT2:
+                            BlockProtocolMessages.handleGetPIT2(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getBlock2:
+                            BlockProtocolMessages.handleGetBlock2(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getBalance2:
+                            WalletStateProtocolMessages.handleGetBalance2(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getBlockSignatures2:
+                            {
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        ulong block_num = reader.ReadIxiVarUInt();
+
+                                        int checksum_len = (int)reader.ReadIxiVarUInt();
+                                        byte[] checksum = reader.ReadBytes(checksum_len);
+
+                                        SignatureProtocolMessages.handleGetBlockSignatures2(block_num, checksum, endpoint);
+                                    }
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.blockSignature2:
+                            SignatureProtocolMessages.handleBlockSignature2(data, endpoint);
+                            break;
+
                         default:
                             break;
                     }
@@ -198,7 +228,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Logging.error(string.Format("Error parsing network message. Details: {0}", e.ToString()));
+                    Logging.error("Error parsing network message. Details: {0}", e.ToString());
                 }
             }
 
@@ -208,18 +238,13 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        if (CoreProtocolMessage.processHelloMessage(endpoint, reader))
+                        if(data[0] == 5)
                         {
-                            byte[] challenge_response = null;
-
-                            int challenge_len = reader.ReadInt32();
-                            byte[] challenge = reader.ReadBytes(challenge_len);
-
-                            challenge_response = CryptoManager.lib.getSignature(challenge, Node.walletStorage.getPrimaryPrivateKey());
-
-                            CoreProtocolMessage.sendHelloMessage(endpoint, true, challenge_response);
-                            endpoint.helloReceived = true;
-                            return;
+                            CoreProtocolMessage.processHelloMessageV5(endpoint, reader);
+                        }
+                        else
+                        {
+                            CoreProtocolMessage.processHelloMessageV6(endpoint, reader);
                         }
                     }
                 }
@@ -231,8 +256,12 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        if (CoreProtocolMessage.processHelloMessage(endpoint, reader))
+                        if (data[0] == 5)
                         {
+                            if(!CoreProtocolMessage.processHelloMessageV5(endpoint, reader))
+                            {
+                                return;
+                            }
                             char node_type = endpoint.presenceAddress.type;
                             if (node_type != 'M' && node_type != 'H')
                             {
@@ -281,6 +310,47 @@ namespace DLT
 
                             // Process the hello data
                             Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, walletstate_checksum, consensus, 0, true);
+                            endpoint.helloReceived = true;
+                            NetworkClientManager.recalculateLocalTimeDifference();
+
+                        }
+                        else
+                        {
+                            if(!CoreProtocolMessage.processHelloMessageV6(endpoint, reader))
+                            {
+                                return;
+                            }
+                            char node_type = endpoint.presenceAddress.type;
+                            if (node_type != 'M' && node_type != 'H')
+                            {
+                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.expectingMaster, string.Format("Expecting master node."), "", true);
+                                return;
+                            }
+
+                            ulong last_block_num = reader.ReadIxiVarUInt();
+
+                            int bcLen = (int)reader.ReadIxiVarUInt();
+                            byte[] block_checksum = reader.ReadBytes(bcLen);
+
+                            endpoint.blockHeight = last_block_num;
+
+                            if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
+                            {
+                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.deprecated, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.nodeDeprecationBlock, last_block_num), last_block_num.ToString(), true);
+                                return;
+                            }
+
+                            int block_version = (int)reader.ReadIxiVarUInt();
+
+                            ulong highest_block_height = IxianHandler.getHighestKnownNetworkBlockHeight();
+                            if (last_block_num + 15 < highest_block_height)
+                            {
+                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is too far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
+                                return;
+                            }
+
+                            // Process the hello data
+                            Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, null, 0, 0, true);
                             endpoint.helloReceived = true;
                             NetworkClientManager.recalculateLocalTimeDifference();
                         }
