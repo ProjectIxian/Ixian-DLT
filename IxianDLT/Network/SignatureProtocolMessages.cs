@@ -69,6 +69,23 @@ namespace DLT
             }
 
 
+            public static bool broadcastBlockSignature2(byte[] signature_data, byte[] sig_address, ulong block_num, byte[] block_hash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            {
+                if (endpoint != null)
+                {
+                    if (endpoint.isConnected())
+                    {
+                        endpoint.sendData(ProtocolMessageCode.blockSignature2, signature_data);
+                        return true;
+                    }
+                    return false;
+                }
+                else
+                {
+                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(sig_address, block_num, block_hash), skipEndpoint, ProtocolMessageCode.blockSignature, signature_data, null);
+                }
+            }
+
             // Removes event subscriptions for the provided endpoint
             public static void handleBlockSignature(byte[] data, RemoteEndpoint endpoint)
             {
@@ -190,7 +207,7 @@ namespace DLT
                             Node.blockProcessor.acceptLocalNewBlock();
                             if (Node.isMasterNode())
                             {
-                                broadcastBlockSignature(data, sig_addr, block_num, checksum, endpoint);
+                                broadcastBlockSignature2(data, sig_addr, block_num, checksum, endpoint);
                             }
                         }
                         else
@@ -795,7 +812,7 @@ namespace DLT
                                 {
                                     if (Node.isMasterNode())
                                     {
-                                        broadcastBlockSignature(data, addr, block_num, checksum, endpoint);
+                                        broadcastBlockSignature2(data, addr, block_num, checksum, endpoint);
                                     }
                                 }
 
