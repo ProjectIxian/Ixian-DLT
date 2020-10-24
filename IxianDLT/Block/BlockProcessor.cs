@@ -154,13 +154,16 @@ namespace DLT
                         bool generateNextBlock = Node.forceNextBlock;
                         Random rnd = new Random();
 
+                        ulong last_block_num = Node.blockChain.getLastBlockNum();
+
                         if (generateNextBlock)
                         {
                             localNewBlock = null;
                         }
                         else
                         {
-                            if (localNewBlock == null)
+                            // First 7 blocks should be generated only by genesis node
+                            if (localNewBlock == null && (last_block_num > 6 || Node.genesisNode))
                             {
                                 if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(1000)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
                                 {
@@ -171,13 +174,7 @@ namespace DLT
                                 {
                                     if (timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)
                                     {
-                                        if (Node.blockChain.getLastBlockNum() < 7)
-                                        {
-                                            if(Node.genesisNode)
-                                            {
-                                                generateNextBlock = true;
-                                            }
-                                        }else if(Node.isElectedToGenerateNextBlock(getElectedNodeOffset()))
+                                        if(last_block_num < 7 || Node.isElectedToGenerateNextBlock(getElectedNodeOffset()))
                                         {
                                             generateNextBlock = true;
                                         }
@@ -231,10 +228,13 @@ namespace DLT
                             {
                                 if (Node.isMasterNode())
                                 {
-                                    if ((DateTime.UtcNow - currentBlockStartTime).TotalSeconds > 15 && localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                                    if ((DateTime.UtcNow - currentBlockStartTime).TotalSeconds > (ConsensusConfig.blockGenerationInterval / 2) && localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
                                     {
-                                        //ProtocolMessage.broadcastNewBlock(localNewBlock); // not required
-                                        Logging.info(String.Format("Waiting for local block #{0} to reach consensus {1}/{2}.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus()));
+                                        if(last_block_num < 10)
+                                        {
+                                            BlockProtocolMessages.broadcastNewBlock(localNewBlock);
+                                        }
+                                        Logging.info("Waiting for local block #{0} to reach consensus {1}/{2}.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus());
                                         sleep = true;
                                     }
                                 }
