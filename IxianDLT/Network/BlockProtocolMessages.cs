@@ -125,11 +125,11 @@ namespace DLT
                         {
                             using (BinaryWriter writer = new BinaryWriter(mOut))
                             {
-                                for (ulong i = 0; i < totalCount; i++)
+                                for (ulong i = 0; i < totalCount;)
                                 {
                                     // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
                                     bool found = false;
-                                    while (i < totalCount)
+                                    for (; i < totalCount; i++)
                                     {
                                         Block block = Node.blockChain.getBlock(from + i, true, true);
                                         if (block == null)
@@ -208,11 +208,11 @@ namespace DLT
                         {
                             using (BinaryWriter writer = new BinaryWriter(mOut))
                             {
-                                for (ulong i = 0; i < totalCount; i++)
+                                for (ulong i = 0; i < totalCount;)
                                 {
                                     // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
                                     bool found = false;
-                                    while (i < totalCount)
+                                    for (;  i < totalCount; i++)
                                     {
                                         Block block = Node.blockChain.getBlock(from + i, true, true);
                                         if (block == null)
