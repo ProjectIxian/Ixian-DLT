@@ -516,7 +516,6 @@ namespace DLT
                             }
                             byte[] txData = reader.ReadBytes(len);
                             Transaction tx = new Transaction(txData);
-                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(tx.id), true);
                             totalTxCount++;
                             if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                             {

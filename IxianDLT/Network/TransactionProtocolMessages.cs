@@ -344,8 +344,6 @@ namespace DLT
 
                             Transaction tx = new Transaction(tx_bytes);
 
-                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(tx.id), true);
-
                             totalTxCount++;
                             if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
                             {
@@ -501,7 +499,6 @@ namespace DLT
                 }*/
 
                 Transaction transaction = new Transaction(data);
-                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id), true);
                 if (transaction == null)
                     return;
 

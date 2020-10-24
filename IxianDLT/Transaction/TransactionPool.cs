@@ -898,6 +898,7 @@ namespace DLT
         {
             if (verifyTx)
             {
+                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id), true);
                 if (!verifyTransaction(transaction, endpoint))
                 {
                     return false;

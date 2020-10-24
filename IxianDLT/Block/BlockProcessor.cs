@@ -934,16 +934,31 @@ namespace DLT
                     }
                     if (fetchTransactions)
                     {
-                        Logging.info(String.Format("Missing transaction '{0}'. Requesting.", txid));
-                        CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
-                        hasAllTransactions = false;
-                        missing++;
-                    }
-                    else
+                        Logging.info("Missing transaction '{0}'. Requesting.", txid);
+                        if (CoreConfig.protocolVersion == 5)
+                        {
+                            CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
+                        }else
+                        {
+                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(txid)), endpoint);
+                            if (!pii.processed && pii.lastRequested == 0)
+                            {
+                                Node.inventoryCache.processInventoryItem(pii);
+                            }
+                        }
+                    }else
                     {
-                        hasAllTransactions = false;
-                        missing++;
+                        if (CoreConfig.protocolVersion == 6)
+                        {
+                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(txid)), endpoint);
+                            if (!pii.processed && pii.lastRequested == 0)
+                            {
+                                pii.lastRequested = Clock.getTimestamp();
+                            }
+                        }
                     }
+                    hasAllTransactions = false;
+                    missing++;
                     continue;
                 }
 
