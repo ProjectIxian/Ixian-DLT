@@ -48,6 +48,8 @@ namespace DLT.Meta
 
         public static string shutdownMessage = "";
 
+        private static ulong lastMasterNodeConversionBlockNum = 0;
+
         public Node()
         {
             CoreConfig.productVersion = Config.version;
@@ -648,15 +650,20 @@ namespace DLT.Meta
             // First check if the block processor is running
             if (blockProcessor.operating == true)
             {
-                if (blockChain.getLastBlockNum() > 2)
+                ulong last_block_num = blockChain.getLastBlockNum();
+                if (last_block_num > 2)
                 {
                     IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.getPrimaryAddress());
                     if(!isMasterNode())
                     {
                         if (nodeBalance >= ConsensusConfig.minimumMasterNodeFunds)
                         {
-                            Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", ConsensusConfig.minimumMasterNodeFunds));
-                            convertToMasterNode();
+                            if (lastMasterNodeConversionBlockNum != last_block_num)
+                            {
+                                lastMasterNodeConversionBlockNum = last_block_num;
+                                Logging.info(string.Format("Your balance is more than the minimum {0} IXIs needed to operate a masternode. Reconnecting as a masternode.", ConsensusConfig.minimumMasterNodeFunds));
+                                convertToMasterNode();
+                            }
                         }
                     }
                     else
