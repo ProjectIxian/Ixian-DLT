@@ -83,10 +83,10 @@ namespace DLTNode.Inventory
                     byte[] device_len_bytes = ((ulong)iika.deviceId.Length).GetIxiVarIntBytes();
                     byte[] data = new byte[1 + address_len_bytes.Length + iika.address.Length + device_len_bytes.Length + iika.deviceId.Length];
                     data[0] = 1;
-                    Array.Copy(address_len_bytes, data, address_len_bytes.Length);
-                    Array.Copy(iika.address, 0, data, address_len_bytes.Length, iika.address.Length);
-                    Array.Copy(device_len_bytes, 0, data, address_len_bytes.Length + iika.address.Length, device_len_bytes.Length);
-                    Array.Copy(iika.deviceId, 0, data, address_len_bytes.Length + iika.address.Length + device_len_bytes.Length, iika.deviceId.Length);
+                    Array.Copy(address_len_bytes, 0, data, 1, address_len_bytes.Length);
+                    Array.Copy(iika.address, 0, data, 1 + address_len_bytes.Length, iika.address.Length);
+                    Array.Copy(device_len_bytes, 0, data, 1 + address_len_bytes.Length + iika.address.Length, device_len_bytes.Length);
+                    Array.Copy(iika.deviceId, 0, data, 1 + address_len_bytes.Length + iika.address.Length + device_len_bytes.Length, iika.deviceId.Length);
                     endpoint.sendData(ProtocolMessageCode.getKeepAlives, data, null);
                     return true;
                 }
