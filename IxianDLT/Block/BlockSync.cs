@@ -489,10 +489,7 @@ namespace DLT
                                     if (t != null)
                                     {
                                         t.applied = 0;
-                                        if (!TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification))
-                                        {
-                                            Logging.error("Error adding a transaction {0} from storage", txid);
-                                        }
+                                        TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification);
                                     }
                                     else
                                     {
@@ -662,7 +659,7 @@ namespace DLT
 
                             if (b.blockNum > 12 && b.blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
                             {
-                                if (Node.isMasterNode())
+                                if (Node.isMasterNode() && b.blockNum > 7)
                                 {
                                     byte[][] signature_data = b.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                                     if (signature_data != null)

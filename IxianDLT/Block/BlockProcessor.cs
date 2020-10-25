@@ -163,22 +163,28 @@ namespace DLT
                         else
                         {
                             // First 7 blocks should be generated only by genesis node
-                            if (localNewBlock == null && (last_block_num > 6 || Node.genesisNode))
+                            if (localNewBlock == null)
                             {
-                                if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(1000)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
+                                if(last_block_num > 7 || Node.genesisNode)
                                 {
-                                    generateNextBlock = true;
-                                    block_version = Node.blockChain.getLastBlockVersion();
-                                }
-                                else
-                                {
-                                    if (timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)
+                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(1000)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
                                     {
-                                        if(last_block_num < 7 || Node.isElectedToGenerateNextBlock(getElectedNodeOffset()))
+                                        generateNextBlock = true;
+                                        block_version = Node.blockChain.getLastBlockVersion();
+                                    }
+                                    else
+                                    {
+                                        if (timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)
                                         {
-                                            generateNextBlock = true;
+                                            if (last_block_num < 8 || Node.isElectedToGenerateNextBlock(getElectedNodeOffset()))
+                                            {
+                                                generateNextBlock = true;
+                                            }
                                         }
                                     }
+                                }else
+                                {
+                                    BlockProtocolMessages.broadcastGetBlock(last_block_num + 1);
                                 }
                             }
 
@@ -1714,7 +1720,7 @@ namespace DLT
                     }
                     if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                     {
-                        if (Node.isMasterNode())
+                        if (Node.isMasterNode() && localNewBlock.blockNum > 7)
                         {
                             byte[][] signature_data = localNewBlock.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                             if (signature_data != null) 
