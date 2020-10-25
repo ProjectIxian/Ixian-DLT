@@ -30,7 +30,7 @@ namespace DLTNode.Inventory
                 case InventoryItemTypes.keepAlive:
                     return handleKeepAlive(item, endpoint);
                 case InventoryItemTypes.transaction:
-                    CoreProtocolMessage.broadcastGetTransaction(UTF8Encoding.UTF8.GetString(item.hash), 0, endpoint);
+                    CoreProtocolMessage.broadcastGetTransaction2(item.hash, 0, endpoint);
                     return true;
             }
             return false;
@@ -47,7 +47,7 @@ namespace DLTNode.Inventory
                 {
                     include_tx = 0;
                 }
-                BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                BlockProtocolMessages.broadcastGetBlock2(last_block_height + 1, null, endpoint, include_tx, true);
                 if(iib.blockNum == last_block_height + 1)
                 {
                     return true;
@@ -66,10 +66,10 @@ namespace DLTNode.Inventory
                 {
                     using (BinaryWriter writer = new BinaryWriter(mw))
                     {
-                        writer.Write(iika.address.Length);
+                        writer.WriteIxiVarInt(iika.address.Length);
                         writer.Write(iika.address);
 
-                        endpoint.sendData(ProtocolMessageCode.getPresence, mw.ToArray(), null);
+                        endpoint.sendData(ProtocolMessageCode.getPresence2, mw.ToArray(), null);
                     }
                 }
                 return false;
