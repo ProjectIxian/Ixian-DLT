@@ -121,21 +121,21 @@ namespace DLT
                             return;
                         }
 
-                        using (MemoryStream mOut = new MemoryStream())
+                        // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
+                        for (ulong i = 0; i < totalCount;)
                         {
-                            using (BinaryWriter writer = new BinaryWriter(mOut))
+                            bool found = false;
+                            using (MemoryStream mOut = new MemoryStream())
                             {
-                                for (ulong i = 0; i < totalCount;)
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
-                                    // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
-                                    bool found = false;
-                                    for (; i < totalCount; i++)
+                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; i++, j++)
                                     {
                                         Block block = Node.blockChain.getBlock(from + i, true, true);
                                         if (block == null)
                                             break;
 
-                                        long rollback_pos = mOut.Position;
+                                        long rollback_len = mOut.Length;
 
                                         found = true;
                                         BlockHeader header = new BlockHeader(block);
@@ -145,19 +145,19 @@ namespace DLT
 
                                         if (mOut.Length > CoreConfig.maxMessageSize)
                                         {
-                                            mOut.Position = rollback_pos;
+                                            mOut.SetLength(rollback_len);
                                             i--;
                                             break;
                                         }
 
                                         broadcastBlockHeaderTransactions(block, endpoint);
                                     }
-                                    if (!found)
-                                    {
-                                        break;
-                                    }
-                                    endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
                                 }
+                                if (!found)
+                                {
+                                    break;
+                                }
+                                endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
                             }
                         }
                     }
@@ -204,21 +204,21 @@ namespace DLT
                             return;
                         }
 
-                        using (MemoryStream mOut = new MemoryStream())
+                        // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
+                        for (ulong i = 0; i < totalCount;)
                         {
-                            using (BinaryWriter writer = new BinaryWriter(mOut))
+                            bool found = false;
+                            using (MemoryStream mOut = new MemoryStream())
                             {
-                                for (ulong i = 0; i < totalCount;)
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
-                                    // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
-                                    bool found = false;
-                                    for (;  i < totalCount; i++)
+                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; i++, j++)
                                     {
                                         Block block = Node.blockChain.getBlock(from + i, true, true);
                                         if (block == null)
                                             break;
 
-                                        long rollback_pos = mOut.Position;
+                                        long rollback_len = mOut.Length;
 
                                         found = true;
                                         BlockHeader header = new BlockHeader(block);
@@ -228,19 +228,19 @@ namespace DLT
 
                                         if (mOut.Length > CoreConfig.maxMessageSize)
                                         {
-                                            mOut.Position = rollback_pos;
+                                            mOut.SetLength(rollback_len);
                                             i--;
                                             break;
                                         }
 
                                         broadcastBlockHeaderTransactions(block, endpoint);
                                     }
-                                    if (!found)
-                                    {
-                                        break;
-                                    }
-                                    endpoint.sendData(ProtocolMessageCode.blockHeaders2, mOut.ToArray());
                                 }
+                                if (!found)
+                                {
+                                    break;
+                                }
+                                endpoint.sendData(ProtocolMessageCode.blockHeaders2, mOut.ToArray());
                             }
                         }
                     }
@@ -521,11 +521,7 @@ namespace DLT
                             {
                                 continue;
                             }
-                            if (!TransactionPool.addTransaction(tx, true))
-                            {
-                                Logging.error("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id);
-                            }
-                            else
+                            if(TransactionPool.addTransaction(tx, true))
                             {
                                 processedTxCount++;
                             }

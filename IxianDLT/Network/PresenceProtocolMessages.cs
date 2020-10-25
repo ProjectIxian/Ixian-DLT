@@ -19,9 +19,9 @@ namespace DLT
             {
                 int ka_count = ka_list.Count;
                 int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
-                using (MemoryStream mOut = new MemoryStream(max_ka_per_chunk * 570))
+                for (int i = 0; i < ka_count;)
                 {
-                    for (int i = 0; i < ka_count;)
+                    using (MemoryStream mOut = new MemoryStream(max_ka_per_chunk * 570))
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
@@ -36,11 +36,16 @@ namespace DLT
                             }
                             writer.WriteIxiVarInt(next_ka_count);
 
-                            for (int j = 0; j < next_ka_count; i++, j++)
+                            for (int j = 0; j < next_ka_count && i < ka_count; i++, j++)
                             {
                                 InventoryItemKeepAlive ka = ka_list[i];
 
-                                long rollback_pos = mOut.Position;
+                                if(ka == null)
+                                {
+                                    break;
+                                }
+
+                                long rollback_len = mOut.Length;
 
                                 writer.WriteIxiVarInt(ka.address.Length);
                                 writer.Write(ka.address);
@@ -50,7 +55,7 @@ namespace DLT
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
                                 {
-                                    mOut.Position = rollback_pos;
+                                    mOut.SetLength(rollback_len);
                                     i--;
                                     break;
                                 }
@@ -71,9 +76,9 @@ namespace DLT
 
                         int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
 
-                        using (MemoryStream mOut = new MemoryStream(max_ka_per_chunk * 570))
+                        for (int i = 0; i < ka_count;)
                         {
-                            for (int i = 0; i < ka_count;)
+                            using (MemoryStream mOut = new MemoryStream(max_ka_per_chunk * 570))
                             {
                                 using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
@@ -88,10 +93,15 @@ namespace DLT
                                     }
                                     writer.WriteIxiVarInt(next_ka_count);
 
-                                    for (int j = 0; j < next_ka_count; i++, j++)
+                                    for (int j = 0; j < next_ka_count && i < ka_count; i++, j++)
                                     {
                                         long in_rollback_pos = reader.BaseStream.Position;
                                         long out_rollback_len = mOut.Length;
+
+                                        if(m.Position == m.Length)
+                                        {
+                                            break;
+                                        }
 
                                         int address_len = (int)reader.ReadIxiVarUInt();
                                         byte[] address = reader.ReadBytes(address_len);
@@ -141,6 +151,10 @@ namespace DLT
                         int ka_count = (int)reader.ReadIxiVarUInt();
 
                         int max_ka_per_chunk = CoreConfig.maximumKeepAlivesPerChunk;
+                        if(ka_count > max_ka_per_chunk)
+                        {
+                            ka_count = max_ka_per_chunk;
+                        }
 
                         for (int i = 0; i < ka_count; i++)
                         {
@@ -157,10 +171,10 @@ namespace DLT
                             // If a presence entry was updated, broadcast this message again
                             if (updated)
                             {
-                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(Crypto.sha512sqTrunc(data), last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, data, address);
+                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(Crypto.sha512sqTrunc(data), last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, ka_bytes, address);
 
                                 // Send this keepalive message to all subscribed clients
-                                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);
+                                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, ka_bytes, address, endpoint);
                             }
 
                             if (m.Position == m.Length)

@@ -1,6 +1,5 @@
 ﻿using DLT.Meta;
 using IXICore;
-using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
 using IXICore.Utils;
@@ -67,36 +66,38 @@ namespace DLT
                 if (tx_count == 0)
                     return;
 
-                int num_chunks = tx_count / ConsensusConfig.maximumTransactionsPerChunk + 1;
                 // Go through each chunk
-                for (int i = 0; i < num_chunks; i++)
+                for (int i = 0; i < tx_count;)
                 {
                     using (MemoryStream mOut = new MemoryStream(4096))
                     {
+                        int txs_in_chunk = 0;
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
-                            int txs_in_chunk = 0;
                             // Generate a chunk of transactions
-                            for (int j = 0; j < ConsensusConfig.maximumTransactionsPerChunk; j++)
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; i++, j++)
                             {
-                                int tx_index = i * ConsensusConfig.maximumTransactionsPerChunk + j;
-                                if (tx_index > tx_count - 1)
-                                    break;
-
                                 if (!requestAllTransactions)
                                 {
-                                    if (txIdArr[tx_index].StartsWith("stk"))
+                                    if (txIdArr[i].StartsWith("stk"))
                                     {
                                         continue;
                                     }
                                 }
-                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[tx_index], blockNum, true);
+                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
 
+                                    long rollback_len = mOut.Length;
                                     writer.Write(txBytes.Length);
                                     writer.Write(txBytes);
+                                    if (mOut.Length > CoreConfig.maxMessageSize)
+                                    {
+                                        mOut.SetLength(rollback_len);
+                                        i--;
+                                        break;
+                                    }
                                     txs_in_chunk++;
                                 }
                             }
@@ -104,11 +105,11 @@ namespace DLT
 #if TRACE_MEMSTREAM_SIZES
                             Logging.info(String.Format("NetworkProtocol::handleGetBlockTransactions: {0}", mOut.Length));
 #endif
-                            if (txs_in_chunk > 0)
-                            {
-                                // Send a chunk
-                                endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
-                            }
+                        }
+                        if (txs_in_chunk > 0)
+                        {
+                            // Send a chunk
+                            endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
                         }
                     }
                 }
@@ -164,36 +165,38 @@ namespace DLT
                 if (tx_count == 0)
                     return;
 
-                int num_chunks = tx_count / ConsensusConfig.maximumTransactionsPerChunk + 1;
                 // Go through each chunk
-                for (int i = 0; i < num_chunks; i++)
+                for (int i = 0; i < tx_count;)
                 {
                     using (MemoryStream mOut = new MemoryStream(4096))
                     {
+                        int txs_in_chunk = 0;
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
-                            int txs_in_chunk = 0;
                             // Generate a chunk of transactions
-                            for (int j = 0; j < ConsensusConfig.maximumTransactionsPerChunk; j++)
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; i++, j++)
                             {
-                                int tx_index = i * ConsensusConfig.maximumTransactionsPerChunk + j;
-                                if (tx_index > tx_count - 1)
-                                    break;
-
                                 if (!requestAllTransactions)
                                 {
-                                    if (txIdArr[tx_index].StartsWith("stk"))
+                                    if (txIdArr[i].StartsWith("stk"))
                                     {
                                         continue;
                                     }
                                 }
-                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[tx_index], blockNum, true);
+                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
 
+                                    long rollback_len = mOut.Length;
                                     writer.WriteIxiVarInt(txBytes.Length);
                                     writer.Write(txBytes);
+                                    if (mOut.Length > CoreConfig.maxMessageSize)
+                                    {
+                                        mOut.SetLength(rollback_len);
+                                        i--;
+                                        break;
+                                    }
                                     txs_in_chunk++;
                                 }
                             }
@@ -201,11 +204,11 @@ namespace DLT
 #if TRACE_MEMSTREAM_SIZES
                             Logging.info(String.Format("NetworkProtocol::handleGetBlockTransactions: {0}", mOut.Length));
 #endif
-                            if (txs_in_chunk > 0)
-                            {
-                                // Send a chunk
-                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
-                            }
+                        }
+                        if (txs_in_chunk > 0)
+                        {
+                            // Send a chunk
+                            endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
                         }
                     }
                 }
@@ -215,33 +218,33 @@ namespace DLT
             {
                 int tx_count = tx_list.Count;
                 int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
-                using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
+                for (int i = 0; i < tx_count;)
                 {
-                    for (int i = 0; i < tx_count;)
+                    using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
-                            int next_ka_count;
+                            int next_tx_count;
                             if (tx_count - i > max_tx_per_chunk)
                             {
-                                next_ka_count = max_tx_per_chunk;
+                                next_tx_count = max_tx_per_chunk;
                             }
                             else
                             {
-                                next_ka_count = tx_count - i;
+                                next_tx_count = tx_count - i;
                             }
-                            writer.WriteIxiVarInt(next_ka_count);
+                            writer.WriteIxiVarInt(next_tx_count);
 
-                            for (int j = 0; j < next_ka_count; i++, j++)
+                            for (int j = 0; j < next_tx_count && i < tx_count; i++, j++)
                             {
-                                long rollback_pos = mOut.Position;
+                                long rollback_len = mOut.Length;
 
                                 writer.WriteIxiVarInt(tx_list[i].Length);
                                 writer.Write(tx_list[i]);
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
                                 {
-                                    mOut.Position = rollback_pos;
+                                    mOut.SetLength(rollback_len);
                                     i--;
                                     break;
                                 }
@@ -261,10 +264,14 @@ namespace DLT
                         int tx_count = (int)reader.ReadIxiVarUInt();
 
                         int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
-
-                        using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
+                        if (tx_count > max_tx_per_chunk)
                         {
-                            for (int i = 0; i < tx_count;)
+                            tx_count = max_tx_per_chunk;
+                        }
+
+                        for (int i = 0; i < tx_count;)
+                        {
+                            using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
                             {
                                 using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
@@ -279,10 +286,15 @@ namespace DLT
                                     }
                                     writer.WriteIxiVarInt(next_tx_count);
 
-                                    for (int j = 0; j < next_tx_count; i++, j++)
+                                    for (int j = 0; j < next_tx_count && i < tx_count; i++, j++)
                                     {
                                         long in_rollback_pos = reader.BaseStream.Position;
                                         long out_rollback_len = mOut.Length;
+
+                                        if (m.Position == m.Length)
+                                        {
+                                            break;
+                                        }
 
                                         int txid_len = (int)reader.ReadIxiVarUInt();
                                         byte[] txid = reader.ReadBytes(txid_len);
@@ -349,11 +361,7 @@ namespace DLT
                             {
                                 continue;
                             }
-                            if (!TransactionPool.addTransaction(tx, false, endpoint))
-                            {
-                                Logging.error("Error adding transaction {0} received in a chunk to the transaction pool.", tx.id);
-                            }
-                            else
+                            if (TransactionPool.addTransaction(tx, false, endpoint))
                             {
                                 processedTxCount++;
                             }
@@ -380,33 +388,37 @@ namespace DLT
                 if (tx_count == 0)
                     return;
 
-                int num_chunks = tx_count / ConsensusConfig.maximumTransactionsPerChunk + 1;
-
                 // Go through each chunk
-                for (int i = 0; i < num_chunks; i++)
+                for (int i = 0; i < tx_count;)
                 {
                     using (MemoryStream mOut = new MemoryStream())
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
                             // Generate a chunk of transactions
-                            for (int j = 0; j < ConsensusConfig.maximumTransactionsPerChunk; j++)
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; i++, j++)
                             {
-                                int tx_index = i * ConsensusConfig.maximumTransactionsPerChunk + j;
-                                if (tx_index > tx_count - 1)
-                                    break;
+                                byte[] txBytes = txIdArr[i].getBytes();
 
-                                byte[] txBytes = txIdArr[tx_index].getBytes();
+                                long rollback_len = mOut.Length;
+
                                 writer.Write(txBytes.Length);
                                 writer.Write(txBytes);
+
+                                if (mOut.Length > CoreConfig.maxMessageSize)
+                                {
+                                    mOut.SetLength(rollback_len);
+                                    i--;
+                                    break;
+                                }
                             }
 
                             // Send a chunk
 #if TRACE_MEMSTREAM_SIZES
                         Logging.info(String.Format("NetworkProtocol::handleGetUnappliedTransactions: {0}", mOut.Length));
 #endif
-                            endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
                         }
+                        endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
                     }
                 }
             }

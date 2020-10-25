@@ -34,7 +34,7 @@ namespace DLT
                 }
             }
 
-
+            [Obsolete("Use broadcastBlockSignature2 instead")]
             public static bool broadcastBlockSignature(ulong block_num, byte[] block_checksum, byte[] signature, byte[] signer_address, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
                 byte[] signature_data = null;
@@ -82,7 +82,7 @@ namespace DLT
                 }
                 else
                 {
-                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(sig_address, block_num, block_hash), skipEndpoint, ProtocolMessageCode.blockSignature, signature_data, null);
+                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(sig_address, block_num, block_hash), skipEndpoint, ProtocolMessageCode.blockSignature2, signature_data, null);
                 }
             }
 
@@ -207,7 +207,7 @@ namespace DLT
                             Node.blockProcessor.acceptLocalNewBlock();
                             if (Node.isMasterNode())
                             {
-                                broadcastBlockSignature2(data, sig_addr, block_num, checksum, endpoint);
+                                broadcastBlockSignature(block_num, checksum, sig, sig_addr, endpoint);
                             }
                         }
                         else
@@ -316,7 +316,7 @@ namespace DLT
                         else if (!target_block.blockChecksum.SequenceEqual(checksum))
                         {
                             // incorrect target block
-                            Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, checksum);
+                            Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, Crypto.hashToString(checksum));
                             return;
                         }
 
@@ -402,9 +402,9 @@ namespace DLT
                     return;
                 }
 
-                using (MemoryStream mOut = new MemoryStream())
+                for (int i = 0; i < sig_count;)
                 {
-                    for (int i = 0; i < sig_count;)
+                    using (MemoryStream mOut = new MemoryStream())
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
@@ -424,7 +424,7 @@ namespace DLT
                             }
                             writer.Write(next_sig_count);
 
-                            for (int j = 0; j < next_sig_count; i++, j++)
+                            for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
                             {
                                 byte[][] sig = signatures[i];
                                 if (sig == null)
@@ -472,9 +472,9 @@ namespace DLT
                     return;
                 }
 
-                using (MemoryStream mOut = new MemoryStream())
+                for (int i = 0; i < sig_count;)
                 {
-                    for (int i = 0; i < sig_count;)
+                    using (MemoryStream mOut = new MemoryStream())
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
@@ -494,7 +494,7 @@ namespace DLT
                             }
                             writer.WriteIxiVarInt(next_sig_count);
 
-                            for (int j = 0; j < next_sig_count; i++, j++)
+                            for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
                             {
                                 byte[][] sig = signatures[i];
                                 if (sig == null)
@@ -536,9 +536,13 @@ namespace DLT
             {
                 int sig_count = sig_list.Count;
                 int max_sig_per_chunk = ConsensusConfig.maximumBlockSigners;
-                using (MemoryStream mOut = new MemoryStream(max_sig_per_chunk * 570))
+                if(sig_count > max_sig_per_chunk)
                 {
-                    for (int i = 0; i < sig_count;)
+                    sig_count = max_sig_per_chunk;
+                }
+                for (int i = 0; i < sig_count;)
+                {
+                    using (MemoryStream mOut = new MemoryStream(max_sig_per_chunk * 570))
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
@@ -556,7 +560,7 @@ namespace DLT
 
                             writer.WriteIxiVarInt(next_sig_count);
 
-                            for (int j = 0; j < next_sig_count; i++, j++)
+                            for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
                             {
                                 InventoryItemSignature sig = sig_list[i];
 
@@ -637,10 +641,14 @@ namespace DLT
                         int sig_count = (int)reader.ReadIxiVarUInt();
 
                         int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
-
-                        using (MemoryStream mOut = new MemoryStream(max_sigs_per_chunk * 570))
+                        if(sig_count > max_sigs_per_chunk)
                         {
-                            for (int i = 0; i < sig_count;)
+                            sig_count = max_sigs_per_chunk;
+                        }
+
+                        for (int i = 0; i < sig_count;)
+                        {
+                            using (MemoryStream mOut = new MemoryStream(max_sigs_per_chunk * 570))
                             {
                                 using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
@@ -660,7 +668,7 @@ namespace DLT
                                     }
                                     writer.WriteIxiVarInt(next_sig_count);
 
-                                    for (int j = 0; j < next_sig_count; i++, j++)
+                                    for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
                                     {
                                         int address_len = (int)reader.ReadIxiVarUInt();
                                         byte[] address = reader.ReadBytes(address_len);
@@ -744,7 +752,7 @@ namespace DLT
                         else if (!block.blockChecksum.SequenceEqual(checksum))
                         {
                             // incorrect target block
-                            Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, checksum);
+                            Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, Crypto.hashToString(checksum));
                             return;
                         }
 
@@ -812,7 +820,7 @@ namespace DLT
                                 {
                                     if (Node.isMasterNode())
                                     {
-                                        broadcastBlockSignature2(data, addr, block_num, checksum, endpoint);
+                                        broadcastBlockSignature(block_num, checksum, sig, addr, endpoint);
                                     }
                                 }
 
