@@ -394,10 +394,12 @@ namespace DLT
                                 {
                                     case InventoryItemTypes.keepAlive:
                                         ka_list.Add((InventoryItemKeepAlive)item);
+                                        pii.lastRequested = Clock.getTimestamp();
                                         break;
 
                                     case InventoryItemTypes.transaction:
                                         tx_list.Add(item.hash);
+                                        pii.lastRequested = Clock.getTimestamp();
                                         break;
 
                                     case InventoryItemTypes.blockSignature:
@@ -407,15 +409,27 @@ namespace DLT
                                             sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
                                         }
                                         sig_lists[iis.blockNum].Add(iis);
+                                        pii.lastRequested = Clock.getTimestamp();
                                         break;
 
                                     case InventoryItemTypes.block:
-                                        if (((InventoryItemBlock)item).blockNum <= last_block_height)
+                                        var iib = ((InventoryItemBlock)item);
+                                        if (iib.blockNum <= last_block_height)
                                         {
                                             Node.inventoryCache.processInventoryItem(pii);
                                         }else
                                         {
+                                            pii.lastRequested = Clock.getTimestamp();
                                             request_next_block = true;
+                                            if(iib.blockNum > endpoint.blockHeight)
+                                            {
+                                                endpoint.blockHeight = iib.blockNum;
+                                            }
+
+                                            if (iib.blockNum > Node.blockProcessor.highestNetworkBlockNum)
+                                            {
+                                                Node.blockProcessor.highestNetworkBlockNum = iib.blockNum;
+                                            }
                                         }
                                         break;
 
@@ -427,10 +441,6 @@ namespace DLT
                         }
                         TransactionProtocolMessages.broadcastGetTransactions(tx_list, endpoint);
                         PresenceProtocolMessages.broadcastGetKeepAlives(ka_list, endpoint);
-                        foreach(var sig_list in sig_lists)
-                        {
-                            SignatureProtocolMessages.broadcastGetSignatures(sig_list.Key, sig_list.Value, endpoint);
-                        }
                         if (request_next_block)
                         {
                             byte include_tx = 2;
@@ -439,6 +449,10 @@ namespace DLT
                                 include_tx = 0;
                             }
                             BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                        }
+                        foreach(var sig_list in sig_lists)
+                        {
+                            SignatureProtocolMessages.broadcastGetSignatures(sig_list.Key, sig_list.Value, endpoint);
                         }
                     }
                 }

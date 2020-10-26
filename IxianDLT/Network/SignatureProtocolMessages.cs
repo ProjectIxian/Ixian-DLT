@@ -35,7 +35,7 @@ namespace DLT
             }
 
             [Obsolete("Use broadcastBlockSignature2 instead")]
-            public static bool broadcastBlockSignature(ulong block_num, byte[] block_checksum, byte[] signature, byte[] signer_address, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            public static bool broadcastBlockSignature(ulong block_num, byte[] block_checksum, byte[] signature, byte[] signer_address, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, bool force_broadcast = false)
             {
                 byte[] signature_data = null;
 
@@ -62,7 +62,14 @@ namespace DLT
                 }
                 if (signature_data != null)
                 {
-                    return broadcastBlockSignature(signature_data, signer_address, block_num, block_checksum, skipEndpoint, endpoint);
+                    if (force_broadcast)
+                    {
+                        return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockSignature, signature_data, null);
+                    }
+                    else
+                    {
+                        return broadcastBlockSignature(signature_data, signer_address, block_num, block_checksum, skipEndpoint, endpoint);
+                    }
                 }
 
                 return false;

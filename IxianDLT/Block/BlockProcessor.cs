@@ -526,7 +526,7 @@ namespace DLT
 
             if(isBlockBlacklisted(b))
             {
-                Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network which has been blacklisted.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getFrozenSignatureCount()));
+                Logging.info("Received block #{0} {1} ({2} sigs) from the network which has been blacklisted.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getFrozenSignatureCount());
                 return;
             }
 
@@ -947,7 +947,10 @@ namespace DLT
                         }else
                         {
                             var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(txid)), endpoint);
-                            if (!pii.processed && pii.lastRequested == 0)
+                            if(pii.processed)
+                            {
+                                CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
+                            }else if (pii.lastRequested == 0)
                             {
                                 Node.inventoryCache.processInventoryItem(pii);
                             }
@@ -1102,7 +1105,7 @@ namespace DLT
                     if (!fetchingBulkTxForBlocks.ContainsKey(b.blockNum))
                     {
                         long cur_time = Clock.getTimestamp();
-                        if (missing > b.transactions.Count / 2)
+                        if (missing < b.transactions.Count / 2 && missing < 50)
                         {
                             cur_time = cur_time - 30;
                             fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
@@ -1333,8 +1336,8 @@ namespace DLT
                                 localNewBlock = b;
                                 currentBlockStartTime = DateTime.UtcNow;
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                                BlockProtocolMessages.broadcastNewBlock(b, null, null);
                                 acceptLocalNewBlock();
-                                BlockProtocolMessages.broadcastNewBlock(b, endpoint, null);
                                 return;
                             }
                         }
@@ -1359,8 +1362,8 @@ namespace DLT
                         localNewBlock = b;
                         currentBlockStartTime = DateTime.UtcNow;
                         firstBlockAfterSync = false;
-                        acceptLocalNewBlock();
                         BlockProtocolMessages.broadcastNewBlock(b, endpoint, null);
+                        acceptLocalNewBlock();
                     }
                     else
                     {
@@ -1516,7 +1519,7 @@ namespace DLT
                 // verify sig count
                 if (frozen_sig_count < required_consensus_count)
                 {
-                    Logging.warn("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
+                    Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
                     return false;
                 }
 
@@ -1727,7 +1730,7 @@ namespace DLT
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], localNewBlock.blockChecksum), true);
                                 // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                SignatureProtocolMessages.broadcastBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1]);
+                                SignatureProtocolMessages.broadcastBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1], null, null, true);
                             }
                         }
                     }
@@ -2036,8 +2039,8 @@ namespace DLT
                 }
             }
 
-            // Ignore blocks before #6
-            if (b.blockNum < 6)
+            // Ignore blocks before #7
+            if (b.blockNum < 7)
             {
                 return;
             }
@@ -2630,7 +2633,7 @@ namespace DLT
                     lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10); // TODO TODO TODO make sure that this is ok
 
                     // Broadcast the new block
-                    BlockProtocolMessages.broadcastNewBlock(localNewBlock);
+                    BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, null, true);
 
                     if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
                     {

@@ -945,7 +945,7 @@ namespace DLT
                     CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData, transaction.getBytes(), null, endpoint);
                 }else
                 {
-                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id)), endpoint, ProtocolMessageCode.transactionData, transaction.getBytes(), null);
+                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id)), null, ProtocolMessageCode.transactionData, transaction.getBytes(), null);
                 }
             }
 

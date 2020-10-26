@@ -473,7 +473,7 @@ namespace DLT
                 }
             }
 
-            public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            public static bool broadcastNewBlock(Block b, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, bool force_broadcast = false)
             {
                 if (!Node.isMasterNode())
                 {
@@ -490,7 +490,14 @@ namespace DLT
                 }
                 else
                 {
-                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemBlock(b.blockChecksum, b.blockNum), skipEndpoint, ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
+                    if(force_broadcast)
+                    {
+                        return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum), skipEndpoint);
+                    }
+                    else
+                    {
+                        return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemBlock(b.blockChecksum, b.blockNum), skipEndpoint, ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
+                    }
                 }
             }
 

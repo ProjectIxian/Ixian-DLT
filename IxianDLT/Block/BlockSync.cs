@@ -666,7 +666,7 @@ namespace DLT
                                     {
                                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], b.blockChecksum), true);
                                         // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                        SignatureProtocolMessages.broadcastBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1]);
+                                        SignatureProtocolMessages.broadcastBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1], null, null, true);
                                     }
                                 }
                             }
