@@ -259,7 +259,6 @@ namespace DLTNode
                 Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                 byte[] bytes = transaction.getBytes();
                 
-                Console.WriteLine("> writing tx {0}", transaction.id);
                 writer.Write(bytes.Length);
                 writer.Write(bytes);
 
@@ -288,26 +287,25 @@ namespace DLTNode
             }
             catch (IOException e)
             {
-                Logging.log(LogSeverity.error, String.Format("Cannot open txspam file. {0}", e.Message));
+                Logging.error("Cannot open txspam file. {0}", e.Message);
                 return;
             }
 
             try
             {
                 int spam_num = reader.ReadInt32();
-                Logging.info(string.Format("Reading {0} spam transactions from file.", spam_num));
+                Logging.info("Reading {0} spam transactions from file.", spam_num);
                 for (int i = 0; i < spam_num; i++)
                 {
                     int length = reader.ReadInt32();
                     byte[] bytes = reader.ReadBytes(length);
                     Transaction transaction = new Transaction(bytes);
-                    Console.WriteLine("> adding tx {0}", transaction.id);
                     TransactionPool.addTransaction(transaction);
                 }
             }
             catch (IOException e)
             {
-                Logging.log(LogSeverity.error, String.Format("Cannot read from txspam file. {0}", e.Message));
+                Logging.error("Cannot read from txspam file. {0}", e.Message);
                 return;
             }
             reader.Close();
