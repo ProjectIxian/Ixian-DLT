@@ -224,14 +224,10 @@ namespace DLT
                     {
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
-                            int next_tx_count;
-                            if (tx_count - i > max_tx_per_chunk)
+                            int next_tx_count = tx_count - i;
+                            if (next_tx_count > max_tx_per_chunk)
                             {
                                 next_tx_count = max_tx_per_chunk;
-                            }
-                            else
-                            {
-                                next_tx_count = tx_count - i;
                             }
                             writer.WriteIxiVarInt(next_tx_count);
 
