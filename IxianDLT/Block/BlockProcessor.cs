@@ -1102,21 +1102,24 @@ namespace DLT
             {
                 lock (fetchingTxForBlocks)
                 {
-                    if (!fetchingBulkTxForBlocks.ContainsKey(b.blockNum))
+                    if (!fetchingTxForBlocks.ContainsKey(b.blockNum))
                     {
                         long cur_time = Clock.getTimestamp();
                         if (missing < b.transactions.Count / 2 && missing < 50)
                         {
                             cur_time = cur_time - 30;
-                            fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
+                            fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, cur_time);
                             fetchingTxForBlocks.Add(b.blockNum, cur_time);
                             BlockVerifyStatus status = verifyBlockTransactions(b, ignore_walletstate, endpoint);
                             return status;
                         }
                         else
                         {
-                            fetchingBulkTxForBlocks.Add(b.blockNum, cur_time);
-                            fetchingTxForBlocks.Add(b.blockNum, cur_time);
+                            if(fetchingBulkTxForBlocks.ContainsKey(b.blockNum) && fetchingBulkTxForBlocks[b.blockNum] > cur_time - 10)
+                            {
+                                return BlockVerifyStatus.Indeterminate;
+                            }
+                            fetchingBulkTxForBlocks.AddOrReplace(b.blockNum, cur_time);
                             byte includeTransactions = 2;
                             if (Node.blockSync.synchronizing == false
                                 || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
