@@ -1081,21 +1081,25 @@ namespace DLT
                     }
                     else if (Config.storeFullHistory)
                     {
-                        Block b = Node.blockChain.getBlock(block_height, true, true);
-                        if (b != null)
+                        if(!from_network)
                         {
-                            Node.walletState.setCachedBlockVersion(block_version);
-                            if ((b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null) || Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                            Block b = Node.blockChain.getBlock(block_height, true, true);
+                            if (b != null)
                             {
-                                wsSyncConfirmedBlockNum = block_height;
-                                wsSynced = true;
-                                wsSyncConfirmedVersion = Node.walletState.version;
-                            }else
-                            {
-                                // TODO TODO TODO: this should be handled so that it reads previous WS from storage and so on until things match; for now this will do
-                                // Seperate handling for non full history nodes
-                                Logging.error("onHelloDataReceived: WS Checksum doesn't match the block.");
-                                Node.walletState.clear();
+                                Node.walletState.setCachedBlockVersion(block_version);
+                                if ((b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null) || Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum))
+                                {
+                                    wsSyncConfirmedBlockNum = block_height;
+                                    wsSynced = true;
+                                    wsSyncConfirmedVersion = Node.walletState.version;
+                                }
+                                else
+                                {
+                                    // TODO TODO TODO: this should be handled so that it reads previous WS from storage and so on until things match; for now this will do
+                                    // Seperate handling for non full history nodes
+                                    Logging.error("onHelloDataReceived: WS Checksum doesn't match the block.");
+                                    Node.walletState.clear();
+                                }
                             }
                         }
                     }

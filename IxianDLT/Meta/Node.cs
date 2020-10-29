@@ -434,9 +434,10 @@ namespace DLT.Meta
                 {
                     blockSync.lastBlockToReadFromStorage = lastLocalBlockNum;
 
+                    walletState.clear();
+
                     if (CoreConfig.preventNetworkOperations)
                     {
-                        walletState.clear();
                         Block b = storage.getBlock(lastLocalBlockNum);
                         blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getSignatureCount(), lastLocalBlockNum);
                     }
