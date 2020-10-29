@@ -174,7 +174,7 @@ namespace DLTNode
             IXICore.Utils.ConsoleHelpers.prepareWindowsConsole();
 
             // Start logging
-            if(!Logging.start(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)))
+            if(!Logging.start(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), Config.logVerbosity))
             {
                 IxianHandler.forceShutdown = true;
                 Logging.info("Press ENTER to exit.");

@@ -60,6 +60,8 @@ namespace DLT
             public static int maxLogSize = 50; // MB
             public static int maxLogCount = 10;
 
+            public static int logVerbosity = (int)LogSeverity.info + (int)LogSeverity.warn + (int)LogSeverity.error;
+
             public static ulong lastGoodBlock = 0;
             public static bool disableWebStart = false;
 
@@ -130,10 +132,10 @@ namespace DLT
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
-                Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--lastGoodBlock 110234]");
-                Console.WriteLine(" [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite] [--maxTxPerBlock 19980]");
-                Console.WriteLine(" [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
-                Console.WriteLine(" [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
+                Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 13]");
+                Console.WriteLine(" [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
+                Console.WriteLine(" [--maxTxPerBlock 19980] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage]");
+                Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest] ");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -151,6 +153,7 @@ namespace DLT
                 Console.WriteLine("    --config\t\t Specify config filename (default ixian.cfg)");
                 Console.WriteLine("    --maxLogSize\t Specify maximum log file size in MB");
                 Console.WriteLine("    --maxLogCount\t Specify maximum number of log files");
+                Console.WriteLine("    --logVerbosity\t Sets log verbosity (0 = none, trace = 1, info = 2, warn = 4, error = 8)");
                 Console.WriteLine("    --lastGoodBlock\t Specify the last block height that should be read from storage");
                 Console.WriteLine("    --disableWebStart\t Disable running http://localhost:8081 on startup");
                 Console.WriteLine("    --onlyShowAddresses\t Shows address list and exits");
@@ -191,6 +194,7 @@ namespace DLT
                 Console.WriteLine("    addTestnetPeer\t Specify which seed node to use in testnet mode (same as -n CLI) (can be used multiple times)");
                 Console.WriteLine("    maxLogSize\t\t Specify maximum log file size in MB (same as --maxLogSize CLI)");
                 Console.WriteLine("    maxLogCount\t\t Specify maximum number of log files (same as --maxLogCount CLI)");
+                Console.WriteLine("    logVerbosity\t Sets log verbosity (same as --logVerbosity CLI)");
                 Console.WriteLine("    disableWebStart\t 1 to disable running http://localhost:8081 on startup (same as --disableWebStart CLI)");
                 Console.WriteLine("    blockStorage\t Specify storage provider for block and transaction (same as --blockStorage CLI)");
                 Console.WriteLine("    walletNotify\t Execute command when a wallet transaction changes");
@@ -287,6 +291,9 @@ namespace DLT
                             break;
                         case "blockNotify":
                             Config.blockNotifyCommand = value;
+                            break;
+                        case "logVerbosity":
+                            logVerbosity = int.Parse(value);
                             break;
                         default:
                             // unknown key
@@ -425,6 +432,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("disableChainReorg").Callback(value => disableChainReorg = true).Required();
 
                 cmd_parser.Setup<bool>("chainReorgTest").Callback(value => enableChainReorgTest = true).Required();
+
+                cmd_parser.Setup<int>("logVerbosity").Callback(value => logVerbosity = value).Required();
 
                 cmd_parser.Parse(args);
 
