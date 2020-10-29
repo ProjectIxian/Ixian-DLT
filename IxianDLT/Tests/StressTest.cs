@@ -156,7 +156,7 @@ namespace DLTNode
                            writer.Write(address);
 
                            // Send the testnet designator
-                           writer.Write(CoreConfig.isTestNet);
+                           writer.Write(IxianHandler.isTestNet);
 
                            // Send the node type
                            char node_type = 'M'; // This is a Master node

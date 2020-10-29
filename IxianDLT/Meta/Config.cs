@@ -22,6 +22,8 @@ namespace DLT
             private static int defaultServerPort = 10234;
             private static int defaultTestnetServerPort = 11234;
 
+            public static NetworkType networkType = NetworkType.main;
+
             public static int apiPort = 8081;
             public static int testnetApiPort = 8181;
 
@@ -75,7 +77,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 2000;
 
             // Read-only values
-            public static readonly string version = "xdc-0.7.5-rc1"; // DLT Node version
+            public static readonly string version = "xdc-0.7.5-rc2"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -323,11 +325,11 @@ namespace DLT
                 cmd_parser.Setup<string>("blockStorage").Callback(value => blockStorageProvider = value).Required();
 
                 // testnet
-                cmd_parser.Setup<bool>('t', "testnet").Callback(value => CoreConfig.isTestNet = true).Required();
+                cmd_parser.Setup<bool>('t', "testnet").Callback(value => networkType = NetworkType.test).Required();
 
                 cmd_parser.Parse(args);
 
-                if (CoreConfig.isTestNet)
+                if (networkType == NetworkType.test)
                 {
                     Config.serverPort = defaultTestnetServerPort;
                     apiPort = testnetApiPort;
@@ -464,7 +466,7 @@ namespace DLT
 
                 if (seedNode != "")
                 {
-                    if (CoreConfig.isTestNet)
+                    if (networkType == NetworkType.test)
                     {
                         CoreNetworkUtils.seedTestNetNodes = new List<string[]>
                         {

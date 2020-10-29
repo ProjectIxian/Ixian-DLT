@@ -53,7 +53,7 @@ namespace DLT.Meta
         public Node()
         {
             CoreConfig.productVersion = Config.version;
-            IxianHandler.setHandler(this);
+            IxianHandler.init(this, Config.networkType);
             init();
         }
 
@@ -278,13 +278,7 @@ namespace DLT.Meta
                 TransactionPool.addTransaction(txGen2);
             }
 
-            if (CoreConfig.isTestNet)
-            {
-                // testnet seed2
-                Transaction tx2 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("16NBHjLGJnmWGWjoRj1Tz5TebgwhAtN2ewDThrDp1HfKuhJBo"), from, null, null, 1);
-                TransactionPool.addTransaction(tx2);
-            }
-            else
+            if (!IxianHandler.isTestNet)
             {
                 // seed2
                 Transaction tx2 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);

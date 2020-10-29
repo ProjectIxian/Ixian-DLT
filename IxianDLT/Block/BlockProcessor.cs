@@ -1940,7 +1940,7 @@ namespace DLT
                 lock (localBlockLock)
                 {
                     Node.blockChain.revertLastBlock(false);
-                    if (CoreConfig.isTestNet && block_num > 10)
+                    if (IxianHandler.isTestNet && block_num > 10)
                     {
                         Node.blockChain.revertLastBlock(false);
                         Node.blockChain.revertLastBlock(false);

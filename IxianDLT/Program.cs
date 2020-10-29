@@ -236,7 +236,7 @@ namespace DLTNode
             {
                 if (Config.benchmarkKeys != 1024 && Config.benchmarkKeys != 2048 && Config.benchmarkKeys != 4096)
                 {
-                    Logging.error(String.Format("Invalid key bit length: {0}. Allowed values are 1024, 2048 or 4096!", Config.benchmarkKeys));
+                    Logging.error("Invalid key bit length: {0}. Allowed values are 1024, 2048 or 4096!", Config.benchmarkKeys);
                 }
                 else
                 {
@@ -249,11 +249,11 @@ namespace DLTNode
             if(Config.generateWalletOnly)
             {
                 noStart = true;
-                if (CoreConfig.isTestNet)
+                if (Config.networkType == NetworkType.test)
                 {
                     if (File.Exists(Config.walletFile))
                     {
-                        Logging.error(String.Format("Wallet file {0} already exists. Cowardly refusing to overwrite!", Config.walletFile));
+                        Logging.error("Wallet file {0} already exists. Cowardly refusing to overwrite!", Config.walletFile);
                     }
                     else
                     {
@@ -283,7 +283,7 @@ namespace DLTNode
             // Set the logging options
             Logging.setOptions(Config.maxLogSize, Config.maxLogCount);
 
-            Logging.info(string.Format("Starting IXIAN DLT {0} ({1})", Config.version, CoreConfig.version));
+            Logging.info("Starting IXIAN DLT {0} ({1})", Config.version, CoreConfig.version);
             Logging.flush();
 
             // Check for the right vc++ redist for the argon miner
@@ -299,16 +299,16 @@ namespace DLTNode
             }
 
             // Log the parameters to notice any changes
-            Logging.info(String.Format("Mainnet: {0}", !CoreConfig.isTestNet));
+            Logging.info("Network: {0}", Config.networkType);
 
             if(Config.workerOnly)
                 Logging.info("Miner: worker-only");
             else
-                Logging.info(String.Format("Miner: {0}", !Config.disableMiner));
+                Logging.info("Miner: {0}", !Config.disableMiner);
 
-            Logging.info(String.Format("Server Port: {0}", Config.serverPort));
-            Logging.info(String.Format("API Port: {0}", Config.apiPort));
-            Logging.info(String.Format("Wallet File: {0}", Config.walletFile));
+            Logging.info("Server Port: {0}", Config.serverPort);
+            Logging.info("API Port: {0}", Config.apiPort);
+            Logging.info("Wallet File: {0}", Config.walletFile);
 
             // Initialize the node
             node = new Node();
