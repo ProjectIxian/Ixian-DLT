@@ -86,6 +86,7 @@ namespace DLT
                                 }
                                 QueueStorageMessage candidate = queueStatements[0];
                                 active_message = candidate;
+                                queueStatements.RemoveAt(0);
                                 message_found = true;
                             }
                         }
@@ -99,10 +100,6 @@ namespace DLT
                             else if (active_message.code == QueueStorageCode.insertBlock)
                             {
                                 insertBlockInternal((Block)active_message.data);
-                            }
-                            lock (queueStatements)
-                            {
-                                queueStatements.RemoveAt(0);
                             }
                         }
                         else
