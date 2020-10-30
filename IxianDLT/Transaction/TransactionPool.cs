@@ -344,7 +344,7 @@ namespace DLT
                 return false;
             }
 
-            if (endpoint != null && endpoint.presenceAddress != null && endpoint.presenceAddress.type == 'M')
+            if (endpoint != null && endpoint.presenceAddress != null && (endpoint.presenceAddress.type == 'M' || endpoint.presenceAddress.type == 'H'))
             {
                 PendingTransactions.increaseReceivedCount(transaction.id, endpoint.presence.wallet);
             }
