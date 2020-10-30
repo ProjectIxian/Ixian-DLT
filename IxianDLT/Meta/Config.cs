@@ -79,7 +79,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 2000;
 
             // Read-only values
-            public static readonly string version = "xdc-0.7.5-rc2"; // DLT Node version
+            public static readonly string version = "xdc-0.7.5"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -132,7 +132,7 @@ namespace DLT
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
-                Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 13]");
+                Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
                 Console.WriteLine(" [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
                 Console.WriteLine(" [--maxTxPerBlock 19980] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage]");
                 Console.WriteLine(" [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest] ");
