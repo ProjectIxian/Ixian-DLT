@@ -138,7 +138,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        int addrLen = reader.ReadInt32();
+                        int addrLen = (int)reader.ReadIxiVarUInt();
                         byte[] address = reader.ReadBytes(addrLen);
 
                         // Retrieve the latest balance
