@@ -629,6 +629,7 @@ namespace DLT
                     else
                     {
                         // the block is invalid, we should disconnect the node as it is likely on a forked network
+                        Logging.error("Disconnecting node {0} which sent an invalid block #{1}", endpoint.getFullAddress(true), b.blockNum);
                         CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.blockInvalid, "Block #" + b.blockNum + " is invalid, you are possibly on a non-compatible network", b.blockNum.ToString());
                     }
                 }
