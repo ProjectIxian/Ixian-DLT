@@ -79,7 +79,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 2000;
 
             // Read-only values
-            public static readonly string version = "xdc-0.7.5"; // DLT Node version
+            public static readonly string version = "xdc-0.7.5a-pr3"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -338,17 +338,14 @@ namespace DLT
 
                 if (networkType == NetworkType.test)
                 {
-                    Config.serverPort = defaultTestnetServerPort;
+                    serverPort = defaultTestnetServerPort;
                     apiPort = testnetApiPort;
                     dataFolderPath = "data-testnet";
-                    PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "testnet-peers.dat");
                     genesisFile = "testnet-genesis.dat";
-                    ActivityStorage.filename = "testnet-activity.dat";
                 }
                 else
                 {
-                    Config.serverPort = defaultServerPort;
-                    PeerStorage.init(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location));
+                    serverPort = defaultServerPort;
                 }
 
 

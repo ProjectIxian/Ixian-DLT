@@ -104,6 +104,8 @@ namespace DLT.Meta
             walletState = new WalletState();
 
             inventoryCache = new InventoryCacheDLT();
+
+            PeerStorage.init("");
         }
 
         private bool initWallet()
