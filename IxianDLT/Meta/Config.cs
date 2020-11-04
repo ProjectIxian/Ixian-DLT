@@ -76,7 +76,7 @@ namespace DLT
             /// <summary>
             /// Number of transactions that the node will include in the block.
             /// </summary>
-            public static ulong maxTransactionsPerBlockToInclude = 2000;
+            public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
             public static readonly string version = "xdc-0.7.5a"; // DLT Node version
