@@ -173,6 +173,7 @@ namespace DLT
                         int txs_in_chunk = 0;
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
+                            writer.WriteIxiVarInt(tx_count);
                             // Generate a chunk of transactions
                             for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; i++, j++)
                             {
