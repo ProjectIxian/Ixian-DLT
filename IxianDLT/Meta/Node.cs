@@ -91,6 +91,7 @@ namespace DLT.Meta
             // Load or Generate the wallet
             if (!initWallet())
             {
+                storage.stopStorage();
                 running = false;
                 DLTNode.Program.noStart = true;
                 return;
