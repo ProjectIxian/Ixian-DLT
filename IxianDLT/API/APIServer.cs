@@ -636,8 +636,10 @@ namespace DLTNode
                 bpStatus = "Running";
             networkArray.Add("Block Processor Status", bpStatus);
 
-            networkArray.Add("Block Height", Node.blockChain.getLastBlockNum());
-            networkArray.Add("Block Version", Node.blockChain.getLastBlockVersion());
+            Block last_block = Node.blockChain.getLastBlock();
+            networkArray.Add("Block Height", last_block.blockNum);
+            networkArray.Add("Block Version", last_block.version);
+            networkArray.Add("Block Signature Count", last_block.getFrozenSignatureCount());
             networkArray.Add("Network Block Height", IxianHandler.getHighestKnownNetworkBlockHeight());
             networkArray.Add("Node Type", PresenceList.myPresenceType);
             networkArray.Add("Connectable", NetworkServer.isConnectable());
