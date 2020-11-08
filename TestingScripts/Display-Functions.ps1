@@ -37,7 +37,7 @@ function Render-Indexes {
     )
     Write-Host -ForegroundColor White -NoNewline "PID:".PadRight(10)
     foreach($c in $Clients) {
-        if($c.idx -ge 13) { break }
+        if($c.idx -ge 20) { break }
         if($c.Display -eq $false) { continue }
         Write-Host -ForegroundColor Green -NoNewline "$($c.Process.Id.ToString().PadLeft(10))"
     }
@@ -85,6 +85,24 @@ function Render-BlockHeight {
     Write-Host -NoNewline -ForegroundColor White "B.HEIGHT:".PadRight(10)
     foreach($bh in $bhs) {
         Write-Host -NoNewline -ForegroundColor Cyan $bh.ToString().PadLeft(10)
+    }
+    Write-Host ""
+}
+
+function Render-BlockHeightSigs {
+    Param(
+        [System.Collections.ArrayList]$bhs,
+        [int]$client_count
+    )
+    Write-Host -NoNewline -ForegroundColor White "B.SIGS:".PadRight(10)
+    foreach($bh in $bhs) {
+        if($client_count -eq $bh)
+        {
+            Write-Host -NoNewline -ForegroundColor Cyan $bh.ToString().PadLeft(10)
+        }else
+        {
+            Write-Host -NoNewline -ForegroundColor Red $bh.ToString().PadLeft(10)
+        }
     }
     Write-Host ""
 }
@@ -234,18 +252,19 @@ function Display-ClientStatus {
         [System.Collections.ArrayList]$Clients
     )
     $count = 0
-    $dlt_statuses = New-Object System.Collections.ArrayList (13)
-    $bp_statuses = New-Object System.Collections.ArrayList (13)
-    $node_bhs = New-Object System.Collections.ArrayList (13)
-    $consensus = New-Object System.Collections.ArrayList (13)
-    $presences = New-Object System.Collections.ArrayList (13)
-    $in_connections = New-Object System.Collections.ArrayList (13)
-    $out_connections = New-Object System.Collections.ArrayList (13)
-    $applied_txs = New-Object System.Collections.ArrayList (13)
-    $unapplied_txs = New-Object System.Collections.ArrayList (13)
+    $dlt_statuses = New-Object System.Collections.ArrayList (20)
+    $bp_statuses = New-Object System.Collections.ArrayList (20)
+    $node_bhs = New-Object System.Collections.ArrayList (20)
+    $node_bh_sigs = New-Object System.Collections.ArrayList (20)
+    $consensus = New-Object System.Collections.ArrayList (20)
+    $presences = New-Object System.Collections.ArrayList (20)
+    $in_connections = New-Object System.Collections.ArrayList (20)
+    $out_connections = New-Object System.Collections.ArrayList (20)
+    $applied_txs = New-Object System.Collections.ArrayList (20)
+    $unapplied_txs = New-Object System.Collections.ArrayList (20)
     # Miner:
-    $hashrates = New-Object System.Collections.ArrayList (13)
-    $solved_counts = New-Object System.Collections.ArrayList (13)
+    $hashrates = New-Object System.Collections.ArrayList (20)
+    $solved_counts = New-Object System.Collections.ArrayList (20)
 
     # Globals
     $global_solved = 0
@@ -262,10 +281,11 @@ function Display-ClientStatus {
         }
         if($ns -eq $null) {
             # Node probably died
-            $node.Dead = $true
+            #$node.Dead = $true
             [void]$dlt_statuses.Add("DEAD")
             [void]$bp_statuses.Add("DEAD")
             [void]$node_bhs.Add(0)
+            [void]$node_bh_sigs.Add(0)
             [void]$consensus.Add(0)
             [void]$presences.Add(0)
             [void]$in_connections.Add(0)
@@ -284,6 +304,8 @@ function Display-ClientStatus {
             [void]$bp_statuses.Add($bp_status)
             # Block Height
             [void]$node_bhs.Add(($ns.'Block Height'))
+            # No. of sigs on last block height
+            [void]$node_bh_sigs.Add(($ns.'Block Signature Count'))
             # Consensus
             [void]$consensus.Add(($ns.'Required Consensus'))
             # Presences
@@ -318,7 +340,7 @@ function Display-ClientStatus {
                 }
             }
             $count++
-            if($Count -ge 13) {
+            if($Count -ge 20) {
                 break
             }
         }
@@ -329,6 +351,7 @@ function Display-ClientStatus {
     Render-Indexes $Clients
     Render-Status $dlt_statuses $bp_statuses    
     Render-BlockHeight $node_bhs
+    Render-BlockHeightSigs $node_bh_sigs $Clients.Count
     Render-Consensus $consensus
     Render-Presences $presences
     Render-Connections $in_connections $out_connections
