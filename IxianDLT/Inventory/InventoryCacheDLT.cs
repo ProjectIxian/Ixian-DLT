@@ -15,7 +15,10 @@ namespace DLTNode.Inventory
     {
         public InventoryCacheDLT():base()
         {
-
+            typeOptions[InventoryItemTypes.block].maxItems = 100;
+            typeOptions[InventoryItemTypes.blockSignature].maxItems = 200000;
+            typeOptions[InventoryItemTypes.transaction].maxItems = 600000;
+            typeOptions[InventoryItemTypes.keepAlive].maxItems = 600000;
         }
 
         override protected bool sendInventoryRequest(InventoryItem item, RemoteEndpoint endpoint)
@@ -138,31 +141,5 @@ namespace DLTNode.Inventory
             }
             return false;
         }
-
-        protected override void truncateInventory(InventoryItemTypes type)
-        {
-            var inventory_list = inventory[type];
-            int max_items = 100000;
-            switch (type)
-            {
-                case InventoryItemTypes.block:
-                    max_items = 100;
-                    break;
-
-                case InventoryItemTypes.blockSignature:
-                    max_items = 200000;
-                    break;
-
-                case InventoryItemTypes.transaction:
-                case InventoryItemTypes.keepAlive:
-                    max_items = 600000;
-                    break;
-            }
-            if (inventory_list.Count() > max_items)
-            {
-                inventory_list.Remove(inventory_list.Keys.First());
-            }
-        }
-
     }
 }
