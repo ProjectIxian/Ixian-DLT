@@ -174,7 +174,8 @@ namespace DLT
                                     }
                                     else
                                     {
-                                        if (timeSinceLastBlock.TotalSeconds >= blockGenerationInterval)
+                                        Block last_block = Node.blockChain.getLastBlock();
+                                        if (last_block == null || Clock.getNetworkTimestamp() - last_block.timestamp >= blockGenerationInterval)
                                         {
                                             if (last_block_num < 8 || Node.isElectedToGenerateNextBlock(getElectedNodeOffset()))
                                             {
@@ -271,16 +272,21 @@ namespace DLT
         // returns offset depending on time since last block and block generation interval. This function will return -1 if more than 10 block generation intervals have passed
         public int getElectedNodeOffset()
         {
-            TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-            if(timeSinceLastBlock.TotalSeconds < 0)
+            Block b = Node.blockChain.getLastBlock();
+            if(b == null)
             {
                 return -1;
             }
-            if(timeSinceLastBlock.TotalSeconds > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return -1 as the node offset.
+            long timeSinceLastBlock = Clock.getNetworkTimestamp() - b.timestamp;
+            if(timeSinceLastBlock < 0)
+            {
+                return 0;
+            }
+            if(timeSinceLastBlock > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return -1 as the node offset.
             {
                 return -1;
             }
-            return (int)(timeSinceLastBlock.TotalSeconds / (blockGenerationInterval*3));
+            return (int)(timeSinceLastBlock / (blockGenerationInterval*3));
         }
 
         public List<byte[][]> getSignaturesWithoutPlEntry(Block b)
@@ -1306,8 +1312,8 @@ namespace DLT
                                     foreach (var sig in added_signatures)
                                     {
                                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], b.blockChecksum), true);
+                                        SignatureProtocolMessages.broadcastBlockSignature(sig[0], sig[1], b.blockNum, b.blockChecksum, endpoint, null);
                                     }
-                                    SignatureProtocolMessages.broadcastBlockSignatures(b.blockNum, b.blockChecksum, added_signatures, endpoint);
                                 }
                             }else if(localNewBlock.signatures.Count != b.signatures.Count)
                             {
