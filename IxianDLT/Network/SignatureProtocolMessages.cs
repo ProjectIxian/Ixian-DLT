@@ -122,8 +122,6 @@ namespace DLT
                         int sig_addr_len = reader.ReadInt32();
                         byte[] sig_addr = reader.ReadBytes(sig_addr_len);
 
-                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig_addr, checksum), true);
-
                         ulong last_bh = IxianHandler.getLastBlockHeight();
 
                         lock (Node.blockProcessor.localBlockLock)
@@ -142,6 +140,8 @@ namespace DLT
                             Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
                             return;
                         }
+
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig_addr, checksum), true);
 
                         if (Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr, endpoint))
                         {
@@ -188,8 +188,6 @@ namespace DLT
                         int sig_addr_len = (int)reader.ReadIxiVarUInt();
                         byte[] sig_addr = reader.ReadBytes(sig_addr_len);
 
-                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig_addr, checksum), true);
-
                         ulong last_bh = IxianHandler.getLastBlockHeight();
 
                         lock (Node.blockProcessor.localBlockLock)
@@ -208,6 +206,8 @@ namespace DLT
                             Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
                             return;
                         }
+
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig_addr, checksum), true);
 
                         if (Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr, endpoint))
                         {
@@ -543,10 +543,6 @@ namespace DLT
             {
                 int sig_count = sig_list.Count;
                 int max_sig_per_chunk = ConsensusConfig.maximumBlockSigners;
-                if(sig_count > max_sig_per_chunk)
-                {
-                    sig_count = max_sig_per_chunk;
-                }
                 for (int i = 0; i < sig_count;)
                 {
                     using (MemoryStream mOut = new MemoryStream(max_sig_per_chunk * 570))

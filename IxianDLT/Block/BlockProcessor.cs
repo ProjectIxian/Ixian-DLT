@@ -1274,12 +1274,12 @@ namespace DLT
         {
             if (b.blockNum != Node.blockChain.getLastBlockNum() + 1)
             {
-                Logging.warn(String.Format("Received block #{0}, but next block should be #{1}.", b.blockNum, Node.blockChain.getLastBlockNum() + 1));
+                Logging.warn("Received block #{0}, but next block should be #{1}.", b.blockNum, Node.blockChain.getLastBlockNum() + 1);
                 return;
             }
             if(b.version < Node.blockChain.getLastBlockVersion())
             {
-                Logging.warn(String.Format("A current block with a smaller version was received than the last block in the blockchain, rejecting block #{0} with version {1}.", b.blockNum, b.version));
+                Logging.warn("A current block with a smaller version was received than the last block in the blockchain, rejecting block #{0} with version {1}.", b.blockNum, b.version);
                 // TODO: keep a counter - if this happens too often, disconnect the node
                 // TODO TODO TODO TODO: disconnect?
                 return;
@@ -1290,12 +1290,12 @@ namespace DLT
                 {
                     if(localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                     {
-                        Logging.info(String.Format("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count()));
+                        Logging.info("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count());
                         List<byte[][]> added_signatures = localNewBlock.addSignaturesFrom(b);
                         if (added_signatures != null || localNewBlock.getSignatureCount() >= Node.blockChain.getRequiredConsensus())
                         {
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
-                            Logging.info(String.Format("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount()));
+                            Logging.info("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount());
 
                             if (added_signatures != null)
                             {
@@ -1303,11 +1303,11 @@ namespace DLT
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                                 if (Node.isMasterNode())
                                 {
-                                    foreach(var sig in added_signatures)
+                                    foreach (var sig in added_signatures)
                                     {
                                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], b.blockChecksum), true);
-                                        SignatureProtocolMessages.broadcastBlockSignature(b.blockNum, b.blockChecksum, sig[0], sig[1], null, null);
                                     }
+                                    SignatureProtocolMessages.broadcastBlockSignatures(b.blockNum, b.blockChecksum, added_signatures, endpoint);
                                 }
                             }else if(localNewBlock.signatures.Count != b.signatures.Count)
                             {
@@ -1323,7 +1323,7 @@ namespace DLT
                         {
                             if (!Node.isMasterNode())
                                 return;
-                            Logging.info(String.Format("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount()));
+                            Logging.info("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount());
                             BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, endpoint);
                         }
                     }
@@ -1336,7 +1336,7 @@ namespace DLT
                             if(blockSigCount > localBlockSigCount
                                 || (blockSigCount == localBlockSigCount && b.transactions.Count() >= localNewBlock.transactions.Count()))
                             {
-                                Logging.info(String.Format("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                                Logging.info("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset());
                                 localNewBlock = b;
                                 currentBlockStartTime = DateTime.UtcNow;
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
@@ -1348,7 +1348,7 @@ namespace DLT
                         if (!Node.isMasterNode())
                             return;
                         // discard with a warning, likely spam, resend our local block
-                        Logging.info(String.Format("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                        Logging.info("Incoming block #{0} is different than our own and doesn't have more sigs, discarding and re-transmitting local block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset());
                         BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, endpoint);
                     }
                 }
@@ -1371,7 +1371,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.warn(String.Format("Incoming block #{0} doesn't have elected node's sig, waiting for a new block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset()));
+                        Logging.warn("Incoming block #{0} doesn't have elected node's sig, waiting for a new block. (total signatures: {1}), election offset: {2}.", b.blockNum, b.signatures.Count, getElectedNodeOffset());
                     }
                 }
             }
