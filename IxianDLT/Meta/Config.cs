@@ -78,7 +78,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.7.5b"; // DLT Node version
+            public static readonly string version = "xdc-0.7.5c"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -167,7 +167,7 @@ namespace DLT
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
 				Console.WriteLine("    --verifyStorage\t Start node with full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
-                Console.WriteLine("    --optimizeDBStorage\t RocksDB only: manually compacts all databases before starting the node. MAY TAKE SOME TIME!");
+                Console.WriteLine("    --optimizeDBStorage\t Manually compacts all databases before starting the node. MAY TAKE SOME TIME!");
                 Console.WriteLine("    --offline\t\t Offline mode - does not connect to other nodes or accepts any connections from other nodes");
                 Console.WriteLine("    --disableChainReorg\t Disables blockchain reorganization");
                 Console.WriteLine("    --chainReorgTest\t Enables chain reorg test");
