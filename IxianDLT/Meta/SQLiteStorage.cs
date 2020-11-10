@@ -92,6 +92,22 @@ namespace DLT
                 superBlocksSqlConnection = getSQLiteConnection(db_path, false);
 
 
+                // pre-start DB optimization
+                if (Config.optimizeDBStorage)
+                {
+                    Logging.info("SQLite: Performing pre-start DB compaction and optimization.");
+                    foreach (string db in Directory.EnumerateFiles(Path.Combine(pathBase, "0000"), "*.dat"))
+                    {
+                        Logging.info("SQLite: Optimizing [{0}].", db);
+                        var con = getSQLiteConnection(db, false);
+                        executeSQL(con, "VACUUM;");
+                        con.Close();
+                        con.Dispose();
+                    }
+                    Logging.info("SQLite: Pre-start optimnization complete.");
+                }
+
+
                 // Get latest block number to initialize the cache as well
                 ulong last_block = getHighestBlockInStorage();
                 Logging.info(string.Format("Last storage block number is: #{0}", last_block));
