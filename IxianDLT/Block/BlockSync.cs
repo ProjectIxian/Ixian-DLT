@@ -119,7 +119,6 @@ namespace DLT
                     // Proceed with rolling forward the chain
                     rollForward();
                 }
-                Thread.Yield();
             }
         }
 
@@ -675,6 +674,10 @@ namespace DLT
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
+                            if(CoreConfig.preventNetworkOperations)
+                            {
+                                pendingBlocks.Add(Node.storage.getBlock(b.blockNum - 5));
+                            }
                             // invalid sigfreeze, waiting for the correct block
                             Logging.warn("Block #{0} {1} doesn't have the correct sigfreezed block. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             Node.blockProcessor.blacklistBlock(b);
