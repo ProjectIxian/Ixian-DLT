@@ -1130,7 +1130,7 @@ namespace DLT
                             byte includeTransactions = 2;
                             if (Node.blockSync.synchronizing == false
                                 || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
-                                || (Node.blockSync.synchronizing == true && Config.storeFullHistory)
+                                || (Node.blockSync.synchronizing == true && b.blockNum > Node.blockSync.wsSyncConfirmedBlockNum)
                                 || (Node.blockSync.synchronizing == true && Config.fullStorageDataVerification == true))
                             {
                                 includeTransactions = 1;
