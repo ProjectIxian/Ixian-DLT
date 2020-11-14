@@ -52,7 +52,7 @@ namespace DLT.Meta
 
         public Node()
         {
-            IxianHandler.init(Config.version, this, Config.networkType);
+            IxianHandler.init(Config.version, this, Config.networkType, !Config.disableSetTitle);
             init();
         }
 
@@ -401,7 +401,7 @@ namespace DLT.Meta
                     blockChain.setGenesisBlock(genesis);
                 }
                 ulong lastLocalBlockNum = storage.getHighestBlockInStorage();
-                if(lastLocalBlockNum > 6)
+                if (lastLocalBlockNum > 6)
                 {
                     lastLocalBlockNum = lastLocalBlockNum - 6;
                 }
