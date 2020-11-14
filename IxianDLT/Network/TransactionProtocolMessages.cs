@@ -303,6 +303,7 @@ namespace DLT
                                             tx = TransactionPool.getAppliedTransaction(txid_str);
                                             if (tx == null)
                                             {
+                                                Logging.warn("I do not have txid '{0}.", txid_str);
                                                 continue;
                                             }
                                         }
