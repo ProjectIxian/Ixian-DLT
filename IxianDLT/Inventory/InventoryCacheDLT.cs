@@ -136,7 +136,13 @@ namespace DLTNode.Inventory
                 data[block_num_bytes.Length] = 1;
                 Array.Copy(addr_len_bytes, 0, data, block_num_bytes.Length + 1, addr_len_bytes.Length);
                 Array.Copy(address, 0, data, block_num_bytes.Length + 1 + addr_len_bytes.Length, address.Length);
-                endpoint.sendData(ProtocolMessageCode.getSignatures, data, null);
+                if(endpoint == null)
+                {
+                    CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[]{ 'M', 'H' }, ProtocolMessageCode.getSignatures, data, block_num);
+                }else
+                {
+                    endpoint.sendData(ProtocolMessageCode.getSignatures, data, null);
+                }
                 return true;
             }
             return false;
