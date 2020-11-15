@@ -868,6 +868,7 @@ namespace DLT
 
                 // Go through each database until the transaction is found
                 // TODO: optimize this for better performance
+                ulong highest_blocknum = getHighestBlockInStorage();
                 lock (storageLock)
                 {
                     bool found = false;
@@ -875,6 +876,10 @@ namespace DLT
                     {
                         if(block_num > 0)
                         {
+                            if (block_num > highest_blocknum)
+                            {
+                                return null;
+                            }
                             seekDatabase(block_num, true);
                         }
                         _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
@@ -901,12 +906,6 @@ namespace DLT
 
                     if(!found)
                     {
-                        ulong highest_blocknum = getHighestBlockInStorage();
-                        if (block_num > highest_blocknum)
-                        {
-                            return null;
-                        }
-
                         // extract blockheight from txid
                         ulong db_blocknum = 0;
                         if (txid.StartsWith("s"))
