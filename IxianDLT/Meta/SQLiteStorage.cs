@@ -703,6 +703,11 @@ namespace DLT
 
                     lock (storageLock)
                     {
+                        if(blocknum > getHighestBlockInStorage())
+                        {
+                            Logging.error("Tried to get block {0} but the highest block in storage is {1}", blocknum, getHighestBlockInStorage());
+                            return null;
+                        }
                         seekDatabase(blocknum, true);
 
                         try
@@ -878,6 +883,7 @@ namespace DLT
                         {
                             if (block_num > highest_blocknum)
                             {
+                                Logging.error("Tried to get transaction requested for block {0} but the highest block in storage is {1}", block_num, highest_blocknum);
                                 return null;
                             }
                             seekDatabase(block_num, true);
@@ -938,6 +944,7 @@ namespace DLT
 
                         if (db_blocknum > highest_blocknum)
                         {
+                            Logging.error("Tried to get transaction generated on block {0} but the highest block in storage is {1}", db_blocknum, highest_blocknum);
                             return null;
                         }
 
@@ -957,7 +964,7 @@ namespace DLT
                             }
                             catch (Exception)
                             {
-                                if (db_blocknum + Config.maxBlocksPerDatabase > highest_blocknum)
+                                if (db_blocknum + Config.maxBlocksPerDatabase <= highest_blocknum)
                                 {
                                     db_blocknum += Config.maxBlocksPerDatabase;
                                 }
@@ -970,7 +977,7 @@ namespace DLT
 
                             if (_storage_tx == null || _storage_tx.Count < 1)
                             {
-                                if (db_blocknum + Config.maxBlocksPerDatabase > highest_blocknum)
+                                if (db_blocknum + Config.maxBlocksPerDatabase <= highest_blocknum)
                                 {
                                     db_blocknum += Config.maxBlocksPerDatabase;
                                 }
@@ -1085,6 +1092,11 @@ namespace DLT
 
                 lock (storageLock)
                 {
+                    if (blockNum > getHighestBlockInStorage())
+                    {
+                        Logging.error("Tried to remove block {0} but the highest block in storage is {1}", blockNum, getHighestBlockInStorage());
+                        return false;
+                    }
                     seekDatabase(blockNum, true);
                     Block b = getBlock(blockNum);
                     if (b == null)
