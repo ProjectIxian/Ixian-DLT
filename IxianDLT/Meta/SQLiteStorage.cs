@@ -882,7 +882,7 @@ namespace DLT
                     }
                     catch (Exception e)
                     {
-                        Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                        Logging.error("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message);
                         found = false;
                     }
 
@@ -899,71 +899,95 @@ namespace DLT
                         return transaction;
                     }
 
-                    ulong db_blocknum = getHighestBlockInStorage();
-                    ulong min_bh = 0;
-                    if (!found)
+                    if(!found)
                     {
-                        if (block_num > db_blocknum)
+                        ulong highest_blocknum = getHighestBlockInStorage();
+                        if (block_num > highest_blocknum)
                         {
                             return null;
                         }
 
                         // extract blockheight from txid
-                        int txid_bh_start_index = 0;
+                        ulong db_blocknum = 0;
                         if (txid.StartsWith("s"))
                         {
-                            txid_bh_start_index = txid.IndexOf("-", 4);
-                        }
-                        int txid_sep_pos = txid.IndexOf("-", txid_bh_start_index);
-                        if (txid_sep_pos > 0)
-                        {
-                            min_bh = UInt64.Parse(txid.Substring(txid_bh_start_index, txid_sep_pos));
-                        }
-                    }
-
-                    while (!found)
-                    {
-                        // Transaction not found yet, seek to another database
-                        seekDatabase(db_blocknum);
-                        if(db_blocknum + Config.maxBlocksPerDatabase < min_bh)
-                        {
-                            break;
-                        }
-                        try
-                        {
-                            _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
-
-                        }
-                        catch (Exception)
-                        {
-                            if (db_blocknum > Config.maxBlocksPerDatabase)
+                            int txid_bh_start_index = txid.IndexOf("-", 4) + 1;
+                            int txid_sep_pos = txid.IndexOf("-", txid_bh_start_index);
+                            if (txid_sep_pos > 0)
                             {
-                                db_blocknum -= Config.maxBlocksPerDatabase;
+                                var str = txid.Substring(txid_bh_start_index, txid_sep_pos - (txid_bh_start_index));
+                                db_blocknum = UInt64.Parse(str);
                             }
-                            else
+                        }
+                        else
+                        {
+                            int txid_sep_pos = txid.IndexOf("-");
+                            if (txid_sep_pos > 0)
                             {
-                                // Transaction not found
-                                return transaction;
+                                var str = txid.Substring(0, txid_sep_pos);
+                                db_blocknum = UInt64.Parse(str);
                             }
                         }
 
-                        if (_storage_tx == null || _storage_tx.Count < 1)
+                        if(db_blocknum == 0)
                         {
-                            if (db_blocknum > Config.maxBlocksPerDatabase)
-                            {
-                                db_blocknum -= Config.maxBlocksPerDatabase;
-                            }
-                            else
-                            {
-                                // Transaction not found in any database
-                                return transaction;
-                            }
-                            continue;
+                            Logging.error("Invalid txid {0} - generated at block height 0.", txid);
+                            return null;
                         }
 
-                        found = true;
+                        db_blocknum = ((ulong)(db_blocknum / Config.maxBlocksPerDatabase)) * Config.maxBlocksPerDatabase;
+
+                        if (db_blocknum > highest_blocknum)
+                        {
+                            return null;
+                        }
+
+                        if(highest_blocknum > db_blocknum + ConsensusConfig.getRedactedWindowSize(2))
+                        {
+                            highest_blocknum = db_blocknum + ConsensusConfig.getRedactedWindowSize(2);
+                        }
+
+                        while (!found)
+                        {
+                            // Transaction not found yet, seek to another database
+                            seekDatabase(db_blocknum);
+                            try
+                            {
+                                _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
+
+                            }
+                            catch (Exception)
+                            {
+                                if (db_blocknum + Config.maxBlocksPerDatabase > highest_blocknum)
+                                {
+                                    db_blocknum += Config.maxBlocksPerDatabase;
+                                }
+                                else
+                                {
+                                    // Transaction not found
+                                    return transaction;
+                                }
+                            }
+
+                            if (_storage_tx == null || _storage_tx.Count < 1)
+                            {
+                                if (db_blocknum + Config.maxBlocksPerDatabase > highest_blocknum)
+                                {
+                                    db_blocknum += Config.maxBlocksPerDatabase;
+                                }
+                                else
+                                {
+                                    // Transaction not found in any database
+                                    return transaction;
+                                }
+                                continue;
+                            }
+
+                            found = true;
+                        }
                     }
                 }
+
 
                 if (_storage_tx.Count < 1)
                 {
