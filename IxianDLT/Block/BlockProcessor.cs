@@ -723,7 +723,7 @@ namespace DLT
             }
 
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
-            Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1);
+            Block prevBlock = Node.blockChain.getBlock(b.blockNum - 1, false, false);
 
             if (prevBlock != null)
             {
@@ -774,7 +774,7 @@ namespace DLT
 
             if (Node.blockChain.Count > 0 && b.blockNum + 5 <= Node.blockChain.getLastBlockNum())
             {
-                Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
+                Block tmpBlock = Node.blockChain.getBlock(b.blockNum, false, false);
                 if (tmpBlock == null)
                 {
                     Logging.info("Received an indeterminate past block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
@@ -1185,7 +1185,7 @@ namespace DLT
 
             if (Node.blockChain.Count > 0 && b.blockNum <= Node.blockChain.getLastBlockNum())
             {
-                Block tmpBlock = Node.blockChain.getBlock(b.blockNum);
+                Block tmpBlock = Node.blockChain.getBlock(b.blockNum, false, false);
                 if (tmpBlock == null)
                 {
                     Logging.info("Received an indeterminate past block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
