@@ -48,6 +48,8 @@ namespace DLT
 
         private ulong lastProcessedBlockNum = 0;
         private long lastProcessedBlockTime = 0;
+
+        private List<Block> lastBlocks = new List<Block>();
         public BlockSync()
         {
             synchronizing = false;
@@ -234,6 +236,17 @@ namespace DLT
                     Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
                     if (block != null)
                     {
+                        if(CoreConfig.preventNetworkOperations)
+                        {
+                            if (!lastBlocks.Exists(x => x.blockNum == blockNum))
+                            {
+                                lastBlocks.Add(new Block(block));
+                                if(lastBlocks.Count > 20)
+                                {
+                                    lastBlocks.RemoveAt(0);
+                                }
+                            }
+                        }
                         Node.blockSync.onBlockReceived(block, null);
                     }
                     else
@@ -538,7 +551,7 @@ namespace DLT
                         }
                         if (b_status != BlockVerifyStatus.Valid)
                         {
-                            Logging.warn(String.Format("Block #{0} {1} is invalid. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                            Logging.warn("Block #{0} {1} is invalid. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             Node.blockProcessor.blacklistBlock(b);
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             requestBlockAgain(b.blockNum);
@@ -551,7 +564,7 @@ namespace DLT
 
                         if (!b.fromLocalStorage && !Node.blockProcessor.verifyBlockSignatures(b) && Node.blockChain.Count > 16)
                         {
-                            Logging.warn(String.Format("Block #{0} {1} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                            Logging.warn("Block #{0} {1} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             requestBlockAgain(b.blockNum);
                             return;
@@ -601,7 +614,7 @@ namespace DLT
                                             byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                                             if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                             {
-                                                Logging.error(String.Format("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum)));
+                                                Logging.error("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum));
                                                 Node.walletState.revertTransaction(b.blockNum);
                                                 Node.blockChain.revertBlockTransactions(b);
                                                 Node.blockProcessor.blacklistBlock(b);
@@ -631,7 +644,7 @@ namespace DLT
                                     byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                                     if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                     {
-                                        Logging.warn(String.Format("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum));
+                                        Logging.warn("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum);
                                         Node.blockProcessor.blacklistBlock(b);
                                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                                         requestBlockAgain(b.blockNum);
@@ -676,11 +689,10 @@ namespace DLT
                         {
                             if(CoreConfig.preventNetworkOperations)
                             {
-                                pendingBlocks.Add(Node.storage.getBlock(b.blockNum - 5));
+                                pendingBlocks.Add(lastBlocks.Find(x => x.blockNum == b.blockNum - 5));
                             }
                             // invalid sigfreeze, waiting for the correct block
                             Logging.warn("Block #{0} {1} doesn't have the correct sigfreezed block. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                            Node.blockProcessor.blacklistBlock(b);
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             requestBlockAgain(b.blockNum);
                             return;
@@ -688,7 +700,7 @@ namespace DLT
                     }
                     catch (Exception e)
                     {
-                        Logging.error(String.Format("Exception occured while syncing block #{0}: {1}", b.blockNum, e));
+                        Logging.error("Exception occured while syncing block #{0}: {1}", b.blockNum, e);
                     }
                     if(Config.enableChainReorgTest)
                     {
