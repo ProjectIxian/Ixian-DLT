@@ -687,6 +687,11 @@ namespace DLT
 
                                         writer.WriteIxiVarInt(address_len);
                                         writer.Write(address);
+
+                                        if(m.Position == m.Length)
+                                        {
+                                            break;
+                                        }
                                     }
                                 }
                                 endpoint.sendData(ProtocolMessageCode.signaturesChunk, mOut.ToArray(), null);
