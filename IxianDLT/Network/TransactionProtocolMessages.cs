@@ -23,6 +23,7 @@ namespace DLT
                 //Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
 
                 // Get the requested block and corresponding transactions
+                bool applied_block = true;
                 Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
                 List<string> txIdArr = null;
                 if (b != null)
@@ -45,6 +46,7 @@ namespace DLT
                         Block tmp = Node.blockProcessor.getLocalBlock();
                         if (tmp != null && tmp.blockNum == blockNum)
                         {
+                            applied_block = false;
                             b = tmp;
                             txIdArr = new List<string>(tmp.transactions);
                         }
@@ -84,7 +86,14 @@ namespace DLT
                                         continue;
                                     }
                                 }
-                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                Transaction tx;
+                                if(applied_block)
+                                {
+                                    tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                }else
+                                {
+                                    tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
+                                }
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
@@ -122,6 +131,7 @@ namespace DLT
                 //Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
 
                 // Get the requested block and corresponding transactions
+                bool applied_block = true;
                 Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
                 List<string> txIdArr = null;
                 if (b != null)
@@ -144,6 +154,7 @@ namespace DLT
                         Block tmp = Node.blockProcessor.getLocalBlock();
                         if (tmp != null && tmp.blockNum == blockNum)
                         {
+                            applied_block = false;
                             b = tmp;
                             txIdArr = new List<string>(tmp.transactions);
                         }
@@ -184,7 +195,14 @@ namespace DLT
                                         continue;
                                     }
                                 }
-                                Transaction tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                Transaction tx;
+                                if(applied_block)
+                                {
+                                    tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                }else
+                                {
+                                    tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
+                                }
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
@@ -438,7 +456,7 @@ namespace DLT
                         Transaction transaction = null;
 
                         // Check for a transaction corresponding to this id
-                        if (block_num == 0)
+                        if (block_num == 0 || block_num == Node.blockChain.getLastBlockNum() + 1)
                         {
                             transaction = TransactionPool.getUnappliedTransaction(txid);
                         }
@@ -478,7 +496,7 @@ namespace DLT
                         Transaction transaction = null;
 
                         // Check for a transaction corresponding to this id
-                        if (block_num == 0)
+                        if (block_num == 0 || block_num == Node.blockChain.getLastBlockNum() + 1)
                         {
                             transaction = TransactionPool.getUnappliedTransaction(UTF8Encoding.UTF8.GetString(txid));
                         }
