@@ -158,6 +158,11 @@ namespace DLT
 
                         for (int i = 0; i < ka_count; i++)
                         {
+                            if (m.Position == m.Length)
+                            {
+                                break;
+                            }
+
                             int ka_len = (int)reader.ReadIxiVarUInt();
                             byte[] ka_bytes = reader.ReadBytes(ka_len);
 
@@ -175,11 +180,6 @@ namespace DLT
 
                                 // Send this keepalive message to all subscribed clients
                                 CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, ka_bytes, address, endpoint);
-                            }
-
-                            if (m.Position == m.Length)
-                            {
-                                break;
                             }
                         }
                     }

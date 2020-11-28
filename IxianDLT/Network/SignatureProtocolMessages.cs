@@ -376,6 +376,11 @@ namespace DLT
 
                             for (int i = 0; i < sig_count; i++)
                             {
+                                if (m.Position == m.Length)
+                                {
+                                    break;
+                                }
+
                                 int sig_len = reader.ReadInt32();
                                 byte[] sig = reader.ReadBytes(sig_len);
 
@@ -385,11 +390,6 @@ namespace DLT
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
 
                                 dummy_block.addSignature(sig, addr);
-
-                                if (m.Position == m.Length)
-                                {
-                                    break;
-                                }
                             }
 
                             Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
@@ -673,6 +673,11 @@ namespace DLT
 
                                     for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
                                     {
+                                        if (m.Position == m.Length)
+                                        {
+                                            break;
+                                        }
+
                                         int address_len = (int)reader.ReadIxiVarUInt();
                                         byte[] address = reader.ReadBytes(address_len);
 
@@ -687,11 +692,6 @@ namespace DLT
 
                                         writer.WriteIxiVarInt(address_len);
                                         writer.Write(address);
-
-                                        if(m.Position == m.Length)
-                                        {
-                                            break;
-                                        }
                                     }
                                 }
                                 endpoint.sendData(ProtocolMessageCode.signaturesChunk, mOut.ToArray(), null);
@@ -788,6 +788,11 @@ namespace DLT
 
                             for (int i = 0; i < sig_count; i++)
                             {
+                                if (m.Position == m.Length)
+                                {
+                                    break;
+                                }
+
                                 int sig_len = (int)reader.ReadIxiVarUInt();
                                 byte[] sig = reader.ReadBytes(sig_len);
 
@@ -797,11 +802,6 @@ namespace DLT
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
 
                                 dummy_block.addSignature(sig, addr);
-
-                                if (m.Position == m.Length)
-                                {
-                                    break;
-                                }
                             }
 
                             Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
@@ -810,6 +810,11 @@ namespace DLT
                         {
                             for (int i = 0; i < sig_count; i++)
                             {
+                                if (m.Position == m.Length)
+                                {
+                                    break;
+                                }
+
                                 int sig_len = (int)reader.ReadIxiVarUInt();
                                 byte[] sig = reader.ReadBytes(sig_len);
 
@@ -830,11 +835,6 @@ namespace DLT
                                     {
                                         broadcastBlockSignature(block_num, checksum, sig, addr, endpoint);
                                     }
-                                }
-
-                                if (m.Position == m.Length)
-                                {
-                                    break;
                                 }
                             }
                         }
