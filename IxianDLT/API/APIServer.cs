@@ -305,11 +305,11 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = error };
             }
 
-            string txid_string = (string)parameters["id"];
-            Transaction t = TransactionPool.getUnappliedTransaction(txid_string);
+            byte[] txid = Transaction.txIdLegacyToV8((string)parameters["id"]);
+            Transaction t = TransactionPool.getUnappliedTransaction(txid);
             if(t == null)
             {
-                t = TransactionPool.getAppliedTransaction(txid_string, 0, Config.storeFullHistory);
+                t = TransactionPool.getAppliedTransaction(txid, 0, Config.storeFullHistory);
             }
             if (t == null)
             {
@@ -532,7 +532,7 @@ namespace DLTNode
 
             foreach (Transaction t in transactions)
             {
-                tx_list.Add(t.id, t.toDictionary());
+                tx_list.Add(Transaction.txIdV8ToLegacy(t.id), t.toDictionary());
             }
 
             return new JsonResponse { result = tx_list, error = error };
@@ -560,7 +560,7 @@ namespace DLTNode
 
             foreach (Transaction t in transactions)
             {
-                tx_list.Add(t.id, t.toDictionary());
+                tx_list.Add(Transaction.txIdV8ToLegacy(t.id), t.toDictionary());
             }
 
             return new JsonResponse { result = tx_list, error = error };
@@ -588,7 +588,7 @@ namespace DLTNode
 
             foreach (Transaction t in transactions)
             {
-                tx_list.Add(t.id, t.toDictionary());
+                tx_list.Add(Transaction.txIdV8ToLegacy(t.id), t.toDictionary());
             }
 
             return new JsonResponse { result = tx_list, error = error };

@@ -52,6 +52,10 @@ namespace DLT
                             TransactionProtocolMessages.handleGetTransaction2(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.getTransaction3:
+                            TransactionProtocolMessages.handleGetTransaction3(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.newTransaction:
                         case ProtocolMessageCode.transactionData:
                             TransactionProtocolMessages.handleTransactionData(data, endpoint);
@@ -168,6 +172,10 @@ namespace DLT
                             handleInventory(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.inventory2:
+                            handleInventory2(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.getSignatures:
                             SignatureProtocolMessages.handleGetSignatures(data, endpoint);
                             break;
@@ -178,6 +186,10 @@ namespace DLT
 
                         case ProtocolMessageCode.getTransactions:
                             TransactionProtocolMessages.handleGetTransactions(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getTransactions2:
+                            TransactionProtocolMessages.handleGetTransactions2(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.transactionsChunk:
@@ -365,7 +377,7 @@ namespace DLT
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         ulong item_count = reader.ReadIxiVarUInt();
-                        if(item_count > (ulong)CoreConfig.maxInventoryItems)
+                        if (item_count > (ulong)CoreConfig.maxInventoryItems)
                         {
                             Logging.warn("Received {0} inventory items, max items is {1}", item_count, CoreConfig.maxInventoryItems);
                             item_count = (ulong)CoreConfig.maxInventoryItems;
@@ -382,15 +394,15 @@ namespace DLT
                             ulong len = reader.ReadIxiVarUInt();
                             byte[] item_bytes = reader.ReadBytes((int)len);
                             InventoryItem item = InventoryCache.decodeInventoryItem(item_bytes);
-                            if(item.type == InventoryItemTypes.transaction)
+                            if (item.type == InventoryItemTypes.transaction)
                             {
-                                PendingTransactions.increaseReceivedCount(UTF8Encoding.UTF8.GetString(item.hash), endpoint.presence.wallet);
+                                PendingTransactions.increaseReceivedCount(Transaction.txIdLegacyToV8(UTF8Encoding.UTF8.GetString(item.hash)), endpoint.presence.wallet);
                             }
                             PendingInventoryItem pii = Node.inventoryCache.add(item, endpoint);
                             if (!pii.processed && pii.lastRequested == 0)
                             {
                                 // first time we're seeing this inventory item
-                                switch(item.type)
+                                switch (item.type)
                                 {
                                     case InventoryItemTypes.keepAlive:
                                         ka_list.Add((InventoryItemKeepAlive)item);
@@ -398,7 +410,7 @@ namespace DLT
                                         break;
 
                                     case InventoryItemTypes.transaction:
-                                        tx_list.Add(item.hash);
+                                        tx_list.Add(Transaction.txIdLegacyToV8(UTF8Encoding.UTF8.GetString(item.hash)));
                                         pii.lastRequested = Clock.getTimestamp();
                                         break;
 
@@ -417,11 +429,12 @@ namespace DLT
                                         if (iib.blockNum <= last_block_height)
                                         {
                                             Node.inventoryCache.processInventoryItem(pii);
-                                        }else
+                                        }
+                                        else
                                         {
                                             pii.lastRequested = Clock.getTimestamp();
                                             request_next_block = true;
-                                            if(iib.blockNum > endpoint.blockHeight)
+                                            if (iib.blockNum > endpoint.blockHeight)
                                             {
                                                 endpoint.blockHeight = iib.blockNum;
                                             }
@@ -450,7 +463,108 @@ namespace DLT
                             }
                             BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
                         }
-                        foreach(var sig_list in sig_lists)
+                        foreach (var sig_list in sig_lists)
+                        {
+                            SignatureProtocolMessages.broadcastGetSignatures(sig_list.Key, sig_list.Value, endpoint);
+                        }
+                    }
+                }
+            }
+
+            static void handleInventory2(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong item_count = reader.ReadIxiVarUInt();
+                        if (item_count > (ulong)CoreConfig.maxInventoryItems)
+                        {
+                            Logging.warn("Received {0} inventory items, max items is {1}", item_count, CoreConfig.maxInventoryItems);
+                            item_count = (ulong)CoreConfig.maxInventoryItems;
+                        }
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight();
+
+                        Dictionary<ulong, List<InventoryItemSignature>> sig_lists = new Dictionary<ulong, List<InventoryItemSignature>>();
+                        List<InventoryItemKeepAlive> ka_list = new List<InventoryItemKeepAlive>();
+                        List<byte[]> tx_list = new List<byte[]>();
+                        bool request_next_block = false;
+                        for (ulong i = 0; i < item_count; i++)
+                        {
+                            ulong len = reader.ReadIxiVarUInt();
+                            byte[] item_bytes = reader.ReadBytes((int)len);
+                            InventoryItem item = InventoryCache.decodeInventoryItem(item_bytes);
+                            if (item.type == InventoryItemTypes.transaction)
+                            {
+                                PendingTransactions.increaseReceivedCount(item.hash, endpoint.presence.wallet);
+                            }
+                            PendingInventoryItem pii = Node.inventoryCache.add(item, endpoint);
+                            if (!pii.processed && pii.lastRequested == 0)
+                            {
+                                // first time we're seeing this inventory item
+                                switch (item.type)
+                                {
+                                    case InventoryItemTypes.keepAlive:
+                                        ka_list.Add((InventoryItemKeepAlive)item);
+                                        pii.lastRequested = Clock.getTimestamp();
+                                        break;
+
+                                    case InventoryItemTypes.transaction:
+                                        tx_list.Add(item.hash);
+                                        pii.lastRequested = Clock.getTimestamp();
+                                        break;
+
+                                    case InventoryItemTypes.blockSignature:
+                                        var iis = (InventoryItemSignature)item;
+                                        if (!sig_lists.ContainsKey(iis.blockNum))
+                                        {
+                                            sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
+                                        }
+                                        sig_lists[iis.blockNum].Add(iis);
+                                        pii.lastRequested = Clock.getTimestamp();
+                                        break;
+
+                                    case InventoryItemTypes.block:
+                                        var iib = ((InventoryItemBlock)item);
+                                        if (iib.blockNum <= last_block_height)
+                                        {
+                                            Node.inventoryCache.processInventoryItem(pii);
+                                        }
+                                        else
+                                        {
+                                            pii.lastRequested = Clock.getTimestamp();
+                                            request_next_block = true;
+                                            if (iib.blockNum > endpoint.blockHeight)
+                                            {
+                                                endpoint.blockHeight = iib.blockNum;
+                                            }
+
+                                            if (iib.blockNum > Node.blockProcessor.highestNetworkBlockNum)
+                                            {
+                                                Node.blockProcessor.highestNetworkBlockNum = iib.blockNum;
+                                            }
+                                        }
+                                        break;
+
+                                    default:
+                                        Node.inventoryCache.processInventoryItem(pii);
+                                        break;
+                                }
+                            }
+                        }
+                        TransactionProtocolMessages.broadcastGetTransactions2(tx_list, endpoint);
+                        PresenceProtocolMessages.broadcastGetKeepAlives(ka_list, endpoint);
+                        if (request_next_block)
+                        {
+                            byte include_tx = 2;
+                            if (Node.isMasterNode())
+                            {
+                                include_tx = 0;
+                            }
+                            BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                        }
+                        foreach (var sig_list in sig_lists)
                         {
                             SignatureProtocolMessages.broadcastGetSignatures(sig_list.Key, sig_list.Value, endpoint);
                         }

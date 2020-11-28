@@ -8,6 +8,7 @@ using IXICore.Utils;
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace DLTNode.Inventory
 {
@@ -32,7 +33,7 @@ namespace DLTNode.Inventory
                 case InventoryItemTypes.keepAlive:
                     return handleKeepAlive(item, endpoint);
                 case InventoryItemTypes.transaction:
-                    CoreProtocolMessage.broadcastGetTransaction2(item.hash, 0, endpoint);
+                    CoreProtocolMessage.broadcastGetTransaction2(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(item.hash)), 0, endpoint);
                     return true;
             }
             return false;
@@ -49,7 +50,7 @@ namespace DLTNode.Inventory
                 {
                     include_tx = 0;
                 }
-                BlockProtocolMessages.broadcastGetBlock2(last_block_height + 1, null, endpoint, include_tx, true);
+                BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
                 if(iib.blockNum == last_block_height + 1)
                 {
                     return true;

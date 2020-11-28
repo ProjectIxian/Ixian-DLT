@@ -28,7 +28,7 @@ namespace DLT
                 public ulong difficulty { get; set; }
                 public byte[] powField { get; set; }
                 public byte[][][] signatures { get; set; }
-                public string[] transactions { get; set; }
+                public byte[][] transactions { get; set; }
                 public long timestamp { get; set; }
                 public int version { get; set; }
                 //
@@ -120,7 +120,7 @@ namespace DLT
                     }
                     if (transactions != null)
                     {
-                        foreach (string txid in transactions)
+                        foreach (byte[] txid in transactions)
                         {
                             b.addTransaction(txid);
                         }
@@ -182,10 +182,11 @@ namespace DLT
                             count = br.ReadInt32();
                             if (count > 0)
                             {
-                                transactions = new string[count];
+                                transactions = new byte[count][];
                                 for (int i = 0; i < count; i++)
                                 {
-                                    transactions[i] = br.ReadString();
+                                    int txid_len = br.ReadInt32();
+                                    transactions[i] = br.ReadBytes(txid_len);
                                 }
                             }
                             else { transactions = null; }
@@ -297,6 +298,7 @@ namespace DLT
                                 wr.Write(transactions.Length);
                                 foreach (var txid in transactions)
                                 {
+                                    wr.Write(txid.Length);
                                     wr.Write(txid);
                                 }
                             }
@@ -325,7 +327,7 @@ namespace DLT
 
             class _storage_Transaction
             {
-                public string id { get; set; }
+                public byte[] id { get; set; }
                 public int type { get; set; }
                 public byte[] amount { get; set; }
                 public byte[] fee { get; set; }
@@ -414,7 +416,9 @@ namespace DLT
                         using (BinaryReader br = new BinaryReader(ms))
                         {
                             int count = 0;
-                            id = br.ReadString();
+                            int id_len = br.ReadInt32();
+                            id = br.ReadBytes(id_len);
+
                             type = br.ReadInt32();
 
                             count = br.ReadInt32();
@@ -484,6 +488,7 @@ namespace DLT
                     {
                         using (BinaryWriter wr = new BinaryWriter(ms))
                         {
+                            wr.Write(id.Length);
                             wr.Write(id);
                             wr.Write(type);
 
@@ -605,9 +610,9 @@ namespace DLT
             public class _applied_tx_idx_entry
             {
                 public ulong tx_original_bh;
-                public string tx_id;
+                public byte[] tx_id;
 
-                public _applied_tx_idx_entry(ulong orig_bh, string txid)
+                public _applied_tx_idx_entry(ulong orig_bh, byte[] txid)
                 {
                     tx_original_bh = orig_bh;
                     tx_id = txid;
@@ -620,7 +625,8 @@ namespace DLT
                         using (BinaryReader br = new BinaryReader(ms))
                         {
                             tx_original_bh = br.ReadUInt64();
-                            tx_id = br.ReadString();
+                            int txid_len = br.ReadInt32();
+                            tx_id = br.ReadBytes(txid_len);
                         }
                     }
                 }
@@ -1098,7 +1104,7 @@ namespace DLT
 
             private void updateTXIndexes(_storage_Transaction st)
             {
-                byte[] tx_id_bytes = ASCIIEncoding.ASCII.GetBytes(st.id);
+                byte[] tx_id_bytes = st.id;
 
                 idxTXType.addIndexEntry(BitConverter.GetBytes(st.type), tx_id_bytes);
                 idxTXType.updateDBIndex(database);
@@ -1166,7 +1172,7 @@ namespace DLT
                         return false;
                     }
                     var st = new _storage_Transaction(transaction);
-                    database.Put(ASCIIEncoding.ASCII.GetBytes(st.id), st.asBytes(), rocksCFTransactions);
+                    database.Put(st.id, st.asBytes(), rocksCFTransactions);
                     updateTXIndexes(st);
                 }
                 lastUsedTime = DateTime.Now;
@@ -1286,7 +1292,7 @@ namespace DLT
                 }
             }
 
-            public Transaction getTransaction(string txid)
+            public Transaction getTransaction(byte[] txid)
             {
                 lock (rockLock)
                 {
@@ -1294,7 +1300,7 @@ namespace DLT
                     {
                         return null;
                     }
-                    return getTransactionInternal(ASCIIEncoding.ASCII.GetBytes(txid));
+                    return getTransactionInternal(txid);
                 }
             }
 
@@ -1473,11 +1479,11 @@ namespace DLT
                 }
             }
 
-            public bool removeTransaction(string txid)
+            public bool removeTransaction(byte[] txid)
             {
                 lock(rockLock)
                 {
-                    var tx_id_bytes = ASCIIEncoding.ASCII.GetBytes(txid);
+                    var tx_id_bytes = txid;
                     return removeTransactionInternal(tx_id_bytes);
                 }
             }
@@ -1927,7 +1933,7 @@ namespace DLT
                 }
             }
 
-            public override Transaction getTransaction(string txid, ulong block_num = 0)
+            public override Transaction getTransaction(byte[] txid, ulong block_num = 0)
             {
                 lock(openDatabases)
                 {
@@ -2103,7 +2109,7 @@ namespace DLT
                 }
             }
 
-            public override bool removeTransaction(string txid, ulong block_num = 0)
+            public override bool removeTransaction(byte[] txid, ulong block_num = 0)
             {
                 lock(openDatabases)
                 {

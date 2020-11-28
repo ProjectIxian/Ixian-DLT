@@ -487,7 +487,7 @@ namespace DLT
                         {
                             // TODO TODO improve this section with NodeStorage.getTransactionsInBlock once rocksdb switch happens
                             bool missing = false;
-                            foreach (string txid in b.transactions)
+                            foreach (byte[] txid in b.transactions)
                             {
                                 if(!running)
                                 {
@@ -505,7 +505,7 @@ namespace DLT
                                     }
                                     else
                                     {
-                                        CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
+                                        CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum);
                                         missing = true;
                                     }
                                 }
@@ -678,7 +678,7 @@ namespace DLT
                                     {
                                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], b.blockChecksum), true);
                                         // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                        SignatureProtocolMessages.broadcastBlockSignature(b.blockNum, b.blockChecksum, signature_data[0], signature_data[1], null, null, true);
+                                        SignatureProtocolMessages.broadcastBlockSignature(signature_data[0], signature_data[1], b.blockNum, b.blockChecksum, null, null);
                                     }
                                 }
                             }

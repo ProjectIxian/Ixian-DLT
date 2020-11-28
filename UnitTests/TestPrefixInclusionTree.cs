@@ -1,9 +1,11 @@
 ﻿using IXICore;
+using IXICore.Utils;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 
 namespace UnitTests
 {
@@ -14,27 +16,27 @@ namespace UnitTests
         private Random RNG;
 
 
-        private string generateRandomTXID()
+        private byte[] generateRandomTXID()
         {
             byte[] random_txid = new byte[44];
             RNG.NextBytes(random_txid);
-            return Base58Check.Base58CheckEncoding.EncodePlain(random_txid);
+            return random_txid;
         }
 
         private void verifyMinimumTree(int sizeFrom, int sizeTo, byte numLevels = 4)
         {
             PrefixInclusionTree pit = new PrefixInclusionTree(44, numLevels);
-            HashSet<string> txids = new HashSet<string>();
+            HashSet<byte[]> txids = new HashSet<byte[]>(new ByteArrayComparer());
             for (int i = 0; i < RNG.Next(sizeTo-sizeFrom) + sizeFrom; i++)
             {
-                string tx = generateRandomTXID();
+                byte[] tx = generateRandomTXID();
                 txids.Add(tx);
                 pit.add(tx);
             }
             byte[] original_tree_hash = pit.calculateTreeHash();
             Trace.WriteLine(String.Format("Generated {0} transactions...", txids.Count));
             // pick a random tx
-            string rtx = txids.ElementAt(RNG.Next(txids.Count));
+            byte[] rtx = txids.ElementAt(RNG.Next(txids.Count));
             Stopwatch sw = new Stopwatch();
             sw.Start();
             byte[] minimal_tree = pit.getMinimumTree(rtx);
@@ -59,10 +61,10 @@ namespace UnitTests
         private void verifyMinimumTreeA(int sizeFrom, int sizeTo, bool all_tx, byte numLevels = 4)
         {
             PrefixInclusionTree pit = new PrefixInclusionTree(44, numLevels);
-            HashSet<string> txids = new HashSet<string>();
+            HashSet<byte[]> txids = new HashSet<byte[]>(new ByteArrayComparer());
             for (int i = 0; i < RNG.Next(sizeTo - sizeFrom) + sizeFrom; i++)
             {
-                string tx = generateRandomTXID();
+                byte[] tx = generateRandomTXID();
                 txids.Add(tx);
                 pit.add(tx);
             }
@@ -85,7 +87,7 @@ namespace UnitTests
             sw.Start();
             if (all_tx)
             {
-                foreach (string tx in txids)
+                foreach (byte[] tx in txids)
                 {
                     // "pretend" to add the transactions we're interested in verifying - this should not change the resulting tree hash
                     pit2.add(tx);
@@ -96,7 +98,7 @@ namespace UnitTests
                 int num_to_verify = RNG.Next(sizeFrom) / 10;
                 for(int i = 0; i< num_to_verify;i++)
                 {
-                    string rand_tx = txids.ElementAt(RNG.Next(txids.Count));
+                    byte[] rand_tx = txids.ElementAt(RNG.Next(txids.Count));
                     pit2.add(rand_tx);
                 }
             }
@@ -108,10 +110,10 @@ namespace UnitTests
         private void verifyMinimumTreeM(int sizeFrom, int sizeTo, int included_percent = 2, int max_tx = 5, byte numLevels = 4)
         {
             PrefixInclusionTree pit = new PrefixInclusionTree(44, numLevels);
-            HashSet<string> txids = new HashSet<string>();
+            HashSet<byte[]> txids = new HashSet<byte[]>(new ByteArrayComparer());
             for (int i = 0; i < RNG.Next(sizeTo - sizeFrom) + sizeFrom; i++)
             {
-                string tx = generateRandomTXID();
+                byte[] tx = generateRandomTXID();
                 txids.Add(tx);
                 pit.add(tx);
             }
@@ -119,8 +121,8 @@ namespace UnitTests
             byte[] original_tree_hash = pit.calculateTreeHash();
             Stopwatch sw = new Stopwatch();
             // chose some transactions for which to make a minimum tree
-            List<string> chosenTransactions = new List<string>();
-            foreach(string tx in txids)
+            List<byte[]> chosenTransactions = new List<byte[]>();
+            foreach(byte[] tx in txids)
             {
                 // 10% of transactions, or at least one
                 if(chosenTransactions.Count == 0 || RNG.Next(100) < included_percent)
@@ -148,7 +150,7 @@ namespace UnitTests
             sw.Reset();
 
             sw.Start();
-            foreach(string tx in chosenTransactions)
+            foreach(byte[] tx in chosenTransactions)
             {
                 Assert.IsTrue(pit2.contains(tx), "Reconstructed PIT should contain the selected transactions!");
             }
@@ -160,11 +162,11 @@ namespace UnitTests
         private void hashIsRepeatableInternal(int sizeFrom, int sizeTo)
         {
             PrefixInclusionTree pit = new PrefixInclusionTree();
-            List<string> txids = new List<string>();
+            List<byte[]> txids = new List<byte[]>();
             for (int i = 0; i < RNG.Next(sizeTo - sizeFrom) + sizeFrom; i++)
             {
-                string tx = generateRandomTXID();
-                if (!txids.Contains(tx))
+                byte[] tx = generateRandomTXID();
+                if (!txids.Contains(tx, new ByteArrayComparer()))
                 {
                     txids.Add(tx);
                     pit.add(tx);
@@ -172,14 +174,14 @@ namespace UnitTests
             }
             byte[] pit_hash = pit.calculateTreeHash();
             Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash_44), "PIT hash shouldn't be equal to empty after hashes are added!");
-            foreach (string tx in txids)
+            foreach (byte[] tx in txids)
             {
                 Assert.IsTrue(pit.contains(tx), "PIT should contain the added txid!");
                 pit.remove(tx);
                 Assert.IsFalse(pit.contains(tx), "PIT shouldn't contain hash which was removed!");
             }
             Assert.IsTrue(pit.calculateTreeHash().SequenceEqual(emptyPITHash_44), "PIT hash should be equal to empty after all txids are removed!");
-            foreach (string tx in txids)
+            foreach (byte[] tx in txids)
             {
                 pit.add(tx);
             }
@@ -198,7 +200,7 @@ namespace UnitTests
             PrefixInclusionTree pit = new PrefixInclusionTree();
             byte[] hash = pit.calculateTreeHash();
             Assert.IsTrue(hash.SequenceEqual(emptyPITHash_44), "Empty PIT hash is incorrect!");
-            Assert.IsFalse(pit.contains("ABCDEFGH"), "PIT reports that it contains an invalid txid");
+            Assert.IsFalse(pit.contains(UTF8Encoding.UTF8.GetBytes("ABCDEFGH")), "PIT reports that it contains an invalid txid");
         }
 
         [TestMethod]
@@ -206,7 +208,7 @@ namespace UnitTests
         {
             PrefixInclusionTree pit = new PrefixInclusionTree();
             // transaction IDs for version > 2 are 44
-            string txid_str = generateRandomTXID();
+            byte[] txid_str = generateRandomTXID();
             pit.add(txid_str);
             Assert.IsTrue(pit.contains(txid_str), "PIT does not contain the added txid!");
         }
@@ -214,16 +216,16 @@ namespace UnitTests
         [TestMethod]
         public void addMultipleHashes()
         {
-            List<string> addedHashes = new List<string>();
+            List<byte[]> addedHashes = new List<byte[]>();
             PrefixInclusionTree pit = new PrefixInclusionTree();
             // transaction IDs for version > 2 are 44
             for (int i = 0; i < RNG.Next(20); i++)
             {
-                string txid_str = generateRandomTXID();
+                byte[] txid_str = generateRandomTXID();
                 addedHashes.Add(txid_str);
                 pit.add(txid_str);
             }
-            foreach (string txid in addedHashes)
+            foreach (byte[] txid in addedHashes)
             {
                 Assert.IsTrue(pit.contains(txid), "PIT does not contain the added txid!");
             }
@@ -233,7 +235,7 @@ namespace UnitTests
         public void addRemoveHash()
         {
             PrefixInclusionTree pit = new PrefixInclusionTree();
-            string txid = generateRandomTXID();
+            byte[] txid = generateRandomTXID();
             pit.add(txid);
             Assert.IsFalse(pit.calculateTreeHash().SequenceEqual(emptyPITHash_44), "PIT hash should not be the same as empty!");
             pit.remove(txid);
@@ -256,7 +258,7 @@ namespace UnitTests
         public void largeHashTree()
         {
             PrefixInclusionTree pit = new PrefixInclusionTree();
-            List<string> txids = new List<string>();
+            List<byte[]> txids = new List<byte[]>();
             Stopwatch sw = new Stopwatch();
             // between 2000 and 3000 hashes
             for (int i = 0; i < RNG.Next(1000) + 2000; i++)

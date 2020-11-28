@@ -175,7 +175,7 @@ namespace DLT
 
             private void debugDumpCrashTX(Transaction tx)
             {
-                Logging.error("Transaction {0}, checksum: {1}", tx.id, Base58Check.Base58CheckEncoding.EncodePlain(tx.checksum));
+                Logging.error("Transaction {0}, checksum: {1}", Transaction.txIdV8ToLegacy(tx.id), Base58Check.Base58CheckEncoding.EncodePlain(tx.checksum));
                 Logging.error("Type: {0}, amount: {1}", tx.type, tx.amount);
                 Logging.error("Complete transaction: {0}", Base58Check.Base58CheckEncoding.EncodePlain(tx.getBytes()));
             }
@@ -285,7 +285,7 @@ namespace DLT
             /// <param name="txid">Transaction ID of the required Transaction.</param>
             /// <param name="block_num">Block height of the Block where the Transaction can be found.</param>
             /// <returns>Null if this transaction can't be found in storage.</returns>
-            public abstract Transaction getTransaction(string txid, ulong block_num);
+            public abstract Transaction getTransaction(byte[] txid, ulong block_num);
             /// <summary>
             /// Retrieves all Transactions with the specified type from the given block range.
             /// Note: If `block_to` is 0, only Block `block_from` will be searched. If both parameters are 0, all Blocks will be searched.
@@ -342,7 +342,7 @@ namespace DLT
             //
             // Remove
             public abstract bool removeBlock(ulong block_num, bool remove_transactions = true);
-            public abstract bool removeTransaction(string txid, ulong block_num = 0);
+            public abstract bool removeTransaction(byte[] txid, ulong block_num = 0);
             //
             // Prepare and cleanup
             protected abstract bool prepareStorageInternal();

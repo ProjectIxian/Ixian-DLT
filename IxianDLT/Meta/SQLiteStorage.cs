@@ -350,11 +350,10 @@ namespace DLT
 
             protected override bool insertBlockInternal(Block block)
             {
-                Block b = block;
                 string transactions = "";
-                foreach (string tx in block.transactions)
+                foreach (byte[] tx in block.transactions)
                 {
-                    transactions = string.Format("{0}||{1}", transactions, tx);
+                    transactions += "||" + Transaction.txIdV8ToLegacy(tx);
                 }
 
                 List<byte[][]> tmp_sigs = null;
@@ -374,7 +373,7 @@ namespace DLT
                     {
                         str_sig = Convert.ToBase64String(sig[0]);
                     }
-                    signatures = string.Format("{0}||{1}:{2}", signatures, str_sig, Convert.ToBase64String(sig[1]));
+                    signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig[1]);
                 }
 
                 if (!Node.blockProcessor.verifySigFreezedBlock(block))
@@ -429,13 +428,13 @@ namespace DLT
                 string toList = "";
                 foreach (var to in transaction.toList)
                 {
-                    toList = string.Format("{0}||{1}:{2}", toList, Base58Check.Base58CheckEncoding.EncodePlain(to.Key), Convert.ToBase64String(to.Value.getAmount().ToByteArray()));
+                    toList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(to.Key)  + ":" + Convert.ToBase64String(to.Value.getAmount().ToByteArray());
                 }
 
                 string fromList = "";
                 foreach (var from in transaction.fromList)
                 {
-                    fromList = string.Format("{0}||{1}:{2}", fromList, Base58Check.Base58CheckEncoding.EncodePlain(from.Key), Convert.ToBase64String(from.Value.getAmount().ToByteArray()));
+                    fromList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(from.Key) + ":" + Convert.ToBase64String(from.Value.getAmount().ToByteArray());
                 }
 
                 bool result = false;
@@ -447,7 +446,7 @@ namespace DLT
                     seekDatabase(transaction.applied, true);
 
                     string sql = "INSERT OR REPLACE INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`dataChecksum`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, transaction.id, transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, transaction.dataChecksum, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
+                    result = executeSQL(sql, Transaction.txIdV8ToLegacy(transaction.id), transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, transaction.dataChecksum, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                 }
 
                 return result;
@@ -610,7 +609,7 @@ namespace DLT
                     signatureFreezeChecksum = blk.sigFreezeChecksum,
                     difficulty = (ulong)blk.difficulty,
                     powField = blk.powField,
-                    transactions = new List<string>(),
+                    transactions = new List<byte[]>(),
                     signatures = new List<byte[][]>(),
                     timestamp = blk.timestamp,
                     version = blk.version,
@@ -661,7 +660,7 @@ namespace DLT
                             continue;
                         }
 
-                        block.addTransaction(s1);
+                        block.addTransaction(Transaction.txIdLegacyToV8(s1));
                     }
 
                     if (blk.superBlockSegments != null)
@@ -683,7 +682,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Logging.error("Error reading block #{0} from storage: ", blk.blockNum, e);
+                    Logging.error("Error reading block #{0} from storage: {1}", blk.blockNum, e);
                 }
 
                 return block;
@@ -864,7 +863,7 @@ namespace DLT
 
 
             // Retrieve a transaction from the sql database
-            public override Transaction getTransaction(string txid, ulong block_num)
+            public override Transaction getTransaction(byte[] txid, ulong block_num)
             {
                 Transaction transaction = null;
                 List<_storage_Transaction> _storage_tx = null;
@@ -888,7 +887,7 @@ namespace DLT
                             }
                             seekDatabase(block_num, true);
                         }
-                        _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
+                        _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, Transaction.txIdV8ToLegacy(txid));
 
                     }
                     catch (Exception e)
@@ -913,30 +912,11 @@ namespace DLT
                     if(!found)
                     {
                         // extract blockheight from txid
-                        ulong db_blocknum = 0;
-                        if (txid.StartsWith("s"))
-                        {
-                            int txid_bh_start_index = txid.IndexOf("-", 4) + 1;
-                            int txid_sep_pos = txid.IndexOf("-", txid_bh_start_index);
-                            if (txid_sep_pos > 0)
-                            {
-                                var str = txid.Substring(txid_bh_start_index, txid_sep_pos - (txid_bh_start_index));
-                                db_blocknum = UInt64.Parse(str);
-                            }
-                        }
-                        else
-                        {
-                            int txid_sep_pos = txid.IndexOf("-");
-                            if (txid_sep_pos > 0)
-                            {
-                                var str = txid.Substring(0, txid_sep_pos);
-                                db_blocknum = UInt64.Parse(str);
-                            }
-                        }
+                        ulong db_blocknum = IxiVarInt.GetIxiVarUInt(txid, 1).num;
 
-                        if(db_blocknum == 0)
+                        if (db_blocknum == 0)
                         {
-                            Logging.error("Invalid txid {0} - generated at block height 0.", txid);
+                            Logging.error("Invalid txid {0} - generated at block height 0.", Transaction.txIdV8ToLegacy(txid));
                             return null;
                         }
 
@@ -959,7 +939,7 @@ namespace DLT
                             seekDatabase(db_blocknum);
                             try
                             {
-                                _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, txid);
+                                _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, Transaction.txIdV8ToLegacy(txid));
 
                             }
                             catch (Exception)
@@ -1004,7 +984,7 @@ namespace DLT
 
                 transaction = new Transaction(tx.type, tx.dataChecksum, unshuffleStorageBytes(tx.data))
                 {
-                    id = tx.id,
+                    id = Transaction.txIdLegacyToV8(tx.id),
                     amount = new IxiNumber(tx.amount),
                     fee = new IxiNumber(tx.fee),
                     blockHeight = (ulong)tx.blockHeight,
@@ -1075,7 +1055,7 @@ namespace DLT
                     transaction.fromLocalStorage = true;
                 }catch(Exception e)
                 {
-                    Logging.error("Error reading transaction #{0} from storage: ", tx.id, e);
+                    Logging.error("Error reading transaction {0} from storage: {1}", tx.id, e);
                 }
 
                 return transaction;
@@ -1105,7 +1085,7 @@ namespace DLT
                     }
 
                     // First go through all transactions and remove them from storage
-                    foreach (string txid in b.transactions)
+                    foreach (byte[] txid in b.transactions)
                     {
                         if (removeTransaction(txid) == false)
                         {
@@ -1121,12 +1101,12 @@ namespace DLT
 
             // Removes a transaction from the storage database
             // Warning: make sure this is called on the corresponding database (seeked to the blocknum of this transaction)
-            public override bool removeTransaction(string txid, ulong blockNum = 0)
+            public override bool removeTransaction(byte[] txid, ulong blockNum = 0)
             {
                 lock (storageLock)
                 {
                     string sql = "DELETE FROM transactions where `id` = ? LIMIT 1";
-                    return executeSQL(sql, txid);
+                    return executeSQL(sql, Transaction.txIdV8ToLegacy(txid));
                 }
             }
 

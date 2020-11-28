@@ -17,8 +17,8 @@ namespace DLT
     class TransactionPool
     {
         static object stateLock = new object();
-        static readonly Dictionary<string, Transaction> appliedTransactions = new Dictionary<string, Transaction>();
-        static readonly Dictionary<string, Transaction> unappliedTransactions = new Dictionary<string, Transaction>();
+        static readonly Dictionary<byte[], Transaction> appliedTransactions = new Dictionary<byte[], Transaction>(new ByteArrayComparer());
+        static readonly Dictionary<byte[], Transaction> unappliedTransactions = new Dictionary<byte[], Transaction>(new ByteArrayComparer());
 
         static readonly List<byte[]> premineAddresses = new List<byte[]>()
         {
@@ -42,13 +42,13 @@ namespace DLT
                 // multiple "from" addresses are not supported
                 if (transaction.fromList.Count != 1)
                 {
-                    Logging.warn(String.Format("Multisig transaction {{ {0} }} has multiple 'from' addresses, which is not allowed!", transaction.id));
+                    Logging.warn("Multisig transaction {{ {0} }} has multiple 'from' addresses, which is not allowed!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
                 object multisig_type = transaction.GetMultisigData();
                 if (multisig_type == null)
                 {
-                    Logging.warn(String.Format("Multisig transaction {{ {0} }} has invalid multisig data attached!", transaction.id));
+                    Logging.warn("Multisig transaction {{ {0} }} has invalid multisig data attached!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
 
@@ -57,20 +57,20 @@ namespace DLT
                 //  b: at the start of this function, fromList is checked for fromList.Count > 1 and failed if so
                 byte[] from_address = (new Address(transaction.pubKey, transaction.fromList.First().Key)).address;
 
-                string orig_txid = "";
+                byte[] orig_txid;
                 byte[] signer_pub_key = null;
                 byte[] signer_nonce = null;
                 if (multisig_type is Transaction.MultisigTxData)
                 {
                     var multisig_obj = (Transaction.MultisigTxData)multisig_type;
                     // regular multisig transaction
-                    if (multisig_obj.origTXId != "")
+                    if (multisig_obj.origTXId != null)
                     {
-                        Logging.info(String.Format("Multisig transaction {{ {0} }} adds signature for origin multisig transaction {{ {1} }}.", transaction.id, multisig_obj.origTXId));
+                        Logging.info("Multisig transaction {{ {0} }} adds signature for origin multisig transaction {{ {1} }}.", Transaction.txIdV8ToLegacy(transaction.id), multisig_obj.origTXId);
                     }
                     else
                     {
-                        Logging.info(String.Format("Multisig transaction {{ {0} }} is an origin multisig transaction.", transaction.id));
+                        Logging.info("Multisig transaction {{ {0} }} is an origin multisig transaction.", Transaction.txIdV8ToLegacy(transaction.id));
                     }
                     orig_txid = multisig_obj.origTXId;
                     signer_pub_key = multisig_obj.signerPubKey;
@@ -89,17 +89,17 @@ namespace DLT
                             if(!hasAppliedTransaction(orig_txid))
                             {
                                 Logging.warn("Orig txid {0} doesn't exist, requesting from network.", orig_txid);
-                                CoreProtocolMessage.broadcastGetTransaction(orig_txid, 0, endpoint);
-                                CoreProtocolMessage.broadcastGetTransaction(transaction.id, 0, endpoint);
+                                CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(orig_txid), 0, endpoint);
+                                CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(transaction.id), 0, endpoint);
                                 return false;
                             }else
                             {
-                                Logging.error(String.Format("Orig txid {0} has already been applied.", orig_txid));
+                                Logging.error("Orig txid {0} has already been applied.", orig_txid);
                                 return false;
                             }
                         }else if (tmp_tx.type != (int)Transaction.Type.ChangeMultisigWallet && (tmp_tx.type != (int)Transaction.Type.MultisigTX))
                         {
-                            Logging.warn(String.Format("Orig txid {0} is not a multisig transaction.", orig_txid));
+                            Logging.warn("Orig txid {0} is not a multisig transaction.", orig_txid);
                             return false;
                         }
                     }
@@ -111,11 +111,11 @@ namespace DLT
                     Wallet tmp_w = Node.walletState.getWallet((new Address(transaction.pubKey, transaction.fromList.First().Key)).address);
                     if (tmp_w.isValidSigner(multisig_obj.addrToAdd))
                     {
-                        Logging.warn(String.Format("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(tmp_w.id)));
+                        Logging.warn("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(tmp_w.id));
                         return false;
                     }
 
-                    Logging.info(String.Format("Multisig change(add) transaction adds allowed signer {0} to address {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey)));
+                    Logging.info("Multisig change(add) transaction adds allowed signer {0} to address {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey));
 
                     signer_pub_key = multisig_obj.signerPubKey;
                     signer_nonce = multisig_obj.signerNonce;
@@ -124,7 +124,7 @@ namespace DLT
                 {
                     var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
 
-                    Logging.info(String.Format("Multisig change(del) transaction removes allowed signer {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey)));
+                    Logging.info("Multisig change(del) transaction removes allowed signer {0} from wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToDel), Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey));
 
                     signer_pub_key = multisig_obj.signerPubKey;
                     signer_nonce = multisig_obj.signerNonce;
@@ -133,21 +133,21 @@ namespace DLT
                 {
                     var multisig_obj = (Transaction.MultisigChSig)multisig_type;
 
-                    Logging.info(String.Format("Multisig change(sig) transaction changes required signatures for wallet {0} to {1}.", Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey), multisig_obj.reqSigs));
+                    Logging.info("Multisig change(sig) transaction changes required signatures for wallet {0} to {1}.", Base58Check.Base58CheckEncoding.EncodePlain(transaction.pubKey), multisig_obj.reqSigs);
 
                     signer_pub_key = multisig_obj.signerPubKey;
                     signer_nonce = multisig_obj.signerNonce;
                 }
                 if(signer_pub_key == null)
                 {
-                    Logging.warn(String.Format("Multisig transaction {{ {0} }}, has a null signer pubkey!", transaction.id));
+                    Logging.warn("Multisig transaction {{ {0} }}, has a null signer pubkey!", Transaction.txIdV8ToLegacy(transaction.id));
                 }
                 byte[] tx_signer_address = (new Address(signer_pub_key, signer_nonce)).address;
 
                 Wallet w = Node.walletState.getWallet(from_address);
                 if (!w.isValidSigner(tx_signer_address))
                 {
-                    Logging.warn(String.Format("Multisig transaction {{ {0} }} does not have a valid signature for wallet {1}.", transaction.id, Base58Check.Base58CheckEncoding.EncodePlain((w.id))));
+                    Logging.warn("Multisig transaction {{ {0} }} does not have a valid signature for wallet {1}.", Transaction.txIdV8ToLegacy(transaction.id), Base58Check.Base58CheckEncoding.EncodePlain((w.id)));
                     return false;
                 }
                 // multisig tx can only be performed on multisig wallets
@@ -156,7 +156,7 @@ namespace DLT
                     // only exception is the "add signer multisig"
                     if(!(multisig_type is Transaction.MultisigAddrAdd))
                     {
-                        Logging.warn(String.Format("Multisig transaction {{ {0} }} attempts to operate on a non-multisig wallet {1}.", transaction.id, Base58Check.Base58CheckEncoding.EncodePlain(w.id)));
+                        Logging.warn("Multisig transaction {{ {0} }} attempts to operate on a non-multisig wallet {1}.", Transaction.txIdV8ToLegacy(transaction.id), Base58Check.Base58CheckEncoding.EncodePlain(w.id));
                         return false;
                     }
                 }
@@ -231,25 +231,25 @@ namespace DLT
             }
             else if (blocknum < 10)
             {
-                Logging.warn(String.Format("Ignoring transaction before block 10."));
+                Logging.warn("Ignoring transaction before block 10.");
                 return false;
             }
             else if (transaction.type == (int)Transaction.Type.Genesis)
             {
-                Logging.warn(String.Format("Genesis transaction on block #{0} skipped. TXid: {1}.", blocknum, transaction.id));
+                Logging.warn("Genesis transaction on block #{0} skipped. TXid: {1}.", blocknum, Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
 
             if(transaction.version > Transaction.maxVersion)
             {
-                Logging.error("Received transaction {0} with a version higher than this node can handle, discarding the transaction.", transaction.id);
+                Logging.error("Received transaction {0} with a version higher than this node can handle, discarding the transaction.", Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
 
             // reject any transaction with block height 0
             if (transaction.blockHeight == 0)
             {
-                Logging.warn(String.Format("Transaction without block height specified on block #{0} skipped. TXid: {1}.", blocknum, transaction.id));
+                Logging.warn("Transaction without block height specified on block #{0} skipped. TXid: {1}.", blocknum, Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
 
@@ -258,7 +258,7 @@ namespace DLT
             {
                 if (transaction.version > 1)
                 {
-                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v0 or v1. TXid: {1}.", transaction.version, transaction.id));
+                    Logging.warn("Transaction version {0} is incorrect, expecting v0 or v1. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -266,7 +266,7 @@ namespace DLT
             {
                 if (transaction.version < 1 || transaction.version > 2)
                 {
-                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v1 or v2. TXid: {1}.", transaction.version, transaction.id));
+                    Logging.warn("Transaction version {0} is incorrect, expecting v1 or v2. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -274,7 +274,7 @@ namespace DLT
             {
                 if (transaction.version < 2 || transaction.version > 3)
                 {
-                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v2 or v3. TXid: {1}.", transaction.version, transaction.id));
+                    Logging.warn("Transaction version {0} is incorrect, expecting v2 or v3. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -282,7 +282,7 @@ namespace DLT
             {
                 if (transaction.version < 3 || transaction.version > 4)
                 {
-                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v3 or v4. TXid: {1}.", transaction.version, transaction.id));
+                    Logging.warn("Transaction version {0} is incorrect, expecting v3 or v4. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -290,24 +290,32 @@ namespace DLT
             {
                 if (transaction.version < 4 || transaction.version > 5)
                 {
-                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v4 or v5. TXid: {1}.", transaction.version, transaction.id));
+                    Logging.warn("Transaction version {0} is incorrect, expecting v4 or v5. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
-            else if (block_version >= BlockVer.v8)
+            else if (block_version == BlockVer.v8)
             {
-                if (transaction.version != 5)
+                if (transaction.version < 5 || transaction.version > 6)
                 {
-                    Logging.warn(String.Format("Transaction version {0} is incorrect, expecting v5. TXid: {1}.", transaction.version, transaction.id));
+                    Logging.warn("Transaction version {0} is incorrect, expecting v5 or v6. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
+                    return false;
+                }
+            }
+            else
+            {
+                if (transaction.version != 6)
+                {
+                    Logging.warn("Transaction version {0} is incorrect, expecting v6. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
 
-            if(transaction.type == (int)Transaction.Type.StakingReward)
+            if (transaction.type == (int)Transaction.Type.StakingReward)
             {
                 if (transaction.version != Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()))
                 {
-                    Logging.warn("Invalid transaction version {0}, expecting {1}. TXid: {2}.", transaction.version, Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()), transaction.id);
+                    Logging.warn("Invalid transaction version {0}, expecting {1}. TXid: {2}.", transaction.version, Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()), Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -325,7 +333,7 @@ namespace DLT
             }
             if (minBh > transaction.blockHeight || (transaction.blockHeight > blocknum + 10 && transaction.blockHeight > highest_block_num))
             {
-                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", transaction.id, transaction.blockHeight, minBh, highest_block_num));
+                Logging.warn("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", Transaction.txIdV8ToLegacy(transaction.id), transaction.blockHeight, minBh, highest_block_num);
                 return false;
             }
 
@@ -334,13 +342,13 @@ namespace DLT
             if(transaction.type != (int)Transaction.Type.PoWSolution)
             if (transaction.amount == (long)0 && transaction.type != (int)Transaction.Type.ChangeMultisigWallet && transaction.type != (int)Transaction.Type.MultisigAddTxSignature)
             {
-                    Logging.warn("Transaction amount was zero for txid {0}.", transaction.id);
+                    Logging.warn("Transaction amount was zero for txid {0}.", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
             }
 
             if(transaction.amount < 0)
             {
-                Logging.warn("Transaction amount was negative for txid {0}.", transaction.id);
+                Logging.warn("Transaction amount was negative for txid {0}.", Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
 
@@ -358,7 +366,7 @@ namespace DLT
             byte[] checksum = Transaction.calculateChecksum(transaction);
             if (checksum.SequenceEqual(transaction.checksum) == false)
             {
-                Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
+                Logging.warn("Adding transaction {{ {0} }}, but checksum doesn't match!", Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
 
@@ -367,12 +375,12 @@ namespace DLT
             {
                 if(transaction.dataChecksum == null)
                 {
-                    Logging.warn("Adding transaction {{ {0} }}, but data checksum is null!", transaction.id);
+                    Logging.warn("Adding transaction {{ {0} }}, but data checksum is null!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
                 if (!data_checksum.SequenceEqual(transaction.dataChecksum))
                 {
-                    Logging.warn("Adding transaction {{ {0} }}, but data checksum doesn't equal to calculated data checksum!", transaction.id);
+                    Logging.warn("Adding transaction {{ {0} }}, but data checksum doesn't equal to calculated data checksum!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -382,18 +390,18 @@ namespace DLT
             {
                 if (entry.Key.Length == 1 && entry.Key.First() != 0)
                 {
-                    Logging.warn(String.Format("Input nonce is 1 byte long but has an incorrect value for tx {{ {0} }}.", transaction.id));
+                    Logging.warn("Input nonce is 1 byte long but has an incorrect value for tx {{ {0} }}.", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
                 else if (entry.Key.Length != 1 && entry.Key.Length != 16)
                 {
-                    Logging.warn(String.Format("Input nonce is not 1 or 16 bytes long for tx {{ {0} }}.", transaction.id));
+                    Logging.warn("Input nonce is not 1 or 16 bytes long for tx {{ {0} }}.", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
 
                 if (entry.Value < 0)
                 {
-                    Logging.warn("Transaction amount was invalid for txid {0}.", transaction.id);
+                    Logging.warn("Transaction amount was invalid for txid {0}.", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
 
@@ -413,7 +421,7 @@ namespace DLT
                             if (transaction.toList.ContainsKey(tmp_from_address))
                             {
                                 // Prevent sending to the same address
-                                Logging.warn(String.Format("To and from addresses are the same in transaction {{ {0} }}.", transaction.id));
+                                Logging.warn("To and from addresses are the same in transaction {{ {0} }}.", Transaction.txIdV8ToLegacy(transaction.id));
                                 return false;
                             }
                         }
@@ -434,7 +442,7 @@ namespace DLT
                                 }
                                 else
                                 {
-                                    Logging.warn(String.Format("Attempted to use normal address with multisig transaction {{ {0} }}.", transaction.id));
+                                    Logging.warn("Attempted to use normal address with multisig transaction {{ {0} }}.", Transaction.txIdV8ToLegacy(transaction.id));
                                     return false;
                                 }
                             }
@@ -442,7 +450,7 @@ namespace DLT
                         {
                             if (tmp_wallet.type != WalletType.Normal)
                             {
-                                Logging.warn(String.Format("Attempted to use a non-normal address with normal transaction {{ {0} }}.", transaction.id));
+                                Logging.warn("Attempted to use a non-normal address with normal transaction {{ {0} }}.", Transaction.txIdV8ToLegacy(transaction.id));
                                 return false;
                             }
                         }
@@ -453,7 +461,7 @@ namespace DLT
                         if (fromBalance < entry.Value)
                         {
                             // Prevent overspending
-                            Logging.warn(String.Format("Attempted to overspend with transaction {{ {0} }}.", transaction.id));
+                            Logging.warn("Attempted to overspend with transaction {{ {0} }}.", Transaction.txIdV8ToLegacy(transaction.id));
                             return false;
                         }
                     }
@@ -462,7 +470,7 @@ namespace DLT
 
             if (totalAmount != transaction.amount + transaction.fee)
             {
-                Logging.warn(string.Format("Total amount {0} specified by the transaction {1} inputs is different than the actual total amount {2}.", (transaction.amount + transaction.fee).ToString(), transaction.id, totalAmount.ToString()));
+                Logging.warn("Total amount {0} specified by the transaction {1} inputs is different than the actual total amount {2}.", (transaction.amount + transaction.fee).ToString(), Transaction.txIdV8ToLegacy(transaction.id), totalAmount.ToString());
                 return false;
             }
 
@@ -471,12 +479,12 @@ namespace DLT
             {
                 if (!Address.validateChecksum(entry.Key))
                 {
-                    Logging.warn(String.Format("Adding transaction {{ {0} }}, but to address is incorrect!", transaction.id));
+                    Logging.warn("Adding transaction {{ {0} }}, but to address is incorrect!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
                 if (entry.Value < 0)
                 {
-                    Logging.warn("Transaction amount was invalid for txid {0}.", transaction.id);
+                    Logging.warn("Transaction amount was invalid for txid {0}.", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
                 totalAmount += entry.Value;
@@ -484,7 +492,7 @@ namespace DLT
 
             if(totalAmount != transaction.amount)
             {
-                Logging.warn(string.Format("Total amount {0} specified by the transaction {1} outputs is different than the actual total amount {2}.", transaction.amount.ToString(), transaction.id, totalAmount.ToString()));
+                Logging.warn("Total amount {0} specified by the transaction {1} outputs is different than the actual total amount {2}.", transaction.amount.ToString(), Transaction.txIdV8ToLegacy(transaction.id), totalAmount.ToString());
                 return false;
             }
 
@@ -510,7 +518,7 @@ namespace DLT
                 // Ignore if it's not in the genesis block
                 if (blocknum > 1)
                 {
-                    Logging.warn(String.Format("Genesis transaction on block #{0} ignored. TXid: {1}.", blocknum, transaction.id));
+                    Logging.warn("Genesis transaction on block #{0} ignored. TXid: {1}.", blocknum, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -526,7 +534,7 @@ namespace DLT
                 if (transaction.fee < expectedFee)
                 {
                     // Prevent transactions that can't pay the minimum fee
-                    Logging.warn("Transaction fee does not cover minimum fee for {{ {0} }}, specified tx fee: {1}, min. expected fee: {2}, tx length: {3}.", transaction.id, transaction.fee, expectedFee, transaction.getBytes().Length);
+                    Logging.warn("Transaction fee does not cover minimum fee for {{ {0} }}, specified tx fee: {1}, min. expected fee: {2}, tx length: {3}.", Transaction.txIdV8ToLegacy(transaction.id), transaction.fee, expectedFee, transaction.getBytes().Length);
                     return false;
                 }
             }
@@ -581,13 +589,13 @@ namespace DLT
 
             if (pubkey == null || pubkey.Length < 32 || pubkey.Length > 2500)
             {
-                Logging.warn(string.Format("Invalid pubkey for transaction id: {0}", transaction.id));
+                Logging.warn("Invalid pubkey for transaction id: {0}", Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
 
             if (signer_nonce != null && signer_nonce.Length > 16)
             {
-                Logging.warn(string.Format("Invalid nonce for transaction id: {0}", transaction.id));
+                Logging.warn("Invalid nonce for transaction id: {0}", Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
             
@@ -595,13 +603,13 @@ namespace DLT
             if (full_check && transaction.verifySignature(pubkey, signer_nonce) == false)
             {
                 // Transaction signature is invalid
-                Logging.warn(string.Format("Invalid signature for transaction id: {0}", transaction.id));
+                Logging.warn("Invalid signature for transaction id: {0}", Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
 
             if(!verifyPremineTransaction(transaction))
             {
-                Logging.warn("Cannot spend so much premine yet, txid: {0}", transaction.id);
+                Logging.warn("Cannot spend so much premine yet, txid: {0}", Transaction.txIdV8ToLegacy(transaction.id));
                 return false;
             }
             /*sw.Stop();
@@ -615,19 +623,19 @@ namespace DLT
         {
             if(tx.applied != 0)
             {
-                Logging.error("An error occured while setting readyToApply flag to tx " + tx.id + ", tx was already applied.");
+                Logging.error("An error occured while setting readyToApply flag to tx {0}, tx was already applied.", Transaction.txIdV8ToLegacy(tx.id));
                 return false;
             }
             if (block_num == 0)
             {
-                Logging.error("An error occured while setting readyToApply to tx " + tx.id + " block_num was 0.");
+                Logging.error("An error occured while setting readyToApply to tx {0} block_num was 0.", Transaction.txIdV8ToLegacy(tx.id));
                 return false;
             }
             tx.readyToApply = block_num;
             return true;
         }
 
-        public static bool setAppliedFlag(string txid, ulong blockNum, bool add_to_storage = true)
+        public static bool setAppliedFlag(byte[] txid, ulong blockNum, bool add_to_storage = true)
         {
             lock (stateLock)
             {
@@ -639,7 +647,7 @@ namespace DLT
                     t.applied = blockNum;
                     if (t.applied == 0)
                     {
-                        Logging.error("An error occured while adding tx " + txid + " to storage, applied was 0.");
+                        Logging.error("An error occured while adding tx {0} to storage, applied was 0.", Transaction.txIdV8ToLegacy(t.id));
                         return false;
                     }
 
@@ -649,7 +657,7 @@ namespace DLT
                     {
                         if (Node.walletStorage.isMyAddress((new Address(t.pubKey)).address) || Node.walletStorage.extractMyAddressesFromAddressList(t.toList) != null)
                         {
-                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Final, t.applied);
+                            ActivityStorage.updateStatus(t.id, ActivityStatus.Final, t.applied);
                         }
                     }
 
@@ -678,15 +686,15 @@ namespace DLT
             return false;
         }
 
-        public static List<string> getRelatedMultisigTransactions(string txid, Block block, bool remove_failed_transactions = true)
+        public static List<byte[]> getRelatedMultisigTransactions(byte[] txid, Block block, bool remove_failed_transactions = true)
         {
             lock(stateLock)
             {
-                List<string> related_transaction_ids = new List<string>();
+                List<byte[]> related_transaction_ids = new List<byte[]>();
 
                 List<Transaction> failed_transactions = new List<Transaction>();
                 List<byte[]> signer_addresses = new List<byte[]>();
-                List<string> tmp_transactions = unappliedTransactions.Keys.ToList();
+                List<byte[]> tmp_transactions = unappliedTransactions.Keys.ToList();
                 if(block != null)
                 {
                     tmp_transactions = block.transactions;
@@ -723,7 +731,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.warn(String.Format("Multisig transaction {{ {0} }} has invalid data!", orig_tx.id));
+                        Logging.warn("Multisig transaction {{ {0} }} has invalid data!", Transaction.txIdV8ToLegacy(orig_tx.id));
                         // unknown MS transaction, discard
                         failed_transactions.Add(orig_tx);
                         orig_tx = null;
@@ -752,7 +760,7 @@ namespace DLT
                     if(tx.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         object multisig_type = tx.GetMultisigData();
-                        string orig_txid = "";
+                        byte[] orig_txid = null;
                         byte[] signer_pub_key = null;
                         byte[] signer_nonce = null;
                         if (multisig_type is Transaction.MultisigTxData)
@@ -763,25 +771,25 @@ namespace DLT
                             signer_nonce = multisig_obj.signerNonce;
                         }
 
-                        if (orig_txid == "" || orig_txid == null)
+                        if (orig_txid == null)
                         {
-                            Logging.warn(String.Format("Multisig transaction {{ {0} }} has a null orig txid!", tx.id));
+                            Logging.warn("Multisig transaction {{ {0} }} has a null orig txid!", Transaction.txIdV8ToLegacy(tx.id));
                             failed_transactions.Add(tx);
                             continue;
                         }
 
                         if (signer_pub_key == null)
                         {
-                            Logging.warn(String.Format("Multisig transaction {{ {0} }} signer_pub_key is null - orig multisig transaction: {1}!", tx.id, orig_txid));
+                            Logging.warn("Multisig transaction {{ {0} }} signer_pub_key is null - orig multisig transaction: {1}!", Transaction.txIdV8ToLegacy(tx.id), Transaction.txIdV8ToLegacy(orig_txid));
                             failed_transactions.Add(tx);
                             continue;
                         }
 
-                        if (orig_txid == txid)
+                        if (orig_txid.SequenceEqual(txid))
                         {
                             if (orig_tx == null)
                             {
-                                Logging.warn(String.Format("Multisig transaction {{ {0} }} signs a missing orig multisig transaction {1}!", tx.id, orig_txid));
+                                Logging.warn("Multisig transaction {{ {0} }} signs a missing orig multisig transaction {1}!", Transaction.txIdV8ToLegacy(tx.id), Transaction.txIdV8ToLegacy(orig_txid));
                                 failed_transactions.Add(tx);
                                 continue;
                             }
@@ -789,8 +797,8 @@ namespace DLT
                             byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
                             if (signer_addresses.Contains(signer_address, new ByteArrayComparer()))
                             {
-                                Logging.warn(String.Format("Multisig transaction {{ {0} }} signs an already signed transaction {1} by this address {2}!",
-                                    tx.id, orig_txid, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                                Logging.warn("Multisig transaction {{ {0} }} signs an already signed transaction {1} by this address {2}!",
+                                    Transaction.txIdV8ToLegacy(txid), Transaction.txIdV8ToLegacy(orig_txid), Base58Check.Base58CheckEncoding.EncodePlain(signer_address));
                                 failed_transactions.Add(tx);
                                 continue;
                             }
@@ -798,8 +806,8 @@ namespace DLT
                             Wallet orig = Node.walletState.getWallet((new Address(tx.pubKey, tx.fromList.First().Key).address));
                             if (!orig.isValidSigner(signer_address))
                             {
-                                Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                                    txid, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                                Logging.warn("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
+                                    Transaction.txIdV8ToLegacy(txid), Base58Check.Base58CheckEncoding.EncodePlain(signer_address));
                                 failed_transactions.Add(tx);
                                 continue;
                             }
@@ -815,7 +823,7 @@ namespace DLT
                     // Remove all failed transactions from the TxPool and block
                     foreach (Transaction tx in failed_transactions)
                     {
-                        Logging.warn(String.Format("Removing failed ms transaction #{0} from pool.", tx.id));
+                        Logging.warn("Removing failed ms transaction #{0} from pool.", txIdV8ToLegacy(tx.id));
                         // Remove from TxPool
                         if (tx.applied == 0)
                         {
@@ -826,7 +834,7 @@ namespace DLT
                         }
                         else
                         {
-                            Logging.error(String.Format("Error, attempting to remove failed ms transaction #{0} from pool, that was already applied.", tx.id));
+                            Logging.error("Error, attempting to remove failed ms transaction #{0} from pool, that was already applied.", Transaction.txIdV8ToLegacy(tx.id));
                         }
                     }
                 }
@@ -835,7 +843,7 @@ namespace DLT
             }
         }
 
-        public static int getNumRelatedMultisigTransactions(string txid, Block block)
+        public static int getNumRelatedMultisigTransactions(byte[] txid, Block block)
         {
             return getRelatedMultisigTransactions(txid, block, false).Count();
         }
@@ -880,13 +888,13 @@ namespace DLT
                 {
                     foreach (var entry in wallet_list)
                     {
-                        activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(entry), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), transaction.toList[entry].ToString(), transaction.timeStamp, status, transaction.applied, transaction.id);
+                        activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(entry), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)), transaction.toList[entry].ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
                         ActivityStorage.insertActivity(activity);
                     }
                 }
                 else if(wallet != null)
                 {
-                    activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(transaction.id), value.ToString(), transaction.timeStamp, status, transaction.applied, transaction.id);
+                    activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)), value.ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
                     ActivityStorage.insertActivity(activity);
                 }
             }
@@ -898,7 +906,7 @@ namespace DLT
         {
             if (verifyTx)
             {
-                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id), true);
+                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)), true);
                 if (!verifyTransaction(transaction, endpoint))
                 {
                     return false;
@@ -907,7 +915,7 @@ namespace DLT
             {
                 if(!transaction.checksum.SequenceEqual(Transaction.calculateChecksum(transaction)))
                 {
-                    Logging.warn(String.Format("Adding transaction {{ {0} }}, but checksum doesn't match!", transaction.id));
+                    Logging.warn("Adding transaction {{ {0} }}, but checksum doesn't match!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -918,7 +926,7 @@ namespace DLT
                 if ((transaction.blockHeight <= Node.blockChain.getLastBlockNum() && appliedTransactions.ContainsKey(transaction.id))
                     || unappliedTransactions.ContainsKey(transaction.id))
                 {
-                    Logging.warn("Duplicate transaction {0}: already exists in the Transaction Pool.", transaction.id);
+                    Logging.warn("Duplicate transaction {0}: already exists in the Transaction Pool.", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
                 unappliedTransactions.Add(transaction.id, transaction);
@@ -945,7 +953,7 @@ namespace DLT
                     CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData, transaction.getBytes(), null, endpoint);
                 }else
                 {
-                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(transaction.id)), null, ProtocolMessageCode.transactionData, transaction.getBytes(), null);
+                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, transaction.id), null, ProtocolMessageCode.transactionData, transaction.getBytes(), null);
                 }
             }
 
@@ -967,18 +975,18 @@ namespace DLT
 
             // Send transaction FROM event
             byte[] from_addr = new Address(transaction.pubKey).address;
-            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
+            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)));
 
             // Send transaction TO event
             foreach (var entry in transaction.toList)
             {
                 byte[] addr = new byte[entry.Key.Length];
                 Array.Copy(entry.Key, addr, addr.Length);
-                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.id));
+                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)));
             }
         }
 
-        public static bool hasAppliedTransaction(string txid)
+        public static bool hasAppliedTransaction(byte[] txid)
         {
             lock(stateLock)
             {
@@ -988,7 +996,7 @@ namespace DLT
 
         // Attempts to retrieve a transaction from memory or from storage
         // Returns null if no transaction is found
-        public static Transaction getAppliedTransaction(string txid, ulong block_num = 0, bool search_in_storage = false)
+        public static Transaction getAppliedTransaction(byte[] txid, ulong block_num = 0, bool search_in_storage = false)
         {
             Transaction transaction = null;
 
@@ -1021,7 +1029,7 @@ namespace DLT
 
         // Attempts to retrieve a transaction from memory or from storage
         // Returns null if no transaction is found
-        public static Transaction getUnappliedTransaction(string txid)
+        public static Transaction getUnappliedTransaction(byte[] txid)
         {
             lock(stateLock)
             {
@@ -1041,7 +1049,7 @@ namespace DLT
 
             lock (stateLock)
             {
-                foreach (string txid in block.transactions)
+                foreach (byte[] txid in block.transactions)
                 {
                     appliedTransactions.Remove(txid);
                 }
@@ -1057,12 +1065,12 @@ namespace DLT
 
             lock (stateLock)
             {
-                foreach (string txid in block.transactions)
+                foreach (byte[] txid in block.transactions)
                 {
                     Transaction tx = getAppliedTransaction(txid, block.blockNum, true);
                     if(tx == null)
                     {
-                        Logging.error("Error occured while fetching transaction {0} for block #{1} from storage.", txid, block.blockNum);
+                        Logging.error("Error occured while fetching transaction {0} for block #{1} from storage.", Transaction.txIdV8ToLegacy(txid), block.blockNum);
                         return false;
                     }
                     appliedTransactions.Add(txid, tx);
@@ -1168,7 +1176,7 @@ namespace DLT
 
             if (Node.blockChain.getLastBlockNum() >= ConsensusConfig.miningExpirationBlockHeight)
             {
-                Logging.warn("Received a PoW transaction {0}. Mining has stopped after block #{1} but current block height is #{2}.", tx.id, ConsensusConfig.miningExpirationBlockHeight, Node.blockChain.getLastBlockNum());
+                Logging.warn("Received a PoW transaction {0}. Mining has stopped after block #{1} but current block height is #{2}.", Transaction.txIdV8ToLegacy(tx.id), ConsensusConfig.miningExpirationBlockHeight, Node.blockChain.getLastBlockNum());
                 return false;
             }
 
@@ -1255,7 +1263,7 @@ namespace DLT
             }
             catch(Exception e)
             {
-                Logging.warn(string.Format("Error verifying PoW Transaction: {0}. Message: {1}", tx.id, e.Message));
+                Logging.warn("Error verifying PoW Transaction: {0}. Message: {1}", Transaction.txIdV8ToLegacy(tx.id), e.Message);
             }
 
             return false;
@@ -1270,13 +1278,13 @@ namespace DLT
             lock (stateLock)
             {
                 Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
-                foreach (string txid in b.transactions)
+                foreach (byte[] txid in b.transactions)
                 {
                     Transaction tx = getUnappliedTransaction(txid);
                     if (tx == null)
                     {
-                        Logging.error(String.Format("Attempted to set applied to transaction from block #{0} ({1}), but transaction {{ {2} }} was missing.",
-                            b.blockNum, Crypto.hashToString(b.blockChecksum), txid));
+                        Logging.error("Attempted to set applied to transaction from block #{0} ({1}), but transaction {{ {2} }} was missing.",
+                            b.blockNum, Crypto.hashToString(b.blockChecksum), Transaction.txIdV8ToLegacy(txid));
                         return false;
                     }
                     applyPowTransaction(tx, b, blockSolutionsDictionary, null);
@@ -1328,17 +1336,14 @@ namespace DLT
             // Maintain a list of stakers
             List<byte[]> blockStakers = new List<byte[]>();
 
-            List<string> stakingTxIds = block.transactions.FindAll(x => x.StartsWith("stk-"));
+            List<byte[]> stakingTxIds = block.transactions.FindAll(x => x[0] == 0);
             if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - block has {1} staking transaction ids", block.blockNum, stakingTxIds.Count); }
 
             foreach (Transaction tx in staking_txs)
             {
-                if (stakingTxIds.Exists(x => x == tx.id))
+                if (stakingTxIds.RemoveAll(x => x.SequenceEqual(tx.id)) == 0)
                 {
-                    stakingTxIds.Remove(tx.id);
-                } else
-                {
-                    Logging.error(String.Format("Invalid staking txid in transaction pool {0}, removing from pool.", tx.id));
+                    Logging.error("Invalid staking txid in transaction pool {0}, removing from pool.", Transaction.txIdV8ToLegacy(tx.id));
                     lock(stateLock)
                     {
                         unappliedTransactions.Remove(tx.id);
@@ -1349,7 +1354,7 @@ namespace DLT
                 if (tx.readyToApply > 0 || tx.applied > 0)
                     continue;
 
-                string[] split_str = tx.id.Split(new string[] { "-" }, StringSplitOptions.None);
+                string[] split_str = Transaction.txIdV8ToLegacy(tx.id).Split(new string[] { "-" }, StringSplitOptions.None);
                 ulong txbnum = Convert.ToUInt64(split_str[1]);
 
                 if (txbnum != block.blockNum - 6)
@@ -1363,7 +1368,7 @@ namespace DLT
                 if (Node.blockSync.synchronizing && Config.recoverFromFile == false && Config.storeFullHistory == false && Config.fullStorageDataVerification == false)
                     continue;
 
-                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - applying staking transaction {1}", block.blockNum, tx.id); }
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - applying staking transaction {1}", block.blockNum, Transaction.txIdV8ToLegacy(tx.id)); }
                 if (applyStakingTransaction(tx, block, failed_staking_transactions, blockStakers))
                 {
                     //Console.WriteLine("!!! APPLIED STAKE {0}", tx.id);
@@ -1412,7 +1417,7 @@ namespace DLT
                 // Remove all failed transactions from the TxPool
                 foreach (Transaction tx in failed_staking_transactions)
                 {
-                    Logging.warn(String.Format("Removing failed staking transaction #{0} from pool.", tx.id));
+                    Logging.warn("Removing failed staking transaction #{0} from pool.", Transaction.txIdV8ToLegacy(tx.id));
                     if (tx.applied == 0)
                     {
                         lock (stateLock)
@@ -1423,7 +1428,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
+                        Logging.error("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", Transaction.txIdV8ToLegacy(tx.id));
                     }
                     //block.transactions.Remove(tx.id);
                 }
@@ -1435,10 +1440,10 @@ namespace DLT
                 }
 
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applying other transactions ({1} transactions)!", block.blockNum, block.transactions.Count); }
-                foreach (string txid in block.transactions)
+                foreach (byte[] txid in block.transactions)
                 {
                     // Skip staking txids
-                    if (txid.StartsWith("stk"))
+                    if (txid[0] == 0) // stk
                     {
                         if (Node.blockSync.synchronizing && !Config.recoverFromFile && !Config.storeFullHistory)
                         {
@@ -1451,11 +1456,11 @@ namespace DLT
                     }
 
                     Transaction tx = getUnappliedTransaction(txid);
-                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Type: {2}, Amount: {3}", block.blockNum, tx.id, tx.type, tx.amount.getAmount()); }
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Type: {2}, Amount: {3}", block.blockNum, Transaction.txIdV8ToLegacy(tx.id), tx.type, tx.amount.getAmount()); }
                     if (tx == null)
                     {
-                        Logging.error(String.Format("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
-                            block.blockNum, Crypto.hashToString(block.blockChecksum), txid));
+                        Logging.error("Attempted to apply transactions from block #{0} ({1}), but transaction {{ {2} }} was missing.",
+                            block.blockNum, Crypto.hashToString(block.blockChecksum), Transaction.txIdV8ToLegacy(txid));
                         return false;
                     }
 
@@ -1480,7 +1485,7 @@ namespace DLT
                         // Generate an address from the public key and compare it with the sender
                         if (pubkey == null)
                         {
-                            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, tx.id, 
+                            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, Transaction.txIdV8ToLegacy(tx.id), 
                                 Base58Check.Base58CheckEncoding.EncodePlain(tmp_address)); }
                             // There is no supplied public key, extract it from transaction
                             pubkey = tx.pubKey;
@@ -1493,10 +1498,10 @@ namespace DLT
                     }
 
                     // Special case for PoWSolution transactions
-                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as PoW", block.blockNum, tx.id); }
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as PoW", block.blockNum, Transaction.txIdV8ToLegacy(tx.id)); }
                     if (applyPowTransaction(tx, block, blockSolutionsDictionary, failed_transactions))
                     {
-                        if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: as PoW succeeded", block.blockNum, tx.id, tx.type, tx.amount.getAmount()); }
+                        if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: as PoW succeeded", block.blockNum, Transaction.txIdV8ToLegacy(tx.id), tx.type, tx.amount.getAmount()); }
                         continue;
                     }
 
@@ -1531,7 +1536,7 @@ namespace DLT
                     // Special case for Multisig
                     if (tx.type == (int)Transaction.Type.MultisigTX)
                     {
-                        List<string> related_tx_ids = applyMultisigTransaction(tx, block, failed_transactions);
+                        List<byte[]> related_tx_ids = applyMultisigTransaction(tx, block, failed_transactions);
                         if(related_tx_ids == null)
                         {
                             Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
@@ -1549,7 +1554,7 @@ namespace DLT
                     }
                     if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
                     {
-                        List<string> related_tx_ids = applyMultisigChangeTransaction(tx, block, failed_transactions);
+                        List<byte[]> related_tx_ids = applyMultisigChangeTransaction(tx, block, failed_transactions);
                         if (related_tx_ids == null)
                         {
                             Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
@@ -1571,7 +1576,7 @@ namespace DLT
                     }
 
                     // If we reached this point, it means this is a normal transaction
-                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as normal", block.blockNum, tx.id); }
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as normal", block.blockNum, Transaction.txIdV8ToLegacy(tx.id)); }
                     applyNormalTransaction(tx, block, failed_transactions);
 
                 }
@@ -1589,7 +1594,7 @@ namespace DLT
                 // double-check if there are any unapplied transactions and if so reject the block
                 if (!Node.walletState.inTransaction)
                 {
-                    foreach (string txid in block.transactions)
+                    foreach (byte[] txid in block.transactions)
                     {
                         Transaction tx = getUnappliedTransaction(txid);
                         if (tx == null || tx.readyToApply != block.blockNum)
@@ -1615,7 +1620,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.error(String.Format("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", tx.id));
+                        Logging.error("Error, attempting to remove failed transaction #{0} from pool, that was already applied.", Transaction.txIdV8ToLegacy(tx.id));
                     }
                 }
                 if (failed_transactions.Count > 0)
@@ -1652,7 +1657,7 @@ namespace DLT
             // Check the block height
             if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
             {
-                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                Logging.warn("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", Transaction.txIdV8ToLegacy(tx.id), tx.blockHeight, minBh, block.blockNum + 5);
                 failedTransactions.Add(tx);
                 return false;
             }
@@ -1722,7 +1727,7 @@ namespace DLT
             if (block.blockNum > 1)
             {
                 // Add it to the failed transactions list
-                Logging.error(String.Format("Genesis transaction {0} detected after block #1. Ignored.", tx.id));
+                Logging.error("Genesis transaction {0} detected after block #1. Ignored.", Transaction.txIdV8ToLegacy(tx.id));
                 failed_transactions.Add(tx);
                 return true;
             }
@@ -1763,7 +1768,7 @@ namespace DLT
                 // If there's another staking transaction for the staker in this block, ignore
                 if (valid == false)
                 {
-                    Logging.error(String.Format("There's a duplicate staker transaction {0}.", tx.id));
+                    Logging.error("There's a duplicate staker transaction {0}.", Transaction.txIdV8ToLegacy(tx.id));
                     failed_transactions.Add(tx);
                     return true;
                 }
@@ -1775,7 +1780,7 @@ namespace DLT
 
                 if (tx_amount < new IxiNumber(new System.Numerics.BigInteger(1)))
                 {
-                    Logging.error(String.Format("Staking transaction {0} does not have a positive amount.", tx.id));
+                    Logging.error("Staking transaction {0} does not have a positive amount.", Transaction.txIdV8ToLegacy(tx.id));
                     failed_transactions.Add(tx);
                     return true;
                 }
@@ -1800,7 +1805,7 @@ namespace DLT
                 }
                 if (valid == false)
                 {
-                    Logging.error(String.Format("Staking transaction {0} does not have a corresponding block signature.", tx.id));
+                    Logging.error("Staking transaction {0} does not have a corresponding block signature.", Transaction.txIdV8ToLegacy(tx.id));
                     failed_transactions.Add(tx);
                     return true;
                 }
@@ -1822,7 +1827,7 @@ namespace DLT
             return true;
         }
 
-        public static List<string> applyMultisigTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
+        public static List<byte[]> applyMultisigTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
         {
             if (tx.type == (int)Transaction.Type.MultisigTX)
             {
@@ -1834,14 +1839,14 @@ namespace DLT
                 // Check the block height
                 if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
                 {
-                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                    Logging.warn("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", Transaction.txIdV8ToLegacy(tx.id), tx.blockHeight, minBh, block.blockNum + 5);
                     failed_transactions.Add(tx);
                     return null;
                 }
 
                 if (tx.fromList.Count > 1)
                 {
-                    Logging.error(String.Format("Multisig transaction {{ {0} }} has more than one 'from' address!", tx.id));
+                    Logging.error("Multisig transaction {{ {0} }} has more than one 'from' address!", Transaction.txIdV8ToLegacy(tx.id));
                     failed_transactions.Add(tx);
                     return null;
                 }
@@ -1850,31 +1855,31 @@ namespace DLT
                 Wallet orig = Node.walletState.getWallet(from_address);
                 if (orig is null)
                 {
-                    Logging.error(String.Format("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Crypto.hashToString(from_address)));
+                    Logging.error("Multisig transaction {{ {0} }} names a non-existent wallet {1}.", Transaction.txIdV8ToLegacy(tx.id), Crypto.hashToString(from_address));
                     failed_transactions.Add(tx);
                     return null;
                 }
                 if (orig.type != WalletType.Multisig)
                 {
-                    Logging.error(String.Format("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
-                        Crypto.hashToString(from_address), tx.id));
+                    Logging.error("Attempted to apply a multisig TX where the originating wallet is not a multisig wallet! Wallet: {0}, Transaction: {{ {1} }}.",
+                        Crypto.hashToString(from_address), Transaction.txIdV8ToLegacy(tx.id));
                     failed_transactions.Add(tx);
                     return null;
                 }
 
-                List<string> related_tx_ids = new List<string>();
+                List<byte[]> related_tx_ids = new List<byte[]>();
                 // we only attempt to execute the original transaction, if there are enough signatures
                 if (multisig_type is Transaction.MultisigTxData)
                 {
                     var multisig_obj = (Transaction.MultisigTxData)multisig_type;
-                    if (multisig_obj.origTXId == "")
+                    if (multisig_obj.origTXId == null)
                     {
                         related_tx_ids = getRelatedMultisigTransactions(tx.id, block);
                         // +1, because the search will not find the current transaction, only the ones related to it
                         int num_multisig_txs = related_tx_ids.Count + 1;
                         if (num_multisig_txs < orig.requiredSigs)
                         {
-                            Logging.error(String.Format("Multisig transaction {{ {0} }} doesn't have enough signatures!", tx.id));
+                            Logging.error("Multisig transaction {{ {0} }} doesn't have enough signatures!", Transaction.txIdV8ToLegacy(tx.id));
                             failed_transactions.Add(tx);
                             return null;
                         }
@@ -1882,27 +1887,27 @@ namespace DLT
                         byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
                         if (!orig.isValidSigner(signer_address))
                         {
-                            Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                                orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                            Logging.warn("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
+                                Transaction.txIdV8ToLegacy(orig.id), Base58Check.Base58CheckEncoding.EncodePlain(signer_address));
                             failed_transactions.Add(tx);
                             return null;
                         }
                     }
-                    else if (multisig_obj.origTXId != "")
+                    else if (multisig_obj.origTXId != null)
                     {
                         // this is a related transaction, which we ignore, because all processing is done on the origin transaction
                         return null;
                     }
                     else
                     {
-                        Logging.error(String.Format("Multisig transaction {{ {0} }} has invalid multisig data!", tx.id));
+                        Logging.error("Multisig transaction {{ {0} }} has invalid multisig data!", Transaction.txIdV8ToLegacy(tx.id));
                         failed_transactions.Add(tx);
                         return null;
                     }
                 }
                 else
                 {
-                    Logging.error(String.Format("Multisig transaction {{ {0} }} has invalid multisig data!", tx.id));
+                    Logging.error("Multisig transaction {{ {0} }} has invalid multisig data!", Transaction.txIdV8ToLegacy(tx.id));
                     failed_transactions.Add(tx);
                     return null;
                 }
@@ -1915,9 +1920,9 @@ namespace DLT
             return null;
         }
 
-        public static bool applyMultisigRelatedTransactions(List<string> related_tx_ids, Block block, List<Transaction> failed_transactions)
+        public static bool applyMultisigRelatedTransactions(List<byte[]> related_tx_ids, Block block, List<Transaction> failed_transactions)
         {
-            foreach (string txid in related_tx_ids)
+            foreach (byte[] txid in related_tx_ids)
             {
                 Transaction tx = getUnappliedTransaction(txid);
                 if (tx.type == (int)Transaction.Type.MultisigAddTxSignature)
@@ -1930,14 +1935,14 @@ namespace DLT
                     // Check the block height
                     if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
                     {
-                        Logging.warn(String.Format("Incorrect block height for multisig transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                        Logging.warn("Incorrect block height for multisig transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", Transaction.txIdV8ToLegacy(tx.id), tx.blockHeight, minBh, block.blockNum + 5);
                         failed_transactions.Add(tx);
                         return false;
                     }
 
                     if (tx.fromList.Count > 1)
                     {
-                        Logging.error(String.Format("Multisig transaction {{ {0} }} has more than one 'from' address!", tx.id));
+                        Logging.error("Multisig transaction {{ {0} }} has more than one 'from' address!", Transaction.txIdV8ToLegacy(tx.id));
                         failed_transactions.Add(tx);
                         return false;
                     }
@@ -1950,8 +1955,8 @@ namespace DLT
                         IxiNumber source_balance_before = source_wallet.balance;
                         if (source_balance_before < entry.Value)
                         {
-                            Logging.warn(String.Format("Multisig transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
-                                tx.id, block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address));
+                            Logging.warn("Multisig transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
+                                Transaction.txIdV8ToLegacy(tx.id), block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address);
                             failed_transactions.Add(tx);
                             return false;
                         }
@@ -1969,8 +1974,8 @@ namespace DLT
                 }
                 else
                 {
-                    Logging.warn(String.Format("Error processing multisig transaction {{ {0} }} in block #{1}, expecting type MultisigAddTxSignature, received {2}.",
-                        tx.id, block.blockNum, tx.type));
+                    Logging.warn("Error processing multisig transaction {{ {0} }} in block #{1}, expecting type MultisigAddTxSignature, received {2}.",
+                        Transaction.txIdV8ToLegacy(tx.id), block.blockNum, tx.type);
                     failed_transactions.Add(tx);
                     return false;
                 }
@@ -1978,7 +1983,7 @@ namespace DLT
             return true;
         }
 
-        public static List<string> applyMultisigChangeTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
+        public static List<byte[]> applyMultisigChangeTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
         {
             if (tx.type == (int)Transaction.Type.ChangeMultisigWallet)
             {
@@ -1990,7 +1995,7 @@ namespace DLT
                 // Check the block height
                 if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
                 {
-                    Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                    Logging.warn("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", Transaction.txIdV8ToLegacy(tx.id), tx.blockHeight, minBh, block.blockNum + 5);
                     failed_transactions.Add(tx);
                     return null;
                 }
@@ -2000,16 +2005,16 @@ namespace DLT
                 Wallet orig = Node.walletState.getWallet(target_wallet_address);
                 if (orig is null)
                 {
-                    Logging.error(String.Format("Multisig change transaction {{ {0} }} names a non-existent wallet {1}.", tx.id, Base58Check.Base58CheckEncoding.EncodePlain(target_wallet_address)));
+                    Logging.error("Multisig change transaction {{ {0} }} names a non-existent wallet {1}.", Transaction.txIdV8ToLegacy(tx.id), Base58Check.Base58CheckEncoding.EncodePlain(target_wallet_address));
                     failed_transactions.Add(tx);
                     return null;
                 }
-                List<string> related_tx_ids = getRelatedMultisigTransactions(tx.id, block);
+                List<byte[]> related_tx_ids = getRelatedMultisigTransactions(tx.id, block);
                 // +1 because this current transaction will not be found by the search
                 int num_valid_sigs = related_tx_ids.Count + 1;
                 if (num_valid_sigs < orig.requiredSigs)
                 {
-                    Logging.error(String.Format("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", tx.id, num_valid_sigs, orig.requiredSigs));
+                    Logging.error("Transaction {{ {0} }} has {1} valid signatures out of required {2}.", Transaction.txIdV8ToLegacy(tx.id), num_valid_sigs, orig.requiredSigs);
                     failed_transactions.Add(tx);
                     return null;
                 }
@@ -2022,7 +2027,7 @@ namespace DLT
                     if (!orig.isValidSigner(signer_address))
                     {
                         Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                            orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                            Transaction.txIdV8ToLegacy(tx.id), Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
                         failed_transactions.Add(tx);
                         return null;
                     }
@@ -2049,7 +2054,7 @@ namespace DLT
                     if (orig.type != WalletType.Multisig)
                     {
                         Logging.error(String.Format("Attempted to execute a multisig change transaction {{ {0} }} on a non-multisig wallet {1}!",
-                            tx.id, Crypto.hashToString(orig.id)));
+                            Transaction.txIdV8ToLegacy(tx.id), Crypto.hashToString(orig.id)));
                         failed_transactions.Add(tx);
                         return null;
                     }
@@ -2059,7 +2064,7 @@ namespace DLT
                     if (!orig.isValidSigner(signer_address))
                     {
                         Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                            orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                            Transaction.txIdV8ToLegacy(tx.id), Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
                         failed_transactions.Add(tx);
                         return null;
                     }
@@ -2087,7 +2092,7 @@ namespace DLT
                     if (orig.type != WalletType.Multisig)
                     {
                         Logging.error(String.Format("Attempted to execute a multisig change transaction {{ {0} }} on a non-multisig wallet {1}!",
-                            tx.id, Crypto.hashToString(orig.id)));
+                            Transaction.txIdV8ToLegacy(tx.id), Crypto.hashToString(orig.id)));
                         failed_transactions.Add(tx);
                         return null;
                     }
@@ -2096,7 +2101,7 @@ namespace DLT
                     if (!orig.isValidSigner(signer_address))
                     {
                         Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
-                            orig.id, Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
+                            Transaction.txIdV8ToLegacy(tx.id), Base58Check.Base58CheckEncoding.EncodePlain(signer_address)));
                         failed_transactions.Add(tx);
                         return null;
                     }
@@ -2123,8 +2128,8 @@ namespace DLT
                     IxiNumber source_balance_after = source_balance_before - entry.Value;
                     if (source_balance_after < (long)0)
                     {
-                        Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
-                            tx.id, block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address));
+                        Logging.warn("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
+                            Transaction.txIdV8ToLegacy(tx.id), block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address);
                         failed_transactions.Add(tx);
                         return null;
                     }
@@ -2155,14 +2160,14 @@ namespace DLT
             // Check the block height
             if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
             {
-                Logging.warn(String.Format("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.id, tx.blockHeight, minBh, block.blockNum + 5));
+                Logging.warn("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", Transaction.txIdV8ToLegacy(tx.id), tx.blockHeight, minBh, block.blockNum + 5);
                 failed_transactions.Add(tx);
                 return false;
             }
 
             if(!verifyPremineTransaction(tx))
             {
-                Logging.warn(String.Format("Tried to spent too much premine, too early - transaction {0}.", tx.id));
+                Logging.warn("Tried to spent too much premine, too early - transaction {0}.", Transaction.txIdV8ToLegacy(tx.id));
                 failed_transactions.Add(tx);
                 return false;
             }
@@ -2177,7 +2182,7 @@ namespace DLT
             }
             if (tx.fee - expectedFee < (long)0)
             {
-                Logging.error(String.Format("Transaction {{ {0} }} cannot pay minimum fee", tx.id));
+                Logging.error("Transaction {{ {0} }} cannot pay minimum fee", Transaction.txIdV8ToLegacy(tx.id));
                 failed_transactions.Add(tx);
                 return false;
             }
@@ -2193,8 +2198,8 @@ namespace DLT
                 IxiNumber source_balance_after = source_balance_before - entry.Value;
                 if (source_balance_after < (long)0)
                 {
-                    Logging.warn(String.Format("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
-                        tx.id, block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address));
+                    Logging.warn("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
+                        Transaction.txIdV8ToLegacy(tx.id), block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address);
                     failed_transactions.Add(tx);
                     return false;
                 }
@@ -2205,7 +2210,7 @@ namespace DLT
 
             if (tx.amount + tx.fee != total_amount)
             {
-                Logging.error(String.Format("Transaction {{ {0} }}'s input values are different than the total amount + fee", tx.id));
+                Logging.error("Transaction {{ {0} }}'s input values are different than the total amount + fee", Transaction.txIdV8ToLegacy(tx.id));
                 failed_transactions.Add(tx);
                 return false;
             }
@@ -2228,7 +2233,7 @@ namespace DLT
                         WalletState.Addr2String(entry.Key),
                         dest_balance_before.ToString(),
                         dest_balance_after.ToString(),
-                        tx.id);
+                        Transaction.txIdV8ToLegacy(tx.id));
                 }
                 Node.walletState.setWalletBalance(entry.Key, dest_balance_after);
                 total_amount += entry.Value;
@@ -2236,7 +2241,7 @@ namespace DLT
 
             if (tx.amount != total_amount)
             {
-                Logging.error(String.Format("Transaction {{ {0} }}'s output values are different than the total amount", tx.id));
+                Logging.error("Transaction {{ {0} }}'s output values are different than the total amount", Transaction.txIdV8ToLegacy(tx.id));
                 failed_transactions.Add(tx);
                 return false;
             }
@@ -2284,7 +2289,7 @@ namespace DLT
 
                     if (miner_wallet.id.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
                     {
-                        ActivityStorage.updateValue(Encoding.UTF8.GetBytes(((Transaction)entry[2]).id), powRewardPart);
+                        ActivityStorage.updateValue(((Transaction)entry[2]).id, powRewardPart);
                     }
                 }
 
@@ -2354,7 +2359,7 @@ namespace DLT
                         {
                             if (Node.walletStorage.isMyAddress((new Address(entry.pubKey)).address))
                             {
-                                ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(entry.id), ActivityStatus.Error, 0);
+                                ActivityStorage.updateStatus(entry.id, ActivityStatus.Error, 0);
                             }
                             unappliedTransactions.Remove(entry.id);
                         }
@@ -2401,7 +2406,7 @@ namespace DLT
                         // if transaction expired, remove it from pending transactions
                         if (last_block_height > ConsensusConfig.getRedactedWindowSize() && t.blockHeight < last_block_height - ConsensusConfig.getRedactedWindowSize())
                         {
-                            ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
+                            ActivityStorage.updateStatus(t.id, ActivityStatus.Error, 0);
                             PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
                             continue;
                         }
@@ -2414,7 +2419,7 @@ namespace DLT
                             Block tmpBlock = Node.blockChain.getBlock(pow_block_num, false, false);
                             if (tmpBlock == null || tmpBlock.powField != null)
                             {
-                                ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
+                                ActivityStorage.updateStatus(t.id, ActivityStatus.Error, 0);
                                 PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
                                 continue;
                             }
@@ -2424,7 +2429,7 @@ namespace DLT
                             // check if transaction is still valid
                             if (getUnappliedTransaction(t.id) == null && !verifyTransaction(t, null, false))
                             {
-                                ActivityStorage.updateStatus(Encoding.UTF8.GetBytes(t.id), ActivityStatus.Error, 0);
+                                ActivityStorage.updateStatus(t.id, ActivityStatus.Error, 0);
                                 PendingTransactions.pendingTransactions.RemoveAll(x => x.transaction.id.SequenceEqual(t.id));
                                 continue;
                             }
@@ -2449,7 +2454,7 @@ namespace DLT
 
                         if (cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
                         {
-                            CoreProtocolMessage.broadcastGetTransaction(t.id, 0);
+                            CoreProtocolMessage.broadcastGetTransaction2(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(t.id)), 0);
                         }
 
                         idx++;
@@ -2485,7 +2490,7 @@ namespace DLT
             }
         }
 
-        public static bool removeAppliedTransaction(string txid)
+        public static bool removeAppliedTransaction(byte[] txid)
         {
             lock (stateLock)
             {
@@ -2493,7 +2498,7 @@ namespace DLT
             }
         }
 
-        public static bool removeUnappliedTransaction(string txid)
+        public static bool removeUnappliedTransaction(byte[] txid)
         {
             lock (stateLock)
             {
@@ -2505,13 +2510,13 @@ namespace DLT
         public static List<Transaction> getFullBlockTransactions(Block block)
         {
             List<Transaction> tx_list = new List<Transaction>();
-            List<string> tx_ids = block.transactions;
+            List<byte[]> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
                 Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
                 if (t == null)
                 {
-                    Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
+                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids[i]));
                     continue;
                 }
                 tx_list.Add(t);
@@ -2523,13 +2528,13 @@ namespace DLT
         public static List<Dictionary<string, object>> getFullBlockTransactionsAsArray(Block block)
         {
             List<Dictionary<string, object>> tx_list = new List<Dictionary<string, object>>();
-            List<string> tx_ids = block.transactions;
+            List<byte[]> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
                 Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
                 if (t == null)
                 {
-                    Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
+                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids[0]));
                     continue;
                 }
 
@@ -2543,19 +2548,19 @@ namespace DLT
         public static IxiNumber getTotalTransactionsValueInBlock(Block block)
         {
             IxiNumber val = 0;
-            List<string> tx_ids = block.transactions;
+            List<byte[]> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
                 Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
                 if (t == null)
-                    Logging.error(string.Format("nulltx: {0}", tx_ids[i]));
+                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids[i]));
                 else
                     val.add(t.amount);
             }
             return val;
         }
 
-        public static bool unapplyTransaction(string txid)
+        public static bool unapplyTransaction(byte[] txid)
         {
             lock(stateLock)
             {

@@ -277,11 +277,18 @@ namespace DLT
                         return;
                     }
                     PrefixInclusionTree pit = new PrefixInclusionTree(44, 3);
-                    List<string> interesting_transactions = new List<string>();
+                    List<byte[]> interesting_transactions = new List<byte[]>();
                     foreach (var tx in b.transactions)
                     {
-                        pit.add(tx);
-                        if (cf.Contains(Encoding.UTF8.GetBytes(tx)))
+                        if (b.version < BlockVer.v8)
+                        {
+                            pit.add(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx)));
+                        }
+                        else
+                        {
+                            pit.add(tx);
+                        }
+                        if (cf.Contains(tx))
                         {
                             interesting_transactions.Add(tx);
                         }
@@ -334,11 +341,18 @@ namespace DLT
                         return;
                     }
                     PrefixInclusionTree pit = new PrefixInclusionTree(44, 3);
-                    List<string> interesting_transactions = new List<string>();
+                    List<byte[]> interesting_transactions = new List<byte[]>();
                     foreach (var tx in b.transactions)
                     {
-                        pit.add(tx);
-                        if (cf.Contains(Encoding.UTF8.GetBytes(tx)))
+                        if (b.version < BlockVer.v8)
+                        {
+                            pit.add(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx)));
+                        }
+                        else
+                        {
+                            pit.add(tx);
+                        }
+                        if (cf.Contains(tx))
                         {
                             interesting_transactions.Add(tx);
                         }
@@ -419,35 +433,7 @@ namespace DLT
                 }
             }
 
-            // Requests block with specified block height from the network, include_transactions value can be 0 - don't include transactions, 1 - include all but staking transactions or 2 - include all, including staking transactions
-            [Obsolete("broadcastGetBlock is deprecated and will be removed in future versions, please use broadcastGetBlock2 instead")]
             public static bool broadcastGetBlock(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0, bool full_header = false)
-            {
-                using (MemoryStream mw = new MemoryStream())
-                {
-                    using (BinaryWriter writerw = new BinaryWriter(mw))
-                    {
-                        writerw.Write(block_num);
-                        writerw.Write(include_transactions);
-                        writerw.Write(full_header);
-#if TRACE_MEMSTREAM_SIZES
-                        Logging.info(String.Format("NetworkProtocol::broadcastGetBlock: {0}", mw.Length));
-#endif
-
-                        if (endpoint != null)
-                        {
-                            if (endpoint.isConnected())
-                            {
-                                endpoint.sendData(ProtocolMessageCode.getBlock, mw.ToArray());
-                                return true;
-                            }
-                        }
-                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock, mw.ToArray(), block_num, skipEndpoint);
-                    }
-                }
-            }
-
-            public static bool broadcastGetBlock2(ulong block_num, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, byte include_transactions = 0, bool full_header = false)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {

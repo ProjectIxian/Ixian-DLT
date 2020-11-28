@@ -925,10 +925,10 @@ namespace DLT
             }
 
             Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
-            foreach (string txid in b.transactions)
+            foreach (byte[] txid in b.transactions)
             {
                 // Skip fetching staking txids if we're not synchronizing
-                if (txid.StartsWith("stk"))
+                if (txid[0] == 0)
                 {
                     if (Node.blockSync.synchronizing == false
                         || (Node.blockSync.synchronizing == true && Config.recoverFromFile)
@@ -950,13 +950,13 @@ namespace DLT
                         Logging.info("Missing transaction '{0}'. Requesting.", txid);
                         if (CoreConfig.protocolVersion == 5)
                         {
-                            CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
+                            CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum, endpoint);
                         }else
                         {
-                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(txid)), endpoint);
+                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
                             if(pii.processed)
                             {
-                                CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum, endpoint);
+                                CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum, endpoint);
                             }else if (pii.lastRequested == 0)
                             {
                                 Node.inventoryCache.processInventoryItem(pii);
@@ -966,7 +966,7 @@ namespace DLT
                     {
                         if (CoreConfig.protocolVersion == 6)
                         {
-                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(txid)), endpoint);
+                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
                             if (!pii.processed && pii.lastRequested == 0)
                             {
                                 pii.lastRequested = Clock.getTimestamp();
@@ -1018,11 +1018,20 @@ namespace DLT
                         Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 4 or 5!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
-                }else if (b.version >= BlockVer.v8)
+                }
+                else if (b.version == BlockVer.v8)
                 {
-                    if (t.version != 5)
+                    if (t.version < 5 || t.version > 6)
                     {
-                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 5!", t.version);
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 5 or 6!", t.version);
+                        return BlockVerifyStatus.Invalid;
+                    }
+                }
+                else
+                {
+                    if (t.version != 6)
+                    {
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 6!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -1052,8 +1061,8 @@ namespace DLT
                     {
                         // someone is doing something bad with this transaction, so we invalidate the block
                         // TODO: Blacklisting for the transaction originator node
-                        Logging.error(String.Format("Overflow caused by transaction {0}: amount: {1} from: {2}",
-                            t.id, t.amount, Base58Check.Base58CheckEncoding.EncodePlain(address)));
+                        Logging.error("Overflow caused by transaction {0}: amount: {1} from: {2}",
+                            Transaction.txIdV8ToLegacy(t.id), t.amount, Base58Check.Base58CheckEncoding.EncodePlain(address));
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -1062,7 +1071,7 @@ namespace DLT
             // Pass #2 verifications for multisigs after all transactions have been received
             if(hasAllTransactions)
             {
-                foreach (string txid in b.transactions)
+                foreach (byte[] txid in b.transactions)
                 {
                     Transaction t = TransactionPool.getUnappliedTransaction(txid);
                     if(t == null)
@@ -1071,23 +1080,23 @@ namespace DLT
                     }
                     if(b.blockNum >= ConsensusConfig.miningExpirationBlockHeight && t.type == (int)Transaction.Type.PoWSolution)
                     {
-                        Logging.error("Block #{0} includes a PoW transaction {1}. Mining has stopped after block #{2}.", b.blockNum, t.id, ConsensusConfig.miningExpirationBlockHeight);
+                        Logging.error("Block #{0} includes a PoW transaction {1}. Mining has stopped after block #{2}.", b.blockNum, Transaction.txIdV8ToLegacy(t.id), ConsensusConfig.miningExpirationBlockHeight);
                         return BlockVerifyStatus.Invalid;
                     }
                     if (t.blockHeight > b.blockNum)
                     {
-                        Logging.error("Block #{0} includes a transaction {1} which has a higher blockheight.", b.blockNum, t.id);
+                        Logging.error("Block #{0} includes a transaction {1} which has a higher blockheight.", b.blockNum, Transaction.txIdV8ToLegacy(t.id));
                         return BlockVerifyStatus.Invalid;
                     }
                     if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet || t.type == (int)Transaction.Type.MultisigAddTxSignature)
                     {
                         object multisig_data = t.GetMultisigData();
-                        string orig_txid = "";
+                        byte[] orig_txid = null;
                         if (multisig_data is Transaction.MultisigTxData)
                         {
                             orig_txid = ((Transaction.MultisigTxData)multisig_data).origTXId;
                         }
-                        if (orig_txid == "")
+                        if (orig_txid == null)
                         {
                             orig_txid = t.id;
                         }
@@ -1097,7 +1106,7 @@ namespace DLT
                         if (num_valid_multisigs < from_w.requiredSigs)
                         {
                             Logging.error("Block #{0} includes a multisig transaction {{ {1} }} which does not have enough signatures to be processed! (Signatures: {2}, Required: {3}",
-                                b.blockNum, t.id, num_valid_multisigs, from_w.requiredSigs);
+                                b.blockNum, Transaction.txIdV8ToLegacy(t.id), num_valid_multisigs, from_w.requiredSigs);
                             return BlockVerifyStatus.Invalid;
                         }
                     }
@@ -1588,7 +1597,7 @@ namespace DLT
                             foreach (var sig in added_signatures)
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], block.blockChecksum), true);
-                                SignatureProtocolMessages.broadcastBlockSignature(block.blockNum, block.blockChecksum, sig[0], sig[1], null, null);
+                                SignatureProtocolMessages.broadcastBlockSignature(sig[0], sig[1], block.blockNum, block.blockChecksum, null, null);
                             }
                         }
                     }
@@ -1740,7 +1749,7 @@ namespace DLT
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], localNewBlock.blockChecksum), true);
                                 // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                SignatureProtocolMessages.broadcastBlockSignature(localNewBlock.blockNum, localNewBlock.blockChecksum, signature_data[0], signature_data[1], null, null, true);
+                                SignatureProtocolMessages.broadcastBlockSignature(signature_data[0], signature_data[1], localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
                             }
                         }
                     }
@@ -2081,7 +2090,7 @@ namespace DLT
             IxiNumber tFeeAmount = 0;
 
             ulong txcount = 0;
-            foreach(string txid in targetBlock.transactions)
+            foreach(byte[] txid in targetBlock.transactions)
             {
                 Transaction tx = TransactionPool.getAppliedTransaction(txid, b.blockNum);               
                 if (tx != null)
@@ -2094,7 +2103,7 @@ namespace DLT
                     } else if (tx.type == (int)Transaction.Type.MultisigTX)
                     {
                         Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData)tx.GetMultisigData();
-                        if (ms_data.origTXId == "")
+                        if (ms_data.origTXId == null)
                         {
                             tAmount += tx.amount;
                         }
@@ -2215,16 +2224,16 @@ namespace DLT
             // If this is called from anywhere else, add a lock here!
             // multisig transactions must be complete before they are added
             object multisig_data = transaction.GetMultisigData();
-            string orig_txid = transaction.id;
+            byte[] orig_txid = transaction.id;
             byte[] address = (new Address(transaction.pubKey, transaction.fromList.Keys.First())).address;
             Wallet from_w = Node.walletState.getWallet(address);
-            List<string> related_tx_ids = TransactionPool.getRelatedMultisigTransactions(orig_txid, null);
+            List<byte[]> related_tx_ids = TransactionPool.getRelatedMultisigTransactions(orig_txid, null);
             int num_valid_multisigs = related_tx_ids.Count() + 1;
             if (num_valid_multisigs >= from_w.requiredSigs)
             {
                 localNewBlock.addTransaction(orig_txid);
                 IxiNumber total_amount = transaction.amount + transaction.fee;
-                foreach (string txid in related_tx_ids)
+                foreach (byte[] txid in related_tx_ids)
                 {
                     Transaction tx = TransactionPool.getUnappliedTransaction(txid);
                     if(!verifyFromListBalance(tx, minusBalances))
@@ -3169,7 +3178,7 @@ namespace DLT
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards: generated {1} staking transactions:", b.blockNum, transactions.Count); }
                 foreach (Transaction transaction in transactions)
                 {
-                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Staking transaction {{ {1} }} -> {2} IxiCash to {3} recipients", b.blockNum, transaction.id, transaction.amount.getAmount(), transaction.toList.Count); }
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Staking transaction {{ {1} }} -> {2} IxiCash to {3} recipients", b.blockNum, Transaction.txIdV8ToLegacy(transaction.id), transaction.amount.getAmount(), transaction.toList.Count); }
                     TransactionPool.addTransaction(transaction, true);
                 }
             }

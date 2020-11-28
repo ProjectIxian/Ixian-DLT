@@ -16,67 +16,7 @@ namespace DLT
     {
         class SignatureProtocolMessages
         {
-
             public static bool broadcastBlockSignature(byte[] signature_data, byte[] sig_address, ulong block_num, byte[] block_hash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
-            {
-                if (endpoint != null)
-                {
-                    if (endpoint.isConnected())
-                    {
-                        endpoint.sendData(ProtocolMessageCode.blockSignature, signature_data);
-                        return true;
-                    }
-                    return false;
-                }
-                else
-                {
-                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(sig_address, block_num, block_hash), skipEndpoint, ProtocolMessageCode.blockSignature, signature_data, null);
-                }
-            }
-
-            [Obsolete("Use broadcastBlockSignature2 instead")]
-            public static bool broadcastBlockSignature(ulong block_num, byte[] block_checksum, byte[] signature, byte[] signer_address, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, bool force_broadcast = false)
-            {
-                byte[] signature_data = null;
-
-                using (MemoryStream m = new MemoryStream(1152))
-                {
-                    using (BinaryWriter writer = new BinaryWriter(m))
-                    {
-                        writer.Write(block_num);
-
-                        writer.Write(block_checksum.Length);
-                        writer.Write(block_checksum);
-
-                        writer.Write(signature.Length);
-                        writer.Write(signature);
-
-                        writer.Write(signer_address.Length);
-                        writer.Write(signer_address);
-#if TRACE_MEMSTREAM_SIZES
-                        Logging.info(String.Format("NetworkProtocol::broadcastNewBlockSignature: {0}", m.Length));
-#endif
-
-                        signature_data = m.ToArray();
-                    }
-                }
-                if (signature_data != null)
-                {
-                    if (force_broadcast)
-                    {
-                        return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockSignature, signature_data, null);
-                    }
-                    else
-                    {
-                        return broadcastBlockSignature(signature_data, signer_address, block_num, block_checksum, skipEndpoint, endpoint);
-                    }
-                }
-
-                return false;
-            }
-
-
-            public static bool broadcastBlockSignature2(byte[] signature_data, byte[] sig_address, ulong block_num, byte[] block_hash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
                 if (endpoint != null)
                 {
@@ -196,7 +136,7 @@ namespace DLT
                             {
                                 Logging.info("Received signature for block {0} which is missing", block_num);
                                 // future block, request the next block
-                                BlockProtocolMessages.broadcastGetBlock2(last_bh + 1, null, endpoint);
+                                BlockProtocolMessages.broadcastGetBlock(last_bh + 1, null, endpoint);
                                 return;
                             }
                         }
@@ -214,7 +154,7 @@ namespace DLT
                             Node.blockProcessor.acceptLocalNewBlock();
                             if (Node.isMasterNode())
                             {
-                                broadcastBlockSignature(block_num, checksum, sig, sig_addr, endpoint);
+                                broadcastBlockSignature(sig, sig_addr, block_num, checksum, endpoint);
                             }
                         }
                         else
@@ -234,18 +174,6 @@ namespace DLT
                 else
                 {
                     broadcastBlockSignatures(b.blockNum, b.blockChecksum, b.signatures, skip_endpoint, endpoint);
-                }
-            }
-
-            public static void broadcastBlockSignatures2(Block b, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
-            {
-                if (b.frozenSignatures != null)
-                {
-                    broadcastBlockSignatures2(b.blockNum, b.blockChecksum, b.frozenSignatures, skip_endpoint, endpoint);
-                }
-                else
-                {
-                    broadcastBlockSignatures2(b.blockNum, b.blockChecksum, b.signatures, skip_endpoint, endpoint);
                 }
             }
 
@@ -287,7 +215,7 @@ namespace DLT
                     return;
                 }
 
-                broadcastBlockSignatures2(b, null, endpoint);
+                broadcastBlockSignatures(b, null, endpoint);
             }
 
 
@@ -399,76 +327,6 @@ namespace DLT
             }
 
             public static void broadcastBlockSignatures(ulong block_num, byte[] block_checksum, List<byte[][]> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
-            {
-                int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
-
-                int sig_count = signatures.Count();
-
-                if (sig_count == 0)
-                {
-                    return;
-                }
-
-                for (int i = 0; i < sig_count;)
-                {
-                    using (MemoryStream mOut = new MemoryStream())
-                    {
-                        using (BinaryWriter writer = new BinaryWriter(mOut))
-                        {
-                            writer.Write(block_num);
-
-                            writer.Write(block_checksum.Length);
-                            writer.Write(block_checksum);
-
-                            int next_sig_count;
-                            if (sig_count - i > max_sigs_per_chunk)
-                            {
-                                next_sig_count = max_sigs_per_chunk;
-                            }
-                            else
-                            {
-                                next_sig_count = sig_count - i;
-                            }
-                            writer.Write(next_sig_count);
-
-                            for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
-                            {
-                                byte[][] sig = signatures[i];
-                                if (sig == null)
-                                {
-                                    continue;
-                                }
-                                // sig
-                                writer.Write(sig[0].Length);
-                                writer.Write(sig[0]);
-
-                                // address/pubkey
-                                writer.Write(sig[1].Length);
-                                writer.Write(sig[1]);
-                            }
-                        }
-#if TRACE_MEMSTREAM_SIZES
-                        Logging.info(String.Format("NetworkProtocol::broadcastBlockSignatures: {0}", mOut.Length));
-#endif
-
-                        // Send a chunk
-                        if (endpoint != null)
-                        {
-                            if (!endpoint.isConnected())
-                            {
-                                return;
-                            }
-                            endpoint.sendData(ProtocolMessageCode.blockSignatures, mOut.ToArray(), BitConverter.GetBytes(block_num));
-                        }
-                        else
-                        {
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockSignatures, mOut.ToArray(), BitConverter.GetBytes(block_num), skip_endpoint);
-                        }
-                    }
-                }
-            }
-
-            public static void broadcastBlockSignatures2(ulong block_num, byte[] block_checksum, List<byte[][]> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
                 int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
 
@@ -833,7 +691,7 @@ namespace DLT
                                 {
                                     if (Node.isMasterNode())
                                     {
-                                        broadcastBlockSignature(block_num, checksum, sig, addr, endpoint);
+                                        broadcastBlockSignature(sig, addr, block_num, checksum, endpoint);
                                     }
                                 }
                             }
@@ -843,35 +701,7 @@ namespace DLT
                 }
             }
 
-
             public static bool broadcastGetBlockSignatures(ulong block_num, byte[] block_checksum, RemoteEndpoint endpoint)
-            {
-                using (MemoryStream mw = new MemoryStream())
-                {
-                    using (BinaryWriter writerw = new BinaryWriter(mw))
-                    {
-                        writerw.Write(block_num);
-
-                        writerw.Write(block_checksum.Length);
-                        writerw.Write(block_checksum);
-#if TRACE_MEMSTREAM_SIZES
-                        Logging.info(String.Format("NetworkProtocol::broadcastGetBlockSignatures: {0}", mw.Length));
-#endif
-
-                        if (endpoint != null)
-                        {
-                            if (endpoint.isConnected())
-                            {
-                                endpoint.sendData(ProtocolMessageCode.getBlockSignatures, mw.ToArray());
-                                return true;
-                            }
-                        }
-                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlockSignatures, mw.ToArray(), block_num);
-                    }
-                }
-            }
-
-            public static bool broadcastGetBlockSignatures2(ulong block_num, byte[] block_checksum, RemoteEndpoint endpoint)
             {
                 using (MemoryStream mw = new MemoryStream())
                 {
