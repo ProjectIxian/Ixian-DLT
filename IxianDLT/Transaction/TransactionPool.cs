@@ -888,13 +888,13 @@ namespace DLT
                 {
                     foreach (var entry in wallet_list)
                     {
-                        activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(entry), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)), transaction.toList[entry].ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
+                        activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(entry), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, transaction.id, transaction.toList[entry].ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
                         ActivityStorage.insertActivity(activity);
                     }
                 }
                 else if(wallet != null)
                 {
-                    activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)), value.ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
+                    activity = new Activity(Node.walletStorage.getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, transaction.id, value.ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
                     ActivityStorage.insertActivity(activity);
                 }
             }
@@ -906,7 +906,7 @@ namespace DLT
         {
             if (verifyTx)
             {
-                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)), true);
+                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, transaction.id, true);
                 if (!verifyTransaction(transaction, endpoint))
                 {
                     return false;
@@ -2454,7 +2454,7 @@ namespace DLT
 
                         if (cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
                         {
-                            CoreProtocolMessage.broadcastGetTransaction2(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(t.id)), 0);
+                            CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(t.id), 0, null, false);
                         }
 
                         idx++;

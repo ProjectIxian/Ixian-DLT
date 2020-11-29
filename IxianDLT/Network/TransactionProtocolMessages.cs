@@ -256,7 +256,7 @@ namespace DLT
 
                                 byte[] txid = UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx_list[i]));
                                 writer.WriteIxiVarInt(txid.Length);
-                                writer.Write(tx_list[i]);
+                                writer.Write(txid);
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
                                 {
@@ -359,7 +359,7 @@ namespace DLT
                                             tx = TransactionPool.getAppliedTransaction(Transaction.txIdLegacyToV8(txid_str));
                                             if (tx == null)
                                             {
-                                                Logging.warn("I do not have txid '{0}.", txid_str);
+                                                Logging.warn("handleGetTransactions: I do not have txid '{0}.", txid_str);
                                                 continue;
                                             }
                                         }

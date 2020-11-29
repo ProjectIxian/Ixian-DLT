@@ -396,7 +396,8 @@ namespace DLT
                             InventoryItem item = InventoryCache.decodeInventoryItem(item_bytes);
                             if (item.type == InventoryItemTypes.transaction)
                             {
-                                PendingTransactions.increaseReceivedCount(Transaction.txIdLegacyToV8(UTF8Encoding.UTF8.GetString(item.hash)), endpoint.presence.wallet);
+                                item.hash = Transaction.txIdLegacyToV8(UTF8Encoding.UTF8.GetString(item.hash));
+                                PendingTransactions.increaseReceivedCount(item.hash, endpoint.presence.wallet);
                             }
                             PendingInventoryItem pii = Node.inventoryCache.add(item, endpoint);
                             if (!pii.processed && pii.lastRequested == 0)
@@ -410,7 +411,7 @@ namespace DLT
                                         break;
 
                                     case InventoryItemTypes.transaction:
-                                        tx_list.Add(Transaction.txIdLegacyToV8(UTF8Encoding.UTF8.GetString(item.hash)));
+                                        tx_list.Add(item.hash);
                                         pii.lastRequested = Clock.getTimestamp();
                                         break;
 
