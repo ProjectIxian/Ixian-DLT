@@ -776,7 +776,7 @@ namespace DLT
                         while (!found)
                         {
                             // Block not found yet, seek to another database
-                            seekDatabase(db_blocknum);
+                            seekDatabase(db_blocknum, true);
                             try
                             {
                                 _storage_block = sqlConnection.Query<_storage_Block>(sql, hash).ToArray();
@@ -936,7 +936,7 @@ namespace DLT
                         while (!found)
                         {
                             // Transaction not found yet, seek to another database
-                            seekDatabase(db_blocknum);
+                            seekDatabase(db_blocknum, true);
                             try
                             {
                                 _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, Transaction.txIdV8ToLegacy(txid));
