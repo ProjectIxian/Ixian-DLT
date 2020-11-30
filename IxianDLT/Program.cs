@@ -38,7 +38,6 @@ namespace DLTNode
                 "SQLitePCLRaw.batteries_v2.dll",
                 "SQLitePCLRaw.core.dll",
                 "SQLitePCLRaw.provider.e_sqlite3.dll",
-                "System.Console.dll",
                 "System.Reflection.TypeExtensions.dll"
             };
 
