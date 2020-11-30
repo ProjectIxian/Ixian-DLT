@@ -129,9 +129,10 @@ namespace DLT
                             {
                                 using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
-                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; i++, j++)
+                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; j++)
                                     {
                                         Block block = Node.blockChain.getBlock(from + i, true, true);
+                                        i++;
                                         if (block == null)
                                             break;
 
@@ -212,9 +213,10 @@ namespace DLT
                             {
                                 using (BinaryWriter writer = new BinaryWriter(mOut))
                                 {
-                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; i++, j++)
+                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; j++)
                                     {
                                         Block block = Node.blockChain.getBlock(from + i, true, true);
+                                        i++;
                                         if (block == null)
                                             break;
 

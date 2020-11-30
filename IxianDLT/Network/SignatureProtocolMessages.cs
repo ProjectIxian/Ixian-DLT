@@ -359,9 +359,10 @@ namespace DLT
                             }
                             writer.WriteIxiVarInt(next_sig_count);
 
-                            for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
+                            for (int j = 0; j < next_sig_count && i < sig_count; j++)
                             {
                                 byte[][] sig = signatures[i];
+                                i++;
                                 if (sig == null)
                                 {
                                     continue;
@@ -421,9 +422,10 @@ namespace DLT
 
                             writer.WriteIxiVarInt(next_sig_count);
 
-                            for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
+                            for (int j = 0; j < next_sig_count && i < sig_count; j++)
                             {
                                 InventoryItemSignature sig = sig_list[i];
+                                i++;
 
                                 long out_rollback_len = mOut.Length;
 
@@ -529,8 +531,9 @@ namespace DLT
                                     }
                                     writer.WriteIxiVarInt(next_sig_count);
 
-                                    for (int j = 0; j < next_sig_count && i < sig_count; i++, j++)
+                                    for (int j = 0; j < next_sig_count && i < sig_count; j++)
                                     {
+                                        i++;
                                         if (m.Position == m.Length)
                                         {
                                             break;

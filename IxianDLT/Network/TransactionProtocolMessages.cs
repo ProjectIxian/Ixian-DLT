@@ -77,12 +77,13 @@ namespace DLT
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
                             // Generate a chunk of transactions
-                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; i++, j++)
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; j++)
                             {
                                 if (!requestAllTransactions)
                                 {
                                     if (txIdArr[i][0] == 0) // stk
                                     {
+                                        i++;
                                         continue;
                                     }
                                 }
@@ -94,6 +95,7 @@ namespace DLT
                                 {
                                     tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
                                 }
+                                i++;
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
@@ -186,12 +188,13 @@ namespace DLT
                         {
                             writer.WriteIxiVarInt(tx_count);
                             // Generate a chunk of transactions
-                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; i++, j++)
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; j++)
                             {
                                 if (!requestAllTransactions)
                                 {
                                     if (txIdArr[i][0] == 0) // stk
                                     {
+                                        i++;
                                         continue;
                                     }
                                 }
@@ -203,6 +206,7 @@ namespace DLT
                                 {
                                     tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
                                 }
+                                i++;
                                 if (tx != null)
                                 {
                                     byte[] txBytes = tx.getBytes();
@@ -250,11 +254,12 @@ namespace DLT
                             }
                             writer.WriteIxiVarInt(next_tx_count);
 
-                            for (int j = 0; j < next_tx_count && i < tx_count; i++, j++)
+                            for (int j = 0; j < next_tx_count && i < tx_count; j++)
                             {
                                 long rollback_len = mOut.Length;
 
                                 byte[] txid = UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx_list[i]));
+                                i++;
                                 writer.WriteIxiVarInt(txid.Length);
                                 writer.Write(txid);
 
@@ -288,12 +293,14 @@ namespace DLT
                             }
                             writer.WriteIxiVarInt(next_tx_count);
 
-                            for (int j = 0; j < next_tx_count && i < tx_count; i++, j++)
+                            for (int j = 0; j < next_tx_count && i < tx_count; j++)
                             {
                                 long rollback_len = mOut.Length;
 
                                 writer.WriteIxiVarInt(tx_list[i].Length);
                                 writer.Write(tx_list[i]);
+
+                                i++;
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
                                 {
@@ -339,10 +346,12 @@ namespace DLT
                                     }
                                     writer.WriteIxiVarInt(next_tx_count);
 
-                                    for (int j = 0; j < next_tx_count && i < tx_count; i++, j++)
+                                    for (int j = 0; j < next_tx_count && i < tx_count; j++)
                                     {
                                         long in_rollback_pos = reader.BaseStream.Position;
                                         long out_rollback_len = mOut.Length;
+
+                                        i++;
 
                                         if (m.Position == m.Length)
                                         {
@@ -417,10 +426,12 @@ namespace DLT
                                     }
                                     writer.WriteIxiVarInt(next_tx_count);
 
-                                    for (int j = 0; j < next_tx_count && i < tx_count; i++, j++)
+                                    for (int j = 0; j < next_tx_count && i < tx_count;  j++)
                                     {
                                         long in_rollback_pos = reader.BaseStream.Position;
                                         long out_rollback_len = mOut.Length;
+
+                                        i++;
 
                                         if (m.Position == m.Length)
                                         {
@@ -526,9 +537,11 @@ namespace DLT
                         using (BinaryWriter writer = new BinaryWriter(mOut))
                         {
                             // Generate a chunk of transactions
-                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; i++, j++)
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; j++)
                             {
                                 byte[] txBytes = txIdArr[i].getBytes();
+
+                                i++;
 
                                 long rollback_len = mOut.Length;
 

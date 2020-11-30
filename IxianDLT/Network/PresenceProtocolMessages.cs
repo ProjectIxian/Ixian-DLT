@@ -36,11 +36,12 @@ namespace DLT
                             }
                             writer.WriteIxiVarInt(next_ka_count);
 
-                            for (int j = 0; j < next_ka_count && i < ka_count; i++, j++)
+                            for (int j = 0; j < next_ka_count && i < ka_count; j++)
                             {
                                 InventoryItemKeepAlive ka = ka_list[i];
+                                i++;
 
-                                if(ka == null)
+                                if (ka == null)
                                 {
                                     break;
                                 }
@@ -93,8 +94,10 @@ namespace DLT
                                     }
                                     writer.WriteIxiVarInt(next_ka_count);
 
-                                    for (int j = 0; j < next_ka_count && i < ka_count; i++, j++)
+                                    for (int j = 0; j < next_ka_count && i < ka_count; j++)
                                     {
+                                        i++;
+
                                         long in_rollback_pos = reader.BaseStream.Position;
                                         long out_rollback_len = mOut.Length;
 
