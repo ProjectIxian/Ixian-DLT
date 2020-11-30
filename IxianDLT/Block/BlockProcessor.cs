@@ -947,7 +947,7 @@ namespace DLT
                     }
                     if (fetchTransactions)
                     {
-                        Logging.info("Missing transaction '{0}'. Requesting.", txid);
+                        Logging.info("Missing transaction '{0}'. Requesting.", Transaction.txIdV8ToLegacy(txid));
                         if (CoreConfig.protocolVersion == 5)
                         {
                             CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum, endpoint);
