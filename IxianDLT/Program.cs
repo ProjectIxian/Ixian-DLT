@@ -229,7 +229,7 @@ namespace DLTNode
             checkRequiredFiles();
 
             // Read configuration from command line
-            Config.readFromCommandLine(args);
+            Config.init(args);
 
             // Benchmark keys is a special case, because it will not start any part of the node.
             if (Config.benchmarkKeys > 0)

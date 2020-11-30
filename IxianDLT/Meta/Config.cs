@@ -78,7 +78,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.7.5f"; // DLT Node version
+            public static readonly string version = "xdc-0.8.0-dev"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -305,8 +305,10 @@ namespace DLT
                 }
             }
 
-            public static void readFromCommandLine(string[] args)
+            public static void init(string[] args)
             {
+                int start_clean = 0; // Flag to determine if node should delete cache+logs
+
                 // first pass
                 var cmd_parser = new FluentCommandLineParser();
 
@@ -316,19 +318,69 @@ namespace DLT
                 // config file
                 cmd_parser.Setup<string>("config").Callback(value => configFilename = value).Required();
 
+                // Check for clean parameter
+                cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = 1);
+                cmd_parser.Setup<bool>('f', "force").Callback(value => { if (start_clean > 0) { start_clean += 1; } });
+
                 cmd_parser.Parse(args);
 
-                if(DLTNode.Program.noStart)
+                if (DLTNode.Program.noStart)
                 {
                     return;
                 }
 
                 readConfigFile(configFilename);
 
+                processCliParmeters(args);
+                Logging.verbosity = logVerbosity;
 
+                WalletStateStorage.path = dataFolderPath + Path.DirectorySeparatorChar + "ws";
 
+                if (start_clean > 0)
+                {
+                    startClean(start_clean);
+                }
+
+                if (miningThreads < 1)
+                    miningThreads = 1;
+            }
+
+            private static void startClean(int start_clean)
+            {
+                bool do_clean = false;
+                if (start_clean > 1)
+                {
+                    Logging.warn("Ixian DLT node started with the forced clean parameter (-c -f).");
+                    do_clean = true;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+                    Console.WriteLine("You have started the Ixian DLT node with the '-c' parameter, indicating that you wish to clear all cache and log files.");
+                    Console.Write("This will cause the node to re-download any neccessary data, which may take some time. Are you sure? (Y/N)");
+                    Console.ResetColor();
+                    var k = Console.ReadKey();
+                    if (k.Key == ConsoleKey.Y)
+                    {
+                        do_clean = true;
+                    }
+                }
+                if (do_clean)
+                {
+                    Node.checkDataFolder();
+                    Node.cleanCacheAndLogs();
+                }
+                else
+                {
+                    DLTNode.Program.noStart = true;
+                    return;
+                }
+            }
+
+            private static void processCliParmeters(string[] args)
+            {
                 // second pass
-                cmd_parser = new FluentCommandLineParser();
+                var cmd_parser = new FluentCommandLineParser();
 
                 // Block storage provider
                 cmd_parser.Setup<string>("blockStorage").Callback(value => blockStorageProvider = value).Required();
@@ -357,8 +409,6 @@ namespace DLT
                 // third pass
                 cmd_parser = new FluentCommandLineParser();
 
-                int start_clean = 0; // Flag to determine if node should delete cache+logs
-
                 // version
                 cmd_parser.Setup<bool>('v', "version").Callback(text => outputVersion());
 
@@ -373,11 +423,6 @@ namespace DLT
 
                 // Check for recovery parameter
                 cmd_parser.Setup<bool>("recover").Callback(value => recoverFromFile = value).Required();
-
-                // Check for clean parameter
-                cmd_parser.Setup<bool>('c', "clean").Callback(value => start_clean = 1);
-                cmd_parser.Setup<bool>('f', "force").Callback(value => { if (start_clean > 0) { start_clean += 1; } });
-
 
                 cmd_parser.Setup<int>('p', "port").Callback(value => Config.serverPort = value).Required();
 
@@ -437,42 +482,6 @@ namespace DLT
                 cmd_parser.Setup<int>("logVerbosity").Callback(value => logVerbosity = value).Required();
 
                 cmd_parser.Parse(args);
-
-                WalletStateStorage.path = dataFolderPath + Path.DirectorySeparatorChar + "ws";
-
-                if (start_clean > 0)
-                {
-                    bool do_clean = false;
-                    if (start_clean > 1)
-                    {
-                        Logging.warn("Ixian DLT node started with the forced clean parameter (-c -f).");
-                        do_clean = true;
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.WriteLine("You have started the Ixian DLT node with the '-c' parameter, indicating that you wish to clear all cache and log files.");
-                        Console.Write("This will cause the node to re-download any neccessary data, which may take some time. Are you sure? (Y/N)");
-                        Console.ResetColor();
-                        var k = Console.ReadKey();
-                        if (k.Key == ConsoleKey.Y)
-                        {
-                            do_clean = true;
-                        }
-                    }
-                    if(do_clean)
-                    {
-                        Node.checkDataFolder();
-                        Node.cleanCacheAndLogs();
-                    } else
-                    {
-                        DLTNode.Program.noStart = true;
-                        return;
-                    }
-                }
-
-                if (miningThreads < 1)
-                    miningThreads = 1;
 
                 if (seedNode != "")
                 {
