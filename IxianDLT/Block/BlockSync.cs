@@ -236,12 +236,12 @@ namespace DLT
                     Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
                     if (block != null)
                     {
-                        if(CoreConfig.preventNetworkOperations)
+                        if(CoreConfig.preventNetworkOperations || Config.recoverFromFile)
                         {
                             if (!lastBlocks.Exists(x => x.blockNum == blockNum))
                             {
                                 lastBlocks.Add(new Block(block));
-                                if(lastBlocks.Count > 20)
+                                if(lastBlocks.Count > maxBlockRequests * 2)
                                 {
                                     lastBlocks.RemoveAt(0);
                                 }
@@ -687,9 +687,14 @@ namespace DLT
                         }
                         else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                         {
-                            if(CoreConfig.preventNetworkOperations)
+                            if(CoreConfig.preventNetworkOperations || Config.recoverFromFile)
                             {
-                                pendingBlocks.Add(lastBlocks.Find(x => x.blockNum == b.blockNum - 5));
+                                var last_block = lastBlocks.Find(x => x.blockNum == b.blockNum - 5);
+                                if(last_block != null)
+                                {
+                                    pendingBlocks.Add(last_block);
+                                }
+                                return;
                             }
                             // invalid sigfreeze, waiting for the correct block
                             Logging.warn("Block #{0} {1} doesn't have the correct sigfreezed block. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
