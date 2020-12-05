@@ -39,7 +39,7 @@ function Render-Indexes {
     foreach($c in $Clients) {
         if($c.idx -ge 20) { break }
         if($c.Display -eq $false) { continue }
-        Write-Host -ForegroundColor Green -NoNewline "$($c.Process.Id.ToString().PadLeft(10))"
+        Write-Host -ForegroundColor Green -NoNewline "$($c.Process.Id.ToString().PadLeft(18))"
     }
     Write-Host ""
 }
@@ -69,7 +69,7 @@ function Render-Status {
         } elseif($bp_s -eq "DEAD") {
             $bp_c = [ConsoleColor]::Magenta
         }
-        $len = 10 - $dlt_s.Length - $bp_s.Length - 1
+        $len = 18 - $dlt_s.Length - $bp_s.Length - 1
         Write-Host -NoNewline "$(New-Object String (' ', $len))"
         Write-Host -NoNewline -ForegroundColor $dlt_c $dlt_s
         Write-Host -NoNewline -ForegroundColor White "/"
@@ -84,7 +84,7 @@ function Render-BlockHeight {
     )
     Write-Host -NoNewline -ForegroundColor White "B.HEIGHT:".PadRight(10)
     foreach($bh in $bhs) {
-        Write-Host -NoNewline -ForegroundColor Cyan $bh.ToString().PadLeft(10)
+        Write-Host -NoNewline -ForegroundColor Cyan $bh.ToString().PadLeft(18)
     }
     Write-Host ""
 }
@@ -98,10 +98,10 @@ function Render-BlockHeightSigs {
     foreach($bh in $bhs) {
         if($client_count -eq $bh)
         {
-            Write-Host -NoNewline -ForegroundColor Cyan $bh.ToString().PadLeft(10)
+            Write-Host -NoNewline -ForegroundColor Cyan $bh.ToString().PadLeft(18)
         }else
         {
-            Write-Host -NoNewline -ForegroundColor Red $bh.ToString().PadLeft(10)
+            Write-Host -NoNewline -ForegroundColor Red $bh.ToString().PadLeft(18)
         }
     }
     Write-Host ""
@@ -113,7 +113,7 @@ function Render-Consensus {
     )
     Write-Host -NoNewline -ForegroundColor White "CONSENSUS:"
     foreach($c in $consensus) {
-        Write-Host -NoNewline -ForegroundColor Yellow $c.ToString().PadLeft(10)
+        Write-Host -NoNewline -ForegroundColor Yellow $c.ToString().PadLeft(18)
     }
     Write-Host ""
 }
@@ -124,7 +124,7 @@ function Render-Presences {
     )
     Write-Host -NoNewline -ForegroundColor White "PRESENCES:"
     foreach($p in $presences) {
-        Write-Host -NoNewline -ForegroundColor Yellow $p.ToString().PadLeft(10)
+        Write-Host -NoNewline -ForegroundColor Yellow $p.ToString().PadLeft(18)
     }
     Write-Host ""
 }
@@ -142,7 +142,7 @@ function Render-Connections {
     for($i = 0; $i -lt $num_elem; $i++) {
         $in_s = $in_conn[$i].ToString()
         $out_s = $out_conn[$i].ToString()
-        $len = 10 - $in_s.Length - $out_s.Length - 1
+        $len = 18 - $in_s.Length - $out_s.Length - 1
         Write-Host -NoNewline "$(New-Object String (' ', $len))"
         Write-Host -NoNewline -ForegroundColor Cyan $in_s
         Write-Host -NoNewline -ForegroundColor White "/"
@@ -164,7 +164,7 @@ function Render-TXs {
     for($i = 0; $i -lt $num_elem; $i++) {
         $a_s = $applied[$i].ToString()
         $u_s = $unapplied[$i].ToString()
-        $len = 10 - $a_s.Length - $u_s.Length - 1
+        $len = 18 - $a_s.Length - $u_s.Length - 1
         Write-Host -NoNewline "$(New-Object String (' ', $len))"
         Write-Host -NoNewline -ForegroundColor Cyan $a_s
         Write-Host -NoNewline -ForegroundColor White "/"
@@ -180,10 +180,10 @@ function Render-MinerHashrate {
     Write-Host -NoNewline -ForegroundColor White "HASH:".PadRight(10)
     foreach($hr in $hashrates) {
         if($hr -eq 0) {
-            Write-Host -NoNewline -ForegroundColor Red "N/A".PadLeft(10)
+            Write-Host -NoNewline -ForegroundColor Red "N/A".PadLeft(18)
         } else {
             $hr_t = Format-Human $hr
-            Write-Host -NoNewline -ForegroundColor Green $hr_t.PadLeft(10)
+            Write-Host -NoNewline -ForegroundColor Green $hr_t.PadLeft(18)
         }
     }
     Write-Host ""
@@ -195,7 +195,7 @@ function Render-MinerSolved {
     )
     Write-Host -NoNewline -ForegroundColor White "SOLVED:".PadRight(10)
     foreach($s in $solved_counts) {
-        Write-Host -NoNewline -ForegroundColor Green $s.ToString().PadLeft(10)
+        Write-Host -NoNewline -ForegroundColor Green $s.ToString().PadLeft(18)
     }
     Write-Host ""
 }

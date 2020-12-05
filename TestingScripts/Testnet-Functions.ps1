@@ -239,7 +239,7 @@ function Get-NumMasterNodes {
     Param(
         [int]$APIPort
     )
-    $ns = Invoke-DLTApi -APIPort $APIPort -Command "status"
+    $ns = Invoke-DLTApi -APIPort $APIPort -Command "status?verbose=1"
     if($ns -eq $null) {
         return $null
     }
