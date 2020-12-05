@@ -637,14 +637,38 @@ namespace DLTNode
             networkArray.Add("Block Processor Status", bpStatus);
 
             Block last_block = Node.blockChain.getLastBlock();
-            networkArray.Add("Block Height", last_block.blockNum);
-            networkArray.Add("Block Version", last_block.version);
-            networkArray.Add("Block Signature Count", last_block.getFrozenSignatureCount());
+            if(last_block != null)
+            {
+                networkArray.Add("Block Height", last_block.blockNum);
+                networkArray.Add("Block Version", last_block.version);
+                networkArray.Add("Block Signature Count", last_block.getFrozenSignatureCount());
+            }else
+            {
+                networkArray.Add("Block Height", 0);
+                networkArray.Add("Block Version", 0);
+                networkArray.Add("Block Signature Count", 1);
+            }
+
             networkArray.Add("Network Block Height", IxianHandler.getHighestKnownNetworkBlockHeight());
             networkArray.Add("Node Type", PresenceList.myPresenceType);
             networkArray.Add("Connectable", NetworkServer.isConnectable());
 
             if (parameters.ContainsKey("verbose"))
+            {
+                networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
+
+                networkArray.Add("Wallets", Node.walletState.numWallets);
+                networkArray.Add("Presences", PresenceList.getTotalPresences());
+                networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
+                networkArray.Add("Applied TX Count", TransactionPool.getAppliedTransactionCount());
+                networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactionCount());
+
+                networkArray.Add("Masters", PresenceList.countPresences('M'));
+                networkArray.Add("Relays", PresenceList.countPresences('R'));
+                networkArray.Add("Clients", PresenceList.countPresences('C'));
+            }
+
+            if (parameters.ContainsKey("vv"))
             {
                 Dictionary<string, object> queues = new Dictionary<string, object>();
                 queues.Add("Rcv", NetworkQueue.getQueuedMessageCount());
@@ -655,22 +679,12 @@ namespace DLTNode
                 queues.Add("Pending Transactions", PendingTransactions.pendingTransactionCount());
                 queues.Add("Storage", Node.storage.getQueuedQueryCount());
                 queues.Add("Inventory", Node.inventoryCache.getItemCount());
+                queues.Add("Inventory Processed", Node.inventoryCache.getProcessedItemCount());
                 queues.Add("Activity", ActivityStorage.getQueuedQueryCount());
 
                 networkArray.Add("Queues", queues);
 
-                networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-
-                networkArray.Add("Wallets", Node.walletState.numWallets);
-                networkArray.Add("Presences", PresenceList.getTotalPresences());
-                networkArray.Add("Supply", Node.walletState.calculateTotalSupply().ToString());
-                networkArray.Add("Applied TX Count", TransactionPool.getAppliedTransactionCount());
-                networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactionCount());
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
-
-                networkArray.Add("Masters", PresenceList.countPresences('M'));
-                networkArray.Add("Relays", PresenceList.countPresences('R'));
-                networkArray.Add("Clients", PresenceList.countPresences('C'));
             }
 
             networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
