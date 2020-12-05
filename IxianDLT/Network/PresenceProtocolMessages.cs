@@ -115,12 +115,14 @@ namespace DLT
                                         Presence p = PresenceList.getPresenceByAddress(address);
                                         if (p == null)
                                         {
+                                            Logging.info("I don't have presence: " + Base58Check.Base58CheckEncoding.EncodePlain(address));
                                             continue;
                                         }
 
                                         PresenceAddress pa = p.addresses.Find(x => x.device.SequenceEqual(device));
                                         if (pa == null)
                                         {
+                                            Logging.info("I don't have presence address: " + Base58Check.Base58CheckEncoding.EncodePlain(address));
                                             continue;
                                         }
 
@@ -168,8 +170,9 @@ namespace DLT
 
                             int ka_len = (int)reader.ReadIxiVarUInt();
                             byte[] ka_bytes = reader.ReadBytes(ka_len);
+                            byte[] hash = Crypto.sha512sqTrunc(ka_bytes);
 
-                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, Crypto.sha512sqTrunc(ka_bytes), true);
+                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, hash, true);
 
                             byte[] address;
                             long last_seen;
@@ -179,7 +182,7 @@ namespace DLT
                             // If a presence entry was updated, broadcast this message again
                             if (updated)
                             {
-                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(Crypto.sha512sqTrunc(data), last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, ka_bytes, address);
+                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, ka_bytes, address);
 
                                 // Send this keepalive message to all subscribed clients
                                 CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, ka_bytes, address, endpoint);
@@ -253,14 +256,16 @@ namespace DLT
                 long last_seen = 0;
                 byte[] device_id = null;
 
-                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, Crypto.sha512sqTrunc(data), true);
+                byte[] hash = Crypto.sha512sqTrunc(data);
+
+                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, hash, true);
 
                 bool updated = PresenceList.receiveKeepAlive(data, out address, out last_seen, out device_id, endpoint);
 
                 // If a presence entry was updated, broadcast this message again
                 if (updated)
                 {
-                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(Crypto.sha512sqTrunc(data), last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, data, address);
+                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, data, address);
 
                     // Send this keepalive message to all subscribed clients
                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);

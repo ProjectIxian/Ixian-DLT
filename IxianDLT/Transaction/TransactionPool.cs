@@ -66,7 +66,7 @@ namespace DLT
                     // regular multisig transaction
                     if (multisig_obj.origTXId != null)
                     {
-                        Logging.info("Multisig transaction {{ {0} }} adds signature for origin multisig transaction {{ {1} }}.", Transaction.txIdV8ToLegacy(transaction.id), multisig_obj.origTXId);
+                        Logging.info("Multisig transaction {{ {0} }} adds signature for origin multisig transaction {{ {1} }}.", Transaction.txIdV8ToLegacy(transaction.id), Transaction.txIdV8ToLegacy(multisig_obj.origTXId));
                     }
                     else
                     {
@@ -79,7 +79,7 @@ namespace DLT
                     {
                         if(orig_txid == null || orig_txid.Length > 100 || orig_txid.Length < 10)
                         {
-                            Logging.warn(String.Format("Orig txid {0} is invalid.", orig_txid));
+                            Logging.warn(String.Format("Orig txid {0} is invalid.", Transaction.txIdV8ToLegacy(orig_txid)));
                             return false;
                         }
 
@@ -88,18 +88,18 @@ namespace DLT
                         {
                             if(!hasAppliedTransaction(orig_txid))
                             {
-                                Logging.warn("Orig txid {0} doesn't exist, requesting from network.", orig_txid);
+                                Logging.warn("Orig txid {0} doesn't exist, requesting from network.", Transaction.txIdV8ToLegacy(orig_txid));
                                 CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(orig_txid), 0, endpoint);
                                 CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(transaction.id), 0, endpoint);
                                 return false;
                             }else
                             {
-                                Logging.error("Orig txid {0} has already been applied.", orig_txid);
+                                Logging.error("Orig txid {0} has already been applied.", Transaction.txIdV8ToLegacy(orig_txid));
                                 return false;
                             }
                         }else if (tmp_tx.type != (int)Transaction.Type.ChangeMultisigWallet && (tmp_tx.type != (int)Transaction.Type.MultisigTX))
                         {
-                            Logging.warn("Orig txid {0} is not a multisig transaction.", orig_txid);
+                            Logging.warn("Orig txid {0} is not a multisig transaction.", Transaction.txIdV8ToLegacy(orig_txid));
                             return false;
                         }
                     }
