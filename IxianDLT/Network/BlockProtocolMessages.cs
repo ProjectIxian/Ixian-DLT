@@ -739,6 +739,111 @@ namespace DLT
                 }
             }
 
+            public static void handleGetBlock3(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (!Node.isMasterNode())
+                {
+                    Logging.warn("Block data was requested, but this node isn't a master node");
+                    return;
+                }
+
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_number = reader.ReadIxiVarUInt();
+                        byte include_transactions = reader.ReadByte();
+                        bool full_header = false;
+                        try
+                        {
+                            full_header = reader.ReadBoolean();
+                        }
+                        catch (Exception)
+                        {
+
+                        }
+
+                        //Logging.info(String.Format("Block #{0} has been requested.", block_number));
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
+
+                        if (block_number > last_block_height)
+                        {
+                            return;
+                        }
+
+                        Block block = null;
+                        if (block_number == last_block_height)
+                        {
+                            bool haveLock = false;
+                            try
+                            {
+                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                                if (!haveLock)
+                                {
+                                    throw new TimeoutException();
+                                }
+
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == last_block_height)
+                                {
+                                    block = tmp;
+                                }
+                            }
+                            finally
+                            {
+                                if (haveLock)
+                                {
+                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
+                        }
+
+                        if (block == null)
+                        {
+                            Logging.warn("Unable to find block #{0} in the chain!", block_number);
+                            return;
+                        }
+                        //Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
+                        // Send the block
+
+                        if (include_transactions == 1)
+                        {
+                            TransactionProtocolMessages.handleGetBlockTransactions3(block_number, false, endpoint);
+                        }
+                        else if (include_transactions == 2)
+                        {
+                            TransactionProtocolMessages.handleGetBlockTransactions3(block_number, true, endpoint);
+                        }
+
+                        if (!Node.blockProcessor.verifySigFreezedBlock(block))
+                        {
+                            Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
+                        }
+
+                        bool frozen_sigs_only = true;
+
+                        if (block_number + 5 > IxianHandler.getLastBlockHeight())
+                        {
+                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
+                            {
+                                frozen_sigs_only = false;
+                            }
+                        }
+
+                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum), 0, MessagePriority.high);
+                    }
+                }
+            }
+
             static public void handleBlockData(byte[] data, RemoteEndpoint endpoint)
             {
                 Block block = new Block(data);

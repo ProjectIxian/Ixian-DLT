@@ -196,6 +196,10 @@ namespace DLT
                             TransactionProtocolMessages.handleTransactionsChunk(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.transactionsChunk2:
+                            TransactionProtocolMessages.handleTransactionsChunk2(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.getBlockHeaders2:
                             BlockProtocolMessages.handleGetBlockHeaders2(data, endpoint);
                             break;
@@ -206,6 +210,10 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlock2:
                             BlockProtocolMessages.handleGetBlock2(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getBlock3:
+                            BlockProtocolMessages.handleGetBlock3(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.getBalance2:
@@ -417,6 +425,10 @@ namespace DLT
 
                                     case InventoryItemTypes.blockSignature:
                                         var iis = (InventoryItemSignature)item;
+                                        if (iis.blockNum < last_block_height - 5 && iis.blockNum > last_block_height + 6)
+                                        {
+                                            continue;
+                                        }
                                         if (!sig_lists.ContainsKey(iis.blockNum))
                                         {
                                             sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
@@ -518,6 +530,10 @@ namespace DLT
 
                                     case InventoryItemTypes.blockSignature:
                                         var iis = (InventoryItemSignature)item;
+                                        if(iis.blockNum < last_block_height - 5 && iis.blockNum > last_block_height + 6)
+                                        {
+                                            continue;
+                                        }
                                         if (!sig_lists.ContainsKey(iis.blockNum))
                                         {
                                             sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
@@ -554,7 +570,7 @@ namespace DLT
                                 }
                             }
                         }
-                        TransactionProtocolMessages.broadcastGetTransactions2(tx_list, endpoint);
+                        TransactionProtocolMessages.broadcastGetTransactions2(tx_list, 0, endpoint);
                         PresenceProtocolMessages.broadcastGetKeepAlives(ka_list, endpoint);
                         if (request_next_block)
                         {

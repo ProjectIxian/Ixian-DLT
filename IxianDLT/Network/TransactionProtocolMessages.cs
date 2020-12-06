@@ -231,7 +231,122 @@ namespace DLT
                         if (txs_in_chunk > 0)
                         {
                             // Send a chunk
-                            endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray());
+                            endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray(), null);
+                        }
+                    }
+                }
+            }
+
+            // Handle the getBlockTransactions message
+            // This is called from NetworkProtocol
+            public static void handleGetBlockTransactions3(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
+            {
+                //Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
+
+                // Get the requested block and corresponding transactions
+                bool applied_block = true;
+                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                List<byte[]> txIdArr = null;
+                if (b != null)
+                {
+                    txIdArr = new List<byte[]>(b.transactions);
+                }
+                else
+                {
+                    // Block is likely local, fetch the transactions
+
+                    bool haveLock = false;
+                    try
+                    {
+                        Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                        if (!haveLock)
+                        {
+                            throw new TimeoutException();
+                        }
+
+                        Block tmp = Node.blockProcessor.getLocalBlock();
+                        if (tmp != null && tmp.blockNum == blockNum)
+                        {
+                            applied_block = false;
+                            b = tmp;
+                            txIdArr = new List<byte[]>(tmp.transactions);
+                        }
+                    }
+                    finally
+                    {
+                        if (haveLock)
+                        {
+                            Monitor.Exit(Node.blockProcessor.localBlockLock);
+                        }
+                    }
+                }
+
+                if (txIdArr == null)
+                    return;
+
+                int tx_count = txIdArr.Count();
+
+                if (tx_count == 0)
+                    return;
+
+                long msg_id = -(long)blockNum;
+
+                // Go through each chunk
+                for (int i = 0; i < tx_count;)
+                {
+                    using (MemoryStream mOut = new MemoryStream(4096))
+                    {
+                        int txs_in_chunk = 0;
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            writer.WriteIxiVarInt(msg_id);
+                            writer.WriteIxiVarInt(tx_count);
+                            // Generate a chunk of transactions
+                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; j++)
+                            {
+                                if (!requestAllTransactions)
+                                {
+                                    if (txIdArr[i][0] == 0) // stk
+                                    {
+                                        i++;
+                                        continue;
+                                    }
+                                }
+                                Transaction tx;
+                                if (applied_block)
+                                {
+                                    tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                }
+                                else
+                                {
+                                    tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
+                                }
+                                i++;
+                                if (tx != null)
+                                {
+                                    byte[] txBytes = tx.getBytes();
+
+                                    long rollback_len = mOut.Length;
+                                    writer.WriteIxiVarInt(txBytes.Length);
+                                    writer.Write(txBytes);
+                                    if (mOut.Length > CoreConfig.maxMessageSize)
+                                    {
+                                        mOut.SetLength(rollback_len);
+                                        i--;
+                                        break;
+                                    }
+                                    txs_in_chunk++;
+                                }
+                            }
+
+#if TRACE_MEMSTREAM_SIZES
+                            Logging.info(String.Format("NetworkProtocol::handleGetBlockTransactions: {0}", mOut.Length));
+#endif
+                        }
+                        if (txs_in_chunk > 0)
+                        {
+                            // Send a chunk
+                            endpoint.sendData(ProtocolMessageCode.transactionsChunk2, mOut.ToArray(), null, 0, MessagePriority.high);
                         }
                     }
                 }
@@ -276,7 +391,7 @@ namespace DLT
                 }
             }
 
-            public static void broadcastGetTransactions2(List<byte[]> tx_list, RemoteEndpoint endpoint)
+            public static void broadcastGetTransactions2(List<byte[]> tx_list, long msg_id, RemoteEndpoint endpoint)
             {
                 int tx_count = tx_list.Count;
                 int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
@@ -291,6 +406,7 @@ namespace DLT
                             {
                                 next_tx_count = max_tx_per_chunk;
                             }
+                            writer.WriteIxiVarInt(msg_id);
                             writer.WriteIxiVarInt(next_tx_count);
 
                             for (int j = 0; j < next_tx_count && i < tx_count; j++)
@@ -310,7 +426,8 @@ namespace DLT
                                 }
                             }
                         }
-                        endpoint.sendData(ProtocolMessageCode.getTransactions2, mOut.ToArray(), null);
+                        MessagePriority priority = msg_id > 0 ? MessagePriority.high : MessagePriority.auto;
+                        endpoint.sendData(ProtocolMessageCode.getTransactions2, mOut.ToArray(), null, msg_id, priority);
                     }
                 }
             }
@@ -401,6 +518,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
+                        int msg_id = (int)reader.ReadIxiVarUInt();
                         int tx_count = (int)reader.ReadIxiVarUInt();
 
                         int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
@@ -424,6 +542,7 @@ namespace DLT
                                     {
                                         next_tx_count = tx_count - i;
                                     }
+                                    writer.WriteIxiVarInt(msg_id);
                                     writer.WriteIxiVarInt(next_tx_count);
 
                                     for (int j = 0; j < next_tx_count && i < tx_count;  j++)
@@ -466,7 +585,7 @@ namespace DLT
                                         }
                                     }
                                 }
-                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray(), null);
+                                endpoint.sendData(ProtocolMessageCode.transactionsChunk2, mOut.ToArray(), null, 0, MessagePriority.high);
                             }
                         }
                     }
@@ -478,6 +597,54 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
+                        int tx_count = (int)reader.ReadIxiVarUInt();
+
+                        int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
+                        if (tx_count > max_tx_per_chunk)
+                        {
+                            tx_count = max_tx_per_chunk;
+                        }
+
+                        var sw = new System.Diagnostics.Stopwatch();
+                        sw.Start();
+                        int processedTxCount = 0;
+                        int totalTxCount = 0;
+                        for (int i = 0; i < tx_count; i++)
+                        {
+                            if (m.Position == m.Length)
+                            {
+                                break;
+                            }
+
+                            int tx_len = (int)reader.ReadIxiVarUInt();
+                            byte[] tx_bytes = reader.ReadBytes(tx_len);
+
+                            Transaction tx = new Transaction(tx_bytes);
+
+                            totalTxCount++;
+                            if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
+                            {
+                                continue;
+                            }
+                            if (TransactionPool.addTransaction(tx, false, endpoint))
+                            {
+                                processedTxCount++;
+                            }
+                        }
+                        sw.Stop();
+                        TimeSpan elapsed = sw.Elapsed;
+                        Logging.info("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds);
+                    }
+                }
+            }
+
+            public static void handleTransactionsChunk2(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        long msg_id = reader.ReadIxiVarInt();
                         int tx_count = (int)reader.ReadIxiVarUInt();
 
                         int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;

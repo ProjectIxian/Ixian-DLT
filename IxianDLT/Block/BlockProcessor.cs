@@ -948,29 +948,20 @@ namespace DLT
                     if (fetchTransactions)
                     {
                         Logging.info("Missing transaction '{0}'. Requesting.", Transaction.txIdV8ToLegacy(txid));
-                        if (CoreConfig.protocolVersion == 5)
+                        var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
+                        if(pii.processed)
                         {
                             CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum, endpoint);
-                        }else
+                        }else if (pii.lastRequested == 0)
                         {
-                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
-                            if(pii.processed)
-                            {
-                                CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum, endpoint);
-                            }else if (pii.lastRequested == 0)
-                            {
-                                Node.inventoryCache.processInventoryItem(pii);
-                            }
+                            Node.inventoryCache.processInventoryItem(pii);
                         }
                     }else
                     {
-                        if (CoreConfig.protocolVersion == 6)
+                        var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
+                        if (!pii.processed && pii.lastRequested == 0)
                         {
-                            var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
-                            if (!pii.processed && pii.lastRequested == 0)
-                            {
-                                pii.lastRequested = Clock.getTimestamp();
-                            }
+                            pii.lastRequested = Clock.getTimestamp();
                         }
                     }
                     hasAllTransactions = false;
