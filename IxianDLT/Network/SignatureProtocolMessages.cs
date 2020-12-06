@@ -16,8 +16,32 @@ namespace DLT
     {
         class SignatureProtocolMessages
         {
-            public static bool broadcastBlockSignature(byte[] signature_data, byte[] sig_address, ulong block_num, byte[] block_hash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            public static bool broadcastBlockSignature(byte[] signature, byte[] sig_address, ulong block_num, byte[] block_hash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
+                byte[] signature_data = null;
+
+                using (MemoryStream m = new MemoryStream(1152))
+                {
+                    using (BinaryWriter writer = new BinaryWriter(m))
+                    {
+                        writer.WriteIxiVarInt(block_num);
+
+                        writer.WriteIxiVarInt(block_hash.Length);
+                        writer.Write(block_hash);
+
+                        writer.WriteIxiVarInt(signature.Length);
+                        writer.Write(signature);
+
+                        writer.WriteIxiVarInt(sig_address.Length);
+                        writer.Write(sig_address);
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastNewBlockSignature: {0}", m.Length));
+#endif
+
+                        signature_data = m.ToArray();
+                    }
+                }
+
                 if (endpoint != null)
                 {
                     if (endpoint.isConnected())
@@ -88,7 +112,7 @@ namespace DLT
                             Node.blockProcessor.acceptLocalNewBlock();
                             if (Node.isMasterNode())
                             {
-                                broadcastBlockSignature(data, sig_addr, block_num, checksum, endpoint);
+                                broadcastBlockSignature(sig, sig_addr, block_num, checksum, endpoint);
                             }
                         }
                         else
