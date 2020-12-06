@@ -671,8 +671,9 @@ namespace DLTNode
             if (parameters.ContainsKey("vv"))
             {
                 Dictionary<string, object> queues = new Dictionary<string, object>();
-                queues.Add("Rcv", NetworkQueue.getQueuedMessageCount());
-                queues.Add("RcvTx", NetworkQueue.getTxQueuedMessageCount());
+                queues.Add("RcvLow", NetworkQueue.getLowPriorityMessageCount());
+                queues.Add("RcvMedium", NetworkQueue.getMediumPriorityMessageCount());
+                queues.Add("RcvHigh", NetworkQueue.getHighPriorityMessageCount());
                 queues.Add("SendClients", NetworkServer.getQueuedMessageCount());
                 queues.Add("SendServers", NetworkClientManager.getQueuedMessageCount());
                 queues.Add("Logging", Logging.getRemainingStatementsCount());

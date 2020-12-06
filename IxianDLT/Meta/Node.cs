@@ -525,7 +525,7 @@ namespace DLT.Meta
             // TODO TODO TODO TODO this is a global flood control and should be also done per node to detect attacks
             // I propose getting average traffic from different types of nodes and detect a node that's sending 
             // disproportionally more messages than the other nodes, provided thatthe network queue is over a certain limit
-            int total_queued_messages = NetworkQueue.getQueuedMessageCount() + NetworkQueue.getTxQueuedMessageCount();
+            int total_queued_messages = NetworkQueue.getQueuedMessageCount();
             if(floodPause == false && total_queued_messages > Config.floodMaxQueuedMessages)
             {
                 Logging.warn("Flooding detected, isolating the node.");
