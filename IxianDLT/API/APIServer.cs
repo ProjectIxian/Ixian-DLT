@@ -344,7 +344,7 @@ namespace DLTNode
                 type_string = (string)parameters["type"];
             }
 
-            int txnum = 1000;
+            int txnum = 100;
             if (parameters.ContainsKey("num"))
             {
                 string txnumstr = (string)parameters["num"];

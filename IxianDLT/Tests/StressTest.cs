@@ -19,11 +19,20 @@ namespace DLTNode
         static string txfilename = "txspam.file";
         static string hostname = "192.168.1.101";
         static int port = 10515;
+        static long targetTps = 100;
+        static bool testInProgress = false;
 
         public static void start(string type, int tx_count, string to, int threads = 1)
         {
             new Thread(() =>
             {
+                if (testInProgress == true)
+                {
+                    targetTps = tx_count;
+                    return;
+                }
+                testInProgress = true;
+
                 // Run protocol spam
                 if (type.Equals("protocol", StringComparison.Ordinal))
                     startProtocolTest();
@@ -34,7 +43,14 @@ namespace DLTNode
 
                 // Run transaction spam test
                 if (type.Equals("txspam", StringComparison.Ordinal))
+                {
+                    if(to == null)
+                    {
+                        Logging.error("Cannot start txspam test, to parameters wasn't provided.");
+                        return;
+                    }
                     startTxSpamTest(tx_count, Base58Check.Base58CheckEncoding.DecodePlain(to), threads);
+                }
 
                 // Run the transaction spam file generation test
                 if (type.Equals("txfilegen", StringComparison.Ordinal))
@@ -42,8 +58,12 @@ namespace DLTNode
 
                 // Run the transaction spam file test
                 if (type.Equals("txfilespam", StringComparison.Ordinal))
+                {
+                    targetTps = tx_count;
                     startTxFileSpamTest();
+                }
 
+                testInProgress = false;
             }).Start();
         }
 
@@ -295,12 +315,25 @@ namespace DLTNode
             {
                 int spam_num = reader.ReadInt32();
                 Logging.info("Reading {0} spam transactions from file.", spam_num);
+                long start_time = Clock.getTimestampMillis();
+                int spam_counter = 0;
                 for (int i = 0; i < spam_num; i++)
                 {
                     int length = reader.ReadInt32();
                     byte[] bytes = reader.ReadBytes(length);
                     Transaction transaction = new Transaction(bytes);
                     TransactionPool.addTransaction(transaction);
+                    spam_counter++;
+                    if(spam_counter >= targetTps)
+                    {
+                        long elapsed = Clock.getTimestampMillis() - start_time;
+                        if (elapsed < 1000)
+                        {
+                            Thread.Sleep(1000 - (int)elapsed);
+                        }
+                        spam_counter = 0;
+                        start_time = Clock.getTimestampMillis();
+                    }
                 }
             }
             catch (IOException e)
