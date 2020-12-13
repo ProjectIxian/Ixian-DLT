@@ -451,7 +451,7 @@ namespace DLT
                         {
                             if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                             {
-                                if (Node.blockProcessor.verifyBlockSignatures(tb))
+                                if (Node.blockProcessor.verifyBlockSignatures(tb, null))
                                 {
                                     Node.blockChain.refreshSignatures(tb, true);
                                 }
@@ -562,7 +562,7 @@ namespace DLT
                             return;
                         }
 
-                        if (!b.fromLocalStorage && !Node.blockProcessor.verifyBlockSignatures(b) && Node.blockChain.Count > 16)
+                        if (!b.fromLocalStorage && !Node.blockProcessor.verifyBlockSignatures(b, null) && Node.blockChain.Count > 16)
                         {
                             Logging.warn("Block #{0} {1} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);

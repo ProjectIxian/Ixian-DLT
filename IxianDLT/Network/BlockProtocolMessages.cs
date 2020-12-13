@@ -452,11 +452,11 @@ namespace DLT
                         {
                             if (endpoint.isConnected())
                             {
-                                endpoint.sendData(ProtocolMessageCode.getBlock2, mw.ToArray());
+                                endpoint.sendData(ProtocolMessageCode.getBlock3, mw.ToArray());
                                 return true;
                             }
                         }
-                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock2, mw.ToArray(), block_num, skipEndpoint);
+                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock3, mw.ToArray(), block_num, skipEndpoint);
                     }
                 }
             }

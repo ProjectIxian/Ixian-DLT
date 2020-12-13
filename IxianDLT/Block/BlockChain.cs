@@ -1,6 +1,9 @@
 ﻿using DLT.Meta;
+using DLT.Network;
 using IXICore;
+using IXICore.Inventory;
 using IXICore.Meta;
+using IXICore.Network;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
@@ -477,7 +480,7 @@ namespace DLT
             return null;
         }
 
-        public bool refreshSignatures(Block b, bool forceRefresh = false)
+        public bool refreshSignatures(Block b, bool forceRefresh = false, RemoteEndpoint endpoint = null)
         {
             if (!forceRefresh)
             {
@@ -506,7 +509,16 @@ namespace DLT
                     byte[] beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     beforeSigs = blocks[idx].getFrozenSignatureCount();
 
-                    blocks[idx].addSignaturesFrom(b);
+                    var added_sigs = blocks[idx].addSignaturesFrom(b);
+
+                    if (added_sigs != null && Node.isMasterNode())
+                    {
+                        foreach (var sig in added_sigs)
+                        {
+                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], b.blockChecksum), true);
+                            SignatureProtocolMessages.broadcastBlockSignature(sig[0], sig[1], b.blockNum, b.blockChecksum, endpoint, null);
+                        }
+                    }
 
                     if (forceRefresh)
                     {
@@ -531,7 +543,7 @@ namespace DLT
             {
                 updateBlock(updatestorage_block);
 
-                Logging.info(String.Format("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs));
+                Logging.info("Refreshed block #{0}: Updated signatures {1} -> {2}", b.blockNum, beforeSigs, afterSigs);
                 return true;
             }
 

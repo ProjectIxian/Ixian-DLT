@@ -23,6 +23,8 @@ namespace DLT
 
             private Dictionary<string, object[]> connectionCache = new Dictionary<string, object[]>();
 
+            private int CONNECTION_CACHE_LIMIT = 50;
+
             // Storage cache
             private ulong cached_lastBlockNum = 0;
             private ulong current_seek = 1;
@@ -140,6 +142,16 @@ namespace DLT
                             GC.WaitForPendingFinalizers();
                             // End of fix
                         }
+                    }
+                    var tmpCache = connectionCache.OrderBy(x => x.Value[1]);
+                    for (int i = 0; i < tmpCache.Count() && connectionCache.Count > CONNECTION_CACHE_LIMIT; i++)
+                    {
+                        if (tmpCache.ElementAt(i).Value[0] == sqlConnection)
+                        {
+                            // never close the currently used sqlConnection
+                            continue;
+                        }
+                        connectionCache.Remove(tmpCache.ElementAt(i).Key);
                     }
                 }
             }
@@ -609,7 +621,7 @@ namespace DLT
                     signatureFreezeChecksum = blk.sigFreezeChecksum,
                     difficulty = (ulong)blk.difficulty,
                     powField = blk.powField,
-                    transactions = new List<byte[]>(),
+                    transactions = new HashSet<byte[]>(new ByteArrayComparer()),
                     signatures = new List<byte[][]>(),
                     timestamp = blk.timestamp,
                     version = blk.version,

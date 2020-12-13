@@ -694,7 +694,7 @@ namespace DLT
 
                 List<Transaction> failed_transactions = new List<Transaction>();
                 List<byte[]> signer_addresses = new List<byte[]>();
-                List<byte[]> tmp_transactions = unappliedTransactions.Keys.ToList();
+                HashSet<byte[]> tmp_transactions = unappliedTransactions.Keys.ToHashSet(new ByteArrayComparer());
                 if(block != null)
                 {
                     tmp_transactions = block.transactions;
@@ -1338,12 +1338,12 @@ namespace DLT
             // Maintain a list of stakers
             List<byte[]> blockStakers = new List<byte[]>();
 
-            List<byte[]> stakingTxIds = block.transactions.FindAll(x => x[0] == 0);
+            HashSet<byte[]> stakingTxIds = block.transactions.Where(x => x[0] == 0).ToHashSet(new ByteArrayComparer());
             if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyStakingTransactionsFromBlock - block has {1} staking transaction ids", block.blockNum, stakingTxIds.Count); }
 
             foreach (Transaction tx in staking_txs)
             {
-                if (stakingTxIds.RemoveAll(x => x.SequenceEqual(tx.id)) == 0)
+                if (!stakingTxIds.Remove(tx.id))
                 {
                     Logging.error("Invalid staking txid in transaction pool {0}, removing from pool.", Transaction.txIdV8ToLegacy(tx.id));
                     lock(stateLock)
@@ -2512,13 +2512,13 @@ namespace DLT
         public static List<Transaction> getFullBlockTransactions(Block block)
         {
             List<Transaction> tx_list = new List<Transaction>();
-            List<byte[]> tx_ids = block.transactions;
+            HashSet<byte[]> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
-                Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
+                Transaction t = getAppliedTransaction(tx_ids.ElementAt(i), block.blockNum, true);
                 if (t == null)
                 {
-                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids[i]));
+                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids.ElementAt(i)));
                     continue;
                 }
                 tx_list.Add(t);
@@ -2530,13 +2530,13 @@ namespace DLT
         public static List<Dictionary<string, object>> getFullBlockTransactionsAsArray(Block block)
         {
             List<Dictionary<string, object>> tx_list = new List<Dictionary<string, object>>();
-            List<byte[]> tx_ids = block.transactions;
+            HashSet<byte[]> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
-                Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
+                Transaction t = getAppliedTransaction(tx_ids.ElementAt(i), block.blockNum, true);
                 if (t == null)
                 {
-                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids[0]));
+                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids.ElementAt(i)));
                     continue;
                 }
 
@@ -2550,12 +2550,12 @@ namespace DLT
         public static IxiNumber getTotalTransactionsValueInBlock(Block block)
         {
             IxiNumber val = 0;
-            List<byte[]> tx_ids = block.transactions;
+            HashSet<byte[]> tx_ids = block.transactions;
             for (int i = 0; i < tx_ids.Count; i++)
             {
-                Transaction t = getAppliedTransaction(tx_ids[i], block.blockNum, true);
+                Transaction t = getAppliedTransaction(tx_ids.ElementAt(i), block.blockNum, true);
                 if (t == null)
-                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids[i]));
+                    Logging.error("nulltx: {0}", Transaction.txIdV8ToLegacy(tx_ids.ElementAt(i)));
                 else
                     val.add(t.amount);
             }

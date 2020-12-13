@@ -370,15 +370,16 @@ namespace DLT
                     }
                     if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
                     {
-                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
-                        if (verifyBlockSignatures(b))
+                        Logging.warn("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                        if (verifyBlockSignatures(b, endpoint))
                         {
                             // this is likely the correct block, update and broadcast to others
-                            Node.blockChain.refreshSignatures(b, true);
-                            //ProtocolMessage.broadcastNewBlock(targetBlock, skipEndpoint);
-                            if (sigFreezingBlock == localNewBlock)
+                            if(Node.blockChain.refreshSignatures(b, true, endpoint))
                             {
-                                acceptLocalNewBlock();
+                                if (sigFreezingBlock == localNewBlock)
+                                {
+                                    acceptLocalNewBlock();
+                                }
                             }
                         }
                         else
@@ -561,11 +562,7 @@ namespace DLT
                                     if (!block_to_update.calculateSignatureChecksum().SequenceEqual(b.calculateSignatureChecksum()))
                                     {
                                         removeSignaturesWithoutPlEntry(b);
-                                        if (Node.blockChain.refreshSignatures(b))
-                                        {
-                                            // if refreshSignatures returns true, it means that new signatures were added. re-broadcast to make sure the entire network gets this change.
-                                            BlockProtocolMessages.broadcastNewBlock(block_to_update); // TODO TODO TODO this can be optimized, to only send new sigs
-                                        }else if (b.getFrozenSignatureCount() < block_to_update.getFrozenSignatureCount())
+                                        if (!Node.blockChain.refreshSignatures(b) && b.getFrozenSignatureCount() < block_to_update.getFrozenSignatureCount())
                                         {
                                             BlockProtocolMessages.broadcastNewBlock(block_to_update, null, endpoint); // TODO TODO TODO this can be optimized, to only send new sigs
                                         }
@@ -924,6 +921,7 @@ namespace DLT
                 return BlockVerifyStatus.Invalid;
             }
 
+            List<byte[]> txs_to_fetch = new List<byte[]>();
             Dictionary<byte[], IxiNumber> minusBalances = new Dictionary<byte[], IxiNumber>(new ByteArrayComparer());
             foreach (byte[] txid in b.transactions)
             {
@@ -947,14 +945,12 @@ namespace DLT
                     }
                     if (fetchTransactions)
                     {
-                        Logging.info("Missing transaction '{0}'. Requesting.", Transaction.txIdV8ToLegacy(txid));
+                        Logging.info("Missing transaction '{0}', adding to fetch queue.", Transaction.txIdV8ToLegacy(txid));
                         var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
-                        if(pii.processed)
+                        if (pii.processed || pii.lastRequested == 0)
                         {
-                            CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum, endpoint);
-                        }else if (pii.lastRequested == 0)
-                        {
-                            Node.inventoryCache.processInventoryItem(pii);
+                            pii.lastRequested = Clock.getTimestamp();
+                            txs_to_fetch.Add(txid);
                         }
                     }else
                     {
@@ -1057,6 +1053,11 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
+            }
+
+            if(fetchTransactions)
+            {
+                TransactionProtocolMessages.broadcastGetTransactions2(txs_to_fetch, -(long)b.blockNum, endpoint);
             }
 
             // Pass #2 verifications for multisigs after all transactions have been received
@@ -1518,7 +1519,7 @@ namespace DLT
         }
 
         // verifies all signatures according to Block v5 consensus
-        public bool verifyBlockSignatures(Block block)
+        public bool verifyBlockSignatures(Block block, RemoteEndpoint endpoint)
         {
             if (block.blockNum > 6 && block.version >= BlockVer.v5)
             {
@@ -1588,7 +1589,7 @@ namespace DLT
                             foreach (var sig in added_signatures)
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], block.blockChecksum), true);
-                                SignatureProtocolMessages.broadcastBlockSignature(sig[0], sig[1], block.blockNum, block.blockChecksum, null, null);
+                                SignatureProtocolMessages.broadcastBlockSignature(sig[0], sig[1], block.blockNum, block.blockChecksum, endpoint, null);
                             }
                         }
                     }
@@ -1723,7 +1724,7 @@ namespace DLT
                     return false;
                 }else
                 {
-                    if (target_block != null && !verifyBlockSignatures(target_block))
+                    if (target_block != null && !verifyBlockSignatures(target_block, null))
                     {
                         blacklistBlock(localNewBlock);
                         localNewBlock = null;
@@ -1746,7 +1747,7 @@ namespace DLT
                     }
                 }
 
-                if (verifyBlockSignatures(localNewBlock))
+                if (verifyBlockSignatures(localNewBlock, null))
                 {
                     if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
                     {
