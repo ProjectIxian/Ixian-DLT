@@ -198,7 +198,12 @@ namespace DLTNode
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
             blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
-            blockData.Add("TX IDs", JsonConvert.SerializeObject(block.transactions));
+            List<string> txids = new List<string>();
+            foreach(byte[] tx in block.transactions)
+            {
+                txids.Add(Transaction.txIdV8ToLegacy(tx));
+            }
+            blockData.Add("TX IDs", JsonConvert.SerializeObject(txids));
             blockData.Add("Last Superblock", block.lastSuperBlockNum.ToString());
             blockData.Add("Last Superblock checksum", Crypto.hashToString(block.lastSuperBlockChecksum));
 
