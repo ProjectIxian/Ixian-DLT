@@ -380,6 +380,10 @@ namespace DLT
 
             static void handleInventory(byte[] data, RemoteEndpoint endpoint)
             {
+                if(Node.blockSync.synchronizing)
+                {
+                    return;
+                }
                 using (MemoryStream m = new MemoryStream(data))
                 {
                     using (BinaryReader reader = new BinaryReader(m))
@@ -486,6 +490,10 @@ namespace DLT
 
             static void handleInventory2(byte[] data, RemoteEndpoint endpoint)
             {
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
                 using (MemoryStream m = new MemoryStream(data))
                 {
                     using (BinaryReader reader = new BinaryReader(m))
