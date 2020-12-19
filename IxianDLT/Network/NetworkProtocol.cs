@@ -373,6 +373,15 @@ namespace DLT
                             Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, null, 0, 0, true);
                             endpoint.helloReceived = true;
                             NetworkClientManager.recalculateLocalTimeDifference();
+
+                            if (Node.blockSync.synchronizing && (endpoint.presenceAddress.type == 'M' || endpoint.presenceAddress.type == 'H'))
+                            {
+                                // Get random presences
+                                endpoint.sendData(ProtocolMessageCode.getRandomPresences, new byte[1] { (byte)'M' });
+                                endpoint.sendData(ProtocolMessageCode.getRandomPresences, new byte[1] { (byte)'H' });
+
+                                CoreProtocolMessage.subscribeToEvents(endpoint);
+                            }
                         }
                     }
                 }
@@ -380,10 +389,6 @@ namespace DLT
 
             static void handleInventory(byte[] data, RemoteEndpoint endpoint)
             {
-                if(Node.blockSync.synchronizing)
-                {
-                    return;
-                }
                 using (MemoryStream m = new MemoryStream(data))
                 {
                     using (BinaryReader reader = new BinaryReader(m))
@@ -469,8 +474,12 @@ namespace DLT
                                 }
                             }
                         }
-                        TransactionProtocolMessages.broadcastGetTransactions(tx_list, endpoint);
                         PresenceProtocolMessages.broadcastGetKeepAlives(ka_list, endpoint);
+                        if (Node.blockSync.synchronizing)
+                        {
+                            return;
+                        }
+                        TransactionProtocolMessages.broadcastGetTransactions(tx_list, endpoint);
                         if (request_next_block)
                         {
                             byte include_tx = 2;
@@ -490,10 +499,6 @@ namespace DLT
 
             static void handleInventory2(byte[] data, RemoteEndpoint endpoint)
             {
-                if (Node.blockSync.synchronizing)
-                {
-                    return;
-                }
                 using (MemoryStream m = new MemoryStream(data))
                 {
                     using (BinaryReader reader = new BinaryReader(m))
@@ -578,8 +583,12 @@ namespace DLT
                                 }
                             }
                         }
-                        TransactionProtocolMessages.broadcastGetTransactions2(tx_list, 0, endpoint);
                         PresenceProtocolMessages.broadcastGetKeepAlives(ka_list, endpoint);
+                        if (Node.blockSync.synchronizing)
+                        {
+                            return;
+                        }
+                        TransactionProtocolMessages.broadcastGetTransactions2(tx_list, 0, endpoint);
                         if (request_next_block)
                         {
                             byte include_tx = 2;
