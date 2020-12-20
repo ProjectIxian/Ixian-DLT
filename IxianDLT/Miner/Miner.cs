@@ -335,10 +335,17 @@ namespace DLT
         {
             if (currentBlockNum > 0)
             {
-                Block tmpBlock = Node.blockChain.getBlock(currentBlockNum, false, false);
-                if (tmpBlock == null || tmpBlock.powField != null)
+                if (currentBlockNum > ConsensusConfig.getRedactedWindowSize()
+                    && currentBlockNum + ConsensusConfig.getRedactedWindowSize() + 100 <= Node.blockChain.getLastBlockNum())
                 {
                     blockFound = false;
+                }else
+                {
+                    Block tmpBlock = Node.blockChain.getBlock(currentBlockNum, false, false);
+                    if (tmpBlock == null || tmpBlock.powField != null)
+                    {
+                        blockFound = false;
+                    }
                 }
             }
 
@@ -346,10 +353,18 @@ namespace DLT
             {
                 if (activePoolBlock != null)
                 {
-                    Block tmpBlock = Node.blockChain.getBlock(activePoolBlock.blockNum, false, false);
-                    if (tmpBlock == null || tmpBlock.powField != null)
+                    if (activePoolBlock.blockNum > ConsensusConfig.getRedactedWindowSize()
+                        && activePoolBlock.blockNum + ConsensusConfig.getRedactedWindowSize() + 100 <= Node.blockChain.getLastBlockNum())
                     {
                         activePoolBlock = null;
+                    }
+                    else
+                    {
+                        Block tmpBlock = Node.blockChain.getBlock(activePoolBlock.blockNum, false, false);
+                        if (tmpBlock == null || tmpBlock.powField != null)
+                        {
+                            activePoolBlock = null;
+                        }
                     }
                 }
             }
