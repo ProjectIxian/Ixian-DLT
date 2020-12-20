@@ -518,7 +518,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        int msg_id = (int)reader.ReadIxiVarUInt();
+                        int msg_id = (int)reader.ReadIxiVarInt();
                         int tx_count = (int)reader.ReadIxiVarUInt();
 
                         int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
