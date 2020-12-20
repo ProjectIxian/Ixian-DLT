@@ -336,7 +336,7 @@ namespace DLT
             if (currentBlockNum > 0)
             {
                 if (currentBlockNum > ConsensusConfig.getRedactedWindowSize()
-                    && currentBlockNum + ConsensusConfig.getRedactedWindowSize() + 100 <= Node.blockChain.getLastBlockNum())
+                    && currentBlockNum + ConsensusConfig.getRedactedWindowSize() - 100 <= Node.blockChain.getLastBlockNum())
                 {
                     blockFound = false;
                 }else
@@ -354,7 +354,7 @@ namespace DLT
                 if (activePoolBlock != null)
                 {
                     if (activePoolBlock.blockNum > ConsensusConfig.getRedactedWindowSize()
-                        && activePoolBlock.blockNum + ConsensusConfig.getRedactedWindowSize() + 100 <= Node.blockChain.getLastBlockNum())
+                        && activePoolBlock.blockNum + ConsensusConfig.getRedactedWindowSize() - 100 <= Node.blockChain.getLastBlockNum())
                     {
                         activePoolBlock = null;
                     }
