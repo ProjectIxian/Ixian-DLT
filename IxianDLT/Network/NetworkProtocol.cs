@@ -379,8 +379,6 @@ namespace DLT
                                 // Get random presences
                                 endpoint.sendData(ProtocolMessageCode.getRandomPresences, new byte[1] { (byte)'M' });
                                 endpoint.sendData(ProtocolMessageCode.getRandomPresences, new byte[1] { (byte)'H' });
-
-                                CoreProtocolMessage.subscribeToEvents(endpoint);
                             }
                         }
                     }
