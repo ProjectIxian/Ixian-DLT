@@ -373,13 +373,6 @@ namespace DLT
                             Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, null, 0, 0, true);
                             endpoint.helloReceived = true;
                             NetworkClientManager.recalculateLocalTimeDifference();
-
-                            if (Node.blockSync.synchronizing && (endpoint.presenceAddress.type == 'M' || endpoint.presenceAddress.type == 'H'))
-                            {
-                                // Get random presences
-                                endpoint.sendData(ProtocolMessageCode.getRandomPresences, new byte[1] { (byte)'M' });
-                                endpoint.sendData(ProtocolMessageCode.getRandomPresences, new byte[1] { (byte)'H' });
-                            }
                         }
                     }
                 }
