@@ -17,9 +17,9 @@ jobs:
     - name: Checkout Ixian-Core
       uses: actions/checkout@v2
       with:
-        repository: my-org/my-tools
-        path: Ixian-Core
-        ref: ${GITHUB_REF##*/}
+        repository: ProjectIxian/Ixian-Core
+        path: ../Ixian-Core
+        ref: ${{GITHUB_REF##*/}}
 
     - name: Restore dependencies
       run: nuget restore DLTNode.sln
