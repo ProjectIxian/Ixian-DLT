@@ -17,6 +17,8 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.301
+    - name: Cloning Ixian-Core
+      run: git clone -b $GITHUB_BASE_REF https://github.com/ProjectIxian/Ixian-Core.git
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
