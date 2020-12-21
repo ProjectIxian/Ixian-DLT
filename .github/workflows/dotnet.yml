@@ -9,19 +9,18 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 4.8
+    - name: Setup MSBuild.exe
+      uses: microsoft/setup-msbuild@2008f912f56e61277eefaac6d1888b750582aa16
+
     - name: Cloning Ixian-Core
       run: git clone -b ${GITHUB_REF##*/} https://github.com/ProjectIxian/Ixian-Core.git ../Ixian-Core
     - name: Restore dependencies
-      run: dotnet restore
+      run: nuget restore DLTNode.sln
     - name: Build
-      run: dotnet build --no-restore
+      run: msbuild DLTNode.sln
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: msbuild test --no-build --verbosity normal
