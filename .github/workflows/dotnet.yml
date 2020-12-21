@@ -14,11 +14,18 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Cloning Ixian-Core
-      run: git clone -b ${GITHUB_REF##*/} https://github.com/ProjectIxian/Ixian-Core.git D:\a\Ixian-DLT\Ixian-Core
+    - name: Checkout Ixian-Core
+      uses: actions/checkout@v2
+      with:
+        repository: my-org/my-tools
+        path: Ixian-Core
+        ref: ${GITHUB_REF##*/}
+
     - name: Restore dependencies
       run: nuget restore DLTNode.sln
+
     - name: Build
       run: msbuild DLTNode.sln
+
     - name: Test
       run: msbuild test --no-build --verbosity normal
