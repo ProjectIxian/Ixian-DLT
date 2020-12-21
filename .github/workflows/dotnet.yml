@@ -3,8 +3,6 @@ name: .NET
 on:
   push:
     branches: [ 'master', 'development' ]
-  pull_request:
-    branches: [ 'master', 'development' ]
 
 jobs:
   build:
@@ -19,7 +17,7 @@ jobs:
       with:
         repository: ProjectIxian/Ixian-Core
         path: ../Ixian-Core
-        ref: ${{ GITHUB_REF }}
+        ref: ${{ github.event.push.ref }}
 
     - name: Restore dependencies
       run: nuget restore DLTNode.sln
