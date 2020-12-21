@@ -15,7 +15,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Cloning Ixian-Core
-      run: git clone -b ${GITHUB_REF##*/} https://github.com/ProjectIxian/Ixian-Core.git ../Ixian-Core
+      run: git clone -b ${GITHUB_REF##*/} https://github.com/ProjectIxian/Ixian-Core.git ..\Ixian-Core
     - name: Restore dependencies
       run: nuget restore DLTNode.sln
     - name: Build
