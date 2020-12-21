@@ -13,8 +13,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Setup MSBuild.exe
-      uses: microsoft/setup-msbuild@2008f912f56e61277eefaac6d1888b750582aa16
 
     - name: Cloning Ixian-Core
       run: git clone -b ${GITHUB_REF##*/} https://github.com/ProjectIxian/Ixian-Core.git ../Ixian-Core
