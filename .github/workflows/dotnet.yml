@@ -10,13 +10,14 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Checkout Ixian-DLT
     - uses: actions/checkout@v2
 
     - name: Checkout Ixian-Core
       uses: actions/checkout@v2
       with:
         repository: ProjectIxian/Ixian-Core
-        path: ../Ixian-Core
+        path: Ixian-Core
         ref: ${{ github.event.push.ref }}
 
     - name: Restore dependencies
