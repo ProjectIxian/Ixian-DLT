@@ -6,7 +6,7 @@ on:
 
 defaults:
   run:
-    working-directory: Ixian
+    working-directory: Ixian-DLT
 
 jobs:
   build:
@@ -16,19 +16,27 @@ jobs:
     steps:
     - name: Checkout Ixian-DLT
       uses: actions/checkout@v2
+      with:
+        path: Ixian-DLT
 
     - name: Checkout Ixian-Core
       uses: actions/checkout@v2
       with:
         repository: ProjectIxian/Ixian-Core
-        path: ./Ixian-Core
+        path: Ixian-Core
         ref: ${{ github.event.push.ref }}
+
+    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
+    - name: Setup MSBuild.exe
+      uses: microsoft/setup-msbuild@2008f912f56e61277eefaac6d1888b750582aa16
+      env:
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
 
     - name: Restore dependencies
       run: nuget restore DLTNode.sln
 
-    - name: Build
+    - name: Building Ixian-DLT
       run: msbuild DLTNode.sln
 
-    - name: Test
-      run: msbuild test --no-build --verbosity normal
+    - name: Running Unit Tests
+      run: dotnet test --no-build --verbosity normal
