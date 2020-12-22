@@ -39,4 +39,4 @@ jobs:
       run: msbuild DLTNode.sln
 
     - name: Running Unit Tests
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test UnitTests\bin\Debug\unittests.dll --verbosity normal
