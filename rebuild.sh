@@ -1,13 +1,13 @@
 #!/bin/sh -e
 echo Rebuilding Ixian DLT...
 echo Cleaning previous build
-msbuild DLTNode.sln /p:Configuration=Release /target:Clean
+msbuild DLTNode.sln /p:Configuration=Release /target:DLTNode:Clean
 echo Removing packages
 rm -rf packages
 echo Restoring packages
 nuget restore DLTNode.sln
 echo Building DLT
-msbuild DLTNode.sln /p:Configuration=Release
+msbuild DLTNode.sln /p:Configuration=Release /target:DLTNode
 echo Cleaning Argon2
 cd Argon2_C
 make clean
