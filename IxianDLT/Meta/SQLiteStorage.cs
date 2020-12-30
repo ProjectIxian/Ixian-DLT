@@ -1,3 +1,15 @@
+// Copyright (C) 2017-2020 Ixian OU
+// This file is part of Ixian DLT - www.github.com/ProjectIxian/Ixian-DLT
+//
+// Ixian DLT is free software: you can redistribute it and/or modify
+// it under the terms of the MIT License as published
+// by the Open Source Initiative.
+//
+// Ixian DLT is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MIT License for more details.
+
 using IXICore;
 using IXICore.Meta;
 using IXICore.Utils;
