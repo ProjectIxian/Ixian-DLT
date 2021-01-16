@@ -361,14 +361,18 @@ namespace DLT
                         if (b.version < BlockVer.v8)
                         {
                             pit.add(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx)));
+                            if (cf.Contains(tx))
+                            {
+                                interesting_transactions.Add(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx)));
+                            }
                         }
                         else
                         {
                             pit.add(tx);
-                        }
-                        if (cf.Contains(tx))
-                        {
-                            interesting_transactions.Add(tx);
+                            if (cf.Contains(tx))
+                            {
+                                interesting_transactions.Add(tx);
+                            }
                         }
                     }
                     // make sure we ended up with the correct PIT
