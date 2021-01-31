@@ -2186,6 +2186,7 @@ namespace DLT
                     foundation_balance_after = foundation_balance_after + remainder;
                     Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
                     //Logging.info(string.Format("Awarded {0} IXI to foundation from fee division remainder", foundationAward.ToString()));
+                    remainder = 0;
                 }
             }
 
@@ -2199,6 +2200,15 @@ namespace DLT
                 Wallet signer_wallet = Node.walletState.getWallet(addressBytes);
                 IxiNumber balance_before = signer_wallet.balance;
                 IxiNumber balance_after = balance_before + tAward;
+                // Add remainder to the first signer
+                if (b.version >= BlockVer.v8)
+                {
+                    if (remainder > (long)0)
+                    {
+                        balance_after = balance_after + remainder;
+                        remainder = 0;
+                    }
+                }
                 Node.walletState.setWalletBalance(addressBytes, balance_after);
                 if(!Node.walletState.inTransaction)
                 {
