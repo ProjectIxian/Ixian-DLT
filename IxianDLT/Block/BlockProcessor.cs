@@ -2354,7 +2354,7 @@ namespace DLT
                 }
 
                 // lock transaction v5 with block v8
-                if (block_version == BlockVer.v8 && transaction.version != 5)
+                if (block_version == BlockVer.v8 && (transaction.version < 5 || transaction.version > 6))
                 {
                     if (Node.blockChain.getLastBlockVersion() >= BlockVer.v8 && transaction.version < 5)
                     {
