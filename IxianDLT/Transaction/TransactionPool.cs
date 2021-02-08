@@ -11,7 +11,6 @@
 // MIT License for more details.
 
 using DLT.Meta;
-using DLT.Network;
 using IXICore;
 using IXICore.Inventory;
 using IXICore.Meta;
@@ -494,6 +493,11 @@ namespace DLT
                     Logging.warn("Adding transaction {{ {0} }}, but to address is incorrect!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
+                /*if (!Address.validateAddress(entry.Key))
+                {
+                    Logging.warn("Adding transaction {{ {0} }}, but to address is incorrect!", Transaction.txIdV8ToLegacy(transaction.id));
+                    return false;
+                }*/
                 if (entry.Value < 0)
                 {
                     Logging.warn("Transaction amount was invalid for txid {0}.", Transaction.txIdV8ToLegacy(transaction.id));

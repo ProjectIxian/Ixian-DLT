@@ -392,6 +392,9 @@ namespace DLT.Meta
 
                 distributeGenesisFunds(genesisFunds);
 
+                CoreNetworkUtils.seedTestNetNodes = new List<string[]>();
+                CoreNetworkUtils.seedNodes = new List<string[]>();
+
                 genesisNode = true;
                 PresenceList.myPresenceType = 'M';
                 blockProcessor.resumeOperation();
