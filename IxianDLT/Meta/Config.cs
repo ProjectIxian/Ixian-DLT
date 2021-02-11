@@ -90,14 +90,14 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.8.0-rc1"; // DLT Node version
+            public static readonly string version = "xdc-0.8.0"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 2000000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 2100000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
