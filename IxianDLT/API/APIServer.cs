@@ -115,16 +115,6 @@ namespace DLTNode
                 response = onSupply();
             }
 
-            if (methodName.Equals("debugsave", StringComparison.OrdinalIgnoreCase))
-            {
-                response = onDebugSave();
-            }
-
-            if (methodName.Equals("debugload", StringComparison.OrdinalIgnoreCase))
-            {
-                response = onDebugLoad();
-            }
-
             if (methodName.Equals("countnodeversions", StringComparison.OrdinalIgnoreCase))
             {
                 response = onCountNodeVersions();
@@ -754,32 +744,6 @@ namespace DLTNode
             string supply = Node.walletState.calculateTotalSupply().ToString();
 
             return new JsonResponse { result = supply, error = error };
-        }
-
-        public JsonResponse onDebugSave()
-        {
-            JsonError error = null;
-
-            string outstring = "Failed";
-            if (DebugSnapshot.save())
-                outstring = "Debug Snapshot SAVED";
-            else
-                error = new JsonError { code = 400, message = "failed" };
-
-            return new JsonResponse { result = outstring, error = error };
-        }
-
-        public JsonResponse onDebugLoad()
-        {
-            JsonError error = null;
-
-            string outstring = "Failed";
-            if (DebugSnapshot.load())
-                outstring = "Debug Snapshot LOADED";
-            else
-                error = new JsonError { code = 400, message = "failed" };
-
-            return new JsonResponse { result = outstring, error = error };
         }
 
         private JsonResponse onCountNodeVersions()

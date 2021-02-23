@@ -464,30 +464,15 @@ namespace DLT
                         Logging.info(String.Format("NetworkProtocol::broadcastGetBlock: {0}", mw.Length));
 #endif
 
-                        if(block_num < 1655000)
+                        if (endpoint != null)
                         {
-                            // TODO TODO TODO this/getBlock2 section is temorary, remove later
-                            if (endpoint != null)
+                            if (endpoint.isConnected())
                             {
-                                if (endpoint.isConnected())
-                                {
-                                    endpoint.sendData(ProtocolMessageCode.getBlock2, mw.ToArray());
-                                    return true;
-                                }
+                                endpoint.sendData(ProtocolMessageCode.getBlock3, mw.ToArray());
+                                return true;
                             }
-                            return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock2, mw.ToArray(), block_num, skipEndpoint);
-                        }else
-                        {
-                            if (endpoint != null)
-                            {
-                                if (endpoint.isConnected())
-                                {
-                                    endpoint.sendData(ProtocolMessageCode.getBlock3, mw.ToArray());
-                                    return true;
-                                }
-                            }
-                            return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock3, mw.ToArray(), block_num, skipEndpoint);
                         }
+                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock3, mw.ToArray(), block_num, skipEndpoint);
                     }
                 }
             }
