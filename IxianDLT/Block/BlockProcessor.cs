@@ -1263,6 +1263,7 @@ namespace DLT
                         if(totalSupplyBefore != totalSupplyAfter)
                         {
                             Logging.error(String.Format("Block #{0} did not cleanly revert!", b.blockNum));
+                            return BlockVerifyStatus.Invalid;
                         }
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {

@@ -886,7 +886,7 @@ namespace DLT
                 Transaction tx = TransactionPool.getAppliedTransaction(tx_id, block.blockNum, true);
                 if(tx == null)
                 {
-                    Logging.error("Cannot revert transaction " + tx_id + ", transaction doesn't exist.");
+                    Logging.error("Cannot revert transaction " + Transaction.txIdV8ToLegacy(tx_id) + ", transaction doesn't exist.");
                     continue;
                 }
                 if(tx.type == (int)Transaction.Type.StakingReward)
