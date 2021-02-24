@@ -667,6 +667,10 @@ namespace DLT
                             newSig[0] = Convert.FromBase64String(split_sig[0]);
                         }
                         newSig[1] = Convert.FromBase64String(split_sig[1]);
+                        if (block.blockProposer == null)
+                        {
+                            block.blockProposer = new Address(newSig[1]).address;
+                        }
                         if (!block.containsSignature(new Address(newSig[1], null, false)))
                         {
                             block.signatures.Add(newSig);

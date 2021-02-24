@@ -128,6 +128,10 @@ namespace DLT
                     b.signatures = new List<byte[][]>();
                     foreach (var sig in signatures)
                     {
+                        if(b.blockProposer == null)
+                        {
+                            b.blockProposer = new Address(sig[1]).address;
+                        }
                         b.signatures.Add(new byte[2][] { sig[0], sig[1] });
                     }
                     if (transactions != null)

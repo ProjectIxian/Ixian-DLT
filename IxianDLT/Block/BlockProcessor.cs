@@ -876,6 +876,12 @@ namespace DLT
                 }
             }
 
+            if (!b.verifyBlockProposer())
+            {
+                Logging.error("Error verifying block proposer while force refreshing signatures.");
+                return BlockVerifyStatus.Indeterminate;
+            }
+
             if (lastBlockNum + 1 == b.blockNum)
             {
                 networkUpgraded = false;
@@ -1509,6 +1515,18 @@ namespace DLT
             }
             sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x[1], y[1]));
 
+            // First add block proposer's sig
+            if (block.blockProposer != null)
+            {
+                byte[][] signature = sorted_sigs.Find(x => (new Address(x[1], null, false)).address.SequenceEqual(block.blockProposer));
+                if (signature == null)
+                {
+                    Logging.error("Error freezing signatures of target block #{0} {1}, cannot find block proposer's signature.", block.blockNum, Crypto.hashToString(block.blockChecksum));
+                    return null;
+                }
+                required_sigs.Add(signature);
+                sorted_sigs.Remove(signature);
+            }
 
             foreach (var entry in sorted_sigs)
             {
@@ -1531,7 +1549,7 @@ namespace DLT
             return required_sigs;
         }
 
-        // verifies all signatures according to Block v5 consensus
+        // verifies all signatures
         public bool verifyBlockSignatures(Block block, RemoteEndpoint endpoint)
         {
             if (block.blockNum > 6 && block.version >= BlockVer.v5)
@@ -2574,6 +2592,7 @@ namespace DLT
                     // Create a new block and add all the transactions in the pool
                     localNewBlock = new Block();
                     localNewBlock.timestamp = Clock.getNetworkTimestamp();
+                    localNewBlock.blockProposer = IxianHandler.getWalletStorage().getPrimaryAddress();
 
                     Block last_block = Node.blockChain.getLastBlock();
                     if (last_block != null)
