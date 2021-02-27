@@ -231,6 +231,8 @@ namespace DLTNode
             {
                 new Thread(() =>
                 {
+                    long start_time = Clock.getTimestampMillis();
+                    int spam_counter = 0;
                     for (int i = 0; i < tx_count; i++)
                     {
                         if (pubKey != null)
@@ -247,6 +249,18 @@ namespace DLTNode
                         Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                         // Console.WriteLine("> sending {0}", transaction.id);
                         TransactionPool.addTransaction(transaction);
+
+                        spam_counter++;
+                        if (spam_counter >= targetTps)
+                        {
+                            long elapsed = Clock.getTimestampMillis() - start_time;
+                            if (elapsed < 1000)
+                            {
+                                Thread.Sleep(1000 - (int)elapsed);
+                            }
+                            spam_counter = 0;
+                            start_time = Clock.getTimestampMillis();
+                        }
                     }
                 }).Start();
             }
