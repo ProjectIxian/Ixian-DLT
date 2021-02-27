@@ -536,7 +536,7 @@ namespace DLT
                     {
                         if(!b.verifyBlockProposer())
                         {
-                            Logging.error("Error verifying block proposer while force refreshing signatures.");
+                            Logging.error("Error verifying block proposer while force refreshing signatures on block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             return false;
                         }
                         blocks[idx].setFrozenSignatures(b.signatures);

@@ -370,6 +370,15 @@ namespace DLT
                     sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
                     // this block already has a sigfreeze, don't tamper with the signatures
                     Block targetBlock = Node.blockChain.getBlock(b.blockNum);
+                    if(targetBlock == null)
+                    {
+                        Logging.error("Target block #{0} ({1}) is null, cannot handle sig freeze.", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                        return false;
+                    }
+                    if(b.blockProposer == null)
+                    {
+                        b.blockProposer = targetBlock.blockProposer;
+                    }
                     if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()))
                     {
                         // we already have the correct block
@@ -407,7 +416,7 @@ namespace DLT
                     }
                     else
                     {
-                        Logging.warn(String.Format("Received block #{0} ({1}) which was sigFreezed but has an incorrect sigfreeze checksum, re-requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                        Logging.warn("Received block #{0} ({1}) which was sigFreezed but has an incorrect sigfreeze checksum, re-requesting the block from the network!", b.blockNum, Crypto.hashToString(b.blockChecksum));
                         BlockProtocolMessages.broadcastGetBlock(b.blockNum, endpoint, null);
                         return false;
                     }
@@ -878,7 +887,7 @@ namespace DLT
 
             if (!b.verifyBlockProposer())
             {
-                Logging.error("Error verifying block proposer while force refreshing signatures.");
+                Logging.error("Error verifying block proposer while verifying block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                 return BlockVerifyStatus.Indeterminate;
             }
 
@@ -899,7 +908,7 @@ namespace DLT
                     ulong expectedDifficulty = calculateDifficulty(b.version);
                     if (b.difficulty != expectedDifficulty)
                     {
-                        Logging.warn(String.Format("Received block #{0} ({1}) which had a difficulty {2}, expected difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.difficulty, expectedDifficulty));
+                        Logging.warn("Received block #{0} ({1}) which had a difficulty {2}, expected difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.difficulty, expectedDifficulty);
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -1273,7 +1282,12 @@ namespace DLT
                         }
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {
-                            Logging.error(String.Format("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum)));
+                            string block_proposer = "";
+                            if(b.blockProposer != null)
+                            {
+                                block_proposer = Base58Check.Base58CheckEncoding.EncodePlain(b.blockProposer);
+                            }
+                            Logging.error("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}, block proposer: {3}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum), block_proposer);
                             return BlockVerifyStatus.Invalid;
                         }
                     }else
@@ -1566,6 +1580,10 @@ namespace DLT
                 }
 
                 List<byte[][]> required_sigs = extractRequiredSignatures(block);
+                if(required_sigs == null)
+                {
+                    return false;
+                }
 
                 if (required_consensus_count > 2)
                 {
@@ -1676,6 +1694,11 @@ namespace DLT
 
             List<byte[][]> frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
 
+            if (frozen_block_sigs == null)
+            {
+                return false;
+            }
+
             PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(target_block.blockChecksum, ConsensusConfig.maximumBlockSigners * 2);
 
             ByteArrayComparer bac = new ByteArrayComparer();
@@ -1702,6 +1725,11 @@ namespace DLT
 
                 if (frozen_block_sigs.Count >= required_consensus_count_adjusted)
                 {
+                    if (!target_block.verifyBlockProposer())
+                    {
+                        Logging.error("Error verifying block proposer while freezing signatures on block {0} ({1})", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum));
+                        return false;
+                    }
                     target_block.setFrozenSignatures(frozen_block_sigs);
                     return true;
                 }else
@@ -1784,8 +1812,169 @@ namespace DLT
                     {
                         if (Node.blockChain.getBlock(localNewBlock.blockNum) == null)
                         {
-                            Logging.error(String.Format("We have an invalid block #{0} in verifyBlockAcceptance, requesting the block again.", localNewBlock.blockNum));
+                            Logging.error("We have an invalid block #{0} in verifyBlockAcceptance, requesting the block again.", localNewBlock.blockNum);
                             requestBlockNum = localNewBlock.blockNum;
+                            localNewBlock = null;
+                            requestBlockAgain = true;
+                        }
+                        else
+                        {
+                            Logging.error("We have an invalid block #{0} in verifyBlockAcceptance.");
+                            localNewBlock = null;
+                            return false;
+                        }
+                    }
+
+                    if (localNewBlock != null)
+                    {
+                        if (localNewBlock.blockNum != last_block_num + 1)
+                        {
+                            Logging.warn("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, last_block_num + 1, Environment.StackTrace);
+                            // block has already been applied or ahead, waiting for new blocks
+                            localNewBlock = null;
+                            return false;
+                        }
+
+                        Node.walletState.beginTransaction(localNewBlock.blockNum, false);
+                        // accept this block, apply its transactions, recalc consensus, etc
+                        if (applyAcceptedBlock(localNewBlock) == true)
+                        {
+                            bool ws_checksum_ok = false;
+                            byte[] ws_checksum = null;
+                            if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
+                            {
+                                // no need to re-verify as verifyBlock already does this
+                                ws_checksum_ok = true;
+                            }
+                            else
+                            {
+                                ws_checksum = Node.walletState.calculateWalletStateChecksum();
+                                if (ws_checksum.SequenceEqual(localNewBlock.walletStateChecksum))
+                                {
+                                    ws_checksum_ok = true;
+                                }
+                            }
+                            if (!ws_checksum_ok)
+                            {
+                                Logging.error("After applying block #{0} v{1}, walletStateChecksum is incorrect, shutting down!. Block's WS: {2}, actual WS: {3}", localNewBlock.blockNum,
+                                    localNewBlock.version, Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(ws_checksum));
+                                // TODO TODO perhaps try reverting the block
+                                operating = false;
+                                Node.stop();
+                                return false;
+                                /*localNewBlock.logBlockDetails();
+                                requestBlockNum = localNewBlock.blockNum;
+                                localNewBlock = null;
+                                requestBlockAgain = true;*/
+                            }
+                            else
+                            {
+                                Node.walletState.commitTransaction(localNewBlock.blockNum);
+                                // append current block
+                                Node.blockChain.appendBlock(localNewBlock);
+
+                                currentBlockStartTime = DateTime.UtcNow;
+                                lastBlockStartTime = DateTime.UtcNow;
+                                last_block = localNewBlock;
+                                last_block_num = localNewBlock.blockNum;
+                                Block current_block = localNewBlock;
+                                localNewBlock = null;
+                                forkedFlag = false;
+
+                                if (Config.blockNotifyCommand != "")
+                                {
+                                    IxiUtils.executeProcess(Config.blockNotifyCommand, current_block.blockNum.ToString(), false);
+                                }
+
+                                pendingSuperBlocks.Remove(current_block.blockNum);
+
+                                if (current_block.blockNum > 5)
+                                {
+                                    // append sigfreezed block
+                                    Block tmp_block = Node.blockChain.getBlock(current_block.blockNum - 5);
+                                    if (tmp_block != null)
+                                    {
+                                        if (tmp_block.frozenSignatures != null)
+                                        {
+                                            tmp_block.signatures = tmp_block.frozenSignatures;
+                                            tmp_block.setFrozenSignatures(null);
+                                        }
+                                        Node.blockChain.updateBlock(tmp_block);
+                                    }
+                                }
+
+                                block_accepted = true;
+
+                                // Adjust block generation time to get close to the block generation interval target
+                                Block tmp_prev_block = Node.blockChain.getBlock(current_block.blockNum - 1);
+                                if (tmp_prev_block != null)
+                                {
+                                    averageBlockGenerationInterval = (averageBlockGenerationInterval + (current_block.timestamp - tmp_prev_block.timestamp)) / 2;
+
+                                    if (averageBlockGenerationInterval > ConsensusConfig.blockGenerationInterval + 1)
+                                    {
+                                        blockGenerationInterval = ConsensusConfig.minBlockTimeDifference + 1;
+                                    }
+                                    else if (averageBlockGenerationInterval + 1 < ConsensusConfig.blockGenerationInterval)
+                                    {
+                                        blockGenerationInterval = ConsensusConfig.blockGenerationInterval;
+                                    }
+                                }
+
+                                if (Node.miner.searchMode == BlockSearchMode.latestBlock)
+                                {
+                                    Node.miner.forceSearchForBlock();
+                                }
+
+                                Logging.info(String.Format("Accepted block #{0}.", current_block.blockNum));
+                                current_block.logBlockDetails();
+
+                                // Reset transaction limits
+                                //TransactionPool.resetSocketTransactionLimits();
+
+                                IxianHandler.status = NodeStatus.ready;
+
+                                if (highestNetworkBlockNum > last_block_num)
+                                {
+                                    BlockProtocolMessages.broadcastGetBlock(last_block_num + 1, null, null, 1);
+                                }
+                                else
+                                {
+                                    highestNetworkBlockNum = 0;
+                                }
+
+                                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.blockData, current_block.getBytes(false), BitConverter.GetBytes(current_block.blockNum));
+
+                                if (Node.miner.searchMode != BlockSearchMode.latestBlock)
+                                {
+                                    Node.miner.checkActiveBlockSolved();
+                                }
+
+                                // Broadcast blockheight only if the node is synchronized
+                                if (!Node.blockSync.synchronizing)
+                                {
+                                    BlockProtocolMessages.broadcastBlockHeight(last_block_num, current_block.blockChecksum);
+                                }
+
+                                cleanupBlockBlacklist();
+                                if (last_block_num % Config.saveWalletStateEveryBlock == 0)
+                                {
+                                    WalletStateStorage.saveWalletState(last_block_num);
+                                }
+
+                                if (Config.enableChainReorgTest)
+                                {
+                                    chainReorgTest(last_block_num);
+                                }
+                            }
+                        }
+                        else if (Node.blockChain.getBlock(localNewBlock.blockNum) == null)
+                        {
+                            Logging.error(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
+                            localNewBlock.logBlockDetails();
+                            requestBlockNum = localNewBlock.blockNum;
+                            Node.walletState.revertTransaction(localNewBlock.blockNum);
+                            Node.blockChain.revertBlockTransactions(localNewBlock);
                             localNewBlock = null;
                             requestBlockAgain = true;
                         }
@@ -1793,160 +1982,6 @@ namespace DLT
                         {
                             localNewBlock = null;
                         }
-                    }
-
-                    if (localNewBlock.blockNum != last_block_num + 1)
-                    {
-                        Logging.warn(String.Format("Tried to apply an unexpected block #{0}, expected #{1}. Stack trace: {2}", localNewBlock.blockNum, last_block_num + 1, Environment.StackTrace));
-                        // block has already been applied or ahead, waiting for new blocks
-                        localNewBlock = null;
-                        return false;
-                    }
-
-                    Node.walletState.beginTransaction(localNewBlock.blockNum, false);
-                    // accept this block, apply its transactions, recalc consensus, etc
-                    if (applyAcceptedBlock(localNewBlock) == true)
-                    {
-                        bool ws_checksum_ok = false;
-                        byte[] ws_checksum = null;
-                        if (localNewBlock.version >= BlockVer.v5 && localNewBlock.lastSuperBlockChecksum == null)
-                        {
-                            // no need to re-verify as verifyBlock already does this
-                            ws_checksum_ok = true;
-                        }
-                        else
-                        {
-                            ws_checksum = Node.walletState.calculateWalletStateChecksum();
-                            if (ws_checksum.SequenceEqual(localNewBlock.walletStateChecksum))
-                            {
-                                ws_checksum_ok = true;
-                            }
-                        }
-                        if (!ws_checksum_ok)
-                        {
-                            Logging.error("After applying block #{0} v{1}, walletStateChecksum is incorrect, shutting down!. Block's WS: {2}, actual WS: {3}", localNewBlock.blockNum,
-                                localNewBlock.version, Crypto.hashToString(localNewBlock.walletStateChecksum), Crypto.hashToString(ws_checksum));
-                            // TODO TODO perhaps try reverting the block
-                            operating = false;
-                            Node.stop();
-                            return false;
-                            /*localNewBlock.logBlockDetails();
-                            requestBlockNum = localNewBlock.blockNum;
-                            localNewBlock = null;
-                            requestBlockAgain = true;*/
-                        }
-                        else
-                        {
-                            Node.walletState.commitTransaction(localNewBlock.blockNum);
-                            // append current block
-                            Node.blockChain.appendBlock(localNewBlock);
-
-                            currentBlockStartTime = DateTime.UtcNow;
-                            lastBlockStartTime = DateTime.UtcNow;
-                            last_block = localNewBlock;
-                            last_block_num = localNewBlock.blockNum;
-                            Block current_block = localNewBlock;
-                            localNewBlock = null;
-                            forkedFlag = false;
-
-                            if (Config.blockNotifyCommand != "")
-                            {
-                                IxiUtils.executeProcess(Config.blockNotifyCommand, current_block.blockNum.ToString(), false);
-                            }
-
-                            pendingSuperBlocks.Remove(current_block.blockNum);
-
-                            if (current_block.blockNum > 5)
-                            {
-                                // append sigfreezed block
-                                Block tmp_block = Node.blockChain.getBlock(current_block.blockNum - 5);
-                                if (tmp_block != null)
-                                {
-                                    if (tmp_block.frozenSignatures != null)
-                                    {
-                                        tmp_block.signatures = tmp_block.frozenSignatures;
-                                        tmp_block.setFrozenSignatures(null);
-                                    }
-                                    Node.blockChain.updateBlock(tmp_block);
-                                }
-                            }
-
-                            block_accepted = true;
-
-                            // Adjust block generation time to get close to the block generation interval target
-                            Block tmp_prev_block = Node.blockChain.getBlock(current_block.blockNum - 1);
-                            if (tmp_prev_block != null)
-                            {
-                                averageBlockGenerationInterval = (averageBlockGenerationInterval + (current_block.timestamp - tmp_prev_block.timestamp)) / 2;
-
-                                if (averageBlockGenerationInterval > ConsensusConfig.blockGenerationInterval + 1)
-                                {
-                                    blockGenerationInterval = ConsensusConfig.minBlockTimeDifference + 1;
-                                } else if (averageBlockGenerationInterval + 1 < ConsensusConfig.blockGenerationInterval)
-                                {
-                                    blockGenerationInterval = ConsensusConfig.blockGenerationInterval;
-                                }
-                            }
-
-                            if (Node.miner.searchMode == BlockSearchMode.latestBlock)
-                            {
-                                Node.miner.forceSearchForBlock();
-                            }
-
-                            Logging.info(String.Format("Accepted block #{0}.", current_block.blockNum));
-                            current_block.logBlockDetails();
-
-                            // Reset transaction limits
-                            //TransactionPool.resetSocketTransactionLimits();
-
-                            IxianHandler.status = NodeStatus.ready;
-
-                            if (highestNetworkBlockNum > last_block_num)
-                            {
-                                BlockProtocolMessages.broadcastGetBlock(last_block_num + 1, null, null, 1);
-                            }
-                            else
-                            {
-                                highestNetworkBlockNum = 0;
-                            }
-
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.blockData, current_block.getBytes(false), BitConverter.GetBytes(current_block.blockNum));
-
-                            if (Node.miner.searchMode != BlockSearchMode.latestBlock)
-                            {
-                                Node.miner.checkActiveBlockSolved();
-                            }
-
-                            // Broadcast blockheight only if the node is synchronized
-                            if (!Node.blockSync.synchronizing)
-                            {
-                                BlockProtocolMessages.broadcastBlockHeight(last_block_num, current_block.blockChecksum);
-                            }
-
-                            cleanupBlockBlacklist();
-                            if (last_block_num % Config.saveWalletStateEveryBlock == 0)
-                            {
-                                WalletStateStorage.saveWalletState(last_block_num);
-                            }
-
-                            if(Config.enableChainReorgTest)
-                            {
-                                chainReorgTest(last_block_num);
-                            }
-                        }
-                    }
-                    else if(Node.blockChain.getBlock(localNewBlock.blockNum) == null)
-                    {
-                        Logging.error(String.Format("Couldn't apply accepted block #{0}.", localNewBlock.blockNum));
-                        localNewBlock.logBlockDetails();
-                        requestBlockNum = localNewBlock.blockNum;
-                        Node.walletState.revertTransaction(localNewBlock.blockNum);
-                        Node.blockChain.revertBlockTransactions(localNewBlock);
-                        localNewBlock = null;
-                        requestBlockAgain = true;
-                    }else
-                    {
-                        localNewBlock = null;
                     }
                 }
             }

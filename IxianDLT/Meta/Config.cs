@@ -120,7 +120,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 7;
+            public static int maxBlockVersionToGenerate = 8;
 
             /// <summary>
             /// Command to execute when a new block is accepted.

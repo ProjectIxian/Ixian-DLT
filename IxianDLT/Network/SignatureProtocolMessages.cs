@@ -337,6 +337,7 @@ namespace DLT
                             Block dummy_block = new Block();
                             dummy_block.blockNum = block_num;
                             dummy_block.blockChecksum = checksum;
+                            dummy_block.blockProposer = sf_block.blockProposer;
 
                             for (int i = 0; i < sig_count; i++)
                             {

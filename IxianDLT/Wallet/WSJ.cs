@@ -55,6 +55,10 @@ namespace DLT
         public abstract void writeBytes(BinaryWriter w);
         public abstract bool apply();
         public abstract bool revert();
+        public virtual string toString()
+        {
+            return Base58Check.Base58CheckEncoding.EncodePlain(targetWallet) + ": " + this.GetType().Name;
+        }
     }
 
     public class WSJE_Balance : WSJEntry
@@ -121,6 +125,11 @@ namespace DLT
                 return false;
             }
             return Node.walletState.setWalletBalanceInternal(targetWallet, old_value, true);
+        }
+
+        public override string toString()
+        {
+            return base.toString() + ": " + old_value.ToString() + " -> " + new_value.ToString();
         }
     }
 
@@ -372,6 +381,11 @@ namespace DLT
                 return false;
             }
             return Node.walletState.setWalletPublicKeyInternal(targetWallet, null, true);
+        }
+
+        public override string toString()
+        {
+            return base.toString() + ": " + Crypto.hashToString(pubkey);
         }
     }
 
@@ -645,7 +659,7 @@ namespace DLT
                 {
                     if (e.apply() == false)
                     {
-                        Logging.error(String.Format("Error while applying WSJ transaction."));
+                        Logging.error("Error while applying WSJ transaction.");
                         return false;
                     }
                 }
@@ -661,7 +675,7 @@ namespace DLT
                 {
                     if (e.revert() == false)
                     {
-                        Logging.error(String.Format("Error while reverting WSJ transaction."));
+                        Logging.error("Error while reverting WSJ transaction.");
                     }
                 }
             }
