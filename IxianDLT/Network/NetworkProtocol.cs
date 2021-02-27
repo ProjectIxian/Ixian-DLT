@@ -270,14 +270,7 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        if(data[0] == 5)
-                        {
-                            CoreProtocolMessage.processHelloMessageV5(endpoint, reader);
-                        }
-                        else
-                        {
-                            CoreProtocolMessage.processHelloMessageV6(endpoint, reader);
-                        }
+                        CoreProtocolMessage.processHelloMessageV6(endpoint, reader);
                     }
                 }
             }
@@ -288,104 +281,43 @@ namespace DLT
                 {
                     using (BinaryReader reader = new BinaryReader(m))
                     {
-                        if (data[0] == 5)
+                        if(!CoreProtocolMessage.processHelloMessageV6(endpoint, reader))
                         {
-                            if(!CoreProtocolMessage.processHelloMessageV5(endpoint, reader))
-                            {
-                                return;
-                            }
-                            char node_type = endpoint.presenceAddress.type;
-                            if (node_type != 'M' && node_type != 'H')
-                            {
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.expectingMaster, string.Format("Expecting master node."), "", true);
-                                return;
-                            }
-
-                            ulong last_block_num = reader.ReadUInt64();
-
-                            int bcLen = reader.ReadInt32();
-                            byte[] block_checksum = reader.ReadBytes(bcLen);
-
-                            int wsLen = reader.ReadInt32();
-
-                            byte[] walletstate_checksum = reader.ReadBytes(wsLen);
-                            int consensus = reader.ReadInt32(); // deprecated
-
-                            endpoint.blockHeight = last_block_num;
-
-                            if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
-                            {
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.deprecated, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.nodeDeprecationBlock, last_block_num), last_block_num.ToString(), true);
-                                return;
-                            }
-
-                            int block_version = reader.ReadInt32();
-
-                            // Check for legacy level
-                            ulong legacy_level = reader.ReadUInt64(); // deprecated
-
-
-                            int challenge_response_len = reader.ReadInt32();
-                            byte[] challenge_response = reader.ReadBytes(challenge_response_len);
-                            if (!CryptoManager.lib.verifySignature(endpoint.challenge, endpoint.serverPubKey, challenge_response))
-                            {
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.authFailed, string.Format("Invalid challenge response."), "", true);
-                                return;
-                            }
-
-                            ulong highest_block_height = IxianHandler.getHighestKnownNetworkBlockHeight();
-                            if (last_block_num + 15 < highest_block_height)
-                            {
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is too far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
-                                return;
-                            }
-
-                            // Process the hello data
-                            Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, walletstate_checksum, consensus, 0, true);
-                            endpoint.helloReceived = true;
-                            NetworkClientManager.recalculateLocalTimeDifference();
-
+                            return;
                         }
-                        else
+                        char node_type = endpoint.presenceAddress.type;
+                        if (node_type != 'M' && node_type != 'H')
                         {
-                            if(!CoreProtocolMessage.processHelloMessageV6(endpoint, reader))
-                            {
-                                return;
-                            }
-                            char node_type = endpoint.presenceAddress.type;
-                            if (node_type != 'M' && node_type != 'H')
-                            {
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.expectingMaster, string.Format("Expecting master node."), "", true);
-                                return;
-                            }
-
-                            ulong last_block_num = reader.ReadIxiVarUInt();
-
-                            int bcLen = (int)reader.ReadIxiVarUInt();
-                            byte[] block_checksum = reader.ReadBytes(bcLen);
-
-                            endpoint.blockHeight = last_block_num;
-
-                            if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
-                            {
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.deprecated, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.nodeDeprecationBlock, last_block_num), last_block_num.ToString(), true);
-                                return;
-                            }
-
-                            int block_version = (int)reader.ReadIxiVarUInt();
-
-                            ulong highest_block_height = IxianHandler.getHighestKnownNetworkBlockHeight();
-                            if (last_block_num + 15 < highest_block_height)
-                            {
-                                CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is too far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
-                                return;
-                            }
-
-                            // Process the hello data
-                            Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, null, 0, 0, true);
-                            endpoint.helloReceived = true;
-                            NetworkClientManager.recalculateLocalTimeDifference();
+                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.expectingMaster, string.Format("Expecting master node."), "", true);
+                            return;
                         }
+
+                        ulong last_block_num = reader.ReadIxiVarUInt();
+
+                        int bcLen = (int)reader.ReadIxiVarUInt();
+                        byte[] block_checksum = reader.ReadBytes(bcLen);
+
+                        endpoint.blockHeight = last_block_num;
+
+                        if (Node.checkCurrentBlockDeprecation(last_block_num) == false)
+                        {
+                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.deprecated, string.Format("This node deprecated or will deprecate on block {0}, your block height is {1}, disconnecting.", Config.nodeDeprecationBlock, last_block_num), last_block_num.ToString(), true);
+                            return;
+                        }
+
+                        int block_version = (int)reader.ReadIxiVarUInt();
+
+                        ulong highest_block_height = IxianHandler.getHighestKnownNetworkBlockHeight();
+                        if (last_block_num + 15 < highest_block_height)
+                        {
+                            CoreProtocolMessage.sendBye(endpoint, ProtocolByeCode.tooFarBehind, string.Format("Your node is too far behind, your block height is {0}, highest network block height is {1}.", last_block_num, highest_block_height), highest_block_height.ToString(), true);
+                            return;
+                        }
+
+                        // Process the hello data
+                        Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, null, 0, 0, true);
+                        endpoint.helloReceived = true;
+                        NetworkClientManager.recalculateLocalTimeDifference();
                     }
                 }
             }
@@ -482,7 +414,7 @@ namespace DLT
                         {
                             return;
                         }
-                        TransactionProtocolMessages.broadcastGetTransactions(tx_list, endpoint);
+                        TransactionProtocolMessages.broadcastGetTransactions(tx_list, 0, endpoint);
                         if (request_next_block)
                         {
                             byte include_tx = 2;
@@ -591,7 +523,7 @@ namespace DLT
                         {
                             return;
                         }
-                        TransactionProtocolMessages.broadcastGetTransactions2(tx_list, 0, endpoint);
+                        TransactionProtocolMessages.broadcastGetTransactions(tx_list, 0, endpoint);
                         if (request_next_block)
                         {
                             byte include_tx = 2;

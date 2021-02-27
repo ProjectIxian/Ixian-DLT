@@ -100,8 +100,8 @@ namespace DLT
                             if(!hasAppliedTransaction(orig_txid))
                             {
                                 Logging.warn("Orig txid {0} doesn't exist, requesting from network.", Transaction.txIdV8ToLegacy(orig_txid));
-                                CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(orig_txid), 0, endpoint);
-                                CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(transaction.id), 0, endpoint);
+                                CoreProtocolMessage.broadcastGetTransaction(orig_txid, 0, endpoint);
+                                CoreProtocolMessage.broadcastGetTransaction(transaction.id, 0, endpoint);
                                 return false;
                             }else
                             {
@@ -2470,7 +2470,7 @@ namespace DLT
 
                         if (cur_time - tx_time > 20) // if the transaction is pending for over 20 seconds, send inquiry
                         {
-                            CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(t.id), 0, null, false);
+                            CoreProtocolMessage.broadcastGetTransaction(t.id, 0, null, false);
                         }
 
                         idx++;

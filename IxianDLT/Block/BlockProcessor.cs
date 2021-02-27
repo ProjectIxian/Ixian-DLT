@@ -1084,7 +1084,7 @@ namespace DLT
 
             if(fetchTransactions)
             {
-                TransactionProtocolMessages.broadcastGetTransactions2(txs_to_fetch, -(long)b.blockNum, endpoint);
+                TransactionProtocolMessages.broadcastGetTransactions(txs_to_fetch, -(long)b.blockNum, endpoint);
             }
 
             // Pass #2 verifications for multisigs after all transactions have been received

@@ -517,7 +517,7 @@ namespace DLT
                                     }
                                     else
                                     {
-                                        CoreProtocolMessage.broadcastGetTransaction(Transaction.txIdV8ToLegacy(txid), b.blockNum);
+                                        CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
                                         missing = true;
                                     }
                                 }

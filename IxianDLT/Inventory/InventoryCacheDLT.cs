@@ -45,7 +45,7 @@ namespace DLTNode.Inventory
                 case InventoryItemTypes.keepAlive:
                     return handleKeepAlive(item, endpoint);
                 case InventoryItemTypes.transaction:
-                    CoreProtocolMessage.broadcastGetTransaction2(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(item.hash)), 0, endpoint);
+                    CoreProtocolMessage.broadcastGetTransaction(item.hash, 0, endpoint);
                     return true;
             }
             return false;

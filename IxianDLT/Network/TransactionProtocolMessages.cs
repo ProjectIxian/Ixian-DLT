@@ -364,46 +364,7 @@ namespace DLT
                 }
             }
 
-            public static void broadcastGetTransactions(List<byte[]> tx_list, RemoteEndpoint endpoint)
-            {
-                int tx_count = tx_list.Count;
-                int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
-                for (int i = 0; i < tx_count;)
-                {
-                    using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
-                    {
-                        using (BinaryWriter writer = new BinaryWriter(mOut))
-                        {
-                            int next_tx_count = tx_count - i;
-                            if (next_tx_count > max_tx_per_chunk)
-                            {
-                                next_tx_count = max_tx_per_chunk;
-                            }
-                            writer.WriteIxiVarInt(next_tx_count);
-
-                            for (int j = 0; j < next_tx_count && i < tx_count; j++)
-                            {
-                                long rollback_len = mOut.Length;
-
-                                byte[] txid = UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx_list[i]));
-                                i++;
-                                writer.WriteIxiVarInt(txid.Length);
-                                writer.Write(txid);
-
-                                if (mOut.Length > CoreConfig.maxMessageSize)
-                                {
-                                    mOut.SetLength(rollback_len);
-                                    i--;
-                                    break;
-                                }
-                            }
-                        }
-                        endpoint.sendData(ProtocolMessageCode.getTransactions, mOut.ToArray(), null);
-                    }
-                }
-            }
-
-            public static void broadcastGetTransactions2(List<byte[]> tx_list, long msg_id, RemoteEndpoint endpoint)
+            public static void broadcastGetTransactions(List<byte[]> tx_list, long msg_id, RemoteEndpoint endpoint)
             {
                 int tx_count = tx_list.Count;
                 int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
