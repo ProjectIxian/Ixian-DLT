@@ -73,6 +73,10 @@ namespace DLTNode.Inventory
 
         private bool handleKeepAlive(InventoryItem item, RemoteEndpoint endpoint)
         {
+            if(endpoint == null)
+            {
+                return false;
+            }
             InventoryItemKeepAlive iika = (InventoryItemKeepAlive)item;
             Presence p = PresenceList.getPresenceByAddress(iika.address);
             if (p == null)

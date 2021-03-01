@@ -378,18 +378,21 @@ namespace DLT
                     if(b.blockProposer == null)
                     {
                         b.blockProposer = targetBlock.blockProposer;
+                    }else
+                    {
+                        targetBlock.blockProposer = b.blockProposer;
                     }
-                    if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()))
+                    if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()) && targetBlock.verifyBlockProposer())
                     {
                         // we already have the correct block
-                        if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum))
+                        if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum) || !targetBlock.verifyBlockProposer())
                         {
                             // we already have the correct block but the sender does not, broadcast our block
                             BlockProtocolMessages.broadcastNewBlock(targetBlock, null, endpoint);
                         }
                         return false;
                     }
-                    if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
+                    if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()) && b.verifyBlockProposer())
                     {
                         Logging.warn("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum));
                         if (verifyBlockSignatures(b, endpoint))
@@ -1170,6 +1173,14 @@ namespace DLT
                     if(fetchTransactions)
                     {
                         BlockProtocolMessages.broadcastGetBlock(b.blockNum, null, endpoint, 0);
+                    }else
+                    {
+                        var pii = Node.inventoryCache.add(new InventoryItemBlock(b.blockChecksum, b.blockNum), endpoint);
+                        if (pii != null)
+                        {
+                            pii.retryCount = 0;
+                            pii.processed = false;
+                        }
                     }
                 }
                 Logging.info("Waiting for missing transactions for Block #{0}.", b.blockNum);
