@@ -985,9 +985,9 @@ namespace DLT
                     }else
                     {
                         var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
-                        if (!pii.processed && pii.lastRequested == 0)
+                        if (!pii.processed && Clock.getTimestamp() - pii.lastRequested > 5)
                         {
-                            pii.lastRequested = Clock.getTimestamp();
+                            pii.lastRequested = 0;
                         }
                     }
                     hasAllTransactions = false;
@@ -1173,17 +1173,15 @@ namespace DLT
                     if(fetchTransactions)
                     {
                         BlockProtocolMessages.broadcastGetBlock(b.blockNum, null, endpoint, 0);
-                    }else
-                    {
-                        var pii = Node.inventoryCache.add(new InventoryItemBlock(b.blockChecksum, b.blockNum), endpoint);
-                        if (pii != null)
-                        {
-                            pii.retryCount = 0;
-                            pii.processed = false;
-                        }
                     }
                 }
                 Logging.info("Waiting for missing transactions for Block #{0}.", b.blockNum);
+                var pii = Node.inventoryCache.add(new InventoryItemBlock(b.blockChecksum, b.blockNum), endpoint);
+                if (pii != null)
+                {
+                    pii.retryCount = 0;
+                    pii.processed = false;
+                }
                 return BlockVerifyStatus.Indeterminate;
             }
             lock (fetchingTxForBlocks)

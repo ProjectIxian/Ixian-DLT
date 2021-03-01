@@ -863,7 +863,6 @@ namespace DLT
             static public void handleBlockData(byte[] data, RemoteEndpoint endpoint)
             {
                 Block block = new Block(data);
-                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.block, block.blockChecksum, true);
                 if (endpoint.blockHeight < block.blockNum)
                 {
                     endpoint.blockHeight = block.blockNum;
@@ -871,6 +870,14 @@ namespace DLT
 
                 Node.blockSync.onBlockReceived(block, endpoint);
                 Node.blockProcessor.onBlockReceived(block, endpoint);
+                lock(Node.blockProcessor.localBlockLock)
+                {
+                    if(block.blockNum <= Node.blockChain.getLastBlockNum()
+                        || (Node.blockProcessor.localNewBlock != null && Node.blockProcessor.localNewBlock.blockNum == block.blockNum && Node.blockProcessor.localNewBlock.calculateChecksum().SequenceEqual(block.blockChecksum)))
+                    {
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.block, block.blockChecksum, true);
+                    }
+                }
             }
         }
     }
