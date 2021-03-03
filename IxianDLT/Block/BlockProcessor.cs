@@ -1730,12 +1730,13 @@ namespace DLT
                     {
                         target_block.blockProposer = new Address(target_block.signatures[0][1]).address;
                     }
+                    target_block.setFrozenSignatures(frozen_block_sigs);
                     if (!target_block.verifyBlockProposer())
                     {
+                        target_block.setFrozenSignatures(null);
                         Logging.error("Error verifying block proposer while freezing signatures on block {0} ({1})", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum));
                         return false;
                     }
-                    target_block.setFrozenSignatures(frozen_block_sigs);
                     return true;
                 }else
                 {
