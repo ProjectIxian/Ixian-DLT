@@ -305,7 +305,7 @@ namespace DLT
                     return false;
                 }
             }
-            else if (block_version == BlockVer.v8)
+            else if (block_version == BlockVer.v8 || block_version == BlockVer.v9)
             {
                 if (transaction.version < 5 || transaction.version > 6)
                 {

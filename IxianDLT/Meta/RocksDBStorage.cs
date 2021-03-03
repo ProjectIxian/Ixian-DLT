@@ -46,6 +46,7 @@ namespace DLT
                 //
                 public bool compactedSigs { get; set; }
                 //
+                public byte[] blockProposer { get; set; }
                 public _storage_Block() { }
                 public _storage_Block(Block from_block)
                 {
@@ -97,6 +98,7 @@ namespace DLT
                     timestamp = from_block.timestamp;
                     version = from_block.version;
                     compactedSigs = from_block.compactedSigs;
+                    blockProposer = from_block.blockProposer;
                 }
                 public Block asBlock()
                 {
@@ -128,10 +130,6 @@ namespace DLT
                     b.signatures = new List<byte[][]>();
                     foreach (var sig in signatures)
                     {
-                        if(b.blockProposer == null)
-                        {
-                            b.blockProposer = new Address(sig[1]).address;
-                        }
                         b.signatures.Add(new byte[2][] { sig[0], sig[1] });
                     }
                     if (transactions != null)
@@ -144,6 +142,7 @@ namespace DLT
                     b.timestamp = timestamp;
                     b.version = version;
                     b.compactedSigs = compactedSigs;
+                    b.blockProposer = blockProposer;
                     // special flag:
                     b.fromLocalStorage = true;
                     return b;
@@ -217,6 +216,12 @@ namespace DLT
                             }
 
                             compactedSigs = br.ReadBoolean();
+
+                            int bp_len = br.ReadInt32();
+                            if(bp_len > 0)
+                            {
+                                blockProposer = br.ReadBytes(bp_len);
+                            }
                         }
                     }
                 }
@@ -335,6 +340,16 @@ namespace DLT
                                 wr.Write(0);
                             }
                             wr.Write(compactedSigs);
+
+                            if(blockProposer != null)
+                            {
+                                wr.Write(blockProposer.Length);
+                                wr.Write(blockProposer);
+                            }
+                            else
+                            {
+                                wr.Write(0);
+                            }
                         }
                         return ms.ToArray();
                     }

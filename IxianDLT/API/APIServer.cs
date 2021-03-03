@@ -154,7 +154,6 @@ namespace DLTNode
             {
                 response = onGetTxOutsetInfo();
             }
-           
 
             if (response == null)
             {

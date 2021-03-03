@@ -179,7 +179,7 @@ namespace DLT
                             {
                                 if(last_block_num > 7 || Node.genesisNode)
                                 {
-                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 15) + rnd.Next(1000)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
+                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 10) + rnd.Next(1000)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
                                     {
                                         generateNextBlock = true;
                                         block_version = Node.blockChain.getLastBlockVersion();
@@ -294,11 +294,11 @@ namespace DLT
             {
                 return 0;
             }
-            if(timeSinceLastBlock > blockGenerationInterval * 10) // edge case, if network is stuck for more than 10 blocks always return -1 as the node offset.
+            if(timeSinceLastBlock > blockGenerationInterval * 5) // edge case, if network is stuck for more than 10 blocks always return -1 as the node offset.
             {
                 return -1;
             }
-            return (int)(timeSinceLastBlock / (blockGenerationInterval*3));
+            return (int)(timeSinceLastBlock / (blockGenerationInterval*2));
         }
 
         public List<byte[][]> getSignaturesWithoutPlEntry(Block b)
@@ -378,9 +378,6 @@ namespace DLT
                     if(b.blockProposer == null)
                     {
                         b.blockProposer = targetBlock.blockProposer;
-                    }else
-                    {
-                        targetBlock.blockProposer = b.blockProposer;
                     }
                     if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()) && targetBlock.verifyBlockProposer())
                     {
@@ -888,12 +885,6 @@ namespace DLT
                 }
             }
 
-            if (!b.verifyBlockProposer())
-            {
-                Logging.error("Error verifying block proposer while verifying block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                return BlockVerifyStatus.Indeterminate;
-            }
-
             if (lastBlockNum + 1 == b.blockNum)
             {
                 networkUpgraded = false;
@@ -1036,7 +1027,7 @@ namespace DLT
                         return BlockVerifyStatus.Invalid;
                     }
                 }
-                else if (b.version == BlockVer.v8)
+                else if (b.version == BlockVer.v8 || b.version == BlockVer.v9)
                 {
                     if (t.version < 5 || t.version > 6)
                     {
@@ -1549,6 +1540,7 @@ namespace DLT
                 }
                 required_sigs.Add(signature);
                 sorted_sigs.Remove(signature);
+                sig_count++;
             }
 
             foreach (var entry in sorted_sigs)
@@ -1734,6 +1726,10 @@ namespace DLT
 
                 if (frozen_block_sigs.Count >= required_consensus_count_adjusted)
                 {
+                    if (target_block.blockProposer == null)
+                    {
+                        target_block.blockProposer = new Address(target_block.signatures[0][1]).address;
+                    }
                     if (!target_block.verifyBlockProposer())
                     {
                         Logging.error("Error verifying block proposer while freezing signatures on block {0} ({1})", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum));
@@ -2055,7 +2051,7 @@ namespace DLT
                     return false;
                 }
                 byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
-                if (!b.signatureFreezeChecksum.SequenceEqual(sigFreezeChecksum))
+                if (!b.signatureFreezeChecksum.SequenceEqual(sigFreezeChecksum) || !targetBlock.verifyBlockProposer())
                 {
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
                         b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
@@ -2416,8 +2412,8 @@ namespace DLT
                     continue;
                 }
 
-                // lock transaction v5 with block v8
-                if (block_version == BlockVer.v8 && (transaction.version < 5 || transaction.version > 6))
+                // lock transaction v5 with block v8 and v9
+                if ((block_version == BlockVer.v8 || block_version == BlockVer.v9) && (transaction.version < 5 || transaction.version > 6))
                 {
                     if (Node.blockChain.getLastBlockVersion() >= BlockVer.v8 && transaction.version < 5)
                     {
@@ -3074,6 +3070,7 @@ namespace DLT
             Block target_block = Node.blockChain.getBlock(freezing_block.blockNum - 5);
             if (target_block == null)
             {
+                BlockProtocolMessages.broadcastGetBlock(target_block.blockNum);
                 return null;
             }
 
@@ -3081,6 +3078,7 @@ namespace DLT
             {
                 if(!freezeSignatures(target_block) || target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
                 {
+                    BlockProtocolMessages.broadcastGetBlock(target_block.blockNum);
                     Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
                     target_block.setFrozenSignatures(null);
                     throw new Exception("Freezing the target block yields less than required signatures");
