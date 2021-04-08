@@ -366,6 +366,9 @@ namespace DLT
 
             public static void broadcastGetTransactions(List<byte[]> tx_list, long msg_id, RemoteEndpoint endpoint)
             {
+                if (endpoint == null)
+                    return;
+
                 int tx_count = tx_list.Count;
                 int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
                 for (int i = 0; i < tx_count;)
