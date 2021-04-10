@@ -1564,14 +1564,34 @@ namespace DLT
             return required_sigs;
         }
 
+        // Checks if the block has enough signatures for consensus
+        // If signature count is lower than 3 it will return true
+        // If block version is lower than v5 or blocknum is lower than 7 it will also return true
+        public bool hasRequiredSignatureCount(Block block)
+        {
+            int frozen_sig_count = block.getFrozenSignatureCount();
+            if (frozen_sig_count < 3)
+                return true;
+
+            if (block.blockNum > 6 && block.version >= BlockVer.v5)
+            {
+                int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum);            
+                if (frozen_sig_count < required_consensus_count)
+                {
+                    //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
+                    return false;
+                }
+            }
+            return true;
+        }
+
         // verifies all signatures
         public bool verifyBlockSignatures(Block block, RemoteEndpoint endpoint)
         {
+            int frozen_sig_count = block.getFrozenSignatureCount();
             if (block.blockNum > 6 && block.version >= BlockVer.v5)
             {
                 int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum);
-
-                int frozen_sig_count = block.getFrozenSignatureCount();
 
                 // verify sig count
                 if (frozen_sig_count < required_consensus_count)
@@ -1620,7 +1640,7 @@ namespace DLT
                         return true;
                     }
 
-                    int block_sig_count = block.getFrozenSignatureCount();
+                    int block_sig_count = frozen_sig_count;
 
                     if(block_sig_count > ConsensusConfig.maximumBlockSigners)
                     {
@@ -1789,14 +1809,19 @@ namespace DLT
                     return false;
                 }else
                 {
-                    if (target_block != null && !verifyBlockSignatures(target_block, null))
+                    // Check if the local block has enough signatures for consensus
+                    if (hasRequiredSignatureCount(localNewBlock))
                     {
-                        blacklistBlock(localNewBlock);
-                        localNewBlock = null;
-                        target_block.setFrozenSignatures(null);
-                        Logging.warn("The target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
-                        return false;
+                        if (target_block != null && !verifyBlockSignatures(target_block, null))
+                        {
+                            blacklistBlock(localNewBlock);
+                            localNewBlock = null;
+                            target_block.setFrozenSignatures(null);
+                            Logging.warn("The target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
+                            return false;
+                        }
                     }
+
                     if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
                     {
                         if (Node.isMasterNode() && localNewBlock.blockNum > 7)
