@@ -461,7 +461,8 @@ namespace DLT
                         Block tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
                         if (tb != null)
                         {
-                            if (tb.blockChecksum.SequenceEqual(Node.blockChain.getBlock(tb.blockNum).blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                            Block local_block = Node.blockChain.getBlock(tb.blockNum);
+                            if (local_block != null && tb.blockChecksum.SequenceEqual(local_block.blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                             {
                                 if (Node.blockProcessor.verifyBlockSignatures(tb, null))
                                 {
