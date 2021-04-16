@@ -90,7 +90,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.8.0c"; // DLT Node version
+            public static readonly string version = "xdc-0.8.0d"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -120,7 +120,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 8;
+            public static int maxBlockVersionToGenerate = 9;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
