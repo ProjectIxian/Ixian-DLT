@@ -46,7 +46,7 @@ namespace DLT
 
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
-            public static bool disableMiner = false; // Flag to disable miner - deprecated
+            public static bool disableMiner = true; // Flag to disable miner - deprecated
             public static bool workerOnly = false; // Flag to disable masternode capability
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
