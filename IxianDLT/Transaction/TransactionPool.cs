@@ -942,7 +942,7 @@ namespace DLT
                 if ((transaction.blockHeight <= Node.blockChain.getLastBlockNum() && appliedTransactions.ContainsKey(transaction.id))
                     || unappliedTransactions.ContainsKey(transaction.id))
                 {
-                    Logging.warn("Duplicate transaction {0}: already exists in the Transaction Pool.", Transaction.txIdV8ToLegacy(transaction.id));
+                    // Logging.warn("Duplicate transaction {0}: already exists in the Transaction Pool.", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
                 unappliedTransactions.Add(transaction.id, transaction);

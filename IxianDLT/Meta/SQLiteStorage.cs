@@ -629,6 +629,9 @@ namespace DLT
 
             private static Block getBlockFromStorageBlock(_storage_Block storage_block)
             {
+                var sw = new System.Diagnostics.Stopwatch();
+                sw.Start();
+
                 _storage_Block blk = storage_block;
 
                 Block block = new Block
@@ -680,6 +683,7 @@ namespace DLT
                             block.signatures.Add(newSig);
                         }
                     }
+                    //Logging.info(string.Format("Signature parse: {0}ms", sw.Elapsed.TotalMilliseconds));
 
                     // Add transaction
                     string[] split_str2 = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
@@ -694,6 +698,7 @@ namespace DLT
 
                         block.addTransaction(Transaction.txIdLegacyToV8(s1));
                     }
+                    //Logging.info(string.Format("Tx parse: {0}ms", sw.Elapsed.TotalMilliseconds));
 
                     if (blk.superBlockSegments != null)
                     {
@@ -716,6 +721,9 @@ namespace DLT
                 {
                     Logging.error("Error reading block #{0} from storage: {1}", blk.blockNum, e);
                 }
+
+                sw.Stop();
+                Logging.info(string.Format("|- Local block #{0} fetch took: {1}ms", blk.blockNum, sw.Elapsed.TotalMilliseconds));
 
                 return block;
             }
@@ -1175,8 +1183,8 @@ namespace DLT
                 {
                     return null;
                 }
-
-                return bytes.Reverse().ToArray();
+                Array.Reverse(bytes, 0, bytes.Length);
+                return bytes;//.Reverse().ToArray();
             }
             public override void deleteData()
             {
@@ -1216,7 +1224,141 @@ namespace DLT
 
             public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num)
             {
-                throw new NotImplementedException();
+                List<Transaction> transactions = new List<Transaction>();
+
+                List<_storage_Transaction> _storage_tx = null;
+
+                string sql = "select * from transactions where `applied` = ?";
+
+                ulong highest_blocknum = getHighestBlockInStorage();
+                lock (storageLock)
+                {
+                    bool found = false;
+                    try
+                    {
+                        if (block_num > 0)
+                        {
+                            if (block_num > highest_blocknum)
+                            {
+                                Logging.error("Tried to get transaction requested for block {0} but the highest block in storage is {1}", block_num, highest_blocknum);
+                                return null;
+                            }
+                            seekDatabase(block_num, true);
+                        }
+                        _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, (long)block_num).ToList();
+
+                    }
+                    catch (Exception e)
+                    {
+                        Logging.error("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message);
+                        found = false;
+                    }
+
+                    if (_storage_tx != null)
+                    {
+                        if (_storage_tx.Count > 0)
+                        {
+                            found = true;
+                        }
+                    }
+
+                    if (!found && block_num > 0)
+                    {
+                        return transactions;
+                    }              
+                }
+
+
+                if (_storage_tx.Count < 1)
+                {
+                    return transactions;
+                }
+
+                foreach(_storage_Transaction tx in _storage_tx)
+                {
+                    Transaction transaction = new Transaction(tx.type, tx.dataChecksum, unshuffleStorageBytes(tx.data))
+                    {
+                        id = Transaction.txIdLegacyToV8(tx.id),
+                        amount = new IxiNumber(tx.amount),
+                        fee = new IxiNumber(tx.fee),
+                        blockHeight = (ulong)tx.blockHeight,
+                        nonce = tx.nonce,
+                        timeStamp = tx.timestamp,
+                        checksum = tx.checksum,
+                        signature = tx.signature,
+                        version = tx.version,
+                        pubKey = tx.pubKey,
+                        applied = (ulong)tx.applied
+                    };
+
+ 
+                    try
+                    {
+                        // Add toList
+                        string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
+                        int sigcounter = 0;
+                        foreach (string s1 in split_str)
+                        {
+                            sigcounter++;
+                            if (sigcounter == 1)
+                            {
+                                continue;
+                            }
+
+                            string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                            if (split_to.Length < 2)
+                            {
+                                continue;
+                            }
+                            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
+                            IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
+                            transaction.toList.AddOrReplace(address, amount);
+                        }
+
+                        if (tx.from != null)
+                        {
+                            if (tx.pubKey == null)
+                            {
+                                transaction.pubKey = tx.from;
+                            }
+                            transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
+                        }
+                        else
+                        {
+                            // Add fromList
+                            split_str = tx.fromList.Split(new string[] { "||" }, StringSplitOptions.None);
+                            sigcounter = 0;
+                            foreach (string s1 in split_str)
+                            {
+                                sigcounter++;
+                                if (sigcounter == 1)
+                                {
+                                    continue;
+                                }
+
+                                string[] split_from = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                                if (split_from.Length < 2)
+                                {
+                                    continue;
+                                }
+                                byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_from[0]);
+                                IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_from[1])));
+                                transaction.fromList.AddOrReplace(address, amount);
+                            }
+                        }
+
+                        transaction.fromLocalStorage = true;
+                    }
+                    catch (Exception e)
+                    {
+                        Logging.error("Error reading transaction {0} from storage: {1}", tx.id, e);
+                    }
+ 
+                    transactions.Add(transaction);
+
+                }
+
+                return transactions;
             }
 
             public override IEnumerable<Transaction> getTransactionsByTime(long time_from, long time_to)

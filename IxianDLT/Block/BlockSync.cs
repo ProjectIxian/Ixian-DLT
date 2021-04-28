@@ -244,11 +244,18 @@ namespace DLT
                         }
                     }
 
+                    // var sw = new System.Diagnostics.Stopwatch();
+                    // sw.Start();
+
                     // First check if the missing block can be found in storage
                     Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
+
+                    //sw.Stop();
+                    //Logging.info(string.Format("Get block #{0} took {1}ms", blockNum, sw.Elapsed.TotalMilliseconds));
+
                     if (block != null)
                     {
-                        if(CoreConfig.preventNetworkOperations || Config.recoverFromFile)
+                        if (CoreConfig.preventNetworkOperations || Config.recoverFromFile)
                         {
                             if (!lastBlocks.Exists(x => x.blockNum == blockNum))
                             {
@@ -498,11 +505,19 @@ namespace DLT
 
                         if (b.fromLocalStorage)
                         {
-                            // TODO TODO improve this section with NodeStorage.getTransactionsInBlock once rocksdb switch happens
                             bool missing = false;
+
+                            var sw = new System.Diagnostics.Stopwatch();
+                            sw.Start();
+
+                            IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(b.blockNum);
+
+                            int missed_txs = 0;
+                            int found_txs = 0;
+
                             foreach (byte[] txid in b.transactions)
                             {
-                                if(!running)
+                                if (!running)
                                 {
                                     break;
                                 }
@@ -510,7 +525,22 @@ namespace DLT
                                 Transaction t = TransactionPool.getUnappliedTransaction(txid);
                                 if (t == null)
                                 {
-                                    t = Node.storage.getTransaction(txid, b.blockNum);
+                                    foreach (Transaction t2 in txs)
+                                    {
+                                        if(txid.SequenceEqual(t2.id))
+                                        {
+                                            t = t2;
+                                            found_txs++;
+                                            break;
+                                        }
+                                    }
+
+                                    if(t == null)
+                                    {
+                                        t = Node.storage.getTransaction(txid, b.blockNum);
+                                        missed_txs++;
+                                    }
+
                                     if (t != null)
                                     {
                                         t.applied = 0;
@@ -529,6 +559,10 @@ namespace DLT
                                 Thread.Sleep(100);
                                 break;
                             }
+
+                            sw.Stop();
+                            Logging.info(string.Format("|- Local TX fetch took: {0}ms. Missed: {1}  Found: {2}", sw.Elapsed.TotalMilliseconds, missed_txs, found_txs));
+
                         }
 
                         if (b.blockNum > wsSyncConfirmedBlockNum || b.fromLocalStorage == false || Config.fullStorageDataVerification)
@@ -584,7 +618,6 @@ namespace DLT
                         }
 
                         bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b, null);
-
                         // Apply transactions when rolling forward from a recover file without a synced WS
                         if (b.blockNum > wsSyncConfirmedBlockNum)
                         {
