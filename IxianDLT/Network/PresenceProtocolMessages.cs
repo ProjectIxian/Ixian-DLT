@@ -138,8 +138,7 @@ namespace DLT
                                             continue;
                                         }
 
-                                        KeepAlive ka = pa.getKeepAlive(address);
-                                        byte[] ka_bytes = ka.getBytes();
+                                        byte[] ka_bytes = pa.getKeepAliveBytes(address);
                                         byte[] ka_len = IxiVarInt.GetIxiVarIntBytes(ka_bytes.Length);
                                         writer.Write(ka_len);
                                         writer.Write(ka_bytes);

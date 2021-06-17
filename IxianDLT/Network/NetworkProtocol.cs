@@ -56,10 +56,19 @@ namespace DLT
                             WalletStateProtocolMessages.handleGetBalance(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.getTransaction:
+                            TransactionProtocolMessages.handleGetTransaction(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getTransaction2:
+                            TransactionProtocolMessages.handleGetTransaction2(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.getTransaction3:
                             TransactionProtocolMessages.handleGetTransaction3(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.newTransaction:
                         case ProtocolMessageCode.transactionData:
                             TransactionProtocolMessages.handleTransactionData(data, endpoint);
                             break;
@@ -68,6 +77,7 @@ namespace DLT
                             CoreProtocolMessage.processBye(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.newBlock:
                         case ProtocolMessageCode.blockData:
                             BlockProtocolMessages.handleBlockData(data, endpoint);
                             break;
@@ -133,6 +143,31 @@ namespace DLT
                             NetworkEvents.handleDetachEventMessage(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.blockSignature:
+                            SignatureProtocolMessages.handleBlockSignature(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getBlockSignatures:
+                            {
+                                using (MemoryStream m = new MemoryStream(data))
+                                {
+                                    using (BinaryReader reader = new BinaryReader(m))
+                                    {
+                                        ulong block_num = reader.ReadUInt64();
+
+                                        int checksum_len = reader.ReadInt32();
+                                        byte[] checksum = reader.ReadBytes(checksum_len);
+
+                                        SignatureProtocolMessages.handleGetBlockSignatures(block_num, checksum, endpoint);
+                                    }
+                                }
+                            }
+                            break;
+
+                        case ProtocolMessageCode.blockSignatures:
+                            SignatureProtocolMessages.handleSigfreezedBlockSignatures(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.getNextSuperBlock:
                             BlockProtocolMessages.handleGetNextSuperBlock(data, endpoint);
                             break;
@@ -159,6 +194,10 @@ namespace DLT
 
                         case ProtocolMessageCode.signaturesChunk:
                             SignatureProtocolMessages.handleSignaturesChunk(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getTransactions:
+                            TransactionProtocolMessages.handleGetTransactions(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.getTransactions2:

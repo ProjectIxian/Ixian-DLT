@@ -408,6 +408,85 @@ namespace DLT
                 }
             }
 
+            public static void handleGetTransactions(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        int tx_count = (int)reader.ReadIxiVarUInt();
+
+                        int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
+                        if (tx_count > max_tx_per_chunk)
+                        {
+                            tx_count = max_tx_per_chunk;
+                        }
+
+                        for (int i = 0; i < tx_count;)
+                        {
+                            using (MemoryStream mOut = new MemoryStream(max_tx_per_chunk * 570))
+                            {
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
+                                {
+                                    int next_tx_count;
+                                    if (tx_count - i > max_tx_per_chunk)
+                                    {
+                                        next_tx_count = max_tx_per_chunk;
+                                    }
+                                    else
+                                    {
+                                        next_tx_count = tx_count - i;
+                                    }
+                                    writer.WriteIxiVarInt(next_tx_count);
+
+                                    for (int j = 0; j < next_tx_count && i < tx_count; j++)
+                                    {
+                                        long in_rollback_pos = reader.BaseStream.Position;
+                                        long out_rollback_len = mOut.Length;
+
+                                        i++;
+
+                                        if (m.Position == m.Length)
+                                        {
+                                            break;
+                                        }
+
+                                        int txid_len = (int)reader.ReadIxiVarUInt();
+                                        byte[] txid = reader.ReadBytes(txid_len);
+                                        string txid_str = UTF8Encoding.UTF8.GetString(txid);
+
+                                        Transaction tx = TransactionPool.getUnappliedTransaction(Transaction.txIdLegacyToV8(txid_str));
+                                        if (tx == null)
+                                        {
+                                            tx = TransactionPool.getAppliedTransaction(Transaction.txIdLegacyToV8(txid_str));
+                                            if (tx == null)
+                                            {
+                                                Logging.warn("handleGetTransactions: I do not have txid '{0}.", txid_str);
+                                                continue;
+                                            }
+                                        }
+
+                                        byte[] tx_bytes = tx.getBytes();
+                                        byte[] tx_len = IxiVarInt.GetIxiVarIntBytes(tx_bytes.Length);
+                                        writer.Write(tx_len);
+                                        writer.Write(tx_bytes);
+
+                                        if (mOut.Length > CoreConfig.maxMessageSize)
+                                        {
+                                            reader.BaseStream.Position = in_rollback_pos;
+                                            mOut.SetLength(out_rollback_len);
+                                            i--;
+                                            break;
+                                        }
+                                    }
+                                }
+                                endpoint.sendData(ProtocolMessageCode.transactionsChunk, mOut.ToArray(), null);
+                            }
+                        }
+                    }
+                }
+            }
+
 
             public static void handleGetTransactions2(byte[] data, RemoteEndpoint endpoint)
             {
@@ -626,6 +705,87 @@ namespace DLT
 #endif
                         }
                         endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
+                    }
+                }
+            }
+
+            public static void handleGetTransaction(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        // Retrieve the transaction id
+                        string txid = reader.ReadString();
+                        ulong block_num = reader.ReadUInt64();
+
+                        Transaction transaction = null;
+
+                        // Check for a transaction corresponding to this id
+                        if (block_num == 0 || block_num == Node.blockChain.getLastBlockNum() + 1)
+                        {
+                            transaction = TransactionPool.getUnappliedTransaction(Transaction.txIdLegacyToV8(txid));
+                        }
+                        if (transaction == null)
+                        {
+                            transaction = TransactionPool.getAppliedTransaction(Transaction.txIdLegacyToV8(txid), block_num, true);
+                        }
+
+                        if (transaction == null)
+                        {
+                            Logging.warn("I do not have txid '{0}.", txid);
+                            return;
+                        }
+
+                        Logging.info("Sending transaction {0} - {1} - {2}.", Transaction.txIdV8ToLegacy(transaction.id), Crypto.hashToString(transaction.checksum), transaction.amount);
+
+                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true));
+                    }
+                }
+            }
+
+            public static void handleGetTransaction2(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        // Retrieve the transaction id
+                        int txid_len = (int)reader.ReadIxiVarUInt();
+                        byte[] txid = reader.ReadBytes(txid_len);
+                        ulong block_num = reader.ReadIxiVarUInt();
+
+                        Transaction transaction = null;
+
+                        string txid_str = UTF8Encoding.UTF8.GetString(txid);
+
+                        // Check for a transaction corresponding to this id
+                        if (block_num == 0 || block_num == Node.blockChain.getLastBlockNum() + 1)
+                        {
+                            transaction = TransactionPool.getUnappliedTransaction(Transaction.txIdLegacyToV8(txid_str));
+                        }
+                        if (transaction == null)
+                        {
+                            transaction = TransactionPool.getAppliedTransaction(Transaction.txIdLegacyToV8(txid_str), block_num, true);
+                        }
+
+                        if (transaction == null)
+                        {
+                            Logging.warn("I do not have txid '{0}.", Transaction.txIdV8ToLegacy(txid));
+                            return;
+                        }
+
+                        Logging.info("Sending transaction {0} - {1} - {2}.", Transaction.txIdV8ToLegacy(transaction.id), Crypto.hashToString(transaction.checksum), transaction.amount);
+
+                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true));
                     }
                 }
             }
