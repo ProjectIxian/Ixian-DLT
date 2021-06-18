@@ -384,6 +384,59 @@ namespace DLT
             return false;
         }
 
+        private bool fastBlockLoading(Block b)
+        {
+            if(Config.disableFastBlockLoading)
+            {
+                return false;
+            }
+
+            if (b == null)
+            {
+                return false;
+            }
+
+            if (b.blockNum >= wsSyncConfirmedBlockNum - 50
+                || b.blockNum >= lastBlockToReadFromStorage - 50)
+            {
+                return false;
+            }
+
+            if(!Node.blockProcessor.verifySignatureFreezeChecksum(b, null))
+            {
+                return false;
+            }
+
+            if (b.fromLocalStorage == false)
+            {
+                Node.blockChain.resetPowField(b.blockNum);
+                return false;
+            }
+
+            // TODO Add a check of how many transactions are in storage and if the count
+            // doesn't equal to the block tx count, process as normal block
+            foreach (var txid in b.transactions)
+            {
+                TransactionPool.addTxId(txid);
+            }
+
+            if (b.powField != null)
+            {
+                ulong powAppliedBlock = BitConverter.ToUInt64(b.powField, 0);
+                if (powAppliedBlock >= wsSyncConfirmedBlockNum - 100
+                    || powAppliedBlock >= lastBlockToReadFromStorage - 100)
+                {
+                    b.powField = null;
+                }
+            }
+
+            Node.blockChain.appendBlock(b, false);
+
+            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+
+            return true;
+        }
+
         private void rollForward()
         {
             bool sleep = false;
@@ -489,6 +542,11 @@ namespace DLT
 
                         Logging.info("Sync: Applying block #{0}/{1}.",
                             b.blockNum, syncToBlock);
+
+                        if (fastBlockLoading(b))
+                        {
+                            continue;
+                        }
 
                         bool ignoreWalletState = true;
 
