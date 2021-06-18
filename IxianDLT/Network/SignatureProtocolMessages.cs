@@ -28,31 +28,11 @@ namespace DLT
     {
         class SignatureProtocolMessages
         {
-            public static bool broadcastBlockSignature(byte[] signature, byte[] sig_address, ulong block_num, byte[] block_hash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
+            public static bool broadcastBlockSignature(BlockSignature signature, ulong blockNum, byte[] blockHash, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null)
             {
-                byte[] signature_data = null;
-
-                using (MemoryStream m = new MemoryStream(1152))
-                {
-                    using (BinaryWriter writer = new BinaryWriter(m))
-                    {
-                        writer.WriteIxiVarInt(block_num);
-
-                        writer.WriteIxiVarInt(block_hash.Length);
-                        writer.Write(block_hash);
-
-                        writer.WriteIxiVarInt(signature.Length);
-                        writer.Write(signature);
-
-                        writer.WriteIxiVarInt(sig_address.Length);
-                        writer.Write(sig_address);
-#if TRACE_MEMSTREAM_SIZES
-                        Logging.info(String.Format("NetworkProtocol::broadcastNewBlockSignature: {0}", m.Length));
-#endif
-
-                        signature_data = m.ToArray();
-                    }
-                }
+                signature.blockNum = blockNum;
+                signature.blockHash = blockHash;
+                byte[] signature_data = signature.getBytesForBroadcast();
 
                 if (endpoint != null)
                 {
@@ -65,7 +45,7 @@ namespace DLT
                 }
                 else
                 {
-                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(sig_address, block_num, block_hash), skipEndpoint, ProtocolMessageCode.blockSignature2, signature_data, null);
+                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(signature.signerAddress, signature.blockNum, signature.blockHash), skipEndpoint);
                 }
             }
 
@@ -78,59 +58,44 @@ namespace DLT
 
                 if (data == null)
                 {
-                    Logging.warn(string.Format("Invalid protocol message signature data"));
+                    Logging.warn("Invalid protocol message signature data");
                     return;
                 }
 
-                using (MemoryStream m = new MemoryStream(data))
+                BlockSignature blockSig = new BlockSignature(data, true);
+
+                ulong last_bh = IxianHandler.getLastBlockHeight();
+
+                lock (Node.blockProcessor.localBlockLock)
                 {
-                    using (BinaryReader reader = new BinaryReader(m))
+                    if (last_bh + 1 < blockSig.blockNum || (last_bh + 1 == blockSig.blockNum && Node.blockProcessor.getLocalBlock() == null))
                     {
-                        ulong block_num = reader.ReadIxiVarUInt();
-
-                        int checksum_len = (int)reader.ReadIxiVarUInt();
-                        byte[] checksum = reader.ReadBytes(checksum_len);
-
-                        int sig_len = (int)reader.ReadIxiVarUInt();
-                        byte[] sig = reader.ReadBytes(sig_len);
-
-                        int sig_addr_len = (int)reader.ReadIxiVarUInt();
-                        byte[] sig_addr = reader.ReadBytes(sig_addr_len);
-
-                        ulong last_bh = IxianHandler.getLastBlockHeight();
-
-                        lock (Node.blockProcessor.localBlockLock)
-                        {
-                            if (last_bh + 1 < block_num || (last_bh + 1 == block_num && Node.blockProcessor.getLocalBlock() == null))
-                            {
-                                Logging.info("Received signature for block {0} which is missing", block_num);
-                                // future block, request the next block
-                                BlockProtocolMessages.broadcastGetBlock(last_bh + 1, null, endpoint);
-                                return;
-                            }
-                        }
-
-                        if (PresenceList.getPresenceByAddress(sig_addr) == null)
-                        {
-                            Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
-                            return;
-                        }
-
-                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig_addr, checksum), true);
-
-                        if (Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, sig_addr, endpoint))
-                        {
-                            Node.blockProcessor.acceptLocalNewBlock();
-                            if (Node.isMasterNode())
-                            {
-                                broadcastBlockSignature(sig, sig_addr, block_num, checksum, endpoint);
-                            }
-                        }
-                        else
-                        {
-                            // discard - it might have already been applied
-                        }
+                        Logging.info("Received signature for block {0} which is missing", blockSig.blockNum);
+                        // future block, request the next block
+                        BlockProtocolMessages.broadcastGetBlock(last_bh + 1, null, endpoint);
+                        return;
                     }
+                }
+
+                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, blockSig.blockHash), true);
+
+                if (PresenceList.getPresenceByAddress(blockSig.signerAddress) == null)
+                {
+                    Logging.info("Received signature for block {0} whose signer isn't in the PL", blockSig.blockNum);
+                    return;
+                }
+
+                if (Node.blockProcessor.addSignatureToBlock(blockSig, endpoint))
+                {
+                    Node.blockProcessor.acceptLocalNewBlock();
+                    if (Node.isMasterNode())
+                    {
+                        broadcastBlockSignature(blockSig, blockSig.blockNum, blockSig.blockHash, endpoint);
+                    }
+                }
+                else
+                {
+                    // discard - it might have already been applied
                 }
             }
 
@@ -166,7 +131,7 @@ namespace DLT
                 broadcastBlockSignatures(b, null, endpoint);
             }
 
-            public static void broadcastBlockSignatures(ulong block_num, byte[] block_checksum, List<byte[][]> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
+            public static void broadcastBlockSignatures(ulong block_num, byte[] block_checksum, List<BlockSignature> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
                 int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
 
@@ -201,19 +166,19 @@ namespace DLT
 
                             for (int j = 0; j < next_sig_count && i < sig_count; j++)
                             {
-                                byte[][] sig = signatures[i];
+                                BlockSignature sig = signatures[i];
                                 i++;
                                 if (sig == null)
                                 {
                                     continue;
                                 }
                                 // sig
-                                writer.WriteIxiVarInt(sig[0].Length);
-                                writer.Write(sig[0]);
+                                writer.WriteIxiVarInt(sig.signature.Length);
+                                writer.Write(sig.signature);
 
                                 // address/pubkey
-                                writer.WriteIxiVarInt(sig[1].Length);
-                                writer.Write(sig[1]);
+                                writer.WriteIxiVarInt(sig.signerAddress.Length);
+                                writer.Write(sig.signerAddress);
                             }
                         }
 #if TRACE_MEMSTREAM_SIZES
@@ -237,6 +202,73 @@ namespace DLT
                 }
             }
 
+            public static void broadcastBlockSignatures2(ulong block_num, byte[] block_checksum, List<BlockSignature> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
+            {
+                int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
+
+                int sig_count = signatures.Count();
+
+                if (sig_count == 0)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < sig_count;)
+                {
+                    using (MemoryStream mOut = new MemoryStream())
+                    {
+                        using (BinaryWriter writer = new BinaryWriter(mOut))
+                        {
+                            writer.WriteIxiVarInt(block_num);
+
+                            writer.WriteIxiVarInt(block_checksum.Length);
+                            writer.Write(block_checksum);
+
+                            int next_sig_count;
+                            if (sig_count - i > max_sigs_per_chunk)
+                            {
+                                next_sig_count = max_sigs_per_chunk;
+                            }
+                            else
+                            {
+                                next_sig_count = sig_count - i;
+                            }
+                            writer.WriteIxiVarInt(next_sig_count);
+
+                            for (int j = 0; j < next_sig_count && i < sig_count; j++)
+                            {
+                                BlockSignature sig = signatures[i];
+                                i++;
+                                if (sig == null)
+                                {
+                                    continue;
+                                }
+                                byte[] sig_bytes = sig.getBytesForBlock();
+                                // sig
+                                writer.WriteIxiVarInt(sig_bytes.Length);
+                                writer.Write(sig_bytes);
+                            }
+                        }
+#if TRACE_MEMSTREAM_SIZES
+                        Logging.info(String.Format("NetworkProtocol::broadcastBlockSignatures: {0}", mOut.Length));
+#endif
+
+                        // Send a chunk
+                        if (endpoint != null)
+                        {
+                            if (!endpoint.isConnected())
+                            {
+                                return;
+                            }
+                            endpoint.sendData(ProtocolMessageCode.signaturesChunk2, mOut.ToArray(), BitConverter.GetBytes(block_num));
+                        }
+                        else
+                        {
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.signaturesChunk2, mOut.ToArray(), BitConverter.GetBytes(block_num), skip_endpoint);
+                        }
+                    }
+                }
+            }
 
             public static void broadcastGetSignatures(ulong block_num, List<InventoryItemSignature> sig_list, RemoteEndpoint endpoint)
             {
@@ -382,14 +414,14 @@ namespace DLT
                                         int address_len = (int)reader.ReadIxiVarUInt();
                                         byte[] address = reader.ReadBytes(address_len);
 
-                                        byte[] signature = block.getNodeSignature(address);
+                                        BlockSignature signature = block.getNodeSignature(address);
                                         if (signature == null)
                                         {
                                             continue;
                                         }
 
-                                        writer.WriteIxiVarInt(signature.Length);
-                                        writer.Write(signature);
+                                        writer.WriteIxiVarInt(signature.signature.Length);
+                                        writer.Write(signature.signature);
 
                                         writer.WriteIxiVarInt(address_len);
                                         writer.Write(address);
@@ -402,6 +434,122 @@ namespace DLT
                 }
             }
 
+
+            public static void handleGetSignatures2(byte[] data, RemoteEndpoint endpoint)
+            {
+                if (Node.blockSync.synchronizing)
+                {
+                    return;
+                }
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_number = reader.ReadIxiVarUInt();
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
+
+                        if (block_number > last_block_height)
+                        {
+                            return;
+                        }
+
+                        Block block = null;
+                        if (block_number == last_block_height)
+                        {
+                            bool haveLock = false;
+                            try
+                            {
+                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                                if (!haveLock)
+                                {
+                                    throw new TimeoutException();
+                                }
+
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == last_block_height)
+                                {
+                                    block = tmp;
+                                }
+                            }
+                            finally
+                            {
+                                if (haveLock)
+                                {
+                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
+                        }
+
+                        if (block == null)
+                        {
+                            Logging.warn("Unable to find block #{0} in the chain for fetching signatures!", block_number);
+                            return;
+                        }
+
+                        int sig_count = (int)reader.ReadIxiVarUInt();
+
+                        int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
+                        if (sig_count > max_sigs_per_chunk)
+                        {
+                            sig_count = max_sigs_per_chunk;
+                        }
+
+                        for (int i = 0; i < sig_count;)
+                        {
+                            using (MemoryStream mOut = new MemoryStream(max_sigs_per_chunk * 570))
+                            {
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
+                                {
+                                    writer.WriteIxiVarInt(block.blockNum);
+
+                                    writer.WriteIxiVarInt(block.blockChecksum.Length);
+                                    writer.Write(block.blockChecksum);
+
+                                    int next_sig_count;
+                                    if (sig_count - i > max_sigs_per_chunk)
+                                    {
+                                        next_sig_count = max_sigs_per_chunk;
+                                    }
+                                    else
+                                    {
+                                        next_sig_count = sig_count - i;
+                                    }
+                                    writer.WriteIxiVarInt(next_sig_count);
+
+                                    for (int j = 0; j < next_sig_count && i < sig_count; j++)
+                                    {
+                                        i++;
+                                        if (m.Position == m.Length)
+                                        {
+                                            break;
+                                        }
+
+                                        int address_len = (int)reader.ReadIxiVarUInt();
+                                        byte[] address = reader.ReadBytes(address_len);
+
+                                        BlockSignature signature = block.getNodeSignature(address);
+                                        if (signature == null)
+                                        {
+                                            continue;
+                                        }
+
+                                        byte[] sig_bytes = signature.getBytesForBlock();
+
+                                        writer.WriteIxiVarInt(sig_bytes.Length);
+                                        writer.Write(sig_bytes);
+                                    }
+                                }
+                                endpoint.sendData(ProtocolMessageCode.signaturesChunk2, mOut.ToArray(), null);
+                            }
+                        }
+                    }
+                }
+            }
             public static void handleSignaturesChunk(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))
@@ -503,7 +651,7 @@ namespace DLT
 
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
 
-                                dummy_block.addSignature(sig, addr);
+                                dummy_block.addSignature(new BlockSignature() { signature = sig, signerAddress = addr });
                             }
 
                             Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
@@ -530,12 +678,12 @@ namespace DLT
                                     Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
                                     continue;
                                 }
-
-                                if (Node.blockProcessor.addSignatureToBlock(block_num, checksum, sig, addr, endpoint))
+                                BlockSignature blockSig = new BlockSignature() { blockNum = block_num, blockHash = checksum, signature = sig, signerAddress = addr };
+                                if (Node.blockProcessor.addSignatureToBlock(blockSig, endpoint))
                                 {
                                     if (Node.isMasterNode())
                                     {
-                                        broadcastBlockSignature(sig, addr, block_num, checksum, endpoint);
+                                        broadcastBlockSignature(blockSig, block_num, checksum, endpoint);
                                     }
                                 }
                             }
@@ -545,6 +693,145 @@ namespace DLT
                 }
             }
 
+            public static void handleSignaturesChunk2(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong block_num = reader.ReadIxiVarUInt();
+
+                        int checksum_len = (int)reader.ReadIxiVarUInt();
+                        byte[] checksum = reader.ReadBytes(checksum_len);
+
+                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
+
+                        if (block_num > last_block_height)
+                        {
+                            return;
+                        }
+
+                        Block block = null;
+                        if (block_num == last_block_height)
+                        {
+                            bool haveLock = false;
+                            try
+                            {
+                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
+                                if (!haveLock)
+                                {
+                                    throw new TimeoutException();
+                                }
+
+                                Block tmp = Node.blockProcessor.getLocalBlock();
+                                if (tmp != null && tmp.blockNum == last_block_height)
+                                {
+                                    block = tmp;
+                                }
+                            }
+                            finally
+                            {
+                                if (haveLock)
+                                {
+                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block = Node.blockChain.getBlock(block_num, false, false);
+                        }
+
+
+                        if (block == null)
+                        {
+                            // target block missing
+                            Logging.warn("Target block {0} for adding sigs is missing", block_num);
+                            return;
+                        }
+                        else if (!block.blockChecksum.SequenceEqual(checksum))
+                        {
+                            // incorrect target block
+                            Logging.warn("Incorrect target block {0} - {1}, possibly forked", block_num, Crypto.hashToString(checksum));
+                            return;
+                        }
+
+
+                        if (block_num + 5 < last_block_height)
+                        {
+                            // block already sigfreezed, do nothing
+                            return;
+                        }
+
+                        int sig_count = (int)reader.ReadIxiVarUInt();
+
+                        if (sig_count > ConsensusConfig.maximumBlockSigners)
+                        {
+                            sig_count = ConsensusConfig.maximumBlockSigners;
+                        }
+
+                        if (block_num + 5 == last_block_height)
+                        {
+                            // handle currently sigfreezing block differently
+
+                            Block dummy_block = new Block();
+                            dummy_block.blockNum = block_num;
+                            dummy_block.blockChecksum = checksum;
+                            dummy_block.blockProposer = block.blockProposer;
+
+                            for (int i = 0; i < sig_count; i++)
+                            {
+                                if (m.Position == m.Length)
+                                {
+                                    break;
+                                }
+
+                                int sig_len = (int)reader.ReadIxiVarUInt();
+                                byte[] sig = reader.ReadBytes(sig_len);
+
+                                BlockSignature blockSig = new BlockSignature(sig, false);
+
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, checksum), true);
+
+                                dummy_block.addSignature(blockSig);
+                            }
+
+                            Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
+                        }
+                        else
+                        {
+                            for (int i = 0; i < sig_count; i++)
+                            {
+                                if (m.Position == m.Length)
+                                {
+                                    break;
+                                }
+
+                                int sig_len = (int)reader.ReadIxiVarUInt();
+                                byte[] sig = reader.ReadBytes(sig_len);
+
+                                BlockSignature blockSig = new BlockSignature(sig, false);
+
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, checksum), true);
+
+                                if (PresenceList.getPresenceByAddress(blockSig.signerAddress) == null)
+                                {
+                                    Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
+                                    continue;
+                                }
+                                if (Node.blockProcessor.addSignatureToBlock(blockSig, endpoint))
+                                {
+                                    if (Node.isMasterNode())
+                                    {
+                                        broadcastBlockSignature(blockSig, block_num, checksum, endpoint);
+                                    }
+                                }
+                            }
+                        }
+                        Node.blockProcessor.acceptLocalNewBlock();
+                    }
+                }
+            }
             public static bool broadcastGetBlockSignatures(ulong block_num, byte[] block_checksum, RemoteEndpoint endpoint)
             {
                 using (MemoryStream mw = new MemoryStream())

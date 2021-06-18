@@ -195,7 +195,7 @@ namespace DLT
                             // If a presence entry was updated, broadcast this message again
                             if (updated)
                             {
-                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, ka_bytes, address);
+                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint);
 
                                 // Send this keepalive message to all subscribed clients
                                 CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, ka_bytes, address, endpoint);
@@ -278,7 +278,7 @@ namespace DLT
                 // If a presence entry was updated, broadcast this message again
                 if (updated)
                 {
-                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint, ProtocolMessageCode.keepAlivePresence, data, address);
+                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint);
 
                     // Send this keepalive message to all subscribed clients
                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address, ProtocolMessageCode.keepAlivePresence, data, address, endpoint);

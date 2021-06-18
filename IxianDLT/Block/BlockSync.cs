@@ -719,12 +719,12 @@ namespace DLT
                             {
                                 if (Node.isMasterNode() && b.blockNum > 7)
                                 {
-                                    byte[][] signature_data = b.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
-                                    if (signature_data != null)
+                                    BlockSignature blockSig = b.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
+                                    if (blockSig != null)
                                     {
-                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data[1], b.blockChecksum), true);
+                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, b.blockChecksum), true);
                                         // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                        SignatureProtocolMessages.broadcastBlockSignature(signature_data[0], signature_data[1], b.blockNum, b.blockChecksum, null, null);
+                                        SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
                                     }
                                 }
                             }

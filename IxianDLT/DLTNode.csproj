@@ -142,6 +142,7 @@
     <Compile Include="Meta\SQLiteStorage.cs" />
     <Compile Include="Meta\WalletStateStorage.cs" />
     <Compile Include="Miner\Miner.cs" />
+    <Compile Include="Miner\SignerPowMiner.cs" />
     <Compile Include="Network\BlockProtocolMessages.cs" />
     <Compile Include="Network\NetworkProtocol.cs" />
     <Compile Include="Network\PresenceProtocolMessages.cs" />

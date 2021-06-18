@@ -67,6 +67,8 @@ namespace DLT
         static object activePoolBlockLock = new object();
         static Block activePoolBlock = null;
 
+        // the value below is the easiest way to get maximum hash value into a BigInteger (2^256 -1). Ixian shifts the integer 8 places to the right to get 8 decimal places.
+        static BigInteger maxHashValue = new IxiNumber("1157920892373161954235709850086879078532699846656405640394575840079131.29639935").getAmount();
 
         public Miner()
         {
@@ -194,9 +196,7 @@ namespace DLT
             }
 
             BigInteger ceil = new BigInteger(full_ceil);
-            // the value below is the easiest way to get maximum hash value into a BigInteger (2^256 -1). Ixian shifts the integer 8 places to the right to get 8 decimal places.
-            BigInteger max = new IxiNumber("1157920892373161954235709850086879078532699846656405640394575840079131.29639935").getAmount();
-            return max / ceil;
+            return maxHashValue / ceil;
         }
 
         /*public static ulong calculateEstimatedHashRate()
@@ -215,12 +215,11 @@ namespace DLT
             // This target ceiling contains our target difficulty, in the format:
             // big endian: FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF YYYY YYYY YYYY YYYY 0000; Y represents the difficulty, but the bytes are reversed
             // the bytes being reversed is actually okay, because we are using BitConverter.ToUInt64, which takes a big-endian byte array to return a ulong number.
-            BigInteger max = new IxiNumber("1157920892373161954235709850086879078532699846656405640394575840079131.29639935").getAmount();
             if(current_hashes_per_block == 0)
             {
                 current_hashes_per_block = 1000; // avoid divide by zero
             }
-            BigInteger target_ceil = max / current_hashes_per_block;
+            BigInteger target_ceil = maxHashValue / current_hashes_per_block;
             byte[] temp = target_ceil.ToByteArray();
             int temp_len = temp.Length;
             if(temp_len > 32)
@@ -930,8 +929,7 @@ namespace DLT
             if (block == null)
                 return false;
 
-            // TODO checksum the solver_address just in case it's not valid
-            // also protect against spamming with invalid nonce/block_num
+            // TODO protect against spamming with invalid nonce/block_num
             byte[] p1 = new byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);

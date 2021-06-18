@@ -34,6 +34,7 @@ namespace DLT.Meta
         public static BlockSync blockSync = null;
         public static WalletStorage walletStorage = null;
         public static Miner miner = null;
+        public static SignerPowMiner signerPowMiner = null;
         public static WalletState walletState = null;
         public static IStorage storage = null;
         public static InventoryCacheDLT inventoryCache = null;
@@ -369,6 +370,9 @@ namespace DLT.Meta
             }
 
             miner = new Miner();
+            signerPowMiner = new SignerPowMiner();
+            Node.blockProcessor.resumeOperation();
+            signerPowMiner.test();
 
             // Start the network queue
             NetworkQueue.start();
@@ -591,6 +595,12 @@ namespace DLT.Meta
             {
                 miner.stop();
                 miner = null;
+            }
+
+            if(signerPowMiner != null)
+            {
+                signerPowMiner.stop();
+                signerPowMiner = null;
             }
 
             if (maintenanceThread != null)
@@ -1087,7 +1097,7 @@ namespace DLT.Meta
 
             Dictionary<string, string> response = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(json_file));
             ulong blockNum = ulong.Parse(response["Block Number"]);
-            List<byte[][]> signatures = JsonConvert.DeserializeObject<List<byte[][]>>(response["Signatures"]);
+            List<BlockSignature> signatures = JsonConvert.DeserializeObject<List<BlockSignature>>(response["Signatures"]);
             Block b = storage.getBlock(blockNum);
             b.signatures = signatures;
             storage.insertBlock(b);

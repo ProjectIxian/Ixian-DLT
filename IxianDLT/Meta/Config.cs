@@ -51,8 +51,9 @@ namespace DLT
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
             public static string genesis2Address = ""; // For a secondary genesis node
-           
+
             public static uint miningThreads = 1;
+            public static uint cpuThreads = (uint)Environment.ProcessorCount;
 
             public static string dataFolderPath = "data";
             public static string blockStorageProvider = "SQLite";
@@ -144,11 +145,11 @@ namespace DLT
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
-                Console.WriteLine(" [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
-                Console.WriteLine(" [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
-                Console.WriteLine(" [--maxTxPerBlock 19980] [--disableSetTitle] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
-                Console.WriteLine(" [--recover] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg]");
-                Console.WriteLine(" [--chainReorgTest]");
+                Console.WriteLine("   [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
+                Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
+                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
+                Console.WriteLine("   [--recover] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg]");
+                Console.WriteLine("   [--chainReorgTest] [--cpuThreads 4] ");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -186,6 +187,7 @@ namespace DLT
                 Console.WriteLine("    --offline\t\t Offline mode - does not connect to other nodes or accepts any connections from other nodes");
                 Console.WriteLine("    --disableChainReorg\t Disables blockchain reorganization");
                 Console.WriteLine("    --chainReorgTest\t Enables chain reorg test");
+                Console.WriteLine("    --cpuThreads\t Force number of CPU threads to use (default autodetect)");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Config File Options -----------");
                 Console.WriteLine(" Config file options should use parameterName = parameterValue syntax.");
@@ -355,6 +357,9 @@ namespace DLT
 
                 if (miningThreads < 1)
                     miningThreads = 1;
+
+                if (cpuThreads < 1)
+                    cpuThreads = 1;
             }
 
             private static void startClean(int start_clean)
@@ -492,6 +497,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("chainReorgTest").Callback(value => enableChainReorgTest = true).Required();
 
                 cmd_parser.Setup<int>("logVerbosity").Callback(value => logVerbosity = value).Required();
+
+                cmd_parser.Setup<int>("cpuThreads").Callback(value => cpuThreads = (uint)value).Required();
 
                 cmd_parser.Parse(args);
 

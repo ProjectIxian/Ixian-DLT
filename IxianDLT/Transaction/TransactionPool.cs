@@ -969,7 +969,7 @@ namespace DLT
                     CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData, transaction.getBytes(), null, endpoint);
                 }else
                 {
-                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, transaction.id), null, ProtocolMessageCode.transactionData, transaction.getBytes(), null);
+                    CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, transaction.id), null);
                 }
             }
 

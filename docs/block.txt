@@ -1,0 +1,92 @@
+---
+title: Programming Objects
+---
+
+## Block
+### C# Object
+`IXICore.Block`
+
+### Description
+Represents the fundamental structure of a DLT block, a basic object of the block chain.
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| version | IxiVarUInt | Block version. Current active version = 8. |
+| blockNum | IxiVarUInt | Sequential number of the block. |
+| transactionCount | IxiVarUInt | Number of transactions in the block. |
+| transactions | List<string> | List of all transaction IDs which were included in this block. |
+| signatures | List<byte[][]> | List of all signatures on this block. |
+| frozenSignatures | List<byte[][]> | List of signatures which were frozen according to the Block Version 5 concept. |
+| signatureCount | int | Number of signatures on the block - this field is used only for compacted block. (See Superblock functionality.) |
+| blockChecksum | byte[] | SHA512 checksum of the block contents. Please note that the checksum does not include the signatures. (See: signatureFreezeChecksum) |
+| lastBlockChecksum | byte[] | Checksum for the previous block in the chain. (blockNum - 1) |
+| walletStateChecksum | byte[] | Checksum of the contents of the [Wallet State](/tech_docs/objects.html#Wallet-State) |
+| signatureFreezeChecksum | byte[] | Checksum for the fifth-previous block's signature fields. This 'locks' the signature field for the block `blockNum-5`. |
+| timestamp | long | Unix epoch value, representing the moment this block was generated. (One second precision.) |
+| difficulty | ulong | PoW Difficulty value, representing the hashing difficulty to calculate a `PoW Solution` for this block. (link wiki page on pow) |
+| superBlockSegments | Dictionary<ulong, SuperBlockSegment> | Only populated for Superblocks. Contains a list of previous blocks and their checksums since the previous Superblock. |
+| lastSuperBlockChecksum | byte[] | Checksum of the previous Superblock. The Superblocks form a slower block chain on top of the Ixian block chain and store the most critical information for old regular blocks - this prevents certain exploit types due to the Redacted Blockchain concept. |
+| lastSuperBlockNum | ulong | Number of the previous Superblock. As of Block Version 5 every 1000th block should be a Superblock (there should be 999 regular blocks between two superblocks), but this value has changed (and might change again), so this field tracks the previous Superblock in the chain. |
+| powField | byte[] | PoW solution for this block. Note: this field is not transmitted over the network, because it can easily be obtained from the [Transaction Pool](/tech_docs/objects.html#Transaction-Pool) |
+| compacted | bool | Indicates whether this block has been compacted by using Superblocks, as per Block Version 5 concepts. |
+
+Block:
+IxiChecksumLock
+version
+blockNum
+pitHash
+lastBlockChecksum
+wsChecksum
+sfChecksum
+difficulty
+superblockSegments
+lastSuperBlockNum
+lastSuperBlockChecksum
+timestamp
+
+Tx v5:
+IxiChecksumLock
+type
+amount string
+fee string
+toList
+	- key
+	- value (byteArray)
+fromList
+	- address
+	- amount (byteArray)
+dataChecksum
+blockHeight
+nonce
+timestamp
+version
+pubKey
+
+Tx v6:
+IxiChecksumLock
+type
+amount byteArray
+fee byteArray
+toList
+	- key
+	- value (byteArray)
+fromList
+	- key/address nonce
+	- amount (byteArray)
+dataChecksum
+blockHeight
+nonce
+timestamp
+version
+pubKey
+
+Wallet crc:
+id
+balance (str)
+data
+publicKey
+type
+requiredSigs
+allowedSigners

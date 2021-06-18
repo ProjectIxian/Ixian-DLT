@@ -500,7 +500,7 @@ namespace DLT
                     }
                     else
                     {
-                        return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemBlock(b.blockChecksum, b.blockNum), skipEndpoint, ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
+                        return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemBlock(b.blockChecksum, b.blockNum), skipEndpoint);
                     }
                 }
             }

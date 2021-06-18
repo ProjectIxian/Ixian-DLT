@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 
 namespace DLT
 {
@@ -423,7 +424,7 @@ namespace DLT
                 {
                     ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
                     Block b = null;
-                    if(blocksDictionary.ContainsKey(consensus_block_num))
+                    if (blocksDictionary.ContainsKey(consensus_block_num))
                     {
                         b = blocksDictionary[consensus_block_num];
                     }
@@ -459,6 +460,59 @@ namespace DLT
                 }
 
 
+
+                if (consensus < 2)
+                {
+                    consensus = 2;
+                }
+
+                return consensus;
+            }
+        }
+
+        public ulong getRequiredSignerDifficulty()
+        {
+            // TODO TODO TODO cache
+            return getRequiredSignerDifficulty(lastBlockNum + 1);
+        }
+
+        public ulong getRequiredSignerDifficulty(ulong block_num, bool adjusted_to_ratio = true)
+        {
+            // TODO TODO TODO TODO TODO there is an issue with calculating required consensus after blocks are compacted, for now this is resolved by increasing the compacting window
+            int block_offset = 7;
+            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
+            lock (blocks)
+            {
+                BigInteger total_hash_rate = 0;
+                int block_count = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
+                    Block b = null;
+                    if (blocksDictionary.ContainsKey(consensus_block_num))
+                    {
+                        b = blocksDictionary[consensus_block_num];
+                    }
+                    if (b == null)
+                    {
+                        break;
+                    }
+                    total_hash_rate += b.getTotalSignerDifficulty();
+                    block_count++;
+                }
+
+                if (block_count == 0)
+                {
+                    return (ulong)ConsensusConfig.maximumBlockSigners;
+                }
+
+                ulong total_consensus = SignerPowSolution.calculateTargetDifficulty(total_hash_rate);
+                ulong consensus = (ulong)Math.Ceiling((double)total_consensus / block_count);
+
+                if (adjusted_to_ratio)
+                {
+                    consensus = (ulong)Math.Floor(total_consensus / (ulong)block_count * ConsensusConfig.networkConsensusRatio);
+                }
 
                 if (consensus < 2)
                 {
@@ -527,8 +581,9 @@ namespace DLT
                     {
                         foreach (var sig in added_sigs)
                         {
-                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig[1], b.blockChecksum), true);
-                            SignatureProtocolMessages.broadcastBlockSignature(sig[0], sig[1], b.blockNum, b.blockChecksum, endpoint, null);
+                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress, b.blockChecksum), true);
+
+                            SignatureProtocolMessages.broadcastBlockSignature(sig, b.blockNum, b.blockChecksum, endpoint, null);
                         }
                     }
 
@@ -578,13 +633,13 @@ namespace DLT
                 int sigNr = BitConverter.ToInt32(sigFreezeChecksum, 0) + offset;
 
                 // Sort the signatures first
-                List<byte[][]> sortedSigs = new List<byte[][]>(targetBlock.signatures);
-                sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x[1], y[1]));
+                List<BlockSignature> sortedSigs = new List<BlockSignature>(targetBlock.signatures);
+                sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress, y.signerAddress));
 
-                byte[][] sig = sortedSigs[(int)((uint)sigNr % sortedSigs.Count)];
+                BlockSignature sig = sortedSigs[(int)((uint)sigNr % sortedSigs.Count)];
 
                 // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-                byte[] address = sig[1];
+                byte[] address = sig.signerAddress;
 
                 // Check if we have a public key instead of an address
                 if (address.Length > 70)

@@ -39,7 +39,7 @@ namespace DLT
                 public byte[] sigFreezeChecksum { get; set; }
                 public ulong difficulty { get; set; }
                 public byte[] powField { get; set; }
-                public byte[][][] signatures { get; set; }
+                public byte[][] signatures { get; set; }
                 public byte[][] transactions { get; set; }
                 public long timestamp { get; set; }
                 public int version { get; set; }
@@ -75,7 +75,7 @@ namespace DLT
                     difficulty = from_block.difficulty;
                     powField = from_block.powField;
 
-                    List<byte[][]> source_signatures = null;
+                    List<BlockSignature> source_signatures = null;
                     if(from_block.frozenSignatures != null)
                     {
                         source_signatures = from_block.frozenSignatures;
@@ -84,13 +84,11 @@ namespace DLT
                         source_signatures = from_block.signatures;
                     }
 
-                    signatures = new byte[source_signatures.Count][][];
+                    signatures = new byte[source_signatures.Count][];
                     int i = 0;
-                    foreach (byte[][] sig in source_signatures)
+                    foreach (BlockSignature sig in source_signatures)
                     {
-                        signatures[i] = new byte[2][];
-                        signatures[i][0] = sig[0];
-                        signatures[i][1] = sig[1];
+                        signatures[i] = sig.getBytesForBlock();
                         i += 1;
                     }
 
@@ -127,10 +125,10 @@ namespace DLT
                     b.signatureFreezeChecksum = sigFreezeChecksum;
                     b.difficulty = difficulty;
                     b.powField = powField;
-                    b.signatures = new List<byte[][]>();
+                    b.signatures = new List<BlockSignature>();
                     foreach (var sig in signatures)
                     {
-                        b.signatures.Add(new byte[2][] { sig[0], sig[1] });
+                        b.signatures.Add(new BlockSignature(sig, false));
                     }
                     if (transactions != null)
                     {
@@ -182,14 +180,11 @@ namespace DLT
                             if (count > 0)
                             {
                                 // signature is [sig][address]
-                                signatures = new byte[count][][];
+                                signatures = new byte[count][];
                                 for (int i = 0; i < count; i++)
                                 {
-                                    signatures[i] = new byte[2][];
                                     int s_len = br.ReadInt32();
-                                    if (s_len > 0) { signatures[i][0] = br.ReadBytes(s_len); } else { signatures[i][0] = null; }
-                                    int a_len = br.ReadInt32();
-                                    if (a_len > 0) { signatures[i][1] = br.ReadBytes(a_len); } else { signatures[i][1] = null; }
+                                    if (s_len > 0) { signatures[i] = br.ReadBytes(s_len); } else { signatures[i] = null; }
                                 }
                             }
                             else { signatures = null; }
@@ -303,10 +298,8 @@ namespace DLT
                                 foreach (var s in signatures)
                                 {
                                     // signature is [sig][address]
-                                    wr.Write(s[0].Length);
-                                    wr.Write(s[0]);
-                                    wr.Write(s[1].Length);
-                                    wr.Write(s[1]);
+                                    wr.Write(s.Length);
+                                    wr.Write(s);
                                 }
                             }
                             else

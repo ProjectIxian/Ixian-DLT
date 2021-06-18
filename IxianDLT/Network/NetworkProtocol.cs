@@ -157,8 +157,16 @@ namespace DLT
                             SignatureProtocolMessages.handleGetSignatures(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.getSignatures2:
+                            SignatureProtocolMessages.handleGetSignatures2(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.signaturesChunk:
                             SignatureProtocolMessages.handleSignaturesChunk(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.signaturesChunk2:
+                            SignatureProtocolMessages.handleSignaturesChunk2(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.getTransactions2:

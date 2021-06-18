@@ -387,7 +387,7 @@ namespace DLT
                     transactions += "||" + Transaction.txIdV8ToLegacy(tx);
                 }
 
-                List<byte[][]> tmp_sigs = null;
+                List<BlockSignature> tmp_sigs = null;
                 if(block.frozenSignatures != null)
                 {
                     tmp_sigs = block.frozenSignatures;
@@ -397,14 +397,14 @@ namespace DLT
                 }
 
                 string signatures = "";
-                foreach (byte[][] sig in tmp_sigs)
+                foreach (BlockSignature sig in tmp_sigs)
                 {
                     string str_sig = "0";
-                    if(sig[0] != null)
+                    if(sig.signature != null)
                     {
-                        str_sig = Convert.ToBase64String(sig[0]);
+                        str_sig = Convert.ToBase64String(sig.signature);
                     }
-                    signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig[1]);
+                    signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig.signerAddress);
                 }
 
                 if (!Node.blockProcessor.verifySigFreezedBlock(block))
@@ -644,7 +644,7 @@ namespace DLT
                     difficulty = (ulong)blk.difficulty,
                     powField = blk.powField,
                     transactions = new HashSet<byte[]>(new ByteArrayComparer()),
-                    signatures = new List<byte[][]>(),
+                    signatures = new List<BlockSignature>(),
                     timestamp = blk.timestamp,
                     version = blk.version,
                     lastSuperBlockChecksum = blk.lastSuperBlockChecksum,
@@ -672,13 +672,13 @@ namespace DLT
                         {
                             continue;
                         }
-                        byte[][] newSig = new byte[2][];
+                        BlockSignature newSig = new BlockSignature();
                         if (split_sig[0] != "0")
                         {
-                            newSig[0] = Convert.FromBase64String(split_sig[0]);
+                            newSig.signature = Convert.FromBase64String(split_sig[0]);
                         }
-                        newSig[1] = Convert.FromBase64String(split_sig[1]);
-                        if (!block.containsSignature(new Address(newSig[1], null, false)))
+                        newSig.signerAddress = Convert.FromBase64String(split_sig[1]);
+                        if (!block.containsSignature(new Address(newSig.signerAddress, null, false)))
                         {
                             block.signatures.Add(newSig);
                         }
