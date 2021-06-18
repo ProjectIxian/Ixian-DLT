@@ -398,7 +398,7 @@ namespace DLT
 
                                             if (iib.blockNum > Node.blockProcessor.highestNetworkBlockNum)
                                             {
-                                                Node.blockProcessor.highestNetworkBlockNum = iib.blockNum;
+                                                Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                                             }
                                         }
                                         break;
@@ -507,7 +507,7 @@ namespace DLT
 
                                             if (iib.blockNum > Node.blockProcessor.highestNetworkBlockNum)
                                             {
-                                                Node.blockProcessor.highestNetworkBlockNum = iib.blockNum;
+                                                Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                                             }
                                         }
                                         break;

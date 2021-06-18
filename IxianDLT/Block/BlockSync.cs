@@ -1151,7 +1151,7 @@ namespace DLT
                     Logging.info(String.Format("Sync target increased from {0} to {1}.",
                         syncTargetBlockNum, block_height));
 
-                    Node.blockProcessor.highestNetworkBlockNum = block_height; // TODO TODO TODO TODO this has to be improved, to check the validity of the block height - it must have required signatures
+                    Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
 
                     // Start a wallet state synchronization if no network sync was done before
                     if (noNetworkSynchronization && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
@@ -1195,7 +1195,7 @@ namespace DLT
                     }
                     else
                     {
-                        Node.blockProcessor.highestNetworkBlockNum = block_height;
+                        Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                         syncTargetBlockNum = block_height;
                     }
                     if (Config.fullStorageDataVerification)

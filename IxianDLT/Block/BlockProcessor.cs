@@ -1682,8 +1682,8 @@ namespace DLT
                         }
                     }
 
-                    // check if there are 90% valid signatures
-                    if (valid_sig_count < Math.Floor(block_sig_count * 0.9))
+                    // check if there are 90% valid signatures but only if the node isn't more than 10 blocks behind
+                    if (IxianHandler.getHighestKnownNetworkBlockHeight() > IxianHandler.getLastBlockHeight() + 10 && valid_sig_count < Math.Floor(block_sig_count * 0.9))
                     {
                         Logging.warn("Block {0} has less than 90% valid signers ({1} / {2}).", block.blockNum, valid_sig_count, Math.Floor(block_sig_count * 0.9));
                         return false;
@@ -2646,6 +2646,11 @@ namespace DLT
         {
             if (!Node.isMasterNode())
             {
+                Block last_block = Node.blockChain.getLastBlock();
+                if (last_block != null)
+                {
+                    Network.BlockProtocolMessages.broadcastGetBlock(last_block.blockNum + 1);
+                }
                 return;
             }
 
@@ -3396,6 +3401,19 @@ namespace DLT
                 cache_lastSuperBlockChecksum = null;
                 pendingSuperBlocks.Clear();
             }
+        }
+
+        public ulong determineHighestNetworkBlockNum()
+        {
+            ulong netBh = Math.Max(NetworkClientManager.getHighestBlockHeight(), NetworkServer.getHighestBlockHeight());
+            Block lastBlock = Node.blockChain.getLastBlock();
+            ulong maxBlocksGenerated = (ulong)(Clock.getNetworkTimestamp() - lastBlock.timestamp) / (ulong)ConsensusConfig.minBlockTimeDifference;
+            ulong maxBlockHeight = lastBlock.blockNum + maxBlocksGenerated;
+            if (maxBlockHeight < netBh)
+            {
+                return maxBlockHeight;
+            }
+            return netBh;
         }
     }
 }
