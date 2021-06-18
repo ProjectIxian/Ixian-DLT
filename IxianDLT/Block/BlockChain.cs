@@ -958,7 +958,7 @@ namespace DLT
                 byte[] solvedInBlockNumBytes = BitConverter.GetBytes(solvedInblockNum);
                 foreach (Block b in blocks)
                 {
-                    if(b.powField.SequenceEqual(solvedInBlockNumBytes))
+                    if(b.powField != null && b.powField.SequenceEqual(solvedInBlockNumBytes))
                     {
                         b.powField = null;
                     }
