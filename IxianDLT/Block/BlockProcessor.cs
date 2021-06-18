@@ -852,7 +852,6 @@ namespace DLT
                         // TODO TODO TODO TODO lock sigs to 1000 when the network is big enough
                         if (b.blockNum > lastBlockNum + 1 && b.getFrozenSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
-                            highestNetworkBlockNum = b.blockNum;
                             // TODO TODO TODO TODO uncomment this once sig pruning and sync from superblocks is enabled
                             /*if (b.lastSuperBlockChecksum != null && !generateSuperBlockSegments(b, endpoint))
                             {
@@ -1682,8 +1681,8 @@ namespace DLT
                         }
                     }
 
-                    // check if there are 90% valid signatures but only if the node isn't more than 10 blocks behind
-                    if (IxianHandler.getHighestKnownNetworkBlockHeight() > IxianHandler.getLastBlockHeight() + 10 && valid_sig_count < Math.Floor(block_sig_count * 0.9))
+                    // check if there are 90% valid signatures
+                    if (valid_sig_count < Math.Floor(block_sig_count * 0.9))
                     {
                         Logging.warn("Block {0} has less than 90% valid signers ({1} / {2}).", block.blockNum, valid_sig_count, Math.Floor(block_sig_count * 0.9));
                         return false;
@@ -1713,7 +1712,16 @@ namespace DLT
         {
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
 
-            List<byte[][]> frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
+            List<byte[][]> frozen_block_sigs = null;
+            if (highestNetworkBlockNum > target_block.blockNum + 10)
+            {
+                // catching up
+                frozen_block_sigs = extractRequiredSignatures(target_block, required_consensus_count);
+            }
+            else
+            {
+                frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
+            }
 
             if (frozen_block_sigs == null)
             {
