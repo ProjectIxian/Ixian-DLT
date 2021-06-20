@@ -396,6 +396,12 @@ namespace DLT
                 return false;
             }
 
+            if(wsSyncConfirmedBlockNum < 50
+                || lastBlockToReadFromStorage < 50)
+            {
+                return false;
+            }
+
             if (b.blockNum >= wsSyncConfirmedBlockNum - 50
                 || b.blockNum >= lastBlockToReadFromStorage - 50)
             {
@@ -423,8 +429,8 @@ namespace DLT
             if (b.powField != null)
             {
                 ulong powAppliedBlock = BitConverter.ToUInt64(b.powField, 0);
-                if (powAppliedBlock >= wsSyncConfirmedBlockNum - 100
-                    || powAppliedBlock >= lastBlockToReadFromStorage - 100)
+                if (powAppliedBlock >= wsSyncConfirmedBlockNum - 50
+                    || powAppliedBlock >= lastBlockToReadFromStorage - 50)
                 {
                     b.powField = null;
                 }
@@ -1160,8 +1166,6 @@ namespace DLT
                     }
                     noNetworkSynchronization = false;
 
-                    ulong firstBlock = IxianHandler.getLastBlockHeight();
-
                     lock (pendingBlocks)
                     {
                         if (missingBlocks != null)
@@ -1236,6 +1240,9 @@ namespace DLT
                     {
                         noNetworkSynchronization = true;
                     }
+                }else
+                {
+                    Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                 }
             }
 
