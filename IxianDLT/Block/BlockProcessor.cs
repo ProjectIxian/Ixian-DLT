@@ -852,7 +852,6 @@ namespace DLT
                         // TODO TODO TODO TODO lock sigs to 1000 when the network is big enough
                         if (b.blockNum > lastBlockNum + 1 && b.getFrozenSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
-                            highestNetworkBlockNum = b.blockNum;
                             // TODO TODO TODO TODO uncomment this once sig pruning and sync from superblocks is enabled
                             /*if (b.lastSuperBlockChecksum != null && !generateSuperBlockSegments(b, endpoint))
                             {
@@ -1720,7 +1719,16 @@ namespace DLT
         {
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
 
-            List<BlockSignature> frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
+            List<BlockSignature> frozen_block_sigs = null;
+            if (highestNetworkBlockNum > target_block.blockNum + 10)
+            {
+                // catching up
+                frozen_block_sigs = extractRequiredSignatures(target_block, required_consensus_count);
+            }
+            else
+            {
+                frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
+            }
 
             if (frozen_block_sigs == null)
             {
@@ -2663,6 +2671,11 @@ namespace DLT
         {
             if (!Node.isMasterNode())
             {
+                Block last_block = Node.blockChain.getLastBlock();
+                if (last_block != null)
+                {
+                    Network.BlockProtocolMessages.broadcastGetBlock(last_block.blockNum + 1);
+                }
                 return;
             }
 
@@ -3420,6 +3433,27 @@ namespace DLT
                 cache_lastSuperBlockChecksum = null;
                 pendingSuperBlocks.Clear();
             }
+        }
+
+        public ulong determineHighestNetworkBlockNum()
+        {
+            ulong netBh = Math.Max(NetworkClientManager.getHighestBlockHeight(), NetworkServer.getHighestBlockHeight());
+            if (Node.blockChain == null)
+            {
+                return netBh;
+            }
+            Block lastBlock = Node.blockChain.getLastBlock();
+            if (lastBlock == null)
+            {
+                return netBh;
+            }
+            ulong maxBlocksGenerated = (ulong)(Clock.getNetworkTimestamp() - lastBlock.timestamp) / (ulong)ConsensusConfig.minBlockTimeDifference;
+            ulong maxBlockHeight = lastBlock.blockNum + maxBlocksGenerated;
+            if (maxBlockHeight < netBh)
+            {
+                return maxBlockHeight;
+            }
+            return netBh;
         }
     }
 }

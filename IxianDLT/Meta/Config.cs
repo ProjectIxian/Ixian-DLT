@@ -85,13 +85,15 @@ namespace DLT
 
             public static bool disableChainReorg = false;
 
+            public static bool disableFastBlockLoading = true;
+
             /// <summary>
             /// Number of transactions that the node will include in the block.
             /// </summary>
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.8.0d"; // DLT Node version
+            public static readonly string version = "xdc-0.8.1-dev"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -147,9 +149,9 @@ namespace DLT
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine("   [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
                 Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
-                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size]");
-                Console.WriteLine("   [--recover] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline] [--disableChainReorg]");
-                Console.WriteLine("   [--chainReorgTest] [--cpuThreads 4] ");
+                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--fastBlockLoading] [--genesis] [--netdump dumpfile]");
+                Console.WriteLine("   [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline]");
+                Console.WriteLine("   [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -175,6 +177,7 @@ namespace DLT
                 Console.WriteLine("    --blockStorage\t Specify storage provider for block and transaction storage (SQLite or RocksDB)");
                 Console.WriteLine("    --maxTxPerBlock\t Number of transactions that the node will include in the block");
                 Console.WriteLine("    --disableSetTitle\t Disables automatic title setting for Windows Console");
+                Console.WriteLine("    --fastBlockLoading\t Enables fast block loading during start");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -476,7 +479,9 @@ namespace DLT
                 cmd_parser.Setup<long>("maxTxPerBlock").Callback(value => maxTransactionsPerBlockToInclude = (ulong)value).Required();
 
                 cmd_parser.Setup<bool>("disableSetTitle").Callback(value => disableSetTitle = true).Required();
-                
+
+                cmd_parser.Setup<bool>("fastBlockLoading").Callback(value => disableFastBlockLoading = false).Required();
+
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
