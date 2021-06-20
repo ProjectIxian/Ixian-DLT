@@ -3414,7 +3414,15 @@ namespace DLT
         public ulong determineHighestNetworkBlockNum()
         {
             ulong netBh = Math.Max(NetworkClientManager.getHighestBlockHeight(), NetworkServer.getHighestBlockHeight());
+            if(Node.blockChain == null)
+            {
+                return netBh;
+            }
             Block lastBlock = Node.blockChain.getLastBlock();
+            if(lastBlock == null)
+            {
+                return netBh;
+            }
             ulong maxBlocksGenerated = (ulong)(Clock.getNetworkTimestamp() - lastBlock.timestamp) / (ulong)ConsensusConfig.minBlockTimeDifference;
             ulong maxBlockHeight = lastBlock.blockNum + maxBlocksGenerated;
             if (maxBlockHeight < netBh)
