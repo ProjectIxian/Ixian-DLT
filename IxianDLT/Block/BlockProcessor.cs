@@ -807,15 +807,6 @@ namespace DLT
                 return BlockVerifyStatus.PotentiallyForkedBlock;
             }
 
-            // Verify checksums
-            byte[] checksum = b.calculateChecksum();
-            if (!b.blockChecksum.SequenceEqual(checksum))
-            {
-                Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
-                    b.blockNum, Crypto.hashToString(b.blockChecksum), Crypto.hashToString(checksum)));
-                return BlockVerifyStatus.Invalid;
-            }
-
             if (verify_sig)
             {
                 bool skip_sig_verification = false;

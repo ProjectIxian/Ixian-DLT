@@ -1222,13 +1222,18 @@ namespace DLT
                 throw new NotImplementedException();
             }
 
-            public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num)
+            public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num, int tx_type = -1)
             {
                 List<Transaction> transactions = new List<Transaction>();
 
                 List<_storage_Transaction> _storage_tx = null;
 
                 string sql = "select * from transactions where `applied` = ?";
+
+                if(tx_type > -1)
+                {
+                    sql = "select * from transactions where `applied` = ? and `type` = ?";
+                }
 
                 ulong highest_blocknum = getHighestBlockInStorage();
                 lock (storageLock)
@@ -1245,7 +1250,13 @@ namespace DLT
                             }
                             seekDatabase(block_num, true);
                         }
-                        _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, (long)block_num).ToList();
+                        if (tx_type == -1)
+                        {
+                            _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, (long)block_num).ToList();
+                        }else
+                        {
+                            _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, (long)block_num, tx_type).ToList();
+                        }
 
                     }
                     catch (Exception e)

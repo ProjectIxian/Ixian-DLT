@@ -1389,7 +1389,8 @@ namespace DLT
                 }
             }
 
-            public IEnumerable<Transaction> getTransactionsInBlock(ulong block_num)
+            // TODO implement tx_type
+            public IEnumerable<Transaction> getTransactionsInBlock(ulong block_num, int tx_type = -1)
             {
                 lock (rockLock)
                 {
@@ -2075,12 +2076,12 @@ namespace DLT
                 }
             }
 
-            public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num)
+            public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num, int tx_type = -1)
             {
                 lock(openDatabases)
                 {
                     var db = getDatabase(block_num);
-                    return db.getTransactionsInBlock(block_num);
+                    return db.getTransactionsInBlock(block_num, tx_type);
                 }
             }
 

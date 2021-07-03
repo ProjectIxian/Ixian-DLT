@@ -945,25 +945,5 @@ namespace DLT
                 solvedBlocksCount--;
             }
         }
-
-        public void resetPowField(ulong solvedInblockNum)
-        {
-            if(!Node.blockSync.synchronizing)
-            {
-                return;
-            }
-
-            lock(blocks)
-            {
-                byte[] solvedInBlockNumBytes = BitConverter.GetBytes(solvedInblockNum);
-                foreach (Block b in blocks)
-                {
-                    if(b.powField != null && b.powField.SequenceEqual(solvedInBlockNumBytes))
-                    {
-                        b.powField = null;
-                    }
-                }
-            }
-        }
     }
 }

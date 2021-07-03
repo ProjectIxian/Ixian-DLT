@@ -706,6 +706,7 @@ namespace DLTNode
 
             Dictionary<string, Object> minerArray = new Dictionary<string, Object>();
 
+            // TODO TODO use Node.blockchain.getSolvedBlocksCount instead
             List<int> blocksCount = Node.miner.getBlocksCount();
 
             // Last hashrate
