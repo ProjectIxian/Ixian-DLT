@@ -92,7 +92,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.8.1"; // DLT Node version
+            public static readonly string version = "xdc-0.8.1a"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
