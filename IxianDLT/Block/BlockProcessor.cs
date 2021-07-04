@@ -563,6 +563,11 @@ namespace DLT
                 return;
             }
 
+            if(b.lastSuperBlockChecksum != null)
+            {
+                b.blockChecksum = b.calculateChecksum();
+            }
+
             // if historic block, only the sigs should be updated if not older than 5 blocks in history
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
             {
