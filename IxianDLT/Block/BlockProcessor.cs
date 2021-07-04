@@ -1826,7 +1826,7 @@ namespace DLT
                         }
                     }
 
-                    if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
+                    if (localNewBlock.blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
                     {
                         if (Node.isMasterNode() && localNewBlock.blockNum > 7)
                         {
