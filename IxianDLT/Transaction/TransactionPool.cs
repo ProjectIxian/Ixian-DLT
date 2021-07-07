@@ -373,14 +373,6 @@ namespace DLT
                 return false;
             }
 
-            // Calculate the transaction checksum and compare it
-            byte[] checksum = Transaction.calculateChecksum(transaction);
-            if (checksum.SequenceEqual(transaction.checksum) == false)
-            {
-                Logging.warn("Adding transaction {{ {0} }}, but checksum doesn't match!", Transaction.txIdV8ToLegacy(transaction.id));
-                return false;
-            }
-
             byte[] data_checksum = transaction.calculateDataChecksum();
             if(transaction.data != null && transaction.version >= 4)
             {
@@ -938,13 +930,6 @@ namespace DLT
                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.transaction, transaction.id, true);
                 if (!verifyTransaction(transaction, endpoint))
                 {
-                    return false;
-                }
-            }else
-            {
-                if(!transaction.checksum.SequenceEqual(Transaction.calculateChecksum(transaction)))
-                {
-                    Logging.warn("Adding transaction {{ {0} }}, but checksum doesn't match!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }

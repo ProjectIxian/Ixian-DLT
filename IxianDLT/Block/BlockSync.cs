@@ -396,7 +396,7 @@ namespace DLT
                 return false;
             }
 
-            if(wsSyncConfirmedBlockNum < 50
+            if (wsSyncConfirmedBlockNum < 50
                 || lastBlockToReadFromStorage < 50)
             {
                 return false;
@@ -415,9 +415,10 @@ namespace DLT
 
             if (b.fromLocalStorage == false)
             {
-                Node.blockChain.resetPowField(b.blockNum);
                 return false;
             }
+
+            IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(b.blockNum, (int)Transaction.Type.PoWSolution);
 
             // TODO Add a check of how many transactions are in storage and if the count
             // doesn't equal to the block tx count, process as normal block
@@ -426,19 +427,22 @@ namespace DLT
                 TransactionPool.addTxId(txid);
             }
 
-            if (b.powField != null)
+            foreach (var tx in txs)
             {
-                ulong powAppliedBlock = BitConverter.ToUInt64(b.powField, 0);
-                if (powAppliedBlock >= wsSyncConfirmedBlockNum - 50
-                    || powAppliedBlock >= lastBlockToReadFromStorage - 50)
+                if (b.transactions.Contains(tx.id))
                 {
-                    b.powField = null;
+                    ulong blockNum = BitConverter.ToUInt64(tx.data, 0);
+                    Block solvedBlock = Node.blockChain.getBlock(blockNum, false, true);
+                    if (solvedBlock != null && solvedBlock.powField == null)
+                    {
+                        Node.blockChain.increaseSolvedBlocksCount();
+                        solvedBlock.powField = BitConverter.GetBytes(blockNum);
+                        Node.blockChain.updateBlock(solvedBlock);
+                    }
                 }
             }
 
             Node.blockChain.appendBlock(b, false);
-
-            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
 
             return true;
         }
@@ -549,8 +553,11 @@ namespace DLT
                         Logging.info("Sync: Applying block #{0}/{1}.",
                             b.blockNum, syncToBlock);
 
+                        b.powField = null;
+
                         if (fastBlockLoading(b))
                         {
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                             continue;
                         }
 
@@ -560,8 +567,6 @@ namespace DLT
                         {
                             ignoreWalletState = false;
                         }
-
-                        b.powField = null;
 
                         // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
                         // verify with a parameter to ignore WS tests, but do all the others
@@ -831,7 +836,7 @@ namespace DLT
                 } while (pendingBlocks.Count > 0 && running);
             }
 
-            if (!sleep && Node.blockChain.getLastBlockNum() >= syncToBlock)
+            if (!sleep && Node.blockChain.getLastBlockNum() + 1 >= syncToBlock)
             {
                 if(verifyLastBlock())
                 {

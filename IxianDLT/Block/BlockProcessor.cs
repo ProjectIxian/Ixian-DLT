@@ -563,6 +563,11 @@ namespace DLT
                 return;
             }
 
+            if (b.lastSuperBlockChecksum != null)
+            {
+                b.blockChecksum = b.calculateChecksum();
+            }
+
             // if historic block, only the sigs should be updated if not older than 5 blocks in history
             if (b.blockNum <= Node.blockChain.getLastBlockNum())
             {
@@ -805,15 +810,6 @@ namespace DLT
                 }
                 Logging.warn("Received a potentially forked block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                 return BlockVerifyStatus.PotentiallyForkedBlock;
-            }
-
-            // Verify checksums
-            byte[] checksum = b.calculateChecksum();
-            if (!b.blockChecksum.SequenceEqual(checksum))
-            {
-                Logging.warn(String.Format("Block verification failed for #{0}. Checksum is {1}, but should be {2}.",
-                    b.blockNum, Crypto.hashToString(b.blockChecksum), Crypto.hashToString(checksum)));
-                return BlockVerifyStatus.Invalid;
             }
 
             if (verify_sig)
@@ -1837,7 +1833,7 @@ namespace DLT
                         }
                     }
 
-                    if (highestNetworkBlockNum < localNewBlock.blockNum + 4)
+                    if (localNewBlock.blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
                     {
                         if (Node.isMasterNode() && localNewBlock.blockNum > 7)
                         {

@@ -333,7 +333,7 @@ namespace DLT
             /// </summary>
             /// <param name="block_num">Block from which to read Transactions.</param>
             /// <returns>Collection with matching Transactions.</returns>
-            public abstract IEnumerable<Transaction> getTransactionsInBlock(ulong block_num);
+            public abstract IEnumerable<Transaction> getTransactionsInBlock(ulong block_num, int tx_type = -1);
             /// <summary>
             /// Retrieve all Transactions between the given timestamps (inclusive).
             /// Note: If `time_from` is larger than `time_to`, or both parameters are 0, an empty collection will be returned.

@@ -873,7 +873,7 @@ namespace DLT
                 lock(Node.blockProcessor.localBlockLock)
                 {
                     if(block.blockNum <= Node.blockChain.getLastBlockNum()
-                        || (Node.blockProcessor.localNewBlock != null && Node.blockProcessor.localNewBlock.blockNum == block.blockNum && Node.blockProcessor.localNewBlock.calculateChecksum().SequenceEqual(block.blockChecksum)))
+                        || (Node.blockProcessor.localNewBlock != null && Node.blockProcessor.localNewBlock.blockNum == block.blockNum && Node.blockProcessor.localNewBlock.blockChecksum.SequenceEqual(block.blockChecksum)))
                     {
                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.block, block.blockChecksum, true);
                     }
