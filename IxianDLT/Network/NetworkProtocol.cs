@@ -307,6 +307,8 @@ namespace DLT
 
                         int block_version = (int)reader.ReadIxiVarUInt();
 
+                        Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
+
                         ulong highest_block_height = IxianHandler.getHighestKnownNetworkBlockHeight();
                         if (last_block_num + 15 < highest_block_height)
                         {

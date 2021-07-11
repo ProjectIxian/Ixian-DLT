@@ -475,7 +475,7 @@ namespace DLT
                         next_to_apply = Node.blockChain.getLastBlockNum() + 1;
                     }
 
-                    if (next_to_apply > syncToBlock)
+                    if (next_to_apply >= syncToBlock)
                     {
                         // we have everything, clear pending blocks and break
                         pendingBlocks.Clear();
@@ -1184,7 +1184,10 @@ namespace DLT
                         receivedAllMissingBlocks = false;
                         syncTargetBlockNum = block_height;
                     }
-
+                }else
+                {
+                    noNetworkSynchronization = false;
+                    syncTargetBlockNum = block_height;
                 }
             } else
             {
