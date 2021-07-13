@@ -603,7 +603,10 @@ namespace DLT
                             {
                                 if (!forkedFlag)
                                 {
-                                    forkedFlag = true;
+                                    if(verifyBlockSignatures(b, endpoint))
+                                    {
+                                        forkedFlag = true;
+                                    }
                                     BlockProtocolMessages.broadcastNewBlock(localBlock, null, endpoint);
                                 }
                             }else
@@ -622,7 +625,10 @@ namespace DLT
                             {
                                 if (!forkedFlag)
                                 {
-                                    forkedFlag = true;
+                                    if (verifyBlockSignatures(b, endpoint))
+                                    {
+                                        forkedFlag = true;
+                                    }
                                     BlockProtocolMessages.broadcastNewBlock(localBlock, null, endpoint);
                                 }
                             }
@@ -693,7 +699,10 @@ namespace DLT
                 {
                     if (!forkedFlag)
                     {
-                        forkedFlag = true;
+                        if (verifyBlockSignatures(b, endpoint))
+                        {
+                            forkedFlag = true;
+                        }
                         BlockProtocolMessages.broadcastNewBlock(Node.blockChain.getLastBlock(), null, endpoint);
                     }
                 }
@@ -3407,18 +3416,43 @@ namespace DLT
             }
         }
 
+        /// <summary>
+        ///  Determines highest network block height depending on 2/3rd of connected servers block heights.
+        /// </summary>
         public ulong determineHighestNetworkBlockNum()
         {
-            ulong netBh = Math.Max(NetworkClientManager.getHighestBlockHeight(), NetworkServer.getHighestBlockHeight());
-            if(Node.blockChain == null)
+            List<ulong> blockHeights = NetworkClientManager.getBlockHeights();
+            blockHeights.AddRange(NetworkServer.getBlockHeights());
+
+            if (blockHeights.Count() < 1)
+            {
+                return 0;
+            }
+
+            blockHeights.Sort();
+
+            int thirdCount = (int)Math.Floor((decimal)blockHeights.Count / 3);
+
+            var blockHeightsMajority = blockHeights.Skip(thirdCount).Take(thirdCount);
+
+            if (blockHeightsMajority.Count() < 1)
+            {
+                return 0;
+            }
+
+            ulong netBh = blockHeightsMajority.Max();
+
+            if (Node.blockChain == null)
             {
                 return netBh;
             }
+
             Block lastBlock = Node.blockChain.getLastBlock();
-            if(lastBlock == null)
+            if (lastBlock == null)
             {
                 return netBh;
             }
+
             ulong maxBlocksGenerated = (ulong)(Clock.getNetworkTimestamp() - lastBlock.timestamp) / (ulong)ConsensusConfig.minBlockTimeDifference;
             ulong maxBlockHeight = lastBlock.blockNum + maxBlocksGenerated;
             if (maxBlockHeight < netBh)
