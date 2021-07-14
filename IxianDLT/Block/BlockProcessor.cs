@@ -3433,11 +3433,11 @@ namespace DLT
 
             int thirdCount = (int)Math.Floor((decimal)blockHeights.Count / 3);
 
-            var blockHeightsMajority = blockHeights.Skip(thirdCount).Take(thirdCount);
+            var blockHeightsMajority = blockHeights;
 
-            if (blockHeightsMajority.Count() < 1)
+            if (thirdCount >= 1 && blockHeights.Count > thirdCount)
             {
-                return 0;
+                blockHeightsMajority = blockHeights.Skip(thirdCount).Take(thirdCount).ToList();
             }
 
             ulong netBh = blockHeightsMajority.Max();
