@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace DLT
 {
@@ -87,6 +88,10 @@ namespace DLT
 
             public static bool disableFastBlockLoading = false;
 
+            public static byte[] checksumLock = null;
+
+            public static bool cleanFlag = false;
+
             /// <summary>
             /// Number of transactions that the node will include in the block.
             /// </summary>
@@ -123,7 +128,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 9;
+            public static int maxBlockVersionToGenerate = 10;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
@@ -149,9 +154,9 @@ namespace DLT
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine("   [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
                 Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
-                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disablefastBlockLoading] [--genesis] [--netdump dumpfile]");
-                Console.WriteLine("   [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet] [--optimizeDBStorage] [--offline]");
-                Console.WriteLine("   [--disableChainReorg] [--chainReorgTest]");
+                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disablefastBlockLoading] [--checksumLock Ixian] [--genesis]");
+                Console.WriteLine("   [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
+                Console.WriteLine("   [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
                 Console.WriteLine("    -v\t\t\t Displays version");
@@ -178,6 +183,7 @@ namespace DLT
                 Console.WriteLine("    --maxTxPerBlock\t Number of transactions that the node will include in the block");
                 Console.WriteLine("    --disableSetTitle\t Disables automatic title setting for Windows Console");
                 Console.WriteLine("    --disablefastBlockLoading\t Disables fast block loading during start");
+                Console.WriteLine("    --checksumLock\t Sets the checksum lock for seeding checksums - useful for custom networks.");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -367,11 +373,10 @@ namespace DLT
 
             private static void startClean(int start_clean)
             {
-                bool do_clean = false;
                 if (start_clean > 1)
                 {
                     Logging.warn("Ixian DLT node started with the forced clean parameter (-c -f).");
-                    do_clean = true;
+                    cleanFlag = true;
                 }
                 else
                 {
@@ -382,18 +387,8 @@ namespace DLT
                     var k = Console.ReadKey();
                     if (k.Key == ConsoleKey.Y)
                     {
-                        do_clean = true;
+                        cleanFlag = true;
                     }
-                }
-                if (do_clean)
-                {
-                    Node.checkDataFolder();
-                    Node.cleanCacheAndLogs();
-                }
-                else
-                {
-                    DLTNode.Program.noStart = true;
-                    return;
                 }
             }
 
@@ -481,6 +476,8 @@ namespace DLT
                 cmd_parser.Setup<bool>("disableSetTitle").Callback(value => disableSetTitle = true).Required();
 
                 cmd_parser.Setup<bool>("disablefastBlockLoading").Callback(value => disableFastBlockLoading = true).Required();
+
+                cmd_parser.Setup<string>("checksumLock").Callback(value => checksumLock = Encoding.UTF8.GetBytes(value)).Required();
 
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");

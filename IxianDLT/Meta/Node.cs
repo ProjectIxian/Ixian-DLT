@@ -65,7 +65,7 @@ namespace DLT.Meta
 
         public Node()
         {
-            IxianHandler.init(Config.version, this, Config.networkType, !Config.disableSetTitle);
+            IxianHandler.init(Config.version, this, Config.networkType, !Config.disableSetTitle, Config.checksumLock);
             init();
         }
 
@@ -77,7 +77,17 @@ namespace DLT.Meta
             // First create the data folder if it does not already exist
             checkDataFolder();
 
-            renameStorageFiles(); // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
+            PeerStorage.init("");
+
+            if (Config.cleanFlag)
+            {
+                cleanCacheAndLogs();
+            }
+            else
+            {
+                Program.noStart = true;
+                return;
+            }
 
             // debug
             if (Config.networkDumpFile != "")
@@ -106,7 +116,7 @@ namespace DLT.Meta
             {
                 storage.stopStorage();
                 running = false;
-                DLTNode.Program.noStart = true;
+                Program.noStart = true;
                 return;
             }
 
@@ -117,8 +127,6 @@ namespace DLT.Meta
             walletState = new WalletState();
 
             inventoryCache = new InventoryCacheDLT();
-
-            PeerStorage.init("");
         }
 
         private bool initWallet()
@@ -229,53 +237,6 @@ namespace DLT.Meta
             return true;
         }
 
-        // this function will be here temporarily for the next few version, then it will be removed to keep a cleaner code base
-        private void renameStorageFiles()
-        {
-            if (File.Exists("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "wsStorage.dat.1000"))
-            {
-                var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "ws" + Path.DirectorySeparatorChar + "0000");
-                foreach (var filename in files)
-                {
-                    var split_filenane = filename.Split('.');
-                    string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
-                    File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
-                }
-            }
-
-            if (File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "blockchain.dat.0"))
-            {
-                var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
-                foreach (var filename in files)
-                {
-                    if (filename.EndsWith("-shm") || filename.EndsWith("-wal"))
-                    {
-                        File.Delete(filename);
-                        continue;
-                    }
-                    var split_filenane = filename.Split('.');
-                    string path = filename.Substring(0, filename.LastIndexOf(Path.DirectorySeparatorChar));
-                    File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
-                }
-            }
-            
-            if (File.Exists("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + "testnet-blockchain.dat.0"))
-            {
-                var files = Directory.GetFiles("data" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
-                foreach (var filename in files)
-                {
-                    if (filename.EndsWith("-shm") || filename.EndsWith("-wal"))
-                    {
-                        File.Delete(filename);
-                        continue;
-                    }
-                    var split_filenane = filename.Split('.');
-                    string path = "data-testnet" + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000";
-                    File.Move(filename, path + Path.DirectorySeparatorChar + split_filenane[2] + ".dat");
-                }
-            }
-        }
-
         static private void distributeGenesisFunds(IxiNumber genesisFunds)
         {
             blockChain.setLastBlockVersion(Config.maxBlockVersionToGenerate);
@@ -371,8 +332,8 @@ namespace DLT.Meta
 
             miner = new Miner();
             signerPowMiner = new SignerPowMiner();
-            Node.blockProcessor.resumeOperation();
-            signerPowMiner.test();
+            //Node.blockProcessor.resumeOperation();
+            //signerPowMiner.test();
 
             // Start the network queue
             NetworkQueue.start();

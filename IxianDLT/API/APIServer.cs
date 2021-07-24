@@ -199,6 +199,7 @@ namespace DLTNode
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
             blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
+            blockData.Add("Signer Difficulty", block.signerDifficulty.ToString());
             List<string> txids = new List<string>();
             foreach(byte[] tx in block.transactions)
             {
@@ -662,6 +663,7 @@ namespace DLTNode
             if (parameters.ContainsKey("vv") || parameters.ContainsKey("verbose"))
             {
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
+                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty());
 
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());

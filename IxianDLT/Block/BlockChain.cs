@@ -483,7 +483,7 @@ namespace DLT
             if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
-                BigInteger total_hash_rate = 0;
+                BigInteger total_difficulty = 0;
                 int block_count = 0;
                 for (int i = 0; i < 10; i++)
                 {
@@ -497,7 +497,7 @@ namespace DLT
                     {
                         break;
                     }
-                    total_hash_rate += b.getTotalSignerDifficulty();
+                    total_difficulty += b.getTotalSignerDifficulty();
                     block_count++;
                 }
 
@@ -506,12 +506,11 @@ namespace DLT
                     return (ulong)ConsensusConfig.maximumBlockSigners;
                 }
 
-                ulong total_consensus = SignerPowSolution.calculateTargetDifficulty(total_hash_rate);
-                ulong consensus = (ulong)Math.Ceiling((double)total_consensus / block_count);
+                ulong consensus = (ulong)(total_difficulty / block_count);
 
                 if (adjusted_to_ratio)
                 {
-                    consensus = (ulong)Math.Floor(total_consensus / (ulong)block_count * ConsensusConfig.networkConsensusRatio);
+                    consensus = (ulong)(consensus * ConsensusConfig.networkConsensusRatio);
                 }
 
                 if (consensus < 2)
