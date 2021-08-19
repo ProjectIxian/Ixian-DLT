@@ -154,12 +154,33 @@ namespace DLT.Meta
             }
 
             // Node status
+            ulong lastBlockNum = 0;
+            string lastBlockChecksum = "";
+            int sigCount = 0;
+            Block b = Node.blockChain.getLastBlock();
+            if (b != null)
+            {
+                lastBlockNum = b.blockNum;
+                sigCount = b.signatures.Count();
+                lastBlockChecksum = Crypto.hashToString(b.blockChecksum).Substring(0, 6);
+            }
+
             Console.Write(" Status:               ");
 
             string dltStatus =  "active";
-            if (Node.blockSync.synchronizing)
-                dltStatus =     "synchronizing";
+            string dltStatusDetail = "";
 
+            if (Node.blockSync.synchronizing)
+            {
+                ulong targetBlockNum = Node.blockSync.syncTargetBlockNum;
+                float syncPercent = 0;
+                if (targetBlockNum > 0)
+                    syncPercent = 100.0f / targetBlockNum * lastBlockNum;
+
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                dltStatus = String.Format("synchronizing {0:0.00}%", syncPercent);
+                dltStatusDetail = String.Format("                       target block {0}", targetBlockNum);
+            }
 
 
             string connectionsInStr = "-";  // Default to no inbound connections accepted
@@ -170,7 +191,10 @@ namespace DLT.Meta
             }
 
             if (connectionsIn + connectionsOut < 1)
-                dltStatus =     "connecting   ";
+            {
+                Console.ResetColor();
+                dltStatus = "connecting   ";
+            }
 
             if (Node.blockChain.getTimeSinceLastBLock() > 1800) // if no block for over 1800 seconds
             {
@@ -196,20 +220,10 @@ namespace DLT.Meta
             writeLine(dltStatus);
             Console.ResetColor();
 
-            writeLine("");
-            ulong lastBlockNum = 0;
-            string lastBlockChecksum = "";
-            int sigCount = 0;
-            Block b = Node.blockChain.getLastBlock();
-            if(b != null)
-            {
-                lastBlockNum = b.blockNum;
-                sigCount = b.signatures.Count();
-                lastBlockChecksum = Crypto.hashToString(b.blockChecksum).Substring(0, 6);
-            }
+            writeLine(dltStatusDetail);
 
             writeLine(" Last Block:           {0} ({1} sigs) - {2}...", lastBlockNum, sigCount, lastBlockChecksum);
-
+            writeLine(" Last Block Added:     {0}s ago", Node.blockChain.getTimeSinceLastBLock());
             writeLine(" Connections (I/O):    {0}", connectionsInStr + "/" + connectionsOut);
             writeLine(" Presences:            {0}", PresenceList.getTotalPresences());
             writeLine(" Transaction Pool:     {0}", TransactionPool.getUnappliedTransactionCount());
@@ -226,7 +240,6 @@ namespace DLT.Meta
             writeLine("");
             writeLine(" Mining:               {0}", mineStatus);
             writeLine(" Hashrate:             {0}", Node.miner.lastHashRate);
-            writeLine(" Search Mode:          {0}", Node.miner.searchMode);
             writeLine(" Solved Blocks:        {0}", Node.miner.getSolvedBlocksCount());
             writeLine("────────────────────────────────────────────────────────────");
 

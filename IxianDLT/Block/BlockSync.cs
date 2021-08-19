@@ -37,7 +37,7 @@ namespace DLT
 
         public ulong lastBlockToReadFromStorage = 0;
 
-        ulong syncTargetBlockNum;
+        public ulong syncTargetBlockNum;
         int maxBlockRequests = 50; // Maximum number of block requests per iteration
         bool receivedAllMissingBlocks = false;
 
