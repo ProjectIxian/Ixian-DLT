@@ -887,9 +887,14 @@ namespace DLT.Meta
             ProtocolMessage.parseProtocolMessage(code, data, endpoint);
         }
 
-        public override Block getBlock(ulong blockNum)
+        public override BlockHeader getBlockHeader(ulong blockNum)
         {
-            return blockChain.getBlock(blockNum, true, true);
+            Block b = blockChain.getBlock(blockNum, true, true);
+            if (b == null)
+            {
+                return null;
+            }
+            return new BlockHeader(b);
         }
 
         /*static void runDiffTests()
