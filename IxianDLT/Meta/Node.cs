@@ -32,7 +32,6 @@ namespace DLT.Meta
         public static BlockChain blockChain = null;
         public static BlockProcessor blockProcessor = null;
         public static BlockSync blockSync = null;
-        public static WalletStorage walletStorage = null;
         public static Miner miner = null;
         public static SignerPowMiner signerPowMiner = null;
         public static WalletState walletState = null;
@@ -83,11 +82,6 @@ namespace DLT.Meta
             {
                 cleanCacheAndLogs();
             }
-            else
-            {
-                Program.noStart = true;
-                return;
-            }
 
             // debug
             if (Config.networkDumpFile != "")
@@ -131,7 +125,7 @@ namespace DLT.Meta
 
         private bool initWallet()
         {
-            walletStorage = new WalletStorage(Config.walletFile);
+            WalletStorage walletStorage = new WalletStorage(Config.walletFile);
 
             Logging.flush();
 
@@ -234,6 +228,14 @@ namespace DLT.Meta
             Logging.info("Wallet Version: {0}", walletStorage.walletVersion);
             Logging.info("Public Node Address: {0}", Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
 
+            if(walletStorage.viewingWallet)
+            {
+                Logging.error("Viewing-only wallet {0} cannot be used as the primary DLT Node wallet.", Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
+                return false;
+            }
+
+            IxianHandler.addWallet(walletStorage);
+
             return true;
         }
 
@@ -245,40 +247,13 @@ namespace DLT.Meta
 
             int tx_type = (int)Transaction.Type.Genesis;
 
-            Transaction tx = new Transaction(tx_type, genesisFunds, new IxiNumber(0), walletStorage.getPrimaryAddress(), from, null, null, 1);
+            Transaction tx = new Transaction(tx_type, genesisFunds, new IxiNumber(0), IxianHandler.getWalletStorage().getPrimaryAddress(), from, null, null, 1);
             TransactionPool.addTransaction(tx);
 
             if (Config.genesis2Address != "")
             {
                 Transaction txGen2 = new Transaction(tx_type, genesisFunds, new IxiNumber(0), Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address), from, null, null, 1);
                 TransactionPool.addTransaction(txGen2);
-            }
-
-            if (!IxianHandler.isTestNet)
-            {
-                // seed2
-                Transaction tx2 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1NpizdRi5rmw586Aw883CoQ7THUT528CU5JGhGomgaG9hC3EF"), from, null, null, 1);
-                TransactionPool.addTransaction(tx2);
-
-                // seed3
-                Transaction tx3 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1Dp9bEFkymhN8PcN7QBzKCg2buz4njjp4eJeFngh769H4vUWi"), from, null, null, 1);
-                TransactionPool.addTransaction(tx3);
-
-                // seed4
-                Transaction tx4 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1SWy7jYky8xkuN5dnr3aVMJiNiQVh4GSLggZ9hBD3q7ALVEYY"), from, null, null, 1);
-                TransactionPool.addTransaction(tx4);
-
-                // seed5
-                Transaction tx5 = new Transaction(tx_type, ConsensusConfig.minimumMasterNodeFunds, 0, Base58Check.Base58CheckEncoding.DecodePlain("1R2WxZ7rmQhMTt5mCFTPhPe9Ltw8pTPY6uTsWHCvVd3GvWupC"), from, null, null, 1);
-                TransactionPool.addTransaction(tx5);
-
-                // Team Reward
-                Transaction tx6 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("13fiCRZHPqcCFvQvuggKEjDvFsVLmwoavaBw1ng5PdSKvCUGp"), from, null, null, 1);
-                TransactionPool.addTransaction(tx6);
-
-                // Development
-                Transaction tx7 = new Transaction(tx_type, new IxiNumber("1000000000"), 0, Base58Check.Base58CheckEncoding.DecodePlain("16LUmwUnU9M4Wn92nrvCStj83LDCRwvAaSio6Xtb3yvqqqCCz"), from, null, null, 1);
-                TransactionPool.addTransaction(tx7);
             }
         }
 
@@ -363,6 +338,7 @@ namespace DLT.Meta
                 genesisNode = true;
                 PresenceList.myPresenceType = 'M';
                 blockProcessor.resumeOperation();
+                signerPowMiner.start();
                 serverStarted = true;
                 if (!isMasterNode())
                 {
@@ -636,7 +612,7 @@ namespace DLT.Meta
                 ulong last_block_num = blockChain.getLastBlockNum();
                 if (last_block_num > 2)
                 {
-                    IxiNumber nodeBalance = walletState.getWalletBalance(walletStorage.getPrimaryAddress());
+                    IxiNumber nodeBalance = walletState.getWalletBalance(IxianHandler.getWalletStorage().getPrimaryAddress());
                     if(!isMasterNode())
                     {
                         if (nodeBalance >= ConsensusConfig.minimumMasterNodeFunds)
@@ -696,7 +672,7 @@ namespace DLT.Meta
             }
 
             byte[] pubKey = blockChain.getLastElectedNodePubKey(offset);
-            if(pubKey != null && pubKey.SequenceEqual(walletStorage.getPrimaryPublicKey()))
+            if(pubKey != null && pubKey.SequenceEqual(IxianHandler.getWalletStorage().getPrimaryPublicKey()))
             {
                 return true;
             }
@@ -906,14 +882,14 @@ namespace DLT.Meta
             IxianHandler.forceShutdown = true;
         }
 
-        public override WalletStorage getWalletStorage()
-        {
-            return walletStorage;
-        }
-
         public override void parseProtocolMessage(ProtocolMessageCode code, byte[] data, RemoteEndpoint endpoint)
         {
             ProtocolMessage.parseProtocolMessage(code, data, endpoint);
+        }
+
+        public override Block getBlock(ulong blockNum)
+        {
+            return blockChain.getBlock(blockNum, true, true);
         }
 
         /*static void runDiffTests()

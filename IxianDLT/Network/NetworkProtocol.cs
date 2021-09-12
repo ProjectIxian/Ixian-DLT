@@ -222,6 +222,14 @@ namespace DLT
                             SignatureProtocolMessages.handleBlockSignature2(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.getSignerPow:
+                            PresenceProtocolMessages.handleGetSignerPow(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.signerPow:
+                            PresenceProtocolMessages.handleSignerPow(data, endpoint);
+                            break;
+
                         default:
                             break;
                     }
@@ -328,6 +336,11 @@ namespace DLT
                                 // first time we're seeing this inventory item
                                 switch (item.type)
                                 {
+                                    case InventoryItemTypes.signerPow:
+                                        CoreProtocolMessage.broadcastGetSignerPow(((InventoryItemSignerPow)pii.item).address,  endpoint);
+                                        pii.lastRequested = Clock.getTimestamp();
+                                        break;
+
                                     case InventoryItemTypes.keepAlive:
                                         ka_list.Add((InventoryItemKeepAlive)item);
                                         pii.lastRequested = Clock.getTimestamp();
@@ -437,6 +450,11 @@ namespace DLT
                                 // first time we're seeing this inventory item
                                 switch (item.type)
                                 {
+                                    case InventoryItemTypes.signerPow:
+                                        CoreProtocolMessage.broadcastGetSignerPow(((InventoryItemSignerPow)pii.item).address, endpoint);
+                                        pii.lastRequested = Clock.getTimestamp();
+                                        break;
+
                                     case InventoryItemTypes.keepAlive:
                                         ka_list.Add((InventoryItemKeepAlive)item);
                                         pii.lastRequested = Clock.getTimestamp();

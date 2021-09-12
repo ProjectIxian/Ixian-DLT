@@ -79,9 +79,6 @@ namespace DLT
         // Starts the mining threads
         public bool start()
         {
-            if(Config.disableMiner)
-                return false;
-
             // Calculate the allowed number of threads based on logical processor count
             Config.miningThreads = calculateMiningThreadsCount(Config.miningThreads);
             Logging.info(String.Format("Starting miner with {0} threads on {1} logical processors.", Config.miningThreads, Environment.ProcessorCount));
@@ -555,7 +552,7 @@ namespace DLT
 
             activeBlock = candidate_block;
             byte[] block_checksum = activeBlock.blockChecksum;
-            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
             activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
@@ -951,9 +948,10 @@ namespace DLT
         // This is normally called from the API, as it is a static function
         public static bool sendSolution(byte[] nonce, ulong blocknum)
         {
-            byte[] pubkey = Node.walletStorage.getPrimaryPublicKey();
+            WalletStorage ws = IxianHandler.getWalletStorage();
+            byte[] pubkey = ws.getPrimaryPublicKey();
             // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getPrimaryAddress());
+            Wallet mywallet = Node.walletState.getWallet(ws.getPrimaryAddress());
             if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
@@ -972,7 +970,7 @@ namespace DLT
                 }
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {
@@ -990,9 +988,10 @@ namespace DLT
         // Broadcasts the solution to the network
         public void sendSolution(byte[] nonce)
         {
-            byte[] pubkey = Node.walletStorage.getPrimaryPublicKey();
+            WalletStorage ws = IxianHandler.getWalletStorage();
+            byte[] pubkey = ws.getPrimaryPublicKey();
             // Check if this wallet's public key is already in the WalletState
-            Wallet mywallet = Node.walletState.getWallet(Node.walletStorage.getPrimaryAddress());
+            Wallet mywallet = Node.walletState.getWallet(ws.getPrimaryAddress());
             if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
@@ -1011,7 +1010,7 @@ namespace DLT
                 }
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, Node.walletStorage.getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {

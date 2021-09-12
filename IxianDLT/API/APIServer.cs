@@ -664,6 +664,8 @@ namespace DLTNode
             {
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
                 networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty());
+                networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
+                networkArray.Add("Signer Last PoW Solution", Node.signerPowMiner.lastSignerPowSolution);
 
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());
@@ -853,7 +855,7 @@ namespace DLTNode
 
             ulong blockdiff = ulong.Parse((string)parameters["diff"]);
 
-            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
 
             bool verify_result = false;
             if (block.version <= BlockVer.v4)
@@ -911,7 +913,7 @@ namespace DLTNode
 
             Logging.info("Received miner share: {0} #{1}", nonce, blocknum);
 
-            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
             bool verify_result = false;
             if (block.version <= BlockVer.v4)
             {
@@ -979,7 +981,7 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Cannot retrieve mining block" } };
             }
 
-            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
 
             Dictionary<string, Object> resultArray = new Dictionary<string, Object>
             {

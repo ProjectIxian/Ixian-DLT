@@ -47,7 +47,6 @@ namespace DLT
 
             public static bool storeFullHistory = true; // Flag confirming this is a full history node
             public static bool recoverFromFile = false; // Flag allowing recovery from file
-            public static bool disableMiner = false; // Flag to disable miner - deprecated
             public static bool workerOnly = false; // Flag to disable masternode capability
 
             public static string genesisFunds = "0"; // If 0, it'll use a hardcoded wallet address
@@ -105,7 +104,7 @@ namespace DLT
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 2100000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 2300000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
@@ -128,7 +127,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 10;
+            public static int maxBlockVersionToGenerate = BlockVer.v9;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
@@ -388,6 +387,9 @@ namespace DLT
                     if (k.Key == ConsoleKey.Y)
                     {
                         cleanFlag = true;
+                    }else
+                    {
+                        DLTNode.Program.noStart = true;
                     }
                 }
             }

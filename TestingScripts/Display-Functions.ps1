@@ -118,6 +118,23 @@ function Render-Consensus {
     Write-Host ""
 }
 
+function Render-SignerHashrates {
+    Param(
+        [System.Collections.ArrayList]$signer_hashrates
+    )
+    Write-Host -NoNewline -ForegroundColor White "SIGNER HASHRATE:"
+    $padding = 12
+    foreach($s in $signer_hashrates) {
+    if($s -eq $null)
+    {
+        $s = ""
+    }
+        Write-Host -NoNewline -ForegroundColor Yellow $s.ToString().PadLeft($padding)
+        $padding = 18
+    }
+    Write-Host ""
+}
+
 function Render-Presences {
     Param(
         [System.Collections.ArrayList]$presences
@@ -205,7 +222,8 @@ function Render-GlobalStats {
         [int]$solved,
         [int]$unsolved,
         [int]$wallets,
-        [uint64]$difficulty
+        [uint64]$difficulty,
+        [uint64]$signer_difficulty
     )
     Write-Host -ForegroundColor Gray "========================================================================"
     Write-Host -ForegroundColor White "Global stats:"
@@ -234,6 +252,13 @@ function Render-GlobalStats {
     $hex_diff = [System.BitConverter]::ToString([System.BitConverter]::GetBytes($difficulty)).Replace("-", "")
     Write-Host -ForegroundColor Green -NoNewline "$($hex_diff)"
     Write-Host -ForegroundColor White ")"
+    # signer difficulty
+    Write-Host -ForegroundColor White -NoNewline "Signer Difficulty: "
+    Write-Host -ForegroundColor Cyan -NoNewline "$($signer_difficulty)"
+    Write-Host -ForegroundColor White -NoNewline " ("
+    $hex_diff = [System.BitConverter]::ToString([System.BitConverter]::GetBytes($signer_difficulty)).Replace("-", "")
+    Write-Host -ForegroundColor Green -NoNewline "$($hex_diff)"
+    Write-Host -ForegroundColor White ")"
 
 }
 
@@ -257,6 +282,7 @@ function Display-ClientStatus {
     $node_bhs = New-Object System.Collections.ArrayList (20)
     $node_bh_sigs = New-Object System.Collections.ArrayList (20)
     $consensus = New-Object System.Collections.ArrayList (20)
+    $signer_hashrates = New-Object System.Collections.ArrayList (20)
     $presences = New-Object System.Collections.ArrayList (20)
     $in_connections = New-Object System.Collections.ArrayList (20)
     $out_connections = New-Object System.Collections.ArrayList (20)
@@ -271,6 +297,7 @@ function Display-ClientStatus {
     $global_unsolved = 0
     $global_wallets = 0
     $global_difficulty = 0
+    $global_signer_difficulty = 0
     $mining_globals_captured = $false
 
     foreach($node in $Clients) {
@@ -287,6 +314,7 @@ function Display-ClientStatus {
             [void]$node_bhs.Add(0)
             [void]$node_bh_sigs.Add(0)
             [void]$consensus.Add(0)
+            [void]$signer_hashrates.Add(0)
             [void]$presences.Add(0)
             [void]$in_connections.Add(0)
             [void]$out_connections.Add(0)
@@ -308,6 +336,8 @@ function Display-ClientStatus {
             [void]$node_bh_sigs.Add(($ns.'Block Signature Count'))
             # Consensus
             [void]$consensus.Add(($ns.'Required Consensus'))
+            # Consensus
+            [void]$signer_hashrates.Add(($ns.'Signer Hashrate'))
             # Presences
             [void]$presences.Add(($ns.'Presences'))
             # In / Out connections
@@ -330,6 +360,7 @@ function Display-ClientStatus {
                 if($count -eq 0) {
                     # Caputer global stats from first node
                     $global_wallets = $ns.'Wallets'
+                    $global_signer_difficulty = $ns.'Signer Difficulty'
                 }
                 if($node.Miner -eq $true -and $mining_globals_captured -eq $false) {
                     # Capture mining globals from the first miner
@@ -353,11 +384,12 @@ function Display-ClientStatus {
     Render-BlockHeight $node_bhs
     Render-BlockHeightSigs $node_bh_sigs $Clients.Count
     Render-Consensus $consensus
+    Render-SignerHashrates $signer_hashrates
     Render-Presences $presences
     Render-Connections $in_connections $out_connections
     Render-TXs $applied_txs $unapplied_txs
     Render-MinerHashrate $hashrates
     Render-MinerSolved $solved_counts
-    Render-GlobalStats $global_solved $global_unsolved $global_wallets $global_difficulty
+    Render-GlobalStats $global_solved $global_unsolved $global_wallets $global_difficulty $global_signer_difficulty
     Render-Footer
 }

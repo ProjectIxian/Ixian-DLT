@@ -1849,7 +1849,7 @@ namespace DLT
                     {
                         if (Node.isMasterNode() && localNewBlock.blockNum > 7)
                         {
-                            BlockSignature signature_data = localNewBlock.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
+                            BlockSignature signature_data = localNewBlock.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                             if (signature_data != null) 
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress, localNewBlock.blockChecksum), true);
@@ -2320,12 +2320,13 @@ namespace DLT
                 Node.walletState.setWalletBalance(addressBytes, balance_after);
                 if(!Node.walletState.inTransaction)
                 {
-                    if (signer_wallet.id.SequenceEqual(Node.walletStorage.getPrimaryAddress()))
+                    WalletStorage ws = IxianHandler.getWalletStorage();
+                    if (signer_wallet.id.SequenceEqual(ws.getPrimaryAddress()))
                     {
                         SortedDictionary<byte[], IxiNumber> to_list = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
                         to_list.Add(addressBytes, balance_after);
-                        string address = Base58Check.Base58CheckEncoding.EncodePlain(Node.walletStorage.getPrimaryAddress());
-                        Activity activity = new Activity(Node.walletStorage.getSeedHash(), address, Base58Check.Base58CheckEncoding.EncodePlain(ConsensusConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum, "");
+                        string address = Base58Check.Base58CheckEncoding.EncodePlain(ws.getPrimaryAddress());
+                        Activity activity = new Activity(ws.getSeedHash(), address, Base58Check.Base58CheckEncoding.EncodePlain(ConsensusConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum, "");
                         ActivityStorage.insertActivity(activity);
                     }
                 }
@@ -2780,7 +2781,7 @@ namespace DLT
 
                     removeBlockBlacklist(localNewBlock);
 
-                    BlockSignature signature_data = localNewBlock.applySignature();
+                    BlockSignature signature_data = localNewBlock.applySignature(PresenceList.getPowSolution());
                     if (signature_data != null)
                     {
                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress, localNewBlock.blockChecksum), true);
@@ -3046,6 +3047,7 @@ namespace DLT
 
         public static ulong calculateDifficulty_v3()
         {
+            // TODO cache
             ulong min_difficulty = 0xA2CB1211629F6141; // starting/min difficulty (requires approx 180 Khashes to find a solution)
             ulong current_difficulty = min_difficulty;
 

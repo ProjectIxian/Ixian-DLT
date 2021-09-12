@@ -12,7 +12,6 @@
 
 using DLT;
 using DLT.Meta;
-using DLT.Network;
 using IXICore;
 using IXICore.Meta;
 using IXICore.Utils;
@@ -314,8 +313,6 @@ namespace DLTNode
 
             if(Config.workerOnly)
                 Logging.info("Miner: worker-only");
-            else
-                Logging.info("Miner: {0}", !Config.disableMiner);
 
             Logging.info("Server Port: {0}", Config.serverPort);
             Logging.info("API Port: {0}", Config.apiPort);

@@ -171,40 +171,43 @@ namespace DLTNode
             Logging.info("Starting spam connect test");
 
             if(connect())
-                    Logging.info("Connected.");
+            {
+                Logging.info("Connected.");
+            }
 
+            WalletStorage ws = IxianHandler.getWalletStorage();
 
+            using (MemoryStream m = new MemoryStream())
+            {
+                using (BinaryWriter writer = new BinaryWriter(m))
+                {
 
-                   using (MemoryStream m = new MemoryStream())
-                   {
-                       using (BinaryWriter writer = new BinaryWriter(m))
-                       {
-                            string publicHostname = IxianHandler.getFullPublicAddress();
-                           // Send the public IP address and port
-                           writer.Write(publicHostname);
+                    string publicHostname = IxianHandler.getFullPublicAddress();
+                    // Send the public IP address and port
+                    writer.Write(publicHostname);
 
-                           // Send the public node address
-                           byte[] address = Node.walletStorage.getPrimaryAddress();
-                           writer.Write(address);
+                    // Send the public node address
+                    byte[] address = ws.getPrimaryAddress();
+                    writer.Write(address);
 
-                           // Send the testnet designator
-                           writer.Write(IxianHandler.isTestNet);
+                    // Send the testnet designator
+                    writer.Write(IxianHandler.isTestNet);
 
-                           // Send the node type
-                           char node_type = 'M'; // This is a Master node
-                           writer.Write(node_type);
+                    // Send the node type
+                    char node_type = 'M'; // This is a Master node
+                    writer.Write(node_type);
 
-                           // Send the node device id
-                           writer.Write(CoreConfig.device_id);
+                    // Send the node device id
+                    writer.Write(CoreConfig.device_id);
 
-                           // Send the wallet public key
-                           writer.Write(Node.walletStorage.getPrimaryPublicKey());
+                    // Send the wallet public key
+                    writer.Write(ws.getPrimaryPublicKey());
 
-                           sendData(ProtocolMessageCode.hello, m.ToArray());
-                       }
-                   }
+                    sendData(ProtocolMessageCode.hello, m.ToArray());
+                }
+            }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", ConsensusConfig.foundationAddress, Node.walletStorage.getPrimaryAddress(), null, null, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, "0", "0", ConsensusConfig.foundationAddress, ws.getPrimaryAddress(), null, null, Node.blockChain.getLastBlockNum());
 
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
@@ -224,8 +227,9 @@ namespace DLTNode
 
             IxiNumber amount = ConsensusConfig.transactionPrice;
             IxiNumber fee = ConsensusConfig.transactionPrice;
-            byte[] from = Node.walletStorage.getPrimaryAddress();
-            byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
+            WalletStorage ws = IxianHandler.getWalletStorage();
+            byte[] from = ws.getPrimaryAddress();
+            byte[] pubKey = ws.getPrimaryPublicKey();
 
             for (int thread = 0; thread < threads; thread++)
             {
@@ -285,15 +289,17 @@ namespace DLTNode
 
             int nonce = 0; // Set the starting nonce
 
+            WalletStorage ws = IxianHandler.getWalletStorage();
+
             writer.Write(tx_count);
             for (int i = 0; i < tx_count; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = ConsensusConfig.transactionPrice;
                 byte[] to = ConsensusConfig.foundationAddress;
-                byte[] from = Node.walletStorage.getPrimaryAddress();
+                byte[] from = ws.getPrimaryAddress();
 
-                byte[] pubKey = Node.walletStorage.getPrimaryPublicKey();
+                byte[] pubKey = ws.getPrimaryPublicKey();
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from);
                 if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))

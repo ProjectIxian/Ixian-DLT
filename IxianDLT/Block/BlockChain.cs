@@ -999,5 +999,15 @@ namespace DLT
                 solvedBlocksCount--;
             }
         }
+
+        public ulong getMinSignerPowDifficulty()
+        {
+            if(Count < 8)
+            {
+                // TODO Omega tweak this constant, perhaps set it in CoreConfig
+                return 10000;
+            }
+            return getRequiredSignerDifficulty() / ((ulong)getBlock(getLastBlockNum() - 7, true, true).getFrozenSignatureCount() * 10);
+        }
     }
 }

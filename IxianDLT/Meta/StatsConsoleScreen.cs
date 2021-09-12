@@ -227,11 +227,10 @@ namespace DLT.Meta
             writeLine(" Connections (I/O):    {0}", connectionsInStr + "/" + connectionsOut);
             writeLine(" Presences:            {0}", PresenceList.getTotalPresences());
             writeLine(" Transaction Pool:     {0}", TransactionPool.getUnappliedTransactionCount());
+            writeLine(" Signer Hashrate:      {0}", Node.signerPowMiner.lastHashRate);
 
             // Mining status
-            string mineStatus = "disabled";
-            if (!Config.disableMiner)
-                mineStatus =    "stopped";
+            string mineStatus =    "stopped";
             if (Node.miner.lastHashRate > 0)
                 mineStatus =    "active ";
             if (Node.miner.pause)

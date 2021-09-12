@@ -788,7 +788,7 @@ namespace DLT
                             {
                                 if (Node.isMasterNode() && b.blockNum > 7)
                                 {
-                                    BlockSignature blockSig = b.applySignature(); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
+                                    BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                                     if (blockSig != null)
                                     {
                                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, b.blockChecksum), true);
@@ -922,8 +922,9 @@ namespace DLT
 
             Node.blockProcessor.firstBlockAfterSync = true;
             Node.blockProcessor.resumeOperation();
+            Node.signerPowMiner.start();
 
-            lock(pendingBlocks)
+            lock (pendingBlocks)
             {
                 lock (requestedBlockTimes)
                 {
@@ -943,9 +944,8 @@ namespace DLT
 
                 Node.miner.start();
 
-                Node.walletStorage.scanForLostAddresses();
+                IxianHandler.getWalletStorage().scanForLostAddresses();
             }
-
         }
 
         // Request missing walletstate chunks from network
@@ -1152,15 +1152,20 @@ namespace DLT
         public void onHelloDataReceived(ulong block_height, byte[] block_checksum, int block_version, byte[] walletstate_checksum, int consensus, ulong last_block_to_read_from_storage = 0, bool from_network = false)
         {
             Logging.info("SYNC HEADER DATA");
-            Logging.info(string.Format("\t|- Block Height:\t\t#{0}", block_height));
-            Logging.info(string.Format("\t|- Block Checksum:\t\t{0}", Crypto.hashToString(block_checksum)));
+            Logging.info("\t|- Block Height:\t\t#{0}", block_height);
+            Logging.info("\t|- Block Checksum:\t\t{0}", Crypto.hashToString(block_checksum));
+
+            if(block_height < 2)
+            {
+                block_height = 2;
+            }
 
             if (synchronizing)
             {
                 if (block_height > syncTargetBlockNum)
                 {
-                    Logging.info(String.Format("Sync target increased from {0} to {1}.",
-                        syncTargetBlockNum, block_height));
+                    Logging.info("Sync target increased from {0} to {1}.",
+                        syncTargetBlockNum, block_height);
 
                     Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
 
@@ -1198,7 +1203,7 @@ namespace DLT
                         lastBlockToReadFromStorage = last_block_to_read_from_storage;
                     }
                     // This should happen when node first starts up.
-                    Logging.info(String.Format("Network synchronization started. Target block height: #{0}.", block_height));
+                    Logging.info("Network synchronization started. Target block height: #{0}.", block_height);
 
                     if (lastBlockToReadFromStorage > block_height)
                     {

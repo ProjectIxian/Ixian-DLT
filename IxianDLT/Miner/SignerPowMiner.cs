@@ -14,7 +14,6 @@ using DLT.Meta;
 using IXICore;
 using IXICore.Meta;
 using System;
-using System.IO;
 using System.Threading;
 
 namespace DLT
@@ -23,20 +22,24 @@ namespace DLT
     {
         public bool pause = false; // Flag to toggle miner activity
 
-        public long lastHashRate = 0; // Last reported hash rate
+        Block activeBlock = null;
         public ulong currentBlockNum = 0; // Mining block number
-        public int currentBlockVersion = 0;
-        public ulong currentBlockDifficulty = 0; // Current block difficulty
         public ulong lastSolvedBlockNum = 0; // Last solved block number
-        private DateTime lastSolvedTime = DateTime.MinValue; // Last locally solved block time
+        public SignerPowSolution lastSignerPowSolution = null;
+        private long startedSolvingTime = 0; // Started solving time
+        private ulong solvingDifficulty = 0;
+        private long lastSentBlockTime = 0;
 
+        public long lastHashRate = 0; // Last reported hash rate
         private long hashesPerSecond = 0; // Total number of hashes per second
         private DateTime lastStatTime; // Last statistics output time
+
+        private bool started = false;
         private bool shouldStop = false; // flag to signal shutdown of threads
+
         private ThreadLiveCheck TLC;
 
 
-        Block activeBlock = null;
         bool blockFound = false;
 
         byte[] activeBlockChallenge = null;
@@ -44,7 +47,10 @@ namespace DLT
         private static Random random = new Random(); // used to seed initial curNonce's
         [ThreadStatic] private static byte[] curNonce = null; // Used for random nonce
 
-        private static long solvedBlockCount = 0;
+        private static long solutionsFound = 0;
+
+
+        private object sendSolutionLock = new object();
 
         public SignerPowMiner()
         {
@@ -55,6 +61,13 @@ namespace DLT
         // Starts the mining threads
         public bool start()
         {
+            if(started)
+            {
+                return false;
+            }
+            
+            started = true;
+
             // Calculate the allowed number of threads based on logical processor count
             uint miningThreads = calculateMiningThreadsCount();
             Logging.info("Starting Presence List miner with {0} threads on {1} logical processors.", miningThreads, Environment.ProcessorCount);
@@ -82,6 +95,7 @@ namespace DLT
         public bool stop()
         {
             shouldStop = true;
+            started = false;
             return true;
         }
 
@@ -103,26 +117,18 @@ namespace DLT
 
 
 
-        private void threadLoop(object data)
+        private void threadLoop()
         {
             while (!shouldStop)
             {
-                if (pause)
-                {
-                    lastStatTime = DateTime.UtcNow;
-                    lastHashRate = hashesPerSecond;
-                    hashesPerSecond = 0;
-                    Thread.Sleep(500);
-                    continue;
-                }
-
                 if (blockFound == false)
                 {
                     searchForBlock();
                 }
                 else
                 {
-                    calculatePow(currentBlockDifficulty);
+                    // TODO Omega increase diff when no block for a long time
+                    calculatePow(solvingDifficulty);
                 }
 
                 // Output mining stats
@@ -136,23 +142,17 @@ namespace DLT
             }
         }
 
-        private void secondaryThreadLoop(object data)
+        private void secondaryThreadLoop()
         {
             while (!shouldStop)
             {
-                if (pause)
+                if (blockFound == false)
                 {
                     Thread.Sleep(500);
                     continue;
                 }
-
-                if (blockFound == false)
-                {
-                    Thread.Sleep(10);
-                    continue;
-                }
-
-                calculatePow(currentBlockDifficulty);
+                // TODO Omega increase diff when no block for a long time
+                calculatePow(solvingDifficulty);
             }
         }
 
@@ -165,7 +165,7 @@ namespace DLT
         // Returns the most recent fully accepted block
         private void searchForBlock()
         {
-            Block candidate_block = Node.blockChain.getLastBlock();
+            Block candidate_block = IxianHandler.getLastBlock();
 
             if (candidate_block == null)
             {
@@ -174,9 +174,20 @@ namespace DLT
                 return;
             }
 
-            if (candidate_block.blockNum > 6)
+            if (pause
+                || PresenceList.myPresenceType == 'W'
+                || candidate_block.version < BlockVer.v10)
             {
-                candidate_block = Node.blockChain.getBlock(candidate_block.blockNum - 6, true, true);
+                lastStatTime = DateTime.UtcNow;
+                lastHashRate = hashesPerSecond;
+                hashesPerSecond = 0;
+                Thread.Sleep(500);
+                return;
+            }
+
+            if (candidate_block.blockNum > 7)
+            {
+                candidate_block = Node.blockChain.getBlock(candidate_block.blockNum - 7, true, true);
             }
 
             if (candidate_block == null)
@@ -193,13 +204,29 @@ namespace DLT
                 return;
             }
 
+            // TODO Omega mine for 10 minutes, send the best solution
+            // TODO Omega make sure to find a min. required difficulty and mine for longer than 10 minutes if necessary; needs computing total PoW of the previously discarded block height
+            // TODO Omega handle below if according, to the above 2 TODOs
+            if (lastSolvedBlockNum + 7 + ConsensusConfig.plPowCalculationInterval > IxianHandler.getHighestKnownNetworkBlockHeight())
+            {
+                // Not ready yet
+                Thread.Sleep(1000);
+                return;
+            }
+
+
             currentBlockNum = candidate_block.blockNum;
-            currentBlockDifficulty = candidate_block.difficulty;
-            currentBlockVersion = candidate_block.version;
+
+            startedSolvingTime = Clock.getTimestamp();
 
             activeBlock = candidate_block;
+            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty();
+            if(solvingDifficulty < 10000)
+            {
+                solvingDifficulty = 10000;
+            }
             byte[] block_checksum = activeBlock.blockChecksum;
-            byte[] solver_address = Node.walletStorage.getPrimaryAddress();
+            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
             activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
@@ -258,102 +285,116 @@ namespace DLT
                 Logging.info("SOLUTION FOUND FOR BLOCK #{0} - {1} > {2} - {3}", activeBlock.blockNum, SignerPowSolution.hashToDifficulty(hash), difficulty, Crypto.hashToString(hash));
 
                 // Broadcast the nonce to the network
-                sendSolution(nonce_bytes);
+                handleFoundSolution(nonce_bytes, difficulty);
 
-                solvedBlockCount++;
+                solutionsFound++;
 
                 lastSolvedBlockNum = activeBlock.blockNum;
-                lastSolvedTime = DateTime.UtcNow;
-
-                // Reset the block found flag so we can search for another block
-                blockFound = false;
+                solvingDifficulty = SignerPowSolution.hashToDifficulty(hash) + 1;
+                if(Clock.getTimestamp() - startedSolvingTime > ConsensusConfig.plPowMinCalculationTime)
+                {
+                    // Reset the block found flag so we can search for another block
+                    blockFound = false;
+                }
             }
         }
 
         // Broadcasts the solution to the network
-        public void sendSolution(byte[] nonce)
+        public void handleFoundSolution(byte[] nonce, ulong difficulty)
         {
-            byte[] data = null;
-
-            using (MemoryStream mw = new MemoryStream())
+            lock(sendSolutionLock)
             {
-                using (BinaryWriter writerw = new BinaryWriter(mw))
+                if(lastSignerPowSolution != null && currentBlockNum == lastSignerPowSolution.blockNum && difficulty <= lastSignerPowSolution.difficulty)
                 {
-                    writerw.Write(activeBlock.blockNum);
-                    writerw.Write(Crypto.hashToString(nonce));
-                    data = mw.ToArray();
+                    return;
                 }
+                SignerPowSolution signerPow = new SignerPowSolution()
+                {
+                    blockNum = activeBlock.blockNum,
+                    solution = nonce,
+                    difficulty = difficulty
+                };
+                signerPow.sign(IxianHandler.getWalletStorage().getPrimaryPrivateKey());
+                lastSignerPowSolution = signerPow;
+                PresenceList.setPowSolution(signerPow);
+                if (Clock.getTimestamp() - lastSentBlockTime < 60)
+                {
+                    return;
+                }
+                lastSentBlockTime = Clock.getTimestamp();
+                CoreProtocolMessage.broadcastSignerPow(IxianHandler.getWalletStorage().getPrimaryAddress(), signerPow, null);
             }
         }
 
         public void test()
         {
+            WalletStorage ws = IxianHandler.getWalletStorage();
             start();
-            Block b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 1, difficulty = 0x00ff000000000000 };
+            Block b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 1, difficulty = 0x00ff000000000000 };
             b.blockChecksum = b.calculateChecksum();
             b.walletStateChecksum = Node.walletState.calculateWalletStateChecksum();
             b.applySignature();
             byte[] sf1 = b.calculateSignatureChecksum();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 2, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 2, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             byte[] sf2 = b.calculateSignatureChecksum();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 3, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 3, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             byte[] sf3 = b.calculateSignatureChecksum();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 4, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 4, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             byte[] sf4 = b.calculateSignatureChecksum();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 5, lastBlockChecksum = b.blockChecksum, difficulty = SignerPowSolution.maxDifficulty, signatureFreezeChecksum = sf1 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 5, lastBlockChecksum = b.blockChecksum, difficulty = 0xff00000000000000, signatureFreezeChecksum = sf1 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             byte[] sf5 = b.calculateSignatureChecksum();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 6, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 6, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf1 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             byte[] sf6 = b.calculateSignatureChecksum();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 7, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf2 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 7, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf2 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 8, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf3 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 8, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf3 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 9, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf4 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 9, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf4 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 10, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf5 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 10, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff000000000000, signatureFreezeChecksum = sf5 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             Node.blockChain.appendBlock(b);
 
-            b = new Block() { version = Block.maxVersion, blockProposer = Node.walletStorage.getPrimaryAddress(), blockNum = 11, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff0000000000001, signatureFreezeChecksum = sf6 };
+            b = new Block() { version = Block.maxVersion, blockProposer = ws.getPrimaryAddress(), blockNum = 11, lastBlockChecksum = b.blockChecksum, difficulty = 0x00ff0000000000001, signatureFreezeChecksum = sf6 };
             b.blockChecksum = b.calculateChecksum();
             b.applySignature();
             Node.blockChain.appendBlock(b);
 
             while (!shouldStop)
             {
-                Logging.info("Solved block count: " + solvedBlockCount + ", " + lastHashRate + " h/s");
+                Logging.info("Solved block count: " + solutionsFound + ", " + lastHashRate + " h/s");
                 Thread.Sleep(5000);
             }
         }

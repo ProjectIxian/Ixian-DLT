@@ -85,6 +85,8 @@ namespace DLT
                     return;
                 }
 
+                // TODO Omega v10 check pow validity somewhere here or inside addSignatureToBlock
+
                 if (Node.blockProcessor.addSignatureToBlock(blockSig, endpoint))
                 {
                     Node.blockProcessor.acceptLocalNewBlock();
@@ -550,6 +552,7 @@ namespace DLT
                     }
                 }
             }
+
             public static void handleSignaturesChunk(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))

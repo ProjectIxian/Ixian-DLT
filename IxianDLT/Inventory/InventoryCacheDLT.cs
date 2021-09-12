@@ -18,9 +18,7 @@ using IXICore.Meta;
 using IXICore.Network;
 using IXICore.Utils;
 using System;
-using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace DLTNode.Inventory
 {
@@ -32,6 +30,7 @@ namespace DLTNode.Inventory
             typeOptions[InventoryItemTypes.blockSignature].maxItems = 200000;
             typeOptions[InventoryItemTypes.transaction].maxItems = 600000;
             typeOptions[InventoryItemTypes.keepAlive].maxItems = 600000;
+            typeOptions[InventoryItemTypes.signerPow].maxItems = 600000;
         }
 
         override protected bool sendInventoryRequest(InventoryItem item, RemoteEndpoint endpoint)
@@ -47,6 +46,8 @@ namespace DLTNode.Inventory
                 case InventoryItemTypes.transaction:
                     CoreProtocolMessage.broadcastGetTransaction(item.hash, 0, endpoint);
                     return true;
+                case InventoryItemTypes.signerPow:
+                    return handleSignerPow(item, endpoint);
             }
             return false;
         }
@@ -81,16 +82,7 @@ namespace DLTNode.Inventory
             Presence p = PresenceList.getPresenceByAddress(iika.address);
             if (p == null)
             {
-                using (MemoryStream mw = new MemoryStream())
-                {
-                    using (BinaryWriter writer = new BinaryWriter(mw))
-                    {
-                        writer.WriteIxiVarInt(iika.address.Length);
-                        writer.Write(iika.address);
-
-                        endpoint.sendData(ProtocolMessageCode.getPresence2, mw.ToArray(), null);
-                    }
-                }
+                CoreProtocolMessage.broadcastGetPresence(iika.address, endpoint);
                 return false;
             }
             else
@@ -160,6 +152,27 @@ namespace DLTNode.Inventory
                 {
                     endpoint.sendData(ProtocolMessageCode.getSignatures, data, null);
                 }
+                return true;
+            }
+            return false;
+        }
+
+        private bool handleSignerPow(InventoryItem item, RemoteEndpoint endpoint)
+        {
+            if (endpoint == null)
+            {
+                return false;
+            }
+            InventoryItemSignerPow iisp = (InventoryItemSignerPow)item;
+            Presence p = PresenceList.getPresenceByAddress(iisp.address);
+            if (p == null)
+            {
+                CoreProtocolMessage.broadcastGetPresence(iisp.address, endpoint);
+                return false;
+            }
+            else
+            {
+                CoreProtocolMessage.broadcastGetSignerPow(iisp.address, endpoint);
                 return true;
             }
             return false;
