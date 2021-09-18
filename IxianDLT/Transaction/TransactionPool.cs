@@ -905,7 +905,7 @@ namespace DLT
                 }
                 else if(wallet != null)
                 {
-                    activity = new Activity(IxianHandler.getWalletStorage(primary_address).getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, transaction.id, value.ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
+                    activity = new Activity(IxianHandler.getWalletStorageBySecondaryAddress(primary_address).getSeedHash(), Base58Check.Base58CheckEncoding.EncodePlain(wallet), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, transaction.id, value.ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
                     ActivityStorage.insertActivity(activity);
                 }
             }
