@@ -857,15 +857,7 @@ namespace DLTNode
 
             byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
 
-            bool verify_result = false;
-            if (block.version <= BlockVer.v4)
-            {
-                verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, blockdiff);
-            }
-            else // >= 5
-            {
-                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, blockdiff);
-            }
+            bool verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, blockdiff);
 
             if (verify_result)
             {
@@ -914,15 +906,8 @@ namespace DLTNode
             Logging.info("Received miner share: {0} #{1}", nonce, blocknum);
 
             byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
-            bool verify_result = false;
-            if (block.version <= BlockVer.v4)
-            {
-                verify_result = Miner.verifyNonce_v2(nonce, blocknum, solver_address, block.difficulty);
-            }
-            else // >= 5
-            {
-                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, block.difficulty);
-            }
+            bool verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, block.difficulty);
+
             bool send_result = false;
 
             // Solution is valid, try to submit it to network

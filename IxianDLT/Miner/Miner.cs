@@ -277,11 +277,7 @@ namespace DLT
                 }
                 else
                 {
-                    if(currentBlockVersion < BlockVer.v5)
-                        calculatePow_v2(currentHashCeil);
-                    else
-                        calculatePow_v3(currentHashCeil);
-
+                    calculatePow_v3(currentHashCeil);
                 }
 
                 // Output mining stats
@@ -327,10 +323,7 @@ namespace DLT
                     continue;
                 }
 
-                if (currentBlockVersion < BlockVer.v5)
-                    calculatePow_v2(currentHashCeil);
-                else
-                    calculatePow_v3(currentHashCeil);
+                calculatePow_v3(currentHashCeil);
             }
         }
 
