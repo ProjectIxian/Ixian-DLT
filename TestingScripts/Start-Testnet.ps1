@@ -183,15 +183,15 @@ function Shutdown-TestNet {
 function Spinup-AnotherNode {
     Param(
         [System.Collections.ArrayList]$Clients,
-        [switch]$Miner
+        [switch]$Worker
     )
     $nIndex = $Clients[$Clients.Count-1].idx + 1
     $dltPort = $DLTStartPort + $nIndex
     $apiPort = $APIStartPort + $nIndex
     $client = $dstPaths[$nIndex]
     $params = "-t -s -cf -p $($dltPort) -a $($apiPort) -i $($IPInterface) -n $($IPInterface):$($DLTStartPort) --walletPassword $($WalletPassword) --disableWebStart"
-    if(-not $Miner.IsPresent) {
-        $params += " --disableMiner"
+    if($Worker.IsPresent) {
+        $params += " --worker"
     }
     $node_process = Start-DLTClient -Client $client -StartupArgs $params
     $clientAddr = $ClientAddresses[$client]
@@ -202,7 +202,7 @@ function Spinup-AnotherNode {
         DLTPort = $dltPort
         APIPort = $apiPort
         Address = $clientAddr
-        Miner   = $Miner.IsPresent
+        Worker   = $Worker.IsPresent
         Dead    = $false
         Display = $true
     }
@@ -261,7 +261,7 @@ function Enter-MainDLTLoop {
                             Write-Host -ForegroundColor Yellow "Unable to add another node. No more are prepared. Run this script with -NumInstances greater than $($dstPaths.Count) but without -StartNetwork to prepare more nodes."
                         } else {
                             Write-Host -ForegroundColor White "Adding another miner node to the network!"
-                            Spinup-AnotherNode -Clients $Clients -Miner
+                            Spinup-AnotherNode -Clients $Clients -Worker
                         }
                     }
                 }

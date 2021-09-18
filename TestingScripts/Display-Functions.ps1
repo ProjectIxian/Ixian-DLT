@@ -265,7 +265,7 @@ function Render-GlobalStats {
 function Render-Footer {
     Write-Host -ForegroundColor White  "Keys:"
     Write-Host -ForegroundColor White  " - N : Add another DLT node to the network"
-    Write-Host -ForegroundColor White  " - M : Add another Mining node to the network"
+    Write-Host -ForegroundColor White  " - M : Add another Worker node to the network"
     Write-Host -ForegroundColor White  " - C : Cleanup dead nodes from the table"
     Write-Host -ForegroundColor White  " - E : Stop all nodes and exit"
     Write-Host -ForegroundColor Yellow " - X : DETACH FROM NODE PROCESSES AND LEAVE THE NETWORK RUNNING"
