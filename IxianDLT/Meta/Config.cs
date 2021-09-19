@@ -104,7 +104,7 @@ namespace DLT
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 2300000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 2340000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
