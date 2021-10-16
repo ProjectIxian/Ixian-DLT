@@ -33,7 +33,10 @@ namespace DLT.Meta
 
         public StatsConsoleScreen()
         {          
-            Console.Clear();
+            if(!Config.verboseOutput)
+            {
+                Console.Clear();
+            }
 
             Console.CursorVisible = ConsoleHelpers.verboseConsoleOutput;
 
