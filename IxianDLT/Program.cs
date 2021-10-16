@@ -228,7 +228,6 @@ namespace DLTNode
 
         static void onStart(string[] args)
         {
-            bool verboseConsoleOutputSetting = ConsoleHelpers.verboseConsoleOutput;
             ConsoleHelpers.verboseConsoleOutput = true;
 
             Console.ForegroundColor = ConsoleColor.DarkGreen;
@@ -328,7 +327,7 @@ namespace DLTNode
             }
 
             // Start the actual DLT node
-            node.start(verboseConsoleOutputSetting);
+            node.start(Config.verboseOutput);
 
             if(mainLoopThread != null)
             {

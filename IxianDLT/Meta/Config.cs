@@ -139,6 +139,8 @@ namespace DLT
 
             public static bool disableSetTitle = false;
 
+            public static bool verboseOutput = false;
+
             private Config()
             {
 
@@ -153,8 +155,8 @@ namespace DLT
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine("   [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
                 Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
-                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disablefastBlockLoading] [--checksumLock Ixian] [--genesis]");
-                Console.WriteLine("   [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
+                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disablefastBlockLoading] [--checksumLock Ixian] [--verboseOutput]");
+                Console.WriteLine("   [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
                 Console.WriteLine("   [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
                 Console.WriteLine("    -h\t\t\t Displays this help");
@@ -183,6 +185,7 @@ namespace DLT
                 Console.WriteLine("    --disableSetTitle\t Disables automatic title setting for Windows Console");
                 Console.WriteLine("    --disablefastBlockLoading\t Disables fast block loading during start");
                 Console.WriteLine("    --checksumLock\t Sets the checksum lock for seeding checksums - useful for custom networks.");
+                Console.WriteLine("    --verboseOutput\t Starts node with verbose output.");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -503,6 +506,8 @@ namespace DLT
                 cmd_parser.Setup<int>("logVerbosity").Callback(value => logVerbosity = value).Required();
 
                 cmd_parser.Setup<int>("cpuThreads").Callback(value => cpuThreads = (uint)value).Required();
+
+                cmd_parser.Setup<bool>("verboseOutput").Callback(value => verboseOutput = value).SetDefault(false);
 
                 cmd_parser.Parse(args);
 
