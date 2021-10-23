@@ -1021,8 +1021,7 @@ namespace DLTNode
 
         private string checkUpdate()
         {
-            UpdateVerify.checkVersion();
-            if (UpdateVerify.inProgress) return "";
+            if (!UpdateVerify.ready && !UpdateVerify.error) return "";
             if (UpdateVerify.ready)
             {
                 if (UpdateVerify.error) return "";

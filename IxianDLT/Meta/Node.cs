@@ -64,6 +64,7 @@ namespace DLT.Meta
 
         public Node()
         {
+            CoreConfig.simultaneousConnectedNeighbors = Config.maxOutgoingConnections;
             IxianHandler.init(Config.version, this, Config.networkType, !Config.disableSetTitle, Config.checksumLock);
             init();
         }
@@ -267,6 +268,8 @@ namespace DLT.Meta
             {
                 CoreConfig.simultaneousConnectedNeighbors = 4;
             }
+
+            UpdateVerify.start();
 
             // Generate presence list
             PresenceList.init(IxianHandler.publicIP, Config.serverPort, node_type);
@@ -510,6 +513,8 @@ namespace DLT.Meta
         {
             Program.noStart = true;
             IxianHandler.forceShutdown = true;
+
+            UpdateVerify.stop();
 
             // Stop the keepalive thread
             PresenceList.stopKeepAlive();
@@ -757,7 +762,7 @@ namespace DLT.Meta
             if (PresenceList.myPresenceType == 'M' || PresenceList.myPresenceType == 'H')
                 return;
 
-            CoreConfig.simultaneousConnectedNeighbors = 6;
+            CoreConfig.simultaneousConnectedNeighbors = Config.maxOutgoingConnections;
 
             if (Config.storeFullHistory)
             {

@@ -97,7 +97,7 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.8.2"; // DLT Node version
+            public static readonly string version = "xdc-0.8.2a"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -140,6 +140,8 @@ namespace DLT
             public static bool disableSetTitle = false;
 
             public static bool verboseOutput = false;
+
+            public static int maxOutgoingConnections = 12;
 
             private Config()
             {
@@ -186,6 +188,7 @@ namespace DLT
                 Console.WriteLine("    --disablefastBlockLoading\t Disables fast block loading during start");
                 Console.WriteLine("    --checksumLock\t Sets the checksum lock for seeding checksums - useful for custom networks.");
                 Console.WriteLine("    --verboseOutput\t Starts node with verbose output.");
+                Console.WriteLine("    --maxOutgoingConnections\t Max outgoing connections.");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -509,6 +512,8 @@ namespace DLT
 
                 cmd_parser.Setup<bool>("verboseOutput").Callback(value => verboseOutput = value).SetDefault(false);
 
+                cmd_parser.Setup<int>("maxOutgoingConnections").Callback(value => maxOutgoingConnections = value);
+                
                 cmd_parser.Parse(args);
 
                 if (seedNode != "")
