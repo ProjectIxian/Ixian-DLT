@@ -353,8 +353,17 @@ namespace DLT
 
                                     case InventoryItemTypes.blockSignature:
                                         var iis = (InventoryItemSignature)item;
-                                        if (iis.blockNum < last_block_height - 5 && iis.blockNum > last_block_height + 6)
+                                        if (iis.blockNum < last_block_height - 5)
                                         {
+                                            continue;
+                                        }
+                                        if (iis.blockNum > endpoint.blockHeight)
+                                        {
+                                            endpoint.blockHeight = iis.blockNum;
+                                        }
+                                        if (iis.blockNum > last_block_height)
+                                        {
+                                            request_next_block = true;
                                             continue;
                                         }
                                         if (!sig_lists.ContainsKey(iis.blockNum))
@@ -379,11 +388,6 @@ namespace DLT
                                             {
                                                 endpoint.blockHeight = iib.blockNum;
                                             }
-
-                                            if (iib.blockNum > Node.blockProcessor.highestNetworkBlockNum)
-                                            {
-                                                Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
-                                            }
                                         }
                                         break;
 
@@ -407,6 +411,7 @@ namespace DLT
                                 include_tx = 0;
                             }
                             BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                            Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                         }
                         foreach (var sig_list in sig_lists)
                         {
@@ -467,8 +472,17 @@ namespace DLT
 
                                     case InventoryItemTypes.blockSignature:
                                         var iis = (InventoryItemSignature)item;
-                                        if(iis.blockNum < last_block_height - 5 && iis.blockNum > last_block_height + 6)
+                                        if(iis.blockNum < last_block_height - 5)
                                         {
+                                            continue;
+                                        }
+                                        if (iis.blockNum > endpoint.blockHeight)
+                                        {
+                                            endpoint.blockHeight = iis.blockNum;
+                                        }
+                                        if (iis.blockNum > last_block_height)
+                                        {
+                                            request_next_block = true;
                                             continue;
                                         }
                                         if (!sig_lists.ContainsKey(iis.blockNum))
@@ -493,11 +507,6 @@ namespace DLT
                                             {
                                                 endpoint.blockHeight = iib.blockNum;
                                             }
-
-                                            if (iib.blockNum > Node.blockProcessor.highestNetworkBlockNum)
-                                            {
-                                                Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
-                                            }
                                         }
                                         break;
 
@@ -521,6 +530,7 @@ namespace DLT
                                 include_tx = 0;
                             }
                             BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                            Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                         }
                         foreach (var sig_list in sig_lists)
                         {
