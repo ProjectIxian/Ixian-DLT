@@ -65,6 +65,9 @@ namespace DLT.Meta
         public Node()
         {
             CoreConfig.simultaneousConnectedNeighbors = Config.maxOutgoingConnections;
+            CoreConfig.maximumServerMasterNodes = Config.maxIncomingMasterNodes;
+            CoreConfig.maximumServerClients = Config.maxIncomingClientNodes;
+
             IxianHandler.init(Config.version, this, Config.networkType, !Config.disableSetTitle, Config.checksumLock);
             init();
         }
@@ -669,17 +672,21 @@ namespace DLT.Meta
             Console.ResetColor();
         }
 
-        public static bool isElectedToGenerateNextBlock(int offset = 0)
+        public static bool isElectedToGenerateNextBlock()
         {
-            if(offset == -1)
+            int offset = blockProcessor.getElectedNodeOffset();
+            if (offset == -1)
             {
                 return false;
             }
 
-            byte[] pubKey = blockChain.getLastElectedNodePubKey(offset);
-            if(pubKey != null && pubKey.SequenceEqual(IxianHandler.getWalletStorage().getPrimaryPublicKey()))
+            var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
+            foreach (var pubKey in electedNodePubKeys)
             {
-                return true;
+                if (pubKey != null && pubKey.SequenceEqual(IxianHandler.getWalletStorage().getPrimaryPublicKey()))
+                {
+                    return true;
+                }
             }
 
             return false;

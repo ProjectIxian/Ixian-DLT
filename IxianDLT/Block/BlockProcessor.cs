@@ -179,7 +179,7 @@ namespace DLT
                             {
                                 if(last_block_num > 7 || Node.genesisNode)
                                 {
-                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 10) + rnd.Next(1000)) // no block for 15 block times + random seconds, we don't want all nodes sending at once
+                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + rnd.Next(10000)) // no block for 4 block times + random seconds, we don't want all nodes sending at once
                                     {
                                         generateNextBlock = true;
                                         block_version = Node.blockChain.getLastBlockVersion();
@@ -189,7 +189,7 @@ namespace DLT
                                         Block last_block = Node.blockChain.getLastBlock();
                                         if (last_block == null || Clock.getNetworkTimestamp() - last_block.timestamp >= blockGenerationInterval)
                                         {
-                                            if (last_block_num < 8 || Node.isElectedToGenerateNextBlock(getElectedNodeOffset()))
+                                            if (last_block_num < 8 || Node.isElectedToGenerateNextBlock())
                                             {
                                                 generateNextBlock = true;
                                             }
@@ -294,7 +294,7 @@ namespace DLT
             {
                 return 0;
             }
-            if(timeSinceLastBlock > blockGenerationInterval * 5) // edge case, if network is stuck for more than 10 blocks always return -1 as the node offset.
+            if(timeSinceLastBlock > blockGenerationInterval * 4) // edge case, if network is stuck for more than 4 block times always return -1 as the node offset.
             {
                 return -1;
             }
@@ -1409,9 +1409,18 @@ namespace DLT
                 else // localNewBlock == null
                 {
                     bool hasNodeSig = true;
-                    if(getElectedNodeOffset() != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
+                    int offset = getElectedNodeOffset();
+                    if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
                     {
-                        hasNodeSig = b.hasNodeSignature(Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()));
+                        var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
+                        foreach(var pubKey in electedNodePubKeys)
+                        {
+                            if(b.hasNodeSignature(pubKey))
+                            {
+                                hasNodeSig = true;
+                                break;
+                            }
+                        }
                     }
                     if (hasNodeSig
                         || b.getSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO TODO think about /2 thing
@@ -1997,7 +2006,7 @@ namespace DLT
                                     highestNetworkBlockNum = 0;
                                 }
 
-                                CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'W' }, ProtocolMessageCode.blockData, current_block.getBytes(false), BitConverter.GetBytes(current_block.blockNum));
+                                CoreProtocolMessage.addToInventory(new char[] { 'W' }, new InventoryItemBlock(current_block.blockChecksum, current_block.blockNum), null);
 
                                 if (Node.miner.searchMode != BlockSearchMode.latestBlock)
                                 {

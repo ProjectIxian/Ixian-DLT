@@ -621,35 +621,44 @@ namespace DLT
             return false;
         }
 
-        // Gets the elected node's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
-        public byte[] getLastElectedNodePubKey(int offset = 0)
+        // Gets the elected nodes's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
+        public List<byte[]> getElectedNodesPubKeys(int offset)
         {
+            List<byte[]> pubKeys = new List<byte[]>();
             Block targetBlock = getBlock(getLastBlockNum() - 6);
             Block curBlock = getBlock(getLastBlockNum());
             if (targetBlock != null && curBlock != null)
             {
                 byte[] sigFreezeChecksum = curBlock.signatureFreezeChecksum;
-                int sigNr = BitConverter.ToInt32(sigFreezeChecksum, 0) + offset;
+                int sigNr = BitConverter.ToInt32(sigFreezeChecksum, 0);
 
                 // Sort the signatures first
-                List<BlockSignature> sortedSigs = new List<BlockSignature>(targetBlock.signatures);
+                List<BlockSignature> sortedSigs = new List<BlockSignature>(targetBlock.frozenSignatures??targetBlock.signatures);
                 sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress, y.signerAddress));
-
-                BlockSignature sig = sortedSigs[(int)((uint)sigNr % sortedSigs.Count)];
-
-                // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-                byte[] address = sig.signerAddress;
-
-                // Check if we have a public key instead of an address
-                if (address.Length > 70)
+                int maxElectedNodes = 3;
+                if(sortedSigs.Count < 10)
                 {
-                    return address;
+                    maxElectedNodes = 1;
                 }
+                for(int i = offset; i < offset + maxElectedNodes; i++)
+                {
+                    BlockSignature sig = sortedSigs[(int)((uint)(sigNr + i) % sortedSigs.Count)];
 
-                Wallet signerWallet = Node.walletState.getWallet(address);
-                return signerWallet.publicKey; // signer pub key
+                    // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
+                    byte[] address = sig.signerAddress;
+
+                    // Check if we have a public key instead of an address
+                    if (address.Length > 70)
+                    {
+                        pubKeys.Add(address);
+                        continue;
+                    }
+
+                    Wallet signerWallet = Node.walletState.getWallet(address);
+                    pubKeys.Add(signerWallet.publicKey); // signer pub key
+                }
             }
-            return null;
+            return pubKeys;
         }
 
         // Get the number of PoW solved blocks

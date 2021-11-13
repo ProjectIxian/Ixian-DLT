@@ -97,14 +97,14 @@ namespace DLT
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
             // Read-only values
-            public static readonly string version = "xdc-0.8.2a"; // DLT Node version
+            public static readonly string version = "xdc-0.8.3-dev"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 2340000 + (ulong)(new Random()).Next(2000); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 2340000 + (ulong)(new Random()).Next(50); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
@@ -143,6 +143,10 @@ namespace DLT
 
             public static int maxOutgoingConnections = 12;
 
+            public static int maxIncomingMasterNodes = 500;
+
+            public static int maxIncomingClientNodes = 5000;
+
             private Config()
             {
 
@@ -158,6 +162,7 @@ namespace DLT
                 Console.WriteLine("   [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
                 Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
                 Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disablefastBlockLoading] [--checksumLock Ixian] [--verboseOutput]");
+                Console.WriteLine("   [--maxOutgoingConnections] [--maxIncomingMasterNodes] [--maxIncomingClientNodes] [--minActivityBlockHeight]");
                 Console.WriteLine("   [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
                 Console.WriteLine("   [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
@@ -189,6 +194,9 @@ namespace DLT
                 Console.WriteLine("    --checksumLock\t Sets the checksum lock for seeding checksums - useful for custom networks.");
                 Console.WriteLine("    --verboseOutput\t Starts node with verbose output.");
                 Console.WriteLine("    --maxOutgoingConnections\t Max outgoing connections.");
+                Console.WriteLine("    --maxIncomingMasterNodes\t Max incoming masternode connections.");
+                Console.WriteLine("    --maxIncomingClientNodes\t Max incoming client connections.");
+                Console.WriteLine("    --minActivityBlockHeight\t Prune activity older than specified block height (30000 is default, 0 disables it).");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -513,7 +521,13 @@ namespace DLT
                 cmd_parser.Setup<bool>("verboseOutput").Callback(value => verboseOutput = value).SetDefault(false);
 
                 cmd_parser.Setup<int>("maxOutgoingConnections").Callback(value => maxOutgoingConnections = value);
-                
+
+                cmd_parser.Setup<int>("maxIncomingMasterNodes").Callback(value => maxIncomingMasterNodes = value);
+
+                cmd_parser.Setup<int>("maxIncomingClientNodes").Callback(value => maxIncomingClientNodes = value);
+
+                cmd_parser.Setup<int>("minActivityBlockHeight").Callback(value => CoreConfig.minActivityBlockHeight = value);
+
                 cmd_parser.Parse(args);
 
                 if (seedNode != "")
