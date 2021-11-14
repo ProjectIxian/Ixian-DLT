@@ -39,7 +39,6 @@ namespace DLT
 
         public ulong syncTargetBlockNum;
         int maxBlockRequests = 50; // Maximum number of block requests per iteration
-        bool receivedAllMissingBlocks = false;
 
         public ulong wsSyncConfirmedBlockNum = 0;
         int wsSyncConfirmedVersion;
@@ -66,7 +65,6 @@ namespace DLT
         public BlockSync()
         {
             synchronizing = false;
-            receivedAllMissingBlocks = false;
 
             running = true;
             TLC = new ThreadLiveCheck();
@@ -106,14 +104,12 @@ namespace DLT
                 }
                 if(CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
-                    // Request missing blocks if needed
-                    if (receivedAllMissingBlocks == false)
-                    {
-                        // Proceed with rolling forward the chain
-                        rollForward();
-                        Thread.Sleep(100);
-                    }
+                    // Proceed with rolling forward the chain
+                    rollForward();
+                    Thread.Sleep(100);
+                    continue;
                 }
+                Thread.Sleep(100);
             }
         }
 
@@ -145,23 +141,24 @@ namespace DLT
                 if (CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
                     // Request missing blocks if needed
-                    if (receivedAllMissingBlocks == false)
+                    if (syncDone)
                     {
-                        if (syncDone)
-                        {
-                            continue;
-                        }
-
-                        requestMissingBlocks();
                         Thread.Sleep(100);
+                        continue;
                     }
+
+                    requestMissingBlocks();
+                    Thread.Sleep(100);
+                    continue;
                 }
                 // Check if we can perform the walletstate synchronization
                 if (canPerformWalletstateSync)
                 {
                     performWalletStateSync();
                     Thread.Sleep(1000);
+                    continue;
                 }
+                Thread.Sleep(100);
             }
         }
 
@@ -238,7 +235,6 @@ namespace DLT
                 // whatever is left in missingBlocks is what we need to request
                 if (missingBlocks.Count() == 0)
                 {
-                    receivedAllMissingBlocks = true;
                     return false;
                 }
 
@@ -406,8 +402,6 @@ namespace DLT
                         missingBlocks.Sort();
 
                         requestedBlockTimes.Add(blockNum, Clock.getTimestamp() - 10);
-
-                        receivedAllMissingBlocks = false;
                         return true;
                     }
                 }
@@ -1199,8 +1193,6 @@ namespace DLT
                 pendingBlocks.Clear();
             }
             synchronizing = true;
-            // select sync partner for walletstate
-            receivedAllMissingBlocks = false;
         }
 
         public void onWalletStateHeader(int ws_version, ulong ws_block, long ws_count)
@@ -1270,7 +1262,6 @@ namespace DLT
                             }
                             missingBlocks.Sort();
                         }
-                        receivedAllMissingBlocks = false;
                         syncTargetBlockNum = block_height;
                     }
                 }else
