@@ -193,7 +193,7 @@ namespace DLT
                             bool updated = PresenceList.receiveKeepAlive(ka_bytes, out address, out last_seen, out device_id, endpoint);
 
                             // If a presence entry was updated, broadcast this message again
-                            if (updated)
+                            if (updated && Node.isMasterNode() && !Node.blockSync.synchronizing)
                             {
                                 CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint);
 
@@ -276,7 +276,7 @@ namespace DLT
                 bool updated = PresenceList.receiveKeepAlive(data, out address, out last_seen, out device_id, endpoint);
 
                 // If a presence entry was updated, broadcast this message again
-                if (updated)
+                if (updated && Node.isMasterNode() && !Node.blockSync.synchronizing)
                 {
                     CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint);
 
@@ -324,13 +324,13 @@ namespace DLT
                 Presence updated_presence = PresenceList.updateFromBytes(data, Node.blockChain.getMinSignerPowDifficulty());
 
                 // If a presence entry was updated, broadcast this message again
-                if (updated_presence != null)
+                /*if (updated_presence != null)
                 {
                     CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
 
                     // Send this keepalive message to all subscribed clients
                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, updated_presence.wallet, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
-                }
+                }*/
             }
 
             public static void handleGetSignerPow(byte[] data, RemoteEndpoint endpoint)

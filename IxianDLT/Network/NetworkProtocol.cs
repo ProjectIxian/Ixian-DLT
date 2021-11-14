@@ -145,10 +145,6 @@ namespace DLT
                             BlockProtocolMessages.handleGetPIT(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.inventory:
-                            handleInventory(data, endpoint);
-                            break;
-
                         case ProtocolMessageCode.inventory2:
                             handleInventory2(data, endpoint);
                             break;
@@ -301,126 +297,6 @@ namespace DLT
                 }
             }
 
-            static void handleInventory(byte[] data, RemoteEndpoint endpoint)
-            {
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        ulong item_count = reader.ReadIxiVarUInt();
-                        if (item_count > (ulong)CoreConfig.maxInventoryItems)
-                        {
-                            Logging.warn("Received {0} inventory items, max items is {1}", item_count, CoreConfig.maxInventoryItems);
-                            item_count = (ulong)CoreConfig.maxInventoryItems;
-                        }
-
-                        ulong last_block_height = IxianHandler.getLastBlockHeight();
-
-                        Dictionary<ulong, List<InventoryItemSignature>> sig_lists = new Dictionary<ulong, List<InventoryItemSignature>>();
-                        List<InventoryItemKeepAlive> ka_list = new List<InventoryItemKeepAlive>();
-                        List<byte[]> tx_list = new List<byte[]>();
-                        bool request_next_block = false;
-                        for (ulong i = 0; i < item_count; i++)
-                        {
-                            ulong len = reader.ReadIxiVarUInt();
-                            byte[] item_bytes = reader.ReadBytes((int)len);
-                            InventoryItem item = InventoryCache.decodeInventoryItem(item_bytes);
-                            if (item.type == InventoryItemTypes.transaction)
-                            {
-                                item.hash = Transaction.txIdLegacyToV8(UTF8Encoding.UTF8.GetString(item.hash));
-                                PendingTransactions.increaseReceivedCount(item.hash, endpoint.presence.wallet);
-                            }
-                            PendingInventoryItem pii = Node.inventoryCache.add(item, endpoint);
-                            if (!pii.processed && pii.lastRequested == 0)
-                            {
-                                // first time we're seeing this inventory item
-                                switch (item.type)
-                                {
-                                    case InventoryItemTypes.signerPow:
-                                        CoreProtocolMessage.broadcastGetSignerPow(((InventoryItemSignerPow)pii.item).address,  endpoint);
-                                        pii.lastRequested = Clock.getTimestamp();
-                                        break;
-
-                                    case InventoryItemTypes.keepAlive:
-                                        ka_list.Add((InventoryItemKeepAlive)item);
-                                        pii.lastRequested = Clock.getTimestamp();
-                                        break;
-
-                                    case InventoryItemTypes.transaction:
-                                        tx_list.Add(item.hash);
-                                        pii.lastRequested = Clock.getTimestamp();
-                                        break;
-
-                                    case InventoryItemTypes.blockSignature:
-                                        var iis = (InventoryItemSignature)item;
-                                        if (iis.blockNum < last_block_height - 5)
-                                        {
-                                            continue;
-                                        }
-                                        if (iis.blockNum > endpoint.blockHeight)
-                                        {
-                                            endpoint.blockHeight = iis.blockNum;
-                                        }
-                                        if (iis.blockNum > last_block_height)
-                                        {
-                                            request_next_block = true;
-                                            continue;
-                                        }
-                                        if (!sig_lists.ContainsKey(iis.blockNum))
-                                        {
-                                            sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
-                                        }
-                                        sig_lists[iis.blockNum].Add(iis);
-                                        pii.lastRequested = Clock.getTimestamp();
-                                        break;
-
-                                    case InventoryItemTypes.block:
-                                        var iib = ((InventoryItemBlock)item);
-                                        if (iib.blockNum <= last_block_height)
-                                        {
-                                            Node.inventoryCache.processInventoryItem(pii);
-                                        }
-                                        else
-                                        {
-                                            pii.lastRequested = Clock.getTimestamp();
-                                            request_next_block = true;
-                                            if (iib.blockNum > endpoint.blockHeight)
-                                            {
-                                                endpoint.blockHeight = iib.blockNum;
-                                            }
-                                        }
-                                        break;
-
-                                    default:
-                                        Node.inventoryCache.processInventoryItem(pii);
-                                        break;
-                                }
-                            }
-                        }
-                        PresenceProtocolMessages.broadcastGetKeepAlives(ka_list, endpoint);
-                        if (Node.blockSync.synchronizing)
-                        {
-                            return;
-                        }
-                        TransactionProtocolMessages.broadcastGetTransactions(tx_list, 0, endpoint);
-                        if (request_next_block)
-                        {
-                            byte include_tx = 2;
-                            if (Node.isMasterNode())
-                            {
-                                include_tx = 0;
-                            }
-                            BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
-                            Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
-                        }
-                        foreach (var sig_list in sig_lists)
-                        {
-                            SignatureProtocolMessages.broadcastGetSignatures(sig_list.Key, sig_list.Value, endpoint);
-                        }
-                    }
-                }
-            }
-
             static void handleInventory2(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))
@@ -450,6 +326,27 @@ namespace DLT
                                 PendingTransactions.increaseReceivedCount(item.hash, endpoint.presence.wallet);
                             }
                             PendingInventoryItem pii = Node.inventoryCache.add(item, endpoint);
+
+                            // First update endpoint blockheights
+                            switch (item.type)
+                            {
+                                case InventoryItemTypes.blockSignature:
+                                    var iis = (InventoryItemSignature)item;
+                                    if (iis.blockNum > endpoint.blockHeight)
+                                    {
+                                        endpoint.blockHeight = iis.blockNum;
+                                    }
+                                    break;
+
+                                case InventoryItemTypes.block:
+                                    var iib = ((InventoryItemBlock)item);
+                                    if (iib.blockNum > endpoint.blockHeight)
+                                    {
+                                        endpoint.blockHeight = iib.blockNum;
+                                    }
+                                    break;
+                            }
+
                             if (!pii.processed && pii.lastRequested == 0)
                             {
                                 // first time we're seeing this inventory item
@@ -476,10 +373,6 @@ namespace DLT
                                         {
                                             continue;
                                         }
-                                        if (iis.blockNum > endpoint.blockHeight)
-                                        {
-                                            endpoint.blockHeight = iis.blockNum;
-                                        }
                                         if (iis.blockNum > last_block_height)
                                         {
                                             request_next_block = true;
@@ -503,10 +396,6 @@ namespace DLT
                                         {
                                             pii.lastRequested = Clock.getTimestamp();
                                             request_next_block = true;
-                                            if (iib.blockNum > endpoint.blockHeight)
-                                            {
-                                                endpoint.blockHeight = iib.blockNum;
-                                            }
                                         }
                                         break;
 
