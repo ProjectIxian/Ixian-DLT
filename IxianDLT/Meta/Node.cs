@@ -14,6 +14,7 @@ using DLT.Network;
 using DLT.Storage;
 using DLTNode;
 using DLTNode.Inventory;
+using DLTNode.Meta;
 using IXICore;
 using IXICore.Meta;
 using IXICore.Network;
@@ -572,7 +573,10 @@ namespace DLT.Meta
             // Stop the block storage
             storage.stopStorage();
 
-            // stop activity storage
+            // Stop activity scanning
+            ActivityScanner.stop();
+
+            // Stop activity storage
             ActivityStorage.stopStorage();
 
             // Stop the network queue

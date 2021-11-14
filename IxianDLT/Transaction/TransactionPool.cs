@@ -856,7 +856,7 @@ namespace DLT
             return getRelatedMultisigTransactions(txid, block, false).Count();
         }
 
-        private static void addTransactionToActivityStorage(Transaction transaction)
+        public static void addTransactionToActivityStorage(Transaction transaction)
         {
             Activity activity = null;
             int type = -1;

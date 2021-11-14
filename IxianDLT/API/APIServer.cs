@@ -12,6 +12,7 @@
 
 using DLT;
 using DLT.Meta;
+using DLTNode.Meta;
 using IXICore;
 using IXICore.Meta;
 using IXICore.Network;
@@ -153,6 +154,11 @@ namespace DLTNode
             if (methodName.Equals("gettxoutsetinfo", StringComparison.OrdinalIgnoreCase))
             {
                 response = onGetTxOutsetInfo();
+            }
+
+            if (methodName.Equals("rescanblockchain", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onRescanBlockchain(parameters);
             }
 
             if (response == null)
@@ -692,6 +698,8 @@ namespace DLTNode
                 queues.Add("Inventory", Node.inventoryCache.getItemCount());
                 queues.Add("Inventory Processed", Node.inventoryCache.getProcessedItemCount());
                 queues.Add("Activity", ActivityStorage.getQueuedQueryCount());
+                queues.Add("Blockchain Scanning Active", ActivityScanner.isActive());
+                queues.Add("Activity Scanner Last Block", ActivityScanner.getLastBlockNum());
 
                 networkArray.Add("Queues", queues);
 
@@ -1017,6 +1025,26 @@ namespace DLTNode
             };
 
             return new JsonResponse { result = result_array, error = null };
+        }
+
+        // Performs a rescan of the blockchain and fills the activity cache
+        private JsonResponse onRescanBlockchain(Dictionary<string, object> parameters)
+        {
+
+            string fromIndex = "0";
+            if (parameters.ContainsKey("from"))
+            {
+                fromIndex = (string)parameters["from"];
+            }
+
+            // Start the activity scanner
+            if(!ActivityScanner.start(Int32.Parse(fromIndex)))
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_MISC_ERROR, message = "Activity scanner is already running" };
+                return new JsonResponse { result = null, error = error };
+            }
+
+            return new JsonResponse { result = "Started activity rescan.", error = null };
         }
 
         private string checkUpdate()

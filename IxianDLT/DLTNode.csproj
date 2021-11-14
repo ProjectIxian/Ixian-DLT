@@ -134,6 +134,7 @@
     <Compile Include="Block\BlockProcessor.cs" />
     <Compile Include="Block\BlockSync.cs" />
     <Compile Include="Inventory\InventoryCacheDLT.cs" />
+    <Compile Include="Meta\ActivityScanner.cs" />
     <Compile Include="Meta\Config.cs" />
     <Compile Include="Storage\IStorage.cs" />
     <Compile Include="Meta\Node.cs" />
