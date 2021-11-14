@@ -49,7 +49,8 @@ namespace DLT
 
         bool canPerformWalletstateSync = false;
 
-        private Thread sync_thread = null;
+        private Thread fetchThread = null;
+        private Thread syncThread = null;
 
         private bool running = false;
 
@@ -70,14 +71,17 @@ namespace DLT
             running = true;
             TLC = new ThreadLiveCheck();
             // Start the thread
-            sync_thread = new Thread(onUpdate);
-            sync_thread.Name = "Block_Sync_Update_Thread";
-            sync_thread.Start();
+            syncThread = new Thread(rollForwardLoop);
+            syncThread.Name = "Block_Sync_RollForward_Thread";
+            syncThread.Start();
+
+            fetchThread = new Thread(fetchLoop);
+            fetchThread.Name = "Block_Sync_Fetch_Thread";
+            fetchThread.Start();
         }
 
-        public void onUpdate()
+        public void rollForwardLoop()
         {
-            
             while (running)
             {
                 TLC.Report();
@@ -97,7 +101,6 @@ namespace DLT
               //      pendingBlocks.Count, pendingWsChunks.Count));
                 if (!CoreConfig.preventNetworkOperations && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                 {
-                    startWalletStateSync();
                     Thread.Sleep(1000);
                     continue;
                 }
@@ -108,18 +111,49 @@ namespace DLT
                     {
                         // Proceed with rolling forward the chain
                         rollForward();
+                        Thread.Sleep(100);
+                    }
+                }
+            }
+        }
 
+        public void fetchLoop()
+        {
+            while (running)
+            {
+                TLC.Report();
+                if (synchronizing == false || syncDone == true)
+                {
+                    Thread.Sleep(1000);
+                    continue;
+                }
+                if (syncTargetBlockNum == 0)
+                {
+                    // we haven't connected to any clients yet
+                    Thread.Sleep(1000);
+                    continue;
+                }
+
+                //    Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
+                //      pendingBlocks.Count, pendingWsChunks.Count));
+                if (!CoreConfig.preventNetworkOperations && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
+                {
+                    startWalletStateSync();
+                    Thread.Sleep(1000);
+                    continue;
+                }
+                if (CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
+                {
+                    // Request missing blocks if needed
+                    if (receivedAllMissingBlocks == false)
+                    {
                         if (syncDone)
                         {
                             continue;
                         }
 
-                        if (requestMissingBlocks())
-                        {
-                            // If blocks were requested, wait for next iteration
-                            Thread.Sleep(100);
-                            continue;
-                        }
+                        requestMissingBlocks();
+                        Thread.Sleep(100);
                     }
                 }
                 // Check if we can perform the walletstate synchronization
@@ -127,11 +161,6 @@ namespace DLT
                 {
                     performWalletStateSync();
                     Thread.Sleep(1000);
-                }
-                else
-                {
-                    // Proceed with rolling forward the chain
-                    rollForward();
                 }
             }
         }
@@ -174,7 +203,7 @@ namespace DLT
                         // Re-request block
                         if (BlockProtocolMessages.broadcastGetBlock(blockNum, null, null, 1, true) == false)
                         {
-                            Logging.warn(string.Format("Failed to rebroadcast getBlock request for {0}", blockNum));
+                            Logging.warn("Failed to rebroadcast getBlock request for {0}", blockNum);
                             Thread.Sleep(500);
                         }
                         else
@@ -191,6 +220,10 @@ namespace DLT
 
             ulong firstBlock = getLowestBlockNum();
 
+            int total_count = 0;
+            int requested_count = 0;
+
+            List<ulong> tmpMissingBlocks;
 
             lock (pendingBlocks)
             {
@@ -201,8 +234,6 @@ namespace DLT
                     missingBlocks.Sort();
                 }
 
-                int total_count = 0;
-                int requested_count = 0;
 
                 // whatever is left in missingBlocks is what we need to request
                 if (missingBlocks.Count() == 0)
@@ -211,90 +242,90 @@ namespace DLT
                     return false;
                 }
 
-                List<ulong> tmpMissingBlocks = new List<ulong>(missingBlocks.Take(maxBlockRequests * 2));
-
-                foreach (ulong blockNum in tmpMissingBlocks)
+                tmpMissingBlocks = new List<ulong>(missingBlocks.Take(maxBlockRequests * 2));
+            }
+            foreach (ulong blockNum in tmpMissingBlocks)
+            {
+                if (!running)
                 {
-                    if (!running)
+                    return false;
+                }
+                total_count++;
+                lock (requestedBlockTimes)
+                {
+                    if (requestedBlockTimes.ContainsKey(blockNum))
                     {
-                        return false;
-                    }
-                    total_count++;
-                    lock (requestedBlockTimes)
-                    {
-                        if (requestedBlockTimes.ContainsKey(blockNum))
-                        {
-                            requested_count++;
-                            continue;
-                        }
-                    }
-
-                    bool readFromStorage = false;
-                    if (blockNum <= lastBlockToReadFromStorage)
-                    {
-                        readFromStorage = true;
-                    }
-
-                    ulong last_block_height = IxianHandler.getLastBlockHeight();
-                    if (blockNum > last_block_height  + (ulong)maxBlockRequests)
-                    {
-                        if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
-                        {
-                            break;
-                        }
-                    }
-
-                    // var sw = new System.Diagnostics.Stopwatch();
-                    // sw.Start();
-
-                    // First check if the missing block can be found in storage
-                    Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
-
-                    //sw.Stop();
-                    //Logging.info(string.Format("Get block #{0} took {1}ms", blockNum, sw.Elapsed.TotalMilliseconds));
-
-                    if (block != null)
-                    {
-                        if (CoreConfig.preventNetworkOperations || Config.recoverFromFile)
-                        {
-                            if (!lastBlocks.Exists(x => x.blockNum == blockNum))
-                            {
-                                lastBlocks.Add(new Block(block));
-                                if(lastBlocks.Count > maxBlockRequests * 2)
-                                {
-                                    lastBlocks.RemoveAt(0);
-                                }
-                            }
-                        }
-                        Node.blockSync.onBlockReceived(block, null);
-                    }
-                    else
-                    {
-                        if (readFromStorage)
-                        {
-                            Logging.warn("Expecting block {0} in storage but had to request it from network.", blockNum);
-                        }
-                        // Didn't find the block in storage, request it from the network
-                        if (BlockProtocolMessages.broadcastGetBlock(blockNum, null, null, 1, true) == false)
-                        {
-                            Logging.warn(string.Format("Failed to broadcast getBlock request for {0}", blockNum));
-                            Thread.Sleep(500);
-                        }
-                        else
-                        {
-                            requested_count++;
-                            // Set the block request time
-                            lock (requestedBlockTimes)
-                            {
-                                requestedBlockTimes.Add(blockNum, currentTime);
-                            }
-                        }
+                        requested_count++;
+                        continue;
                     }
                 }
 
-                if (requested_count > 0)
-                    return true;
+                bool readFromStorage = false;
+                if (blockNum <= lastBlockToReadFromStorage)
+                {
+                    readFromStorage = true;
+                }
+
+                ulong last_block_height = IxianHandler.getLastBlockHeight();
+                if (blockNum > last_block_height  + (ulong)maxBlockRequests)
+                {
+                    if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
+                    {
+                        break;
+                    }
+                }
+
+                // var sw = new System.Diagnostics.Stopwatch();
+                // sw.Start();
+
+                // First check if the missing block can be found in storage
+                Block block = Node.blockChain.getBlock(blockNum, readFromStorage);
+
+                //sw.Stop();
+                //Logging.info(string.Format("Get block #{0} took {1}ms", blockNum, sw.Elapsed.TotalMilliseconds));
+
+                if (block != null)
+                {
+                    if (CoreConfig.preventNetworkOperations || Config.recoverFromFile)
+                    {
+                        if (!lastBlocks.Exists(x => x.blockNum == blockNum))
+                        {
+                            lastBlocks.Add(new Block(block));
+                            if(lastBlocks.Count > maxBlockRequests * 2)
+                            {
+                                lastBlocks.RemoveAt(0);
+                            }
+                        }
+                    }
+                    Node.blockSync.onBlockReceived(block, null);
+                }
+                else
+                {
+                    if (readFromStorage)
+                    {
+                        Logging.warn("Expecting block {0} in storage but had to request it from network.", blockNum);
+                    }
+                    // Didn't find the block in storage, request it from the network
+                    if (BlockProtocolMessages.broadcastGetBlock(blockNum, null, null, 1, true) == false)
+                    {
+                        Logging.warn("Failed to broadcast getBlock request for {0}", blockNum);
+                        Thread.Sleep(500);
+                        break;
+                    }
+                    else
+                    {
+                        requested_count++;
+                        // Set the block request time
+                        lock (requestedBlockTimes)
+                        {
+                            requestedBlockTimes.Add(blockNum, currentTime);
+                        }
+                    }
+                }
             }
+
+            if (requested_count > 0)
+                return true;
 
             return false;
         }
@@ -463,29 +494,32 @@ namespace DLT
                 }
             }
 
-            lock (pendingBlocks)
+            // Loop until we have no more pending blocks
+            do
             {
-
-                // Loop until we have no more pending blocks
-                do
+                ulong next_to_apply = lowestBlockNum;
+                if (Node.blockChain.Count > 0)
                 {
-                    ulong next_to_apply = lowestBlockNum;
-                    if (Node.blockChain.Count > 0)
-                    {
-                        next_to_apply = Node.blockChain.getLastBlockNum() + 1;
-                    }
+                    next_to_apply = Node.blockChain.getLastBlockNum() + 1;
+                }
 
-                    if (next_to_apply >= syncToBlock)
+                if (next_to_apply >= syncToBlock)
+                {
+                    // we have everything, clear pending blocks and break
+                    lock (pendingBlocks)
                     {
-                        // we have everything, clear pending blocks and break
                         pendingBlocks.Clear();
                         lock (requestedBlockTimes)
                         {
                             requestedBlockTimes.Clear();
                         }
-                        break;
                     }
-                    Block b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
+                    break;
+                }
+                Block b;
+                lock (pendingBlocks)
+                {
+                    b = pendingBlocks.Find(x => x.blockNum == next_to_apply);
                     if (b == null)
                     {
                         lock (requestedBlockTimes)
@@ -498,257 +532,253 @@ namespace DLT
                         }
                         break;
                     }
-                    b = new Block(b);
-                    if(Node.blockChain.Count == 0 && b.blockNum > 1)
+                }
+                b = new Block(b);
+                if(Node.blockChain.Count == 0 && b.blockNum > 1)
+                {
+                    Block tmp_b = Node.blockChain.getBlock(b.blockNum - 1, true, true);
+                    if(tmp_b != null)
                     {
-                        Block tmp_b = Node.blockChain.getBlock(b.blockNum - 1, true, true);
-                        if(tmp_b != null)
-                        {
-                            Node.blockChain.setLastBlockVersion(tmp_b.version);
-                        }else
-                        {
-                            Node.blockChain.setLastBlockVersion(b.version);
-                        }
-                    }
-
-                    if (b.version > Block.maxVersion)
-                    {
-                        Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
-                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                        Node.blockProcessor.networkUpgraded = true;
-                        sleep = true;
-                        break;
+                        Node.blockChain.setLastBlockVersion(tmp_b.version);
                     }else
                     {
-                        Node.blockProcessor.networkUpgraded = false;
+                        Node.blockChain.setLastBlockVersion(b.version);
                     }
+                }
 
-
-                    if (next_to_apply > 5)
+                if (b.version > Block.maxVersion)
+                {
+                    Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
+                    lock (pendingBlocks)
                     {
-                        ulong targetBlock = next_to_apply - 5;
+                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                    }
+                    Node.blockProcessor.networkUpgraded = true;
+                    sleep = true;
+                    break;
+                }else
+                {
+                    Node.blockProcessor.networkUpgraded = false;
+                }
 
-                        Block tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
-                        if (tb != null)
+
+                if (next_to_apply > 5)
+                {
+                    ulong targetBlock = next_to_apply - 5;
+                    Block tb;
+                    lock (pendingBlocks)
+                    {
+                        tb = pendingBlocks.Find(x => x.blockNum == targetBlock);
+                    }
+                    if (tb != null)
+                    {
+                        Block local_block = Node.blockChain.getBlock(tb.blockNum);
+                        if (local_block != null && tb.blockChecksum.SequenceEqual(local_block.blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
                         {
-                            Block local_block = Node.blockChain.getBlock(tb.blockNum);
-                            if (local_block != null && tb.blockChecksum.SequenceEqual(local_block.blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                            if (Node.blockProcessor.verifyBlockSignatures(tb, null))
                             {
-                                if (Node.blockProcessor.verifyBlockSignatures(tb, null))
-                                {
-                                    Node.blockChain.refreshSignatures(tb, true);
-                                }
-                                else
-                                {
-                                    Logging.warn("Target block " + tb.blockNum + " does not have the required consensus.");
-                                }
+                                Node.blockChain.refreshSignatures(tb, true);
                             }
+                            else
+                            {
+                                Logging.warn("Target block " + tb.blockNum + " does not have the required consensus.");
+                            }
+                        }
+                        lock (pendingBlocks)
+                        {
                             pendingBlocks.RemoveAll(x => x.blockNum == tb.blockNum);
                         }
                     }
+                }
 
-                    try
+                try
+                {
+
+                    Logging.info("Sync: Applying block #{0}/{1}.",
+                        b.blockNum, syncToBlock);
+
+                    b.powField = null;
+
+                    if (fastBlockLoading(b))
                     {
-
-                        Logging.info("Sync: Applying block #{0}/{1}.",
-                            b.blockNum, syncToBlock);
-
-                        b.powField = null;
-
-                        if (fastBlockLoading(b))
+                        lock (pendingBlocks)
                         {
                             pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            continue;
                         }
+                        continue;
+                    }
 
-                        bool ignoreWalletState = true;
+                    bool ignoreWalletState = true;
 
-                        if (b.blockNum > wsSyncConfirmedBlockNum || Config.fullStorageDataVerification)
+                    if (b.blockNum > wsSyncConfirmedBlockNum || Config.fullStorageDataVerification)
+                    {
+                        ignoreWalletState = false;
+                    }
+
+                    // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
+                    // verify with a parameter to ignore WS tests, but do all the others
+                    BlockVerifyStatus b_status = BlockVerifyStatus.Valid;
+
+                    if (b.fromLocalStorage)
+                    {
+                        bool missing = false;
+
+                        var sw = new System.Diagnostics.Stopwatch();
+                        sw.Start();
+
+                        IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(b.blockNum);
+
+                        int missed_txs = 0;
+                        int found_txs = 0;
+
+                        List<byte[]> txs_to_fetch = new List<byte[]>();
+                        foreach (byte[] txid in b.transactions)
                         {
-                            ignoreWalletState = false;
-                        }
-
-                        // wallet state is correct as of wsConfirmedBlockNumber, so before that we call
-                        // verify with a parameter to ignore WS tests, but do all the others
-                        BlockVerifyStatus b_status = BlockVerifyStatus.Valid;
-
-                        if (b.fromLocalStorage)
-                        {
-                            bool missing = false;
-
-                            var sw = new System.Diagnostics.Stopwatch();
-                            sw.Start();
-
-                            IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(b.blockNum);
-
-                            int missed_txs = 0;
-                            int found_txs = 0;
-
-                            foreach (byte[] txid in b.transactions)
+                            if (!running)
                             {
-                                if (!running)
-                                {
-                                    break;
-                                }
-
-                                Transaction t = TransactionPool.getUnappliedTransaction(txid);
-                                if (t == null)
-                                {
-                                    foreach (Transaction t2 in txs)
-                                    {
-                                        if(txid.SequenceEqual(t2.id))
-                                        {
-                                            t = t2;
-                                            found_txs++;
-                                            break;
-                                        }
-                                    }
-
-                                    if(t == null)
-                                    {
-                                        t = Node.storage.getTransaction(txid, b.blockNum);
-                                        missed_txs++;
-                                    }
-
-                                    if (t != null)
-                                    {
-                                        t.applied = 0;
-                                        TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification);
-                                    }
-                                    else
-                                    {
-                                        CoreProtocolMessage.broadcastGetTransaction(txid, b.blockNum);
-                                        missing = true;
-                                    }
-                                }
-                            }
-                            if (missing)
-                            {
-                                Logging.info("Requesting missing transactions for block {0}", b.blockNum);
-                                Thread.Sleep(100);
                                 break;
                             }
 
-                            sw.Stop();
-                            Logging.info(string.Format("|- Local TX fetch took: {0}ms. Missed: {1}  Found: {2}", sw.Elapsed.TotalMilliseconds, missed_txs, found_txs));
-
-                        }
-
-                        if (b.blockNum > wsSyncConfirmedBlockNum || b.fromLocalStorage == false || Config.fullStorageDataVerification)
-                        {
-                            b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
-                        }else
-                        {
-                            b_status = Node.blockProcessor.verifyBlockBasic(b, false);
-                        }
-
-                        if (b_status == BlockVerifyStatus.Indeterminate)
-                        {
-                            if(lastProcessedBlockNum < b.blockNum)
+                            Transaction t = TransactionPool.getUnappliedTransaction(txid);
+                            if (t == null)
                             {
-                                lastProcessedBlockNum = b.blockNum;
-                                lastProcessedBlockTime = Clock.getTimestamp();
-                            }
-
-
-                            if(Clock.getTimestamp() - lastProcessedBlockTime > ConsensusConfig.blockGenerationInterval * 2 || b.getSignatureCount() == 0)
-                            {
-                                Logging.info("Sync: Discarding indeterminate block #{0}, due to timeout or signature count == 0...", b.blockNum);
-                                Node.blockProcessor.blacklistBlock(b);
-                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                requestBlockAgain(b.blockNum);
-                            }else
-                            {
-                                Logging.info("Sync: Waiting for missing transactions from block #{0}...", b.blockNum);
-                            }
-
-                            Thread.Sleep(100);
-                            return;
-                        }
-                        if (b_status != BlockVerifyStatus.Valid)
-                        {
-                            Logging.warn("Block #{0} {1} is invalid. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                            Node.blockProcessor.blacklistBlock(b);
-                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            requestBlockAgain(b.blockNum);
-                            if(b_status == BlockVerifyStatus.PotentiallyForkedBlock && b.blockNum + 7 > lastBlockToReadFromStorage)
-                            {
-                                Node.blockProcessor.handleForkedFlag();
-                            }
-                            return;
-                        }
-
-                        if (!b.fromLocalStorage && !Node.blockProcessor.verifyBlockSignatures(b, null) && Node.blockChain.Count > 16)
-                        {
-                            Logging.warn("Block #{0} {1} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            requestBlockAgain(b.blockNum);
-                            return;
-                        }
-
-                        bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b, null);
-                        // Apply transactions when rolling forward from a recover file without a synced WS
-                        if (b.blockNum > wsSyncConfirmedBlockNum)
-                        {
-                            if (Node.blockChain.Count <= 5 || sigFreezeCheck)
-                            {
-                                Node.walletState.beginTransaction(b.blockNum, false);
-                                bool applied = false;
-                                try
+                                foreach (Transaction t2 in txs)
                                 {
-                                    applied = Node.blockProcessor.applyAcceptedBlock(b);
-
-                                    if(applied)
+                                    if(txid.SequenceEqual(t2.id))
                                     {
-                                        Node.walletState.commitTransaction(b.blockNum);
+                                        t = t2;
+                                        found_txs++;
+                                        break;
                                     }
-                                }catch(Exception e)
-                                {
-                                    Logging.error("Error occured during block sync, while applying/commiting transactions: " + e);
                                 }
-                                if (!applied)
+
+                                if(t == null)
                                 {
-                                    Logging.warn("Error applying Block #{0} {1}. Reverting, discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                                    Node.walletState.revertTransaction(b.blockNum);
-                                    Node.blockChain.revertBlockTransactions(b);
-                                    Node.blockProcessor.blacklistBlock(b);
-                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                    requestBlockAgain(b.blockNum);
-                                    return;
+                                    t = Node.storage.getTransaction(txid, b.blockNum);
+                                    missed_txs++;
+                                }
+
+                                if (t != null)
+                                {
+                                    t.applied = 0;
+                                    TransactionPool.addTransaction(t, true, null, Config.fullStorageDataVerification);
                                 }
                                 else
                                 {
-                                    if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
-                                    {
-                                        // skip WS checksum check
-                                    }
-                                    else
-                                    {
-                                        if (b.lastSuperBlockChecksum != null)
-                                        {
-                                            byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                                            if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
-                                            {
-                                                Logging.error("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum));
-                                                Node.walletState.revertTransaction(b.blockNum);
-                                                Node.blockChain.revertBlockTransactions(b);
-                                                Node.blockProcessor.blacklistBlock(b);
-                                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                                requestBlockAgain(b.blockNum);
-                                                return;
-                                            }
-                                        }
-                                    }
-                                    if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
-                                    {
-                                        DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
-                                    }
+                                    txs_to_fetch.Add(txid);
+                                    missing = true;
                                 }
+                            }
+                        }
+
+                        if (missing)
+                        {
+                            Logging.info("Requesting missing transactions for block {0}", b.blockNum);
+                            TransactionProtocolMessages.broadcastGetTransactions(txs_to_fetch, -(long)b.blockNum, null);
+                            Thread.Sleep(100);
+                            break;
+                        }
+
+                        sw.Stop();
+                        Logging.info("|- Local TX fetch took: {0}ms. Missed: {1}  Found: {2}", sw.Elapsed.TotalMilliseconds, missed_txs, found_txs);
+                    }
+
+                    if (b.blockNum > wsSyncConfirmedBlockNum || b.fromLocalStorage == false || Config.fullStorageDataVerification)
+                    {
+                        b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
+                    }else
+                    {
+                        b_status = Node.blockProcessor.verifyBlockBasic(b, false);
+                    }
+
+                    if (b_status == BlockVerifyStatus.Indeterminate)
+                    {
+                        if(lastProcessedBlockNum < b.blockNum)
+                        {
+                            lastProcessedBlockNum = b.blockNum;
+                            lastProcessedBlockTime = Clock.getTimestamp();
+                        }
+
+
+                        if(Clock.getTimestamp() - lastProcessedBlockTime > ConsensusConfig.blockGenerationInterval * 2 || b.getSignatureCount() == 0)
+                        {
+                            Logging.info("Sync: Discarding indeterminate block #{0}, due to timeout or signature count == 0...", b.blockNum);
+                            Node.blockProcessor.blacklistBlock(b);
+                            lock (pendingBlocks)
+                            {
+                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                requestBlockAgain(b.blockNum);
                             }
                         }
                         else
                         {
-                            if (syncToBlock == b.blockNum)
+                            Logging.info("Sync: Waiting for missing transactions from block #{0}...", b.blockNum);
+                        }
+
+                        Thread.Sleep(100);
+                        return;
+                    }
+                    if (b_status != BlockVerifyStatus.Valid)
+                    {
+                        Logging.warn("Block #{0} {1} is invalid. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                        Node.blockProcessor.blacklistBlock(b);
+                        lock (pendingBlocks)
+                        {
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            requestBlockAgain(b.blockNum);
+                        }
+                        if (b_status == BlockVerifyStatus.PotentiallyForkedBlock && b.blockNum + 7 > lastBlockToReadFromStorage)
+                        {
+                            Node.blockProcessor.handleForkedFlag();
+                        }
+                        return;
+                    }
+
+                    if (!b.fromLocalStorage && !Node.blockProcessor.verifyBlockSignatures(b, null) && Node.blockChain.Count > 16)
+                    {
+                        Logging.warn("Block #{0} {1} doesn't have the required consensus. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                        lock (pendingBlocks)
+                        {
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            requestBlockAgain(b.blockNum);
+                        }
+                        return;
+                    }
+
+                    bool sigFreezeCheck = Node.blockProcessor.verifySignatureFreezeChecksum(b, null);
+                    // Apply transactions when rolling forward from a recover file without a synced WS
+                    if (b.blockNum > wsSyncConfirmedBlockNum)
+                    {
+                        if (Node.blockChain.Count <= 5 || sigFreezeCheck)
+                        {
+                            Node.walletState.beginTransaction(b.blockNum, false);
+                            bool applied = false;
+                            try
+                            {
+                                applied = Node.blockProcessor.applyAcceptedBlock(b);
+
+                                if(applied)
+                                {
+                                    Node.walletState.commitTransaction(b.blockNum);
+                                }
+                            }catch(Exception e)
+                            {
+                                Logging.error("Error occured during block sync, while applying/commiting transactions: " + e);
+                            }
+                            if (!applied)
+                            {
+                                Logging.warn("Error applying Block #{0} {1}. Reverting, discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                                Node.walletState.revertTransaction(b.blockNum);
+                                Node.blockChain.revertBlockTransactions(b);
+                                Node.blockProcessor.blacklistBlock(b);
+                                lock (pendingBlocks)
+                                {
+                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                    requestBlockAgain(b.blockNum);
+                                }
+                                return;
+                            }
+                            else
                             {
                                 if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                                 {
@@ -756,85 +786,138 @@ namespace DLT
                                 }
                                 else
                                 {
-                                    byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
-                                    if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                    if (b.lastSuperBlockChecksum != null)
                                     {
-                                        Logging.warn("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum);
-                                        Node.blockProcessor.blacklistBlock(b);
-                                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                        requestBlockAgain(b.blockNum);
-                                        return;
+                                        byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                        if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
+                                        {
+                                            Logging.error("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum));
+                                            Node.walletState.revertTransaction(b.blockNum);
+                                            Node.blockChain.revertBlockTransactions(b);
+                                            Node.blockProcessor.blacklistBlock(b);
+                                            lock (pendingBlocks)
+                                            {
+                                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                                requestBlockAgain(b.blockNum);
+                                            }
+                                            return;
+                                        }
                                     }
+                                }
+                                if (b.blockNum % Config.saveWalletStateEveryBlock == 0)
+                                {
+                                    DLT.Meta.WalletStateStorage.saveWalletState(b.blockNum);
                                 }
                             }
                         }
-
-                        if (Node.blockChain.Count <= 5 || sigFreezeCheck)
+                    }
+                    else
+                    {
+                        if (syncToBlock == b.blockNum)
                         {
-                            //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
-                            if (b.blockNum <= wsSyncConfirmedBlockNum)
+                            if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                             {
-                                if (!TransactionPool.setAppliedFlagToTransactionsFromBlock(b))
+                                // skip WS checksum check
+                            }
+                            else
+                            {
+                                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                                if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                 {
-                                    Node.blockChain.revertBlockTransactions(b);
+                                    Logging.warn("Block #{0} is last and has an invalid WSChecksum. Discarding and requesting a new one.", b.blockNum);
                                     Node.blockProcessor.blacklistBlock(b);
-                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                    requestBlockAgain(b.blockNum);
+                                    lock (pendingBlocks)
+                                    {
+                                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                        requestBlockAgain(b.blockNum);
+                                    }
                                     return;
                                 }
                             }
-
-                            if (b.blockNum > 12 && b.blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
-                            {
-                                if (Node.isMasterNode() && b.blockNum > 7)
-                                {
-                                    BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
-                                    if (blockSig != null)
-                                    {
-                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, b.blockChecksum), true);
-                                        // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                        SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
-                                    }
-                                }
-                            }
-
-                            Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                         }
-                        else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
+                    }
+
+                    if (Node.blockChain.Count <= 5 || sigFreezeCheck)
+                    {
+                        //Logging.info(String.Format("Appending block #{0} to blockChain.", b.blockNum));
+                        if (b.blockNum <= wsSyncConfirmedBlockNum)
                         {
-                            if(CoreConfig.preventNetworkOperations || Config.recoverFromFile)
+                            if (!TransactionPool.setAppliedFlagToTransactionsFromBlock(b))
                             {
-                                var last_block = lastBlocks.Find(x => x.blockNum == b.blockNum - 5);
-                                if(last_block != null)
+                                Node.blockChain.revertBlockTransactions(b);
+                                Node.blockProcessor.blacklistBlock(b);
+                                lock (pendingBlocks)
                                 {
-                                    pendingBlocks.Add(last_block);
+                                    pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                    requestBlockAgain(b.blockNum);
                                 }
                                 return;
                             }
-                            // invalid sigfreeze, waiting for the correct block
-                            Logging.warn("Block #{0} {1} doesn't have the correct sigfreezed block. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                            requestBlockAgain(b.blockNum);
+                        }
+
+                        if (b.blockNum > 12 && b.blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
+                        {
+                            if (Node.isMasterNode() && b.blockNum > 7)
+                            {
+                                BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
+                                if (blockSig != null)
+                                {
+                                    Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, b.blockChecksum), true);
+                                    // ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                    SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
+                                }
+                            }
+                        }
+
+                        Node.blockChain.appendBlock(b, !b.fromLocalStorage);
+                    }
+                    else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
+                    {
+                        if(CoreConfig.preventNetworkOperations || Config.recoverFromFile)
+                        {
+                            var last_block = lastBlocks.Find(x => x.blockNum == b.blockNum - 5);
+                            if(last_block != null)
+                            {
+                                lock (pendingBlocks)
+                                {
+                                    pendingBlocks.Add(last_block);
+                                }
+                            }
                             return;
                         }
+                        // invalid sigfreeze, waiting for the correct block
+                        Logging.warn("Block #{0} {1} doesn't have the correct sigfreezed block. Discarding and requesting a new one.", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                        lock (pendingBlocks)
+                        {
+                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                            requestBlockAgain(b.blockNum);
+                        }
+                        return;
                     }
-                    catch (Exception e)
+                }
+                catch (Exception e)
+                {
+                    Logging.error("Exception occured while syncing block #{0}: {1}", b.blockNum, e);
+                }
+                if(Config.enableChainReorgTest)
+                {
+                    if(!Node.blockProcessor.chainReorgTest(b.blockNum))
                     {
-                        Logging.error("Exception occured while syncing block #{0}: {1}", b.blockNum, e);
-                    }
-                    if(Config.enableChainReorgTest)
-                    {
-                        if(!Node.blockProcessor.chainReorgTest(b.blockNum))
+                        lock (pendingBlocks)
                         {
                             pendingBlocks.RemoveAll(x => x.blockNum + 6 < b.blockNum);
                         }
-                    }else
+                    }
+                }
+                else
+                {
+                    lock (pendingBlocks)
                     {
                         pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
                     }
-                    Node.blockProcessor.cleanupBlockBlacklist();
-                } while (pendingBlocks.Count > 0 && running);
-            }
+                }
+                Node.blockProcessor.cleanupBlockBlacklist();
+            } while (pendingBlocks.Count > 0 && running);
 
             if (!sleep && Node.blockChain.getLastBlockNum() + 1 >= syncToBlock)
             {
@@ -1066,13 +1149,14 @@ namespace DLT
         public void onBlockReceived(Block b, RemoteEndpoint endpoint)
         {
             if (synchronizing == false) return;
+
+            if (Node.blockProcessor.isBlockBlacklisted(b, ConsensusConfig.blockGenerationInterval * 3))
+            {
+                return;
+            }
+
             lock (pendingBlocks)
             {
-                if(Node.blockProcessor.isBlockBlacklisted(b, ConsensusConfig.blockGenerationInterval * 3))
-                {
-                    return;
-                }
-
                 // Remove from requestedblocktimes, as the block has been received 
                 lock (requestedBlockTimes)
                 {
