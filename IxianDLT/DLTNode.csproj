@@ -135,12 +135,12 @@
     <Compile Include="Block\BlockSync.cs" />
     <Compile Include="Inventory\InventoryCacheDLT.cs" />
     <Compile Include="Meta\Config.cs" />
-    <Compile Include="Meta\IStorage.cs" />
+    <Compile Include="Storage\IStorage.cs" />
     <Compile Include="Meta\Node.cs" />
-    <Compile Include="Meta\RocksDBStorage.cs" />
+    <Compile Include="Storage\RocksDBStorage.cs" />
     <Compile Include="Meta\StatsConsoleScreen.cs" />
-    <Compile Include="Meta\SQLiteStorage.cs" />
-    <Compile Include="Meta\WalletStateStorage.cs" />
+    <Compile Include="Storage\SQLiteStorage.cs" />
+    <Compile Include="Storage\WalletStateStorage.cs" />
     <Compile Include="Miner\Miner.cs" />
     <Compile Include="Miner\SignerPowMiner.cs" />
     <Compile Include="Network\BlockProtocolMessages.cs" />

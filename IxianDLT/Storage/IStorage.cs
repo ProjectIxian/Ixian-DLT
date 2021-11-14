@@ -10,6 +10,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // MIT License for more details.
 
+using DLT.Meta;
 using IXICore;
 using IXICore.Meta;
 using System;
@@ -19,7 +20,7 @@ using System.Threading;
 
 namespace DLT
 {
-    namespace Meta
+    namespace Storage
     {
         public abstract class IStorage
         {

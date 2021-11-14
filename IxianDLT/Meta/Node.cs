@@ -11,6 +11,7 @@
 // MIT License for more details.
 
 using DLT.Network;
+using DLT.Storage;
 using DLTNode;
 using DLTNode.Inventory;
 using IXICore;
