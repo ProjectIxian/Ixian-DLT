@@ -90,18 +90,6 @@ namespace DLT
             // Creates the storage file if not found
             protected override bool prepareStorageInternal()
             {
-                var files = Directory.EnumerateFiles(pathBase + Path.DirectorySeparatorChar + "0000", "*.dat-shm");
-                foreach (var file in files)
-                {
-                    File.Delete(file);
-                }
-
-                files = Directory.EnumerateFiles(pathBase + Path.DirectorySeparatorChar + "0000", "*.dat-wal");
-                foreach (var file in files)
-                {
-                    File.Delete(file);
-                }
-
                 string db_path = pathBase + Path.DirectorySeparatorChar + "superblocks.dat";
 
                 // Bind the connection
@@ -137,6 +125,7 @@ namespace DLT
                 {
                     long curTime = Clock.getTimestamp();
                     Dictionary<string, object[]> tmpConnectionCache = new Dictionary<string, object[]>(connectionCache);
+                    bool entryExpired = false;
                     foreach (var entry in tmpConnectionCache)
                     {
                         if (curTime - (long)entry.Value[1] > 60)
@@ -150,13 +139,18 @@ namespace DLT
                             connection.Close();
                             connection.Dispose();
                             connectionCache.Remove(entry.Key);
-
-                            // Fix for occasional locked database error
-                            GC.Collect();
-                            GC.WaitForPendingFinalizers();
-                            // End of fix
+                            entryExpired = true;
                         }
                     }
+
+                    if(entryExpired)
+                    {
+                        // Fix for occasional locked database error
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        // End of fix
+                    }
+
                     var tmpCache = connectionCache.OrderBy(x => x.Value[1]);
                     for (int i = 0; i < tmpCache.Count() && connectionCache.Count > CONNECTION_CACHE_LIMIT; i++)
                     {
@@ -225,7 +219,7 @@ namespace DLT
 
                                 File.Delete(path);
 
-                                throw e;
+                                throw;
                             }
                         }
                         else if (!tableInfo.Exists(x => x.Name == "fromList"))
@@ -428,19 +422,19 @@ namespace DLT
  
                 // prepare superBlockSegments
                 List<byte> super_block_segments = new List<byte>();
-                lock (superBlockStorageLock)
+                if (block.lastSuperBlockChecksum != null)
                 {
-                    if (block.lastSuperBlockChecksum != null)
+                    // this is a superblock
+
+                    foreach(var entry in block.superBlockSegments)
                     {
-                        // this is a superblock
+                        super_block_segments.AddRange(BitConverter.GetBytes(entry.Value.blockNum));
+                        super_block_segments.AddRange(BitConverter.GetBytes(entry.Value.blockChecksum.Length));
+                        super_block_segments.AddRange(entry.Value.blockChecksum);
+                    }
 
-                        foreach(var entry in block.superBlockSegments)
-                        {
-                            super_block_segments.AddRange(BitConverter.GetBytes(entry.Value.blockNum));
-                            super_block_segments.AddRange(BitConverter.GetBytes(entry.Value.blockChecksum.Length));
-                            super_block_segments.AddRange(entry.Value.blockChecksum);
-                        }
-
+                    lock (superBlockStorageLock)
+                    {
                         string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
                         result = executeSQL(superBlocksSqlConnection, sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer,(long)block.signerDifficulty);
                     }
@@ -480,11 +474,11 @@ namespace DLT
                     fromList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(from.Key) + ":" + Convert.ToBase64String(from.Value.getAmount().ToByteArray());
                 }
 
+                byte[] tx_data_shuffled = shuffleStorageBytes(transaction.data);
+
                 bool result = false;
                 lock (storageLock)
                 {
-                    byte[] tx_data_shuffled = shuffleStorageBytes(transaction.data);
-
                     // Transaction was not found in any existing database, seek to the proper database
                     seekDatabase(transaction.applied, true);
 
@@ -700,7 +694,7 @@ namespace DLT
                             block.signatures.Add(newSig);
                         }
                     }
-                    //Logging.info(string.Format("Signature parse: {0}ms", sw.Elapsed.TotalMilliseconds));
+                    //Logging.trace("Signature parse: {0}ms", sw.Elapsed.TotalMilliseconds);
 
                     // Add transaction
                     string[] split_str2 = blk.transactions.Split(new string[] { "||" }, StringSplitOptions.None);
@@ -715,7 +709,7 @@ namespace DLT
 
                         block.addTransaction(Transaction.txIdLegacyToV8(s1));
                     }
-                    //Logging.info(string.Format("Tx parse: {0}ms", sw.Elapsed.TotalMilliseconds));
+                    //Logging.trace("Tx parse: {0}ms", sw.Elapsed.TotalMilliseconds);
 
                     if (blk.superBlockSegments != null)
                     {
@@ -740,13 +734,16 @@ namespace DLT
                 }
 
                 sw.Stop();
-                Logging.info(string.Format("|- Local block #{0} fetch took: {1}ms", blk.blockNum, sw.Elapsed.TotalMilliseconds));
+                Logging.trace("|- Local block #{0} fetch took: {1}ms", blk.blockNum, sw.Elapsed.TotalMilliseconds);
 
                 return block;
             }
 
             public override Block getBlock(ulong blocknum)
             {
+                var sw = new System.Diagnostics.Stopwatch();
+                sw.Start();
+                List<_storage_Block> _storage_block = null;
                 lock (storageLock)
                 {
                     if (blocknum < 1)
@@ -755,7 +752,6 @@ namespace DLT
                     }
 
                     string sql = "select * from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
-                    List<_storage_Block> _storage_block = null;
 
                     lock (storageLock)
                     {
@@ -786,15 +782,20 @@ namespace DLT
                     {
                         return null;
                     }
-
-                    //Logging.info(String.Format("Read block #{0} from storage.", block.blockNum));
-
-                    return getBlockFromStorageBlock(_storage_block[0]);
                 }
+
+                sw.Stop();
+                Logging.trace("|- Local block #{0} read from storage took: {1}ms", blocknum, sw.Elapsed.TotalMilliseconds);
+
+                return getBlockFromStorageBlock(_storage_block[0]);
             }
 
             public override Block getBlockByHash(byte[] hash)
             {
+                var sw = new System.Diagnostics.Stopwatch();
+                sw.Start();
+
+                _storage_Block[] _storage_block = null;
                 lock (storageLock)
                 {
                     if (hash == null)
@@ -803,7 +804,6 @@ namespace DLT
                     }
 
                     string sql = "select * from blocks where `blockChecksum` = ? LIMIT 1";
-                    _storage_Block[] _storage_block = null;
 
                     // Go through each database until the block is found
                     // TODO: optimize this for better performance
@@ -879,11 +879,11 @@ namespace DLT
                     {
                         return null;
                     }
-
-                    Logging.info(String.Format("Read block #{0} from storage.", _storage_block[0].blockNum));
-
-                    return getBlockFromStorageBlock(_storage_block[0]);
                 }
+                sw.Stop();
+                Logging.trace("|- Local block #{0} read from storage took: {1}ms", _storage_block[0].blockNum, sw.Elapsed.TotalMilliseconds);
+
+                return getBlockFromStorageBlock(_storage_block[0]);
             }
 
             public override Block getBlockByLastSBHash(byte[] checksum)
@@ -1176,9 +1176,87 @@ namespace DLT
             // Escape and execute an sql command
             private bool executeSQL(SQLiteConnection connection, string sql, params object[] sqlParameters)
             {
-                if (connection.Execute(sql, sqlParameters) > 0)
+                try
                 {
-                    return true;
+                    if (connection.Execute(sql, sqlParameters) > 0)
+                    {
+                        return true;
+                    }
+                }
+                catch (SQLiteException e)
+                {
+                    if (e.Result == SQLite3.Result.Corrupt)
+                    {
+                        lock (connectionCache)
+                        {
+                            string fileName = Path.GetFileNameWithoutExtension(connection.DatabasePath);
+                            string fullFilePath = Path.Combine(pathBase, "0000", fileName);
+
+                            resetConnectionCache();
+
+                            if (File.Exists(fullFilePath + ".dat-shm") || File.Exists(fullFilePath + ".dat-shm"))
+                            {
+                                // First try removing the recovery files
+                                try
+                                {
+                                    File.Delete(fullFilePath + ".dat-shm");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logging.error("Error deleting file " + fullFilePath + ".dat-shm: " + ex);
+                                }
+
+                                try
+                                {
+                                    File.Delete(fullFilePath + ".dat-wal");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logging.error("Error deleting file " + fullFilePath + ".dat-wal: " + ex);
+                                }
+                                Logging.warn("Deleted recovery files for database " + fullFilePath);
+                            }else if(File.Exists(fullFilePath + ".dat"))
+                            {
+                                string tmpFilePath = fullFilePath + ".tmp";
+                                try
+                                {
+                                    // If it's still failing after removing the recovery files, attempt repair of the database file
+                                    Logging.warn("Repairing database file " + fullFilePath + ".dat");
+                                    if(File.Exists(tmpFilePath))
+                                    {
+                                        File.Delete(tmpFilePath);
+                                    }
+                                    File.Delete(tmpFilePath);
+                                    File.Move(fullFilePath, tmpFilePath);
+                                    connection = new SQLiteConnection(tmpFilePath);
+                                    connection.Backup(fullFilePath);
+                                    connection.Close();
+                                    // Fix for occasional locked database error
+                                    GC.Collect();
+                                    GC.WaitForPendingFinalizers();
+                                    // End of fix
+                                    Logging.warn("Repaired database file " + fullFilePath + ".dat");
+
+                                }
+                                catch (Exception ex)
+                                {
+                                    connection.Close();
+                                    // Fix for occasional locked database error
+                                    GC.Collect();
+                                    GC.WaitForPendingFinalizers();
+                                    // End of fix
+                                    if (File.Exists(fullFilePath))
+                                    {
+                                        File.Delete(fullFilePath);
+                                    }
+                                    File.Move(tmpFilePath, fullFilePath);
+                                    Logging.error("Error repairing file " + fullFilePath + ".dat: " + ex);
+                                }
+                            }
+                        }
+                    }
+
+                    throw;
                 }
                 return false;
             }
@@ -1399,9 +1477,9 @@ namespace DLT
                 throw new NotImplementedException();
             }
 
-            protected override void shutdown()
+            private void resetConnectionCache()
             {
-                lock(connectionCache)
+                lock (connectionCache)
                 {
                     sqlConnection = null;
                     foreach (var entry in connectionCache)
@@ -1409,14 +1487,20 @@ namespace DLT
                         SQLiteConnection connection = (SQLiteConnection)entry.Value[0];
                         connection.Close();
                         connection.Dispose();
-
-                        // Fix for occasional locked database error
-                        GC.Collect();
-                        GC.WaitForPendingFinalizers();
-                        // End of fix
                     }
+
+                    // Fix for occasional locked database error
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    // End of fix
+
                     connectionCache.Clear();
                 }
+            }
+
+            protected override void shutdown()
+            {
+                resetConnectionCache();
             }
         }
     }
