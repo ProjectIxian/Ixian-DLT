@@ -464,6 +464,11 @@ namespace DLT
                         Logging.info(String.Format("NetworkProtocol::broadcastGetBlock: {0}", mw.Length));
 #endif
 
+                        if(include_transactions > 0)
+                        {
+                            Node.blockProcessor.addWaitingForTransactions(block_num);
+                        }
+
                         if (endpoint != null)
                         {
                             if (endpoint.isConnected())

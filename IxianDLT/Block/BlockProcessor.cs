@@ -927,6 +927,32 @@ namespace DLT
             return BlockVerifyStatus.Valid;
         }
 
+        public void addWaitingForTransactions(ulong blockNum)
+        {
+            lock (fetchingTxForBlocks)
+            {
+                if (!fetchingTxForBlocks.ContainsKey(blockNum))
+                {
+                    fetchingTxForBlocks.Add(blockNum, 0);
+                }else
+                {
+                    fetchingTxForBlocks[blockNum] = 0;
+                }
+            }
+        }
+
+        public bool isBlockWaitingForTransactions(ulong blockNum)
+        {
+            lock (fetchingTxForBlocks)
+            {
+                if (fetchingTxForBlocks.ContainsKey(blockNum))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public BlockVerifyStatus verifyBlockTransactions(Block b, bool ignore_walletstate = false, RemoteEndpoint endpoint = null)
         {
             // Check all transactions in the block against our TXpool, make sure all is legal
@@ -942,7 +968,10 @@ namespace DLT
                     if (cur_time - tx_timeout > 10)
                     {
                         fetchingTxForBlocks[b.blockNum] = cur_time;
-                        Logging.info("fetchingTxTimeout EXPIRED");
+                        if(tx_timeout > 0)
+                        {
+                            Logging.info("fetchingTxTimeout EXPIRED");
+                        }
                         fetchTransactions = true;
                     }
                 }
@@ -1408,7 +1437,7 @@ namespace DLT
                 }
                 else // localNewBlock == null
                 {
-                    bool hasNodeSig = true;
+                    bool hasNodeSig = false;
                     int offset = getElectedNodeOffset();
                     if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
                     {
@@ -1421,6 +1450,9 @@ namespace DLT
                                 break;
                             }
                         }
+                    }else
+                    {
+                        hasNodeSig = true;
                     }
                     if (hasNodeSig
                         || b.getSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO TODO think about /2 thing

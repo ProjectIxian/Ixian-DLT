@@ -366,9 +366,6 @@ namespace DLT
 
             public static void broadcastGetTransactions(List<byte[]> tx_list, long msg_id, RemoteEndpoint endpoint)
             {
-                if (endpoint == null)
-                    return;
-
                 int tx_count = tx_list.Count;
                 int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
                 for (int i = 0; i < tx_count;)
@@ -403,7 +400,13 @@ namespace DLT
                             }
                         }
                         MessagePriority priority = msg_id > 0 ? MessagePriority.high : MessagePriority.auto;
-                        endpoint.sendData(ProtocolMessageCode.getTransactions2, mOut.ToArray(), null, msg_id, priority);
+                        if(endpoint == null)
+                        {
+                            CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getTransactions2, mOut.ToArray(), 0, null);
+                        }else
+                        {
+                            endpoint.sendData(ProtocolMessageCode.getTransactions2, mOut.ToArray(), null, msg_id, priority);
+                        }
                     }
                 }
             }
@@ -542,6 +545,16 @@ namespace DLT
                     using (BinaryReader reader = new BinaryReader(m))
                     {
                         long msg_id = reader.ReadIxiVarInt();
+
+                        if (msg_id < 0)
+                        {
+                            ulong blockNum = (ulong)-msg_id;
+                            if(!Node.blockProcessor.isBlockWaitingForTransactions(blockNum))
+                            {
+                                return;
+                            }
+                        }
+
                         int tx_count = (int)reader.ReadIxiVarUInt();
 
                         int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
