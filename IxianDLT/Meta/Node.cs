@@ -64,8 +64,22 @@ namespace DLT.Meta
 
         public Node()
         {
-            CoreConfig.simultaneousConnectedNeighbors = Config.maxOutgoingConnections;
+            if (Config.maxOutgoingConnections < 8)
+            {
+                Config.maxOutgoingConnections = 8;
+            }
+            CoreConfig.simultaneousConnectedNeighbors = Config.maxOutgoingConnections / 2;
+
+            if (Config.maxIncomingMasterNodes < 100)
+            {
+                Config.maxIncomingMasterNodes = 100;
+            }
             CoreConfig.maximumServerMasterNodes = Config.maxIncomingMasterNodes;
+
+            if (Config.maxIncomingClientNodes < 100)
+            {
+                Config.maxIncomingClientNodes = 100;
+            }
             CoreConfig.maximumServerClients = Config.maxIncomingClientNodes;
 
             IxianHandler.init(Config.version, this, Config.networkType, !Config.disableSetTitle, Config.checksumLock);
@@ -755,7 +769,7 @@ namespace DLT.Meta
             if (PresenceList.myPresenceType == 'W')
                 return;
 
-            CoreConfig.simultaneousConnectedNeighbors = 4;
+            CoreConfig.simultaneousConnectedNeighbors = Config.maxOutgoingConnections / 2;
 
             PresenceList.myPresenceType = 'W';
 
