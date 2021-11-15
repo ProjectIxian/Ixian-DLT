@@ -745,44 +745,41 @@ namespace DLT
                 var sw = new System.Diagnostics.Stopwatch();
                 sw.Start();
                 List<_storage_Block> _storage_block = null;
+                if (blocknum < 1)
+                {
+                    return null;
+                }
+
+                string sql = "select * from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
+
                 lock (storageLock)
                 {
-                    if (blocknum < 1)
+                    if(blocknum > getHighestBlockInStorage())
                     {
+                        Logging.error("Tried to get block {0} but the highest block in storage is {1}", blocknum, getHighestBlockInStorage());
                         return null;
                     }
+                    seekDatabase(blocknum, true);
 
-                    string sql = "select * from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
-
-                    lock (storageLock)
+                    try
                     {
-                        if(blocknum > getHighestBlockInStorage())
-                        {
-                            Logging.error("Tried to get block {0} but the highest block in storage is {1}", blocknum, getHighestBlockInStorage());
-                            return null;
-                        }
-                        seekDatabase(blocknum, true);
-
-                        try
-                        {
-                            _storage_block = sqlConnection.Query<_storage_Block>(sql, (long)blocknum);
-                        }
-                        catch (Exception e)
-                        {
-                            Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
-                            return null;
-                        }
+                        _storage_block = sqlConnection.Query<_storage_Block>(sql, (long)blocknum);
                     }
-
-                    if (_storage_block == null)
+                    catch (Exception e)
                     {
+                        Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
                         return null;
                     }
+                }
 
-                    if (_storage_block.Count < 1)
-                    {
-                        return null;
-                    }
+                if (_storage_block == null)
+                {
+                    return null;
+                }
+
+                if (_storage_block.Count < 1)
+                {
+                    return null;
                 }
 
                 sw.Stop();
@@ -797,90 +794,88 @@ namespace DLT
                 sw.Start();
 
                 _storage_Block[] _storage_block = null;
+                if (hash == null)
+                {
+                    return null;
+                }
+
+                string sql = "select * from blocks where `blockChecksum` = ? LIMIT 1";
+
+                // Go through each database until the block is found
+                // TODO: optimize this for better performance
                 lock (storageLock)
                 {
-                    if (hash == null)
+                    bool found = false;
+
+                    try
                     {
-                        return null;
+                        _storage_block = sqlConnection.Query<_storage_Block>(sql, hash).ToArray();
+                    }
+                    catch (Exception e)
+                    {
+                        Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
+                        found = false;
                     }
 
-                    string sql = "select * from blocks where `blockChecksum` = ? LIMIT 1";
-
-                    // Go through each database until the block is found
-                    // TODO: optimize this for better performance
-                    lock (storageLock)
+                    if (_storage_block != null)
                     {
-                        bool found = false;
-
-                        try
+                        if (_storage_block.Length > 0)
                         {
-                            _storage_block = sqlConnection.Query<_storage_Block>(sql, hash).ToArray();
-                        }
-                        catch (Exception e)
-                        {
-                            Logging.error(String.Format("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e.Message));
-                            found = false;
-                        }
-
-                        if (_storage_block != null)
-                        {
-                            if (_storage_block.Length > 0)
-                            {
-                                found = true;
-                            }
-                        }
-
-                        ulong db_blocknum = getHighestBlockInStorage();
-                        while (!found)
-                        {
-                            // Block not found yet, seek to another database
-                            seekDatabase(db_blocknum, true);
-                            try
-                            {
-                                _storage_block = sqlConnection.Query<_storage_Block>(sql, hash).ToArray();
-
-                            }
-                            catch (Exception)
-                            {
-                                if (db_blocknum > Config.maxBlocksPerDatabase)
-                                {
-                                    db_blocknum -= Config.maxBlocksPerDatabase;
-                                }
-                                else
-                                {
-                                    // Block not found
-                                    return null;
-                                }
-                            }
-
-                            if (_storage_block == null || _storage_block.Length < 1)
-                            {
-                                if (db_blocknum > Config.maxBlocksPerDatabase)
-                                {
-                                    db_blocknum -= Config.maxBlocksPerDatabase;
-                                }
-                                else
-                                {
-                                    // Block not found in any database
-                                    return null;
-                                }
-                                continue;
-                            }
-
                             found = true;
                         }
                     }
 
-                    if (_storage_block == null)
+                    ulong db_blocknum = getHighestBlockInStorage();
+                    while (!found)
                     {
-                        return null;
-                    }
+                        // Block not found yet, seek to another database
+                        seekDatabase(db_blocknum, true);
+                        try
+                        {
+                            _storage_block = sqlConnection.Query<_storage_Block>(sql, hash).ToArray();
 
-                    if (_storage_block.Length < 1)
-                    {
-                        return null;
+                        }
+                        catch (Exception)
+                        {
+                            if (db_blocknum > Config.maxBlocksPerDatabase)
+                            {
+                                db_blocknum -= Config.maxBlocksPerDatabase;
+                            }
+                            else
+                            {
+                                // Block not found
+                                return null;
+                            }
+                        }
+
+                        if (_storage_block == null || _storage_block.Length < 1)
+                        {
+                            if (db_blocknum > Config.maxBlocksPerDatabase)
+                            {
+                                db_blocknum -= Config.maxBlocksPerDatabase;
+                            }
+                            else
+                            {
+                                // Block not found in any database
+                                return null;
+                            }
+                            continue;
+                        }
+
+                        found = true;
                     }
                 }
+
+                if (_storage_block == null)
+                {
+                    return null;
+                }
+
+                if (_storage_block.Length < 1)
+                {
+                    return null;
+                }
+
                 sw.Stop();
                 Logging.trace("|- Local block #{0} read from storage took: {1}ms", _storage_block[0].blockNum, sw.Elapsed.TotalMilliseconds);
 
@@ -1188,76 +1183,164 @@ namespace DLT
                 {
                     if (e.Result == SQLite3.Result.Corrupt)
                     {
-                        lock (connectionCache)
+                        lock (storageLock)
                         {
-                            string fileName = Path.GetFileNameWithoutExtension(connection.DatabasePath);
-                            string fullFilePath = Path.Combine(pathBase, "0000", fileName);
-
-                            resetConnectionCache();
-
-                            if (File.Exists(fullFilePath + ".dat-shm") || File.Exists(fullFilePath + ".dat-shm"))
+                            lock (connectionCache)
                             {
-                                // First try removing the recovery files
-                                try
-                                {
-                                    File.Delete(fullFilePath + ".dat-shm");
-                                }
-                                catch (Exception ex)
-                                {
-                                    Logging.error("Error deleting file " + fullFilePath + ".dat-shm: " + ex);
-                                }
+                                string fileName = Path.GetFileNameWithoutExtension(connection.DatabasePath);
+                                string fullFilePath = Path.Combine(pathBase, "0000", fileName);
 
-                                try
-                                {
-                                    File.Delete(fullFilePath + ".dat-wal");
-                                }
-                                catch (Exception ex)
-                                {
-                                    Logging.error("Error deleting file " + fullFilePath + ".dat-wal: " + ex);
-                                }
-                                Logging.warn("Deleted recovery files for database " + fullFilePath);
-                            }else if(File.Exists(fullFilePath + ".dat"))
-                            {
-                                string tmpFilePath = fullFilePath + ".tmp";
-                                try
-                                {
-                                    // If it's still failing after removing the recovery files, attempt repair of the database file
-                                    Logging.warn("Repairing database file " + fullFilePath + ".dat");
-                                    if(File.Exists(tmpFilePath))
-                                    {
-                                        File.Delete(tmpFilePath);
-                                    }
-                                    File.Delete(tmpFilePath);
-                                    File.Move(fullFilePath, tmpFilePath);
-                                    connection = new SQLiteConnection(tmpFilePath);
-                                    connection.Backup(fullFilePath);
-                                    connection.Close();
-                                    // Fix for occasional locked database error
-                                    GC.Collect();
-                                    GC.WaitForPendingFinalizers();
-                                    // End of fix
-                                    Logging.warn("Repaired database file " + fullFilePath + ".dat");
+                                resetConnectionCache();
 
-                                }
-                                catch (Exception ex)
+                                if (File.Exists(fullFilePath + ".dat-shm") || File.Exists(fullFilePath + ".dat-shm"))
                                 {
-                                    connection.Close();
-                                    // Fix for occasional locked database error
-                                    GC.Collect();
-                                    GC.WaitForPendingFinalizers();
-                                    // End of fix
-                                    if (File.Exists(fullFilePath))
+                                    // First try removing the recovery files
+                                    try
                                     {
-                                        File.Delete(fullFilePath);
+                                        File.Delete(fullFilePath + ".dat-shm");
                                     }
-                                    File.Move(tmpFilePath, fullFilePath);
-                                    Logging.error("Error repairing file " + fullFilePath + ".dat: " + ex);
+                                    catch (Exception ex)
+                                    {
+                                        Logging.error("Error deleting file " + fullFilePath + ".dat-shm: " + ex);
+                                    }
+
+                                    try
+                                    {
+                                        File.Delete(fullFilePath + ".dat-wal");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Logging.error("Error deleting file " + fullFilePath + ".dat-wal: " + ex);
+                                    }
+                                    Logging.warn("Deleted recovery files for database " + fullFilePath);
+                                }
+                                else if (File.Exists(fullFilePath + ".dat"))
+                                {
+                                    fullFilePath = fullFilePath + ".dat";
+
+                                    Logging.warn("Repairing database file " + fullFilePath);
+                                    Logging.flush();
+
+                                    repairDatabase(fullFilePath);
+                                    
+                                    Logging.warn("Repaired database file " + fullFilePath);
                                 }
                             }
                         }
                     }
 
                     throw;
+                }
+                return false;
+            }
+
+            private bool repairDatabase(string path)
+            {
+                if(!File.Exists(path))
+                {
+                    return false;
+                }
+
+                string tmpPath = path + ".tmp";
+                string destPath = path;
+
+                SQLiteConnection srcCon = null;
+                SQLiteConnection destCon = null;
+                try
+                {
+                    if (File.Exists(tmpPath))
+                    {
+                        File.Delete(tmpPath);
+                    }
+
+                    File.Move(destPath, tmpPath);
+
+                    srcCon = getSQLiteConnection(tmpPath, false);
+                    destCon = getSQLiteConnection(destPath, false);
+
+                    srcCon.Execute("PRAGMA writable_schema=ON;");
+
+                    for (int i = 0; running; i += 10)
+                    {
+                        try
+                        {
+                            var blocks = srcCon.Query<_storage_Block>("SELECT * FROM `blocks` LIMIT " + i + ",10");
+                            if (blocks.Count == 0)
+                            {
+                                break;
+                            }
+                            foreach (var block in blocks)
+                            {
+                                string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                                executeSQL(sql, block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.sigFreezeChecksum, block.difficulty, block.powField, block.transactions, block.signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, block.lastSuperBlockNum, block.superBlockSegments, block.compactedSigs, block.blockProposer, block.signerDifficulty);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Logging.warn("Cannot recover blocks from database");
+                            break;
+                        }
+                    }
+
+                    for (int i = 0; running; i += 10)
+                    {
+                        try
+                        {
+                            var txs = srcCon.Query<_storage_Transaction>("SELECT * FROM `transactions` LIMIT " + i + ",10");
+                            if (txs.Count == 0)
+                            {
+                                break;
+                            }
+                            foreach (var tx in txs)
+                            {
+                                string sql = "INSERT OR REPLACE INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`dataChecksum`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                                destCon.Execute(sql, tx.id, tx.type, tx.amount, tx.fee, tx.toList, tx.fromList, tx.dataChecksum, tx.data, tx.blockHeight, tx.nonce, tx.timestamp, tx.checksum, tx.signature, tx.pubKey, tx.applied, tx.version);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Logging.warn("Cannot recover transactions from database");
+                            break;
+                        }
+                    }
+
+                    srcCon.Close();
+                    destCon.Close();
+
+                    // Fix for occasional locked database error
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    // End of fix
+
+                    File.Delete(tmpPath);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Logging.error("Error repairing file " + path + ": " + ex);
+                    if(srcCon != null)
+                    {
+                        srcCon.Close();
+                    }
+                    if (destCon != null)
+                    {
+                        destCon.Close();
+                    }
+
+                    // Fix for occasional locked database error
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    // End of fix
+
+                    if (File.Exists(destPath))
+                    {
+                        File.Delete(destPath);
+                    }
+
+                    if (File.Exists(tmpPath))
+                    {
+                        File.Delete(tmpPath);
+                    }
                 }
                 return false;
             }
@@ -1482,6 +1565,7 @@ namespace DLT
             {
                 lock (connectionCache)
                 {
+                    current_seek = 1;
                     sqlConnection = null;
                     foreach (var entry in connectionCache)
                     {
