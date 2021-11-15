@@ -105,8 +105,12 @@ namespace DLT
                 if(CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
                     // Proceed with rolling forward the chain
+                    var lastBh = IxianHandler.getLastBlockHeight();
                     rollForward();
-                    Thread.Sleep(100);
+                    if(lastBh == IxianHandler.getLastBlockHeight())
+                    {
+                        Thread.Sleep(100);
+                    }
                     continue;
                 }
                 Thread.Sleep(100);
