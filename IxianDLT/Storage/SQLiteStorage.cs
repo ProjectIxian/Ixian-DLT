@@ -1305,7 +1305,10 @@ namespace DLT
                     }
 
                     srcCon.Close();
+                    srcCon = null;
+
                     destCon.Close();
+                    destCon = null;
 
                     // Fix for occasional locked database error
                     GC.Collect();
@@ -1315,10 +1318,10 @@ namespace DLT
                     File.Delete(tmpPath);
                     return true;
                 }
-                catch (Exception ex)
+                catch (SQLiteException e)
                 {
-                    Logging.error("Error repairing file " + path + ": " + ex);
-                    if(srcCon != null)
+                    Logging.error("Error repairing file " + path + ": " + e);
+                    if (srcCon != null)
                     {
                         srcCon.Close();
                     }
@@ -1332,15 +1335,35 @@ namespace DLT
                     GC.WaitForPendingFinalizers();
                     // End of fix
 
-                    if (File.Exists(destPath))
+                    if (e.Result == SQLite3.Result.Corrupt)
                     {
-                        File.Delete(destPath);
+                        if (File.Exists(destPath))
+                        {
+                            File.Delete(destPath);
+                        }
+
+                        if (File.Exists(tmpPath))
+                        {
+                            File.Delete(tmpPath);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logging.error("Error repairing file " + path + ": " + e);
+                    if (srcCon != null)
+                    {
+                        srcCon.Close();
+                    }
+                    if (destCon != null)
+                    {
+                        destCon.Close();
                     }
 
-                    if (File.Exists(tmpPath))
-                    {
-                        File.Delete(tmpPath);
-                    }
+                    // Fix for occasional locked database error
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    // End of fix
                 }
                 return false;
             }
