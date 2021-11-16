@@ -550,7 +550,8 @@ namespace DLT
             if (!forceRefresh)
             {
                 // we refuse to change sig numbers older than 4 blocks
-                ulong sigLockHeight = getLastBlockNum() > 5 ? getLastBlockNum() - 3 : 1;
+                ulong lastBlockNum = getLastBlockNum();
+                ulong sigLockHeight = lastBlockNum > 5 ? lastBlockNum - 4 : 1;
                 if (b.blockNum <= sigLockHeight)
                 {
                     return false;
@@ -574,7 +575,7 @@ namespace DLT
                     byte[] beforeSigsChecksum = blocks[idx].calculateSignatureChecksum();
                     beforeSigs = blocks[idx].getFrozenSignatureCount();
 
-                    var added_sigs = blocks[idx].addSignaturesFrom(b);
+                    var added_sigs = blocks[idx].addSignaturesFrom(b, false);
 
                     if (added_sigs != null && Node.isMasterNode())
                     {

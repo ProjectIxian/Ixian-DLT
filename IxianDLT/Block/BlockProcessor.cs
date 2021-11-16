@@ -179,7 +179,7 @@ namespace DLT
                             {
                                 if(last_block_num > 7 || Node.genesisNode)
                                 {
-                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + rnd.Next(10000)) // no block for 4 block times + random seconds, we don't want all nodes sending at once
+                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + rnd.Next(10)) // no block for 4 block times + random seconds, we don't want all nodes sending at once
                                     {
                                         generateNextBlock = true;
                                         block_version = Node.blockChain.getLastBlockVersion();
@@ -355,7 +355,7 @@ namespace DLT
         }
 
         // Checks if the block has been sigFreezed and if all the hashes match, returns false if the block shouldn't be processed further
-        public bool handleSigFreezedBlock(Block b, RemoteEndpoint endpoint = null)
+        public bool handleSigFreezedBlock(Block b, bool verifySigs, RemoteEndpoint endpoint = null)
         {
             Block sigFreezingBlock = Node.blockChain.getBlock(b.blockNum + 5);
             byte[] sigFreezeChecksum = null;
@@ -392,6 +392,7 @@ namespace DLT
                     if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()) && b.verifyBlockProposer())
                     {
                         Logging.warn("Received block #{0} ({1}) which was sigFreezed with correct checksum, force updating signatures locally!", b.blockNum, Crypto.hashToString(b.blockChecksum));
+                        targetBlock.addSignaturesFrom(b, verifySigs);
                         if (verifyBlockSignatures(b, endpoint))
                         {
                             // this is likely the correct block, update and broadcast to others
@@ -580,7 +581,7 @@ namespace DLT
                         BlockVerifyStatus block_status = verifyBlockBasic(b, true, endpoint);
                         if (b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
-                            if (handleSigFreezedBlock(b, endpoint))
+                            if (handleSigFreezedBlock(b, false, endpoint))
                             {
                                 if (b.blockNum + 4 > Node.blockChain.getLastBlockNum())
                                 {
@@ -803,7 +804,6 @@ namespace DLT
                 }
             }
 
-
             if (Node.blockChain.Count > 0 && b.blockNum + 5 <= Node.blockChain.getLastBlockNum())
             {
                 Block tmpBlock = Node.blockChain.getBlock(b.blockNum, false, false);
@@ -832,10 +832,19 @@ namespace DLT
                 {
                     skip_sig_verification = true;
                 }
-                // Verify signatures
-                if (!b.verifySignatures(skip_sig_verification))
+                Block localBlock = null;
+                ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
+                if (b.blockNum == lastBlockHeight + 1)
                 {
-                    Logging.warn(String.Format("Block #{0} failed while verifying signatures. There are no valid signatures on the block.", b.blockNum));
+                    localBlock = localNewBlock;
+                }else if(b.blockNum + 10 > lastBlockHeight && b.blockNum <= lastBlockHeight)
+                {
+                    localBlock = Node.blockChain.getBlock(b.blockNum, true, true);
+                }
+                // Verify signatures
+                if (!b.verifySignatures(localBlock, skip_sig_verification))
+                {
+                    Logging.warn("Block #{0} failed while verifying signatures. There are no valid signatures on the block.", b.blockNum);
                     return BlockVerifyStatus.Indeterminate;
                 }
             }
@@ -851,7 +860,7 @@ namespace DLT
                     {
                         if (removeSignaturesWithoutPlEntry(b))
                         {
-                            Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                            Logging.warn("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum));
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if half of required consensus is reached on the block
                         // TODO TODO TODO TODO lock sigs to 1000 when the network is big enough
@@ -1374,7 +1383,7 @@ namespace DLT
                     if(localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                     {
                         Logging.info("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count());
-                        List<BlockSignature> added_signatures = localNewBlock.addSignaturesFrom(b);
+                        List<BlockSignature> added_signatures = localNewBlock.addSignaturesFrom(b, false);
                         if (added_signatures != null || localNewBlock.getSignatureCount() >= Node.blockChain.getRequiredConsensus())
                         {
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
@@ -1704,7 +1713,7 @@ namespace DLT
 
                     Block local_block = new Block(Node.blockChain.getBlock(block.blockNum));
 
-                    List<BlockSignature> added_signatures = local_block.addSignaturesFrom(block);
+                    List<BlockSignature> added_signatures = local_block.addSignaturesFrom(block, false);
 
                     if(added_signatures != null && added_signatures.Count > 0)
                     {
@@ -1991,8 +2000,9 @@ namespace DLT
                                     {
                                         if (tmp_block.frozenSignatures != null)
                                         {
-                                            tmp_block.signatures = tmp_block.frozenSignatures;
-                                            tmp_block.setFrozenSignatures(null);
+                                            // TODO TODO should frozen sigs really be copied to signatures and nulled?
+                                            //tmp_block.signatures = tmp_block.frozenSignatures;
+                                            //tmp_block.setFrozenSignatures(null);
                                         }
                                         Node.blockChain.updateBlock(tmp_block);
                                     }
@@ -3389,7 +3399,7 @@ namespace DLT
             byte[] signature = blockSig.signature;
             byte[] address_or_pub_key = blockSig.signerAddress;
             byte[] checksum = blockSig.blockHash;
-            if (block_num > last_block_num - 4 && block_num <= last_block_num)
+            if (block_num > last_block_num - 5 && block_num <= last_block_num)
             {
                 Block b = Node.blockChain.getBlock(block_num, false, false);
                 if (b != null && b.blockChecksum.SequenceEqual(checksum))

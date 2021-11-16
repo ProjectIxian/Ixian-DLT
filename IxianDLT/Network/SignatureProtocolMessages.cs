@@ -566,11 +566,6 @@ namespace DLT
 
                         ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
 
-                        if (block_num > last_block_height)
-                        {
-                            return;
-                        }
-
                         Block block = null;
                         if (block_num == last_block_height)
                         {
@@ -654,10 +649,10 @@ namespace DLT
 
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(addr, checksum), true);
 
-                                dummy_block.addSignature(new BlockSignature() { signature = sig, signerAddress = addr });
+                                dummy_block.signatures.Add(new BlockSignature() { signature = sig, signerAddress = addr });
                             }
 
-                            Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
+                            Node.blockProcessor.handleSigFreezedBlock(dummy_block, true, endpoint);
                         }
                         else
                         {
@@ -708,11 +703,6 @@ namespace DLT
                         byte[] checksum = reader.ReadBytes(checksum_len);
 
                         ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
-
-                        if (block_num > last_block_height)
-                        {
-                            return;
-                        }
 
                         Block block = null;
                         if (block_num == last_block_height)
@@ -796,10 +786,10 @@ namespace DLT
 
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, checksum), true);
 
-                                dummy_block.addSignature(blockSig);
+                                dummy_block.signatures.Add(blockSig);
                             }
 
-                            Node.blockProcessor.handleSigFreezedBlock(dummy_block, endpoint);
+                            Node.blockProcessor.handleSigFreezedBlock(dummy_block, true, endpoint);
                         }
                         else
                         {
