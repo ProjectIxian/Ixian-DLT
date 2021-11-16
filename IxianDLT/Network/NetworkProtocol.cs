@@ -311,6 +311,10 @@ namespace DLT
                         }
 
                         ulong last_block_height = IxianHandler.getLastBlockHeight();
+                        if(last_block_height > 0 && Node.blockProcessor.localNewBlock != null)
+                        {
+                            last_block_height = last_block_height + 1;
+                        }
 
                         Dictionary<ulong, List<InventoryItemSignature>> sig_lists = new Dictionary<ulong, List<InventoryItemSignature>>();
                         List<InventoryItemKeepAlive> ka_list = new List<InventoryItemKeepAlive>();
@@ -371,6 +375,7 @@ namespace DLT
                                         var iis = (InventoryItemSignature)item;
                                         if(iis.blockNum < last_block_height - 5)
                                         {
+                                            Node.inventoryCache.setProcessedFlag(iis.type, iis.hash, true);
                                             continue;
                                         }
                                         if (iis.blockNum > last_block_height)
@@ -388,6 +393,11 @@ namespace DLT
 
                                     case InventoryItemTypes.block:
                                         var iib = ((InventoryItemBlock)item);
+                                        if (iib.blockNum < last_block_height - 5)
+                                        {
+                                            Node.inventoryCache.setProcessedFlag(iib.type, iib.hash, true);
+                                            continue;
+                                        }
                                         if (iib.blockNum <= last_block_height)
                                         {
                                             Node.inventoryCache.processInventoryItem(pii);
