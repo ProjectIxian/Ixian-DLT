@@ -428,7 +428,7 @@ namespace DLT
                             {
                                 include_tx = 0;
                             }
-                            BlockProtocolMessages.broadcastGetBlock(last_block_height + 1, null, endpoint, include_tx, true);
+                            BlockProtocolMessages.broadcastGetBlock(IxianHandler.getLastBlockHeight() + 1, null, endpoint, include_tx, true);
                             Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                         }
                         foreach (var sig_list in sig_lists)
