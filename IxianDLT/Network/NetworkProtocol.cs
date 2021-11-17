@@ -380,6 +380,7 @@ namespace DLT
                                         }
                                         if (iis.blockNum > last_block_height)
                                         {
+                                            Node.inventoryCache.setProcessedFlag(iis.type, iis.hash, true);
                                             request_next_block = true;
                                             continue;
                                         }
