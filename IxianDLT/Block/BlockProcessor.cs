@@ -3196,10 +3196,12 @@ namespace DLT
 
             if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 11)
             {
-                if(!freezeSignatures(target_block) || target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
+                bool froze_signatures = freezeSignatures(target_block);
+                if(!froze_signatures || target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
                 {
                     BlockProtocolMessages.broadcastGetBlock(target_block.blockNum);
-                    Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
+                    if(froze_signatures)
+                        Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
                     target_block.setFrozenSignatures(null);
                     throw new Exception("Freezing the target block yields less than required signatures");
                 }
