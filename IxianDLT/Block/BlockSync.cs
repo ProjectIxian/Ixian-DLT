@@ -1242,12 +1242,16 @@ namespace DLT
 
             if (synchronizing)
             {
+                Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
+                if(Node.blockProcessor.highestNetworkBlockNum > 0)
+                {
+                    block_height = Node.blockProcessor.highestNetworkBlockNum;
+                }
                 if (block_height > syncTargetBlockNum)
                 {
                     Logging.info("Sync target increased from {0} to {1}.",
                         syncTargetBlockNum, block_height);
 
-                    Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
 
                     // Start a wallet state synchronization if no network sync was done before
                     if (noNetworkSynchronization && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
