@@ -1450,7 +1450,7 @@ namespace DLT
                     int offset = getElectedNodeOffset();
                     if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
                     {
-                        var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
+                        var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys();
                         foreach(var pubKey in electedNodePubKeys)
                         {
                             if(b.hasNodeSignature(pubKey))
@@ -1823,10 +1823,10 @@ namespace DLT
                     {
                         target_block.blockProposer = new Address(target_block.signatures[0].signerAddress).address;
                     }
-                    target_block.setFrozenSignatures(frozen_block_sigs);
+                    Node.blockChain.setFrozenSignatures(target_block, frozen_block_sigs);
                     if (!target_block.verifyBlockProposer())
                     {
-                        target_block.setFrozenSignatures(null);
+                        Node.blockChain.setFrozenSignatures(target_block, null);
                         Logging.error("Error verifying block proposer while freezing signatures on block {0} ({1})", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum));
                         return false;
                     }
@@ -1889,7 +1889,7 @@ namespace DLT
                         {
                             blacklistBlock(localNewBlock);
                             localNewBlock = null;
-                            target_block.setFrozenSignatures(null);
+                            Node.blockChain.setFrozenSignatures(target_block, null);
                             Logging.warn("The target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
                             return false;
                         }
@@ -3202,7 +3202,7 @@ namespace DLT
                     BlockProtocolMessages.broadcastGetBlock(target_block.blockNum);
                     if(froze_signatures)
                         Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
-                    target_block.setFrozenSignatures(null);
+                    Node.blockChain.setFrozenSignatures(target_block, null);
                     throw new Exception("Freezing the target block yields less than required signatures");
                 }
             }

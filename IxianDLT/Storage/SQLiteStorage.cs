@@ -665,6 +665,7 @@ namespace DLT
                 {
 
                     // Add signatures
+                    List<BlockSignature> frozen_signatures = new List<BlockSignature>();
                     string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
                     int sigcounter = 0;
                     foreach (string s1 in split_str)
@@ -693,8 +694,10 @@ namespace DLT
                         if (!block.containsSignature(new Address(newSig.signerAddress, null, false)))
                         {
                             block.signatures.Add(newSig);
+                            frozen_signatures.Add(newSig);
                         }
                     }
+                    block.setFrozenSignatures(frozen_signatures);
                     //Logging.trace("Signature parse: {0}ms", sw.Elapsed.TotalMilliseconds);
 
                     // Add transaction

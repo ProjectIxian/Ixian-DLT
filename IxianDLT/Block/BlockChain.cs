@@ -594,7 +594,7 @@ namespace DLT
                             Logging.error("Error verifying block proposer while force refreshing signatures on block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             return false;
                         }
-                        blocks[idx].setFrozenSignatures(b.signatures);
+                        Node.blockChain.setFrozenSignatures(blocks[idx], b.signatures);
                         afterSigs = b.signatures.Count;
                     }
                     else
@@ -622,8 +622,24 @@ namespace DLT
             return false;
         }
 
+        public bool setFrozenSignatures(Block b, List<BlockSignature> signatures)
+        {
+            lock(Node.blockProcessor.localBlockLock)
+            {
+                if(Node.blockProcessor.localNewBlock != null 
+                    && Node.blockProcessor.localNewBlock.signatureFreezeChecksum != null
+                    && b.frozenSignatures != null
+                    && Node.blockProcessor.localNewBlock.signatureFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
+                {
+                    return false;
+                }
+                b.setFrozenSignatures(signatures);
+                return true;
+            }
+        }
+
         // Gets the elected nodes's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
-        public List<byte[]> getElectedNodesPubKeys(int offset)
+        public List<byte[]> getElectedNodesPubKeys()
         {
             List<byte[]> pubKeys = new List<byte[]>();
             Block targetBlock = getBlock(getLastBlockNum() - 6);
@@ -641,7 +657,7 @@ namespace DLT
                 {
                     maxElectedNodes = 1;
                 }
-                for(int i = offset; i < offset + maxElectedNodes; i++)
+                for(int i = 0; i < maxElectedNodes; i++)
                 {
                     BlockSignature sig = sortedSigs[(int)((uint)(sigNr + i) % sortedSigs.Count)];
 
