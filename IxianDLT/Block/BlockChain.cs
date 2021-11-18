@@ -633,13 +633,14 @@ namespace DLT
                 {
                     return false;
                 }
+                Logging.info("Setting {0} frozen signatures for {1}", signatures.Count, b.blockNum);
                 b.setFrozenSignatures(signatures);
                 return true;
             }
         }
 
         // Gets the elected nodes's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
-        public List<byte[]> getElectedNodesPubKeys()
+        public List<byte[]> getElectedNodesPubKeys(int offset)
         {
             List<byte[]> pubKeys = new List<byte[]>();
             Block targetBlock = getBlock(getLastBlockNum() - 6);
@@ -656,8 +657,11 @@ namespace DLT
                 if(sortedSigs.Count < 10)
                 {
                     maxElectedNodes = 1;
+                }else
+                {
+                    offset = 0;
                 }
-                for(int i = 0; i < maxElectedNodes; i++)
+                for(int i = offset; i < maxElectedNodes; i++)
                 {
                     BlockSignature sig = sortedSigs[(int)((uint)(sigNr + i) % sortedSigs.Count)];
 

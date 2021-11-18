@@ -894,7 +894,7 @@ namespace DLT
             {
                 if (!verifySignatureFreezeChecksum(b, endpoint))
                 {
-                    return BlockVerifyStatus.Indeterminate;
+                    return BlockVerifyStatus.PotentiallyForkedBlock;
                 }
             }
 
@@ -1450,7 +1450,7 @@ namespace DLT
                     int offset = getElectedNodeOffset();
                     if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
                     {
-                        var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys();
+                        var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
                         foreach(var pubKey in electedNodePubKeys)
                         {
                             if(b.hasNodeSignature(pubKey))
@@ -2140,14 +2140,24 @@ namespace DLT
             {
                 return true;
             }
+
+            bool nextBlock = false;
+            if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum)
+            {
+                nextBlock = true;
+            }
+            
             if (b.signatureFreezeChecksum != null)
             {
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 if (targetBlock == null)
                 {
                     // this shouldn't be possible
-                    BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
+                    if(nextBlock)
+                    {
+                        BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
+                    }
                     return false;
                 }
                 byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
@@ -2155,7 +2165,10 @@ namespace DLT
                 {
                     Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
                         b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
-                    BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
+                    if (nextBlock)
+                    {
+                        BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
+                    }
                     return false;
                 }
             }
@@ -2165,7 +2178,10 @@ namespace DLT
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
                 Logging.error(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
                     b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5));
-                BlockProtocolMessages.broadcastGetBlock(b.blockNum, endpoint);
+                if (nextBlock)
+                {
+                    BlockProtocolMessages.broadcastGetBlock(b.blockNum, endpoint);
+                }
                 return false;
             }
 

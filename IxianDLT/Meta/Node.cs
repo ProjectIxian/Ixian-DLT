@@ -699,7 +699,7 @@ namespace DLT.Meta
                 return false;
             }
 
-            var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys();
+            var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
             foreach (var pubKey in electedNodePubKeys)
             {
                 if (pubKey != null && pubKey.SequenceEqual(IxianHandler.getWalletStorage().getPrimaryPublicKey()))
