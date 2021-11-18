@@ -205,6 +205,11 @@ namespace DLTNode
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
             blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
+            if(block.frozenSignatures != null)
+            {
+                blockData.Add("Frozen Signatures", JsonConvert.SerializeObject(block.frozenSignatures));
+            }
+            blockData.Add("Sig Checksum", Crypto.hashToString(block.calculateSignatureChecksum()));
             blockData.Add("Signer Difficulty", block.signerDifficulty.ToString());
             List<string> txids = new List<string>();
             foreach(byte[] tx in block.transactions)
@@ -259,9 +264,18 @@ namespace DLTNode
 
             Dictionary<string, string>[] blocks = new Dictionary<string, string>[10];
             long blockCnt = Node.blockChain.Count > 10 ? 10 : Node.blockChain.Count;
-            for (ulong i = 0; i < (ulong)blockCnt; i++)
+            ulong iStart = 0;
+            lock(Node.blockProcessor.localBlockLock)
             {
-                Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - i);
+                if(Node.blockProcessor.localNewBlock != null)
+                {
+                    blocks[0] = blockToJsonDictionary(Node.blockProcessor.localNewBlock);
+                    iStart = 1;
+                }
+            }
+            for (ulong i = iStart; i < (ulong)blockCnt; i++)
+            {
+                Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - (i - iStart));
                 if (block == null)
                 {
                     error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "An unknown error occured, while getting one of the last 10 blocks." };
