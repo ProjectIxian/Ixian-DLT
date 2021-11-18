@@ -488,6 +488,7 @@ namespace DLT
                 {
                     return true;
                 }
+
                 if (endpoint != null)
                 {
                     if (endpoint.isConnected())
@@ -642,12 +643,9 @@ namespace DLT
 
                         bool frozen_sigs_only = true;
 
-                        if (block_number + 5 > IxianHandler.getLastBlockHeight())
+                        if (block_number + 5 > last_block_height)
                         {
-                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
-                            {
-                                frozen_sigs_only = false;
-                            }
+                            frozen_sigs_only = false;
                         }
 
                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
@@ -747,12 +745,9 @@ namespace DLT
 
                         bool frozen_sigs_only = true;
 
-                        if (block_number + 5 > IxianHandler.getLastBlockHeight())
+                        if (block_number + 5 > last_block_height)
                         {
-                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
-                            {
-                                frozen_sigs_only = false;
-                            }
+                            frozen_sigs_only = false;
                         }
 
                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
@@ -852,12 +847,9 @@ namespace DLT
 
                         bool frozen_sigs_only = true;
 
-                        if (block_number + 5 > IxianHandler.getLastBlockHeight())
+                        if (block_number + 5 > last_block_height)
                         {
-                            if (block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(block_number))
-                            {
-                                frozen_sigs_only = false;
-                            }
+                            frozen_sigs_only = false;
                         }
 
                         endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum), 0, MessagePriority.high);
