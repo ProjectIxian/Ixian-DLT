@@ -285,7 +285,7 @@ namespace DLT.Meta
             // Check if we're in worker-only mode
             if (Config.workerOnly)
             {
-                CoreConfig.simultaneousConnectedNeighbors = 4;
+                CoreConfig.simultaneousConnectedNeighbors = Config.maxOutgoingConnections;
             }
 
             UpdateVerify.start();
