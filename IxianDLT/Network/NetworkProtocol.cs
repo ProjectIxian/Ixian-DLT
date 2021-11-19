@@ -310,8 +310,9 @@ namespace DLT
                             item_count = (ulong)CoreConfig.maxInventoryItems;
                         }
 
-                        ulong last_block_height = IxianHandler.getLastBlockHeight();
-                        if(last_block_height > 0 && Node.blockProcessor.localNewBlock != null)
+                        ulong last_accepted_block_height = IxianHandler.getLastBlockHeight();
+                        ulong last_block_height = last_accepted_block_height;
+                        if (last_block_height > 0 && Node.blockProcessor.localNewBlock != null)
                         {
                             last_block_height = last_block_height + 1;
                         }
@@ -373,22 +374,25 @@ namespace DLT
 
                                     case InventoryItemTypes.blockSignature:
                                         var iis = (InventoryItemSignature)item;
-                                        if(iis.blockNum < last_block_height - 5)
+                                        if(iis.blockNum < last_accepted_block_height - 4)
                                         {
                                             Node.inventoryCache.setProcessedFlag(iis.type, iis.hash, true);
                                             continue;
                                         }
-                                        if (iis.blockNum > last_block_height)
+                                        if (iis.blockNum > last_accepted_block_height + 2)
                                         {
                                             Node.inventoryCache.setProcessedFlag(iis.type, iis.hash, true);
                                             request_next_block = true;
                                             continue;
                                         }
-                                        if (!sig_lists.ContainsKey(iis.blockNum))
+                                        if (iis.blockNum <= last_block_height)
                                         {
-                                            sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
+                                            if (!sig_lists.ContainsKey(iis.blockNum))
+                                            {
+                                                sig_lists.Add(iis.blockNum, new List<InventoryItemSignature>());
+                                            }
+                                            sig_lists[iis.blockNum].Add(iis);
                                         }
-                                        sig_lists[iis.blockNum].Add(iis);
                                         pii.lastRequested = Clock.getTimestamp();
                                         break;
 
