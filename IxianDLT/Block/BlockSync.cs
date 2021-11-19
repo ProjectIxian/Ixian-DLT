@@ -28,6 +28,7 @@ namespace DLT
         public bool synchronizing { get; private set; }
         List<Block> pendingBlocks = new List<Block>();
         List<ulong> missingBlocks = null;
+        ulong lastMissingBlock = 0;
         
         public ulong pendingWsBlockNum { get; private set; }
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
@@ -231,6 +232,7 @@ namespace DLT
                 ulong lastBlock = syncToBlock;
                 if (missingBlocks == null)
                 {
+                    lastMissingBlock = lastBlock;
                     missingBlocks = new List<ulong>(Enumerable.Range(0, (int)(lastBlock - firstBlock + 1)).Select(x => (ulong)x + firstBlock));
                     missingBlocks.Sort();
                 }
@@ -1262,12 +1264,14 @@ namespace DLT
 
                     lock (pendingBlocks)
                     {
-                        if (missingBlocks != null)
+                        if (missingBlocks != null
+                            && block_height > lastMissingBlock)
                         {
-                            for (ulong i = 1; syncTargetBlockNum + i <= block_height; i++)
+                            for (ulong i = 1; lastMissingBlock + i <= block_height; i++)
                             {
-                                missingBlocks.Add(syncTargetBlockNum + i);
+                                missingBlocks.Add(lastMissingBlock + i);
                             }
+                            lastMissingBlock = block_height;
                             missingBlocks.Sort();
                         }
                         syncTargetBlockNum = block_height;
