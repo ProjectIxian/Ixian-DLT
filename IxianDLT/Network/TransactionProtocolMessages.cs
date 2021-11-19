@@ -330,10 +330,10 @@ namespace DLT
                     return;
                 }
 
+                txIdArr = new List<byte[]>(b.transactions);
+
                 if (txIdArr == null)
                     return;
-
-                txIdArr = new List<byte[]>(b.transactions);
 
                 int tx_count = txIdArr.Count();
 
