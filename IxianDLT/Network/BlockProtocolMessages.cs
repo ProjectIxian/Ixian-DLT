@@ -614,7 +614,8 @@ namespace DLT
                                 }
                             }
                         }
-                        else
+
+                        if (block == null)
                         {
                             block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                         }
@@ -716,7 +717,8 @@ namespace DLT
                                 }
                             }
                         }
-                        else
+
+                        if (block == null)
                         {
                             block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                         }
@@ -818,7 +820,8 @@ namespace DLT
                                 }
                             }
                         }
-                        else
+
+                        if (block == null)
                         {
                             block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                         }

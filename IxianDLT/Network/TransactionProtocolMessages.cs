@@ -36,17 +36,12 @@ namespace DLT
 
                 // Get the requested block and corresponding transactions
                 bool applied_block = true;
-                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                Block b = null;
                 List<byte[]> txIdArr = null;
-                if (b != null)
-                {
-                    txIdArr = new List<byte[]>(b.transactions);
-                }
-                else
-                {
-                    // Block is likely local, fetch the transactions
 
-                    bool haveLock = false;
+                bool haveLock = false;
+                if (blockNum == IxianHandler.getLastBlockHeight() + 1)
+                {
                     try
                     {
                         Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
@@ -60,7 +55,6 @@ namespace DLT
                         {
                             applied_block = false;
                             b = tmp;
-                            txIdArr = new List<byte[]>(tmp.transactions);
                         }
                     }
                     finally
@@ -71,6 +65,19 @@ namespace DLT
                         }
                     }
                 }
+
+                if(b == null)
+                {
+                    b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                }
+
+                if(b == null)
+                {
+                    Logging.warn("Unable to find block #{0} in the chain when getting block transactions!", blockNum);
+                    return;
+                }
+
+                txIdArr = new List<byte[]>(b.transactions);
 
                 if (txIdArr == null)
                     return;
@@ -106,6 +113,14 @@ namespace DLT
                                 }else
                                 {
                                     tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
+                                    if (tx == null)
+                                    {
+                                        tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                        if (tx != null)
+                                        {
+                                            applied_block = true;
+                                        }
+                                    }
                                 }
                                 i++;
                                 if (tx != null)
@@ -146,13 +161,9 @@ namespace DLT
 
                 // Get the requested block and corresponding transactions
                 bool applied_block = true;
-                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                Block b = null;
                 List<byte[]> txIdArr = null;
-                if (b != null)
-                {
-                    txIdArr = new List<byte[]>(b.transactions);
-                }
-                else
+                if (blockNum == IxianHandler.getLastBlockHeight() + 1)
                 {
                     // Block is likely local, fetch the transactions
 
@@ -170,7 +181,6 @@ namespace DLT
                         {
                             applied_block = false;
                             b = tmp;
-                            txIdArr = new List<byte[]>(tmp.transactions);
                         }
                     }
                     finally
@@ -181,6 +191,19 @@ namespace DLT
                         }
                     }
                 }
+
+                if (b == null)
+                {
+                    b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                }
+
+                if (b == null)
+                {
+                    Logging.warn("Unable to find block #{0} in the chain when getting block transactions2!", blockNum);
+                    return;
+                }
+
+                txIdArr = new List<byte[]>(b.transactions);
 
                 if (txIdArr == null)
                     return;
@@ -217,6 +240,14 @@ namespace DLT
                                 }else
                                 {
                                     tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
+                                    if (tx == null)
+                                    {
+                                        tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                        if (tx != null)
+                                        {
+                                            applied_block = true;
+                                        }
+                                    }
                                 }
                                 i++;
                                 if (tx != null)
@@ -257,13 +288,9 @@ namespace DLT
 
                 // Get the requested block and corresponding transactions
                 bool applied_block = true;
-                Block b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                Block b = null;
                 List<byte[]> txIdArr = null;
-                if (b != null)
-                {
-                    txIdArr = new List<byte[]>(b.transactions);
-                }
-                else
+                if (blockNum == IxianHandler.getLastBlockHeight() + 1)
                 {
                     // Block is likely local, fetch the transactions
 
@@ -281,7 +308,6 @@ namespace DLT
                         {
                             applied_block = false;
                             b = tmp;
-                            txIdArr = new List<byte[]>(tmp.transactions);
                         }
                     }
                     finally
@@ -293,8 +319,21 @@ namespace DLT
                     }
                 }
 
+                if (b == null)
+                {
+                    b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
+                }
+
+                if(b == null)
+                {
+                    Logging.warn("Unable to find block #{0} in the chain when getting block transactions3!", blockNum);
+                    return;
+                }
+
                 if (txIdArr == null)
                     return;
+
+                txIdArr = new List<byte[]>(b.transactions);
 
                 int tx_count = txIdArr.Count();
 
@@ -332,6 +371,14 @@ namespace DLT
                                 else
                                 {
                                     tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
+                                    if (tx == null)
+                                    {
+                                        tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
+                                        if (tx != null)
+                                        {
+                                            applied_block = true;
+                                        }
+                                    }
                                 }
                                 i++;
                                 if (tx != null)
