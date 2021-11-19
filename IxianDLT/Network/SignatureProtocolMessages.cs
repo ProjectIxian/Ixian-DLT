@@ -64,10 +64,10 @@ namespace DLT
 
                 BlockSignature blockSig = new BlockSignature(data, true);
 
-                ulong last_bh = IxianHandler.getLastBlockHeight();
-
                 lock (Node.blockProcessor.localBlockLock)
                 {
+                    ulong last_bh = IxianHandler.getLastBlockHeight();
+
                     if (last_bh + 1 < blockSig.blockNum || (last_bh + 1 == blockSig.blockNum && Node.blockProcessor.getLocalBlock() == null))
                     {
                         Logging.info("Received signature for block {0} which is missing", blockSig.blockNum);
@@ -364,7 +364,8 @@ namespace DLT
                                 }
                             }
                         }
-                        else
+                        
+                        if(block == null)
                         {
                             block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                         }
@@ -482,7 +483,8 @@ namespace DLT
                                 }
                             }
                         }
-                        else
+
+                        if (block == null)
                         {
                             block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
                         }
@@ -592,7 +594,8 @@ namespace DLT
                                 }
                             }
                         }
-                        else
+
+                        if (block == null)
                         {
                             block = Node.blockChain.getBlock(block_num, false, false);
                         }
@@ -730,7 +733,8 @@ namespace DLT
                                 }
                             }
                         }
-                        else
+
+                        if (block == null)
                         {
                             block = Node.blockChain.getBlock(block_num, false, false);
                         }

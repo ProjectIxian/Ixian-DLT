@@ -79,12 +79,15 @@ namespace DLT
 
         private bool forkedFlag = false; // flag that indicates if the next block is forked
 
+        private int randomInt = 0;
+
         public BlockProcessor()
         {
             lastBlockStartTime = DateTime.UtcNow;
             localNewBlock = null;
             operating = false;
             firstBlockAfterSync = false;
+            randomInt = new Random().Next(999);
         }
 
         public void resumeOperation()
@@ -164,7 +167,6 @@ namespace DLT
                         }
 
                         bool generateNextBlock = Node.forceNextBlock;
-                        Random rnd = new Random();
 
                         ulong last_block_num = Node.blockChain.getLastBlockNum();
 
@@ -179,7 +181,7 @@ namespace DLT
                             {
                                 if(last_block_num > 7 || Node.genesisNode)
                                 {
-                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + rnd.Next(10)) // no block for 4 block times + random seconds, we don't want all nodes sending at once
+                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + randomInt / 100) // no block for 4 block times + random seconds, we don't want all nodes sending at once
                                     {
                                         generateNextBlock = true;
                                         block_version = Node.blockChain.getLastBlockVersion();
@@ -271,11 +273,11 @@ namespace DLT
                 // Sleep until next iteration
                 if (sleep)
                 {
-                    Thread.Sleep(10000);
+                    Thread.Sleep(10000 + randomInt);
                 }
                 else
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(1000 + randomInt);
                 }
             }
             return;
@@ -604,7 +606,7 @@ namespace DLT
                             {
                                 if (!forkedFlag)
                                 {
-                                    if(verifyBlockSignatures(b, endpoint))
+                                    if (b.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
                                     {
                                         forkedFlag = true;
                                     }
@@ -626,7 +628,7 @@ namespace DLT
                             {
                                 if (!forkedFlag)
                                 {
-                                    if (verifyBlockSignatures(b, endpoint))
+                                    if (b.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
                                     {
                                         forkedFlag = true;
                                     }
@@ -700,7 +702,7 @@ namespace DLT
                 {
                     if (!forkedFlag)
                     {
-                        if (verifyBlockSignatures(b, endpoint))
+                        if (b.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus(b.blockNum))
                         {
                             forkedFlag = true;
                         }
@@ -1905,6 +1907,12 @@ namespace DLT
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress, localNewBlock.blockChecksum), true);
                                 // ProtocolMessage.broadcastNewBlock(localNewBlock);
                                 SignatureProtocolMessages.broadcastBlockSignature(signature_data, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
+
+                                foreach (var sig in localNewBlock.signatures)
+                                {
+                                    Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress, localNewBlock.blockChecksum), true);
+                                    SignatureProtocolMessages.broadcastBlockSignature(sig, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
+                                }
                             }
                         }
                     }
