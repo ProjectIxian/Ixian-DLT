@@ -1591,7 +1591,13 @@ namespace DLT
             List<BlockSignature> sorted_sigs = null;
             lock (block.signatures)
             {
-                sorted_sigs = new List<BlockSignature>(block.signatures);
+                if(block.frozenSignatures != null)
+                {
+                    sorted_sigs = new List<BlockSignature>(block.frozenSignatures);
+                }else
+                {
+                    sorted_sigs = new List<BlockSignature>(block.signatures);
+                }
             }
             sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress, y.signerAddress));
 
@@ -1609,10 +1615,15 @@ namespace DLT
                 sig_count++;
             }
 
+            var election_block_sigs = election_block.signatures;
+            if(election_block.frozenSignatures != null)
+            {
+                election_block_sigs = election_block.frozenSignatures;
+            }
             foreach (var entry in sorted_sigs)
             {
                 byte[] address = (new Address(entry.signerAddress, null, false)).address;
-                foreach (var prev_entry in election_block.signatures)
+                foreach (var prev_entry in election_block_sigs)
                 {
                     if (address.SequenceEqual((new Address(prev_entry.signerAddress, null, false)).address))
                     {
