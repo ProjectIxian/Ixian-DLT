@@ -1929,7 +1929,7 @@ namespace DLT
                     }
                 }
 
-                if (verifyBlockSignatures(localNewBlock, null))
+                if (hasRequiredSignatureCount(localNewBlock) && verifyBlockSignatures(localNewBlock, null))
                 {
                     if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
                     {
