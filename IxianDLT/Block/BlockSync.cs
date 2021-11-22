@@ -1274,12 +1274,25 @@ namespace DLT
                             lastMissingBlock = block_height;
                             missingBlocks.Sort();
                         }
-                        syncTargetBlockNum = block_height;
+                        if(Config.forceSyncToBlock > 0)
+                        {
+                            syncTargetBlockNum = Config.forceSyncToBlock + 1;
+                        }else
+                        {
+                            syncTargetBlockNum = block_height;
+                        }
                     }
                 }else
                 {
                     noNetworkSynchronization = false;
-                    syncTargetBlockNum = block_height;
+                    if (Config.forceSyncToBlock > 0)
+                    {
+                        syncTargetBlockNum = Config.forceSyncToBlock + 1;
+                    }
+                    else
+                    {
+                        syncTargetBlockNum = block_height;
+                    }
                 }
             } else
             {
@@ -1295,12 +1308,26 @@ namespace DLT
                     if (lastBlockToReadFromStorage > block_height)
                     {
                         Node.blockProcessor.highestNetworkBlockNum = lastBlockToReadFromStorage;
-                        syncTargetBlockNum = lastBlockToReadFromStorage;
+                        if (Config.forceSyncToBlock > 0)
+                        {
+                            syncTargetBlockNum = Config.forceSyncToBlock + 1;
+                        }
+                        else
+                        {
+                            syncTargetBlockNum = lastBlockToReadFromStorage;
+                        }
                     }
                     else
                     {
                         Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
-                        syncTargetBlockNum = block_height;
+                        if (Config.forceSyncToBlock > 0)
+                        {
+                            syncTargetBlockNum = Config.forceSyncToBlock + 1;
+                        }
+                        else
+                        {
+                            syncTargetBlockNum = block_height;
+                        }
                     }
                     if (Config.fullStorageDataVerification)
                     {

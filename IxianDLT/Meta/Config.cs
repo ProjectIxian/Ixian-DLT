@@ -96,6 +96,8 @@ namespace DLT
             /// </summary>
             public static ulong maxTransactionsPerBlockToInclude = 19980;
 
+            public static ulong forceSyncToBlock = 0;
+
             // Read-only values
             public static readonly string version = "xdc-0.8.3b"; // DLT Node version
 
@@ -163,6 +165,7 @@ namespace DLT
                 Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
                 Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disablefastBlockLoading] [--checksumLock Ixian] [--verboseOutput]");
                 Console.WriteLine("   [--maxOutgoingConnections] [--maxIncomingMasterNodes] [--maxIncomingClientNodes] [--minActivityBlockHeight]");
+                Console.WriteLine("   [--forceSyncToBlock]");
                 Console.WriteLine("   [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
                 Console.WriteLine("   [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
@@ -197,6 +200,7 @@ namespace DLT
                 Console.WriteLine("    --maxIncomingMasterNodes\t Max incoming masternode connections.");
                 Console.WriteLine("    --maxIncomingClientNodes\t Max incoming client connections.");
                 Console.WriteLine("    --minActivityBlockHeight\t Prune activity older than specified block height (30000 is default, 0 disables it).");
+                Console.WriteLine("    --forceSyncToBlock\t Force sync to specified block height.");
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -527,6 +531,8 @@ namespace DLT
                 cmd_parser.Setup<int>("maxIncomingClientNodes").Callback(value => maxIncomingClientNodes = value);
 
                 cmd_parser.Setup<int>("minActivityBlockHeight").Callback(value => CoreConfig.minActivityBlockHeight = value);
+
+                cmd_parser.Setup<long>("forceSyncToBlock").Callback(value => forceSyncToBlock = (ulong)value);
 
                 cmd_parser.Parse(args);
 
