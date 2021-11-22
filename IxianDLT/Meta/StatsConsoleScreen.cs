@@ -63,16 +63,22 @@ namespace DLT.Meta
                 TLC.Report();
                 if (ConsoleHelpers.verboseConsoleOutput == false)
                 {
-                    // Clear the screen every 10 seconds to prevent any persisting visual artifacts
-                    if (drawCycle > 5)
+                    try
                     {
-                        clearScreen();
-                        drawCycle = 0;
-                    }
-                    else
+                        // Clear the screen every 10 seconds to prevent any persisting visual artifacts
+                        if (drawCycle > 5)
+                        {
+                            clearScreen();
+                            drawCycle = 0;
+                        }
+                        else
+                        {
+                            drawScreen();
+                            drawCycle++;
+                        }
+                    }catch(Exception e)
                     {
-                        drawScreen();
-                        drawCycle++;
+                        Logging.error("Error in StatsConsoleScreen.threadLoop: {0}", e);
                     }
                 }
 
