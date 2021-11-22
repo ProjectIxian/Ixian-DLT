@@ -127,10 +127,14 @@ namespace DLT
                     b.difficulty = difficulty;
                     b.powField = powField;
                     b.signatures = new List<BlockSignature>();
+                    List<BlockSignature> frozenSignatures = new List<BlockSignature>();
                     foreach (var sig in signatures)
                     {
-                        b.signatures.Add(new BlockSignature(sig, false));
+                        BlockSignature newSig = new BlockSignature(sig, false);
+                        b.signatures.Add(newSig);
+                        frozenSignatures.Add(newSig);
                     }
+                    b.setFrozenSignatures(frozenSignatures);
                     if (transactions != null)
                     {
                         foreach (byte[] txid in transactions)
