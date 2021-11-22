@@ -855,20 +855,6 @@ namespace DLT
                             }
                         }
 
-                        if (b.blockNum > 12 && b.blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
-                        {
-                            if (Node.isMasterNode() && b.blockNum > 7)
-                            {
-                                BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
-                                if (blockSig != null)
-                                {
-                                    Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, b.blockChecksum), true);
-                                    // ProtocolMessage.broadcastNewBlock(localNewBlock);
-                                    SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
-                                }
-                            }
-                        }
-
                         Node.blockChain.appendBlock(b, !b.fromLocalStorage);
                     }
                     else if (Node.blockChain.Count > 5 && !sigFreezeCheck)

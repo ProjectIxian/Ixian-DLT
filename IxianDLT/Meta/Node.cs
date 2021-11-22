@@ -16,6 +16,7 @@ using DLTNode;
 using DLTNode.Inventory;
 using DLTNode.Meta;
 using IXICore;
+using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
 using IXICore.Utils;
@@ -63,6 +64,8 @@ namespace DLT.Meta
         public static string shutdownMessage = "";
 
         private static ulong lastMasterNodeConversionBlockNum = 0;
+
+        private static bool postSyncOperationsDone = false;
 
         public Node()
         {
@@ -493,6 +496,8 @@ namespace DLT.Meta
                 //running = false;
             }
 
+            doPostSyncOperations();
+
             TimeSpan last_isolate_time_diff = DateTime.UtcNow - lastIsolateTime;
             if (Node.blockChain.getTimeSinceLastBLock() > 900 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 900 seconds with cooldown of 1800 seconds
             {
@@ -667,6 +672,45 @@ namespace DLT.Meta
             }
             // Masternode has enough IXIs to proceed
             return true;
+        }
+
+        public static void doPostSyncOperations()
+        {
+            if (postSyncOperationsDone
+                || Node.blockSync == null
+                || Node.blockSync.synchronizing
+                || !Node.blockProcessor.operating
+                || NetworkClientManager.getConnectedClients().Count() == 0)
+            {
+                return;
+            }
+
+            postSyncOperationsDone = true;
+
+            if (!isMasterNode())
+            {
+                return;
+            }
+
+            ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
+            if(lastBlockHeight < 17)
+            {
+                return;
+            }
+
+            for (ulong blockNum = lastBlockHeight - 4; blockNum < lastBlockHeight; blockNum++)
+            {
+                if (blockNum + 5 >= IxianHandler.getHighestKnownNetworkBlockHeight())
+                {
+                    Block b = blockChain.getBlock(blockNum);
+                    BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution());
+                    if (blockSig != null)
+                    {
+                        inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, b.blockChecksum), true);
+                        SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
+                    }
+                }
+            }
         }
 
         public static void debugDumpState()
