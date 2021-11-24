@@ -1266,7 +1266,7 @@ namespace DLT
                         }else
                         {
                             // Temporary mainnet fix
-                            if(!IxianHandler.isTestNet)
+                            if(!IxianHandler.isTestNet && block_height < 2116195)
                             {
                                 syncTargetBlockNum = 2116194;
                             }else
@@ -1285,7 +1285,7 @@ namespace DLT
                     else
                     {
                         // Temporary mainnet fix
-                        if (!IxianHandler.isTestNet)
+                        if (!IxianHandler.isTestNet && block_height < 2116195)
                         {
                             syncTargetBlockNum = 2116194;
                         }
@@ -1316,7 +1316,7 @@ namespace DLT
                         else
                         {
                             // Temporary mainnet fix
-                            if (!IxianHandler.isTestNet)
+                            if (!IxianHandler.isTestNet && block_height < 2116195)
                             {
                                 syncTargetBlockNum = 2116194;
                             }
@@ -1336,7 +1336,7 @@ namespace DLT
                         else
                         {
                             // Temporary mainnet fix
-                            if (!IxianHandler.isTestNet)
+                            if (!IxianHandler.isTestNet && block_height < 2116195)
                             {
                                 syncTargetBlockNum = 2116194;
                             }
