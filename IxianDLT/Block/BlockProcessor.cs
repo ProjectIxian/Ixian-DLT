@@ -1763,6 +1763,14 @@ namespace DLT
                     if (valid_sig_count < Math.Floor(block_sig_count * 0.9))
                     {
                         Logging.warn("Block {0} has less than 90% valid signers ({1} / {2}).", block.blockNum, valid_sig_count, Math.Floor(block_sig_count * 0.9));
+                        // TODO TODO TODO TODO bottom section needs to be tested
+                        /*lock(localBlockLock)
+                        {
+                            if(localNewBlock != null)
+                            {
+                                blacklistBlock(localNewBlock);
+                            }
+                        }*/
                         return false;
                     }
 

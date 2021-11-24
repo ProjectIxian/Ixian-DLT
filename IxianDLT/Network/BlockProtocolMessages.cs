@@ -640,6 +640,7 @@ namespace DLT
                         if (!Node.blockProcessor.verifySigFreezedBlock(block))
                         {
                             Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
+                            return;
                         }
 
                         bool frozen_sigs_only = true;
@@ -743,6 +744,7 @@ namespace DLT
                         if (!Node.blockProcessor.verifySigFreezedBlock(block))
                         {
                             Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
+                            return;
                         }
 
                         bool frozen_sigs_only = true;
@@ -846,6 +848,7 @@ namespace DLT
                         if (!Node.blockProcessor.verifySigFreezedBlock(block))
                         {
                             Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
+                            return;
                         }
 
                         bool frozen_sigs_only = true;
