@@ -489,6 +489,12 @@ namespace DLT
                     return true;
                 }
 
+                if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum && !Node.blockProcessor.verifySignatureFreezeChecksum(b, null, false))
+                {
+                    Logging.warn("Sigfreezing block {0} was requested. but we don't have the correctly sigfreezed block!", b.blockNum);
+                    return false;
+                }
+
                 if (endpoint != null)
                 {
                     if (endpoint.isConnected())
@@ -603,6 +609,11 @@ namespace DLT
                                 Block tmp = Node.blockProcessor.getLocalBlock();
                                 if (tmp != null && tmp.blockNum == last_block_height)
                                 {
+                                    if (!Node.blockProcessor.verifySignatureFreezeChecksum(tmp, null, false))
+                                    {
+                                        Logging.warn("Sigfreezing block {0} was requested. but we don't have the correctly sigfreezed block!", tmp.blockNum);
+                                        return;
+                                    }
                                     block = tmp;
                                 }
                             }
@@ -707,6 +718,11 @@ namespace DLT
                                 Block tmp = Node.blockProcessor.getLocalBlock();
                                 if (tmp != null && tmp.blockNum == last_block_height)
                                 {
+                                    if (!Node.blockProcessor.verifySignatureFreezeChecksum(tmp, null, false))
+                                    {
+                                        Logging.warn("Sigfreezing block {0} was requested. but we don't have the correctly sigfreezed block!", tmp.blockNum);
+                                        return;
+                                    }
                                     block = tmp;
                                 }
                             }
@@ -811,6 +827,11 @@ namespace DLT
                                 Block tmp = Node.blockProcessor.getLocalBlock();
                                 if (tmp != null && tmp.blockNum == last_block_height)
                                 {
+                                    if (!Node.blockProcessor.verifySignatureFreezeChecksum(tmp, null, false))
+                                    {
+                                        Logging.warn("Sigfreezing block {0} was requested. but we don't have the correctly sigfreezed block!", tmp.blockNum);
+                                        return;
+                                    }
                                     block = tmp;
                                 }
                             }

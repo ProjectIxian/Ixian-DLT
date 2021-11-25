@@ -1688,7 +1688,7 @@ namespace DLT
                     // verify if over 50% signatures are from the previous block
                     if (required_sigs.Count() < (required_consensus_count / 2) + 1)
                     {
-                        Logging.warn("Block {0} has less than 50% + 1 required signers from previous block.", block.blockNum);
+                        Logging.warn("Block {0} has less than 50% + 1 required signers from previous block {1} < {2}.", block.blockNum, required_sigs.Count(), (required_consensus_count / 2) + 1);
                         return false;
                     }
                 }
@@ -2161,7 +2161,7 @@ namespace DLT
             return false;
         }
 
-        public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint)
+        public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint, bool fetchMissingBlockOnFail = true)
         {
             if(Node.blockChain.Count <= 5)
             {
@@ -2180,8 +2180,8 @@ namespace DLT
                 if (targetBlock == null)
                 {
                     // this shouldn't be possible
-                    Logging.error(String.Format("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5));
-                    if(nextBlock)
+                    Logging.error("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5);
+                    if(nextBlock && fetchMissingBlockOnFail)
                     {
                         BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     }
@@ -2190,9 +2190,9 @@ namespace DLT
                 byte[] sigFreezeChecksum = targetBlock.calculateSignatureChecksum();
                 if (!b.signatureFreezeChecksum.SequenceEqual(sigFreezeChecksum) || !targetBlock.verifyBlockProposer())
                 {
-                    Logging.warn(String.Format("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
-                        b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5));
-                    if (nextBlock)
+                    Logging.warn("Block sigFreeze verification failed for #{0}. Checksum is {1}, but should be {2}. Requesting block #{3}",
+                        b.blockNum, Crypto.hashToString(b.signatureFreezeChecksum), Crypto.hashToString(sigFreezeChecksum), b.blockNum - 5);
+                    if (nextBlock && fetchMissingBlockOnFail)
                     {
                         BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     }
@@ -2203,9 +2203,9 @@ namespace DLT
             {
                 // this shouldn't be possible
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
-                Logging.error(String.Format("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
-                    b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5));
-                if (nextBlock)
+                Logging.error("Block sigFreeze verification failed for #{0}. Checksum is empty but should be {1}. Requesting block #{2}",
+                    b.blockNum, Crypto.hashToString(targetBlock.calculateSignatureChecksum()), b.blockNum - 5);
+                if (nextBlock && fetchMissingBlockOnFail)
                 {
                     BlockProtocolMessages.broadcastGetBlock(b.blockNum, endpoint);
                 }
