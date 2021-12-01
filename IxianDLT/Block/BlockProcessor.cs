@@ -347,6 +347,11 @@ namespace DLT
             List<BlockSignature> sigs = getSignaturesWithoutPlEntry(b);
             for (int i = 0; i < sigs.Count; i++)
             {
+                // Don't remove block proposer's signature
+                if(new Address(sigs[i].signerAddress, null, false).address.SequenceEqual(b.blockProposer))
+                {
+                    continue;
+                }
                 b.signatures.Remove(sigs[i]);
             }
             if (sigs.Count > 0)
