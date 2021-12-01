@@ -1265,14 +1265,7 @@ namespace DLT
                             syncTargetBlockNum = Config.forceSyncToBlock + 1;
                         }else
                         {
-                            // Temporary mainnet fix
-                            if(!IxianHandler.isTestNet && block_height < 2116195)
-                            {
-                                syncTargetBlockNum = 2116194;
-                            }else
-                            {
-                                syncTargetBlockNum = block_height;
-                            }
+                            syncTargetBlockNum = block_height;
                         }
                     }
                 }else
@@ -1284,15 +1277,7 @@ namespace DLT
                     }
                     else
                     {
-                        // Temporary mainnet fix
-                        if (!IxianHandler.isTestNet && block_height < 2116195)
-                        {
-                            syncTargetBlockNum = 2116194;
-                        }
-                        else
-                        {
-                            syncTargetBlockNum = block_height;
-                        }
+                        syncTargetBlockNum = block_height;
                     }
                 }
             } else
@@ -1315,15 +1300,7 @@ namespace DLT
                         }
                         else
                         {
-                            // Temporary mainnet fix
-                            if (!IxianHandler.isTestNet && block_height < 2116195)
-                            {
-                                syncTargetBlockNum = 2116194;
-                            }
-                            else
-                            {
-                                syncTargetBlockNum = lastBlockToReadFromStorage;
-                            }
+                            syncTargetBlockNum = lastBlockToReadFromStorage;
                         }
                     }
                     else
@@ -1335,15 +1312,7 @@ namespace DLT
                         }
                         else
                         {
-                            // Temporary mainnet fix
-                            if (!IxianHandler.isTestNet && block_height < 2116195)
-                            {
-                                syncTargetBlockNum = 2116194;
-                            }
-                            else
-                            {
-                                syncTargetBlockNum = block_height;
-                            }
+                            syncTargetBlockNum = block_height;
                         }
                     }
                     if (Config.fullStorageDataVerification)
