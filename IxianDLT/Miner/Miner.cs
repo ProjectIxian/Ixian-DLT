@@ -971,7 +971,7 @@ namespace DLT
             }
             else
             {
-                Logging.error("An unknown error occured while sending API PoW solution.");
+                Logging.error("An unknown error occurred while sending API PoW solution.");
                 return false;
             }
 
@@ -1011,7 +1011,7 @@ namespace DLT
             }
             else
             {
-                Logging.error("An unknown error occured while sending PoW solution.");
+                Logging.error("An unknown error occurred while sending PoW solution.");
             }
         }
 

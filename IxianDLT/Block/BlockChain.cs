@@ -949,7 +949,7 @@ namespace DLT
                 {
                     if (!Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum).SequenceEqual(lastBlock.walletStateChecksum))
                     {
-                        Logging.error("Fatal error occured: Delta Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum)), Node.walletState.numWallets);
+                        Logging.error("Fatal error occurred: Delta Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum)), Node.walletState.numWallets);
                         Node.stop();
                         return false;
                     }
@@ -963,7 +963,7 @@ namespace DLT
             {
                 if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(lastBlock.walletStateChecksum))
                 {
-                    Logging.error("Fatal error occured: Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()), Node.walletState.numWallets);
+                    Logging.error("Fatal error occurred: Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()), Node.walletState.numWallets);
                     Node.stop();
                     return false;
                 }

@@ -136,7 +136,7 @@ namespace DLT
                     }
                     catch (Exception e)
                     {
-                        Logging.error("Exception occured in storage thread loop: " + e);
+                        Logging.error("Exception occurred in storage thread loop: " + e);
                         if (message_found)
                         {
                             debugDumpCrashObject(active_message);

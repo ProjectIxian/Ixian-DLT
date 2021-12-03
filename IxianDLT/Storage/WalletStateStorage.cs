@@ -115,7 +115,7 @@ namespace DLT.Meta
             }catch(Exception e)
             {
                 fs.Close();
-                Logging.error("An exception occured while reading file '" + db_path + "': " + e);
+                Logging.error("An exception occurred while reading file '" + db_path + "': " + e);
                 File.Delete(db_path);
                 Node.walletState.clear();
                 restoreWalletState();

@@ -763,7 +763,7 @@ namespace DLT
                                 }
                             }catch(Exception e)
                             {
-                                Logging.error("Error occured during block sync, while applying/commiting transactions: " + e);
+                                Logging.error("Error occurred during block sync, while applying/commiting transactions: " + e);
                             }
                             if (!applied)
                             {
@@ -883,7 +883,7 @@ namespace DLT
                 }
                 catch (Exception e)
                 {
-                    Logging.error("Exception occured while syncing block #{0}: {1}", b.blockNum, e);
+                    Logging.error("Exception occurred while syncing block #{0}: {1}", b.blockNum, e);
                 }
                 if(Config.enableChainReorgTest)
                 {

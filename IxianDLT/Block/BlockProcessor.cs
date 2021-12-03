@@ -268,7 +268,7 @@ namespace DLT
                     }
                 }catch(Exception e)
                 {
-                    Logging.error("Exception occured in blockProcessor onUpdate() {0}", e);
+                    Logging.error("Exception occurred in blockProcessor onUpdate() {0}", e);
                 }
                 // Sleep until next iteration
                 if (sleep)
@@ -2896,7 +2896,7 @@ namespace DLT
 
                     if (verifyBlock(localNewBlock) != BlockVerifyStatus.Valid)
                     {
-                        Logging.error("Error occured verifying the newly generated block {0}.", localNewBlock.blockNum);
+                        Logging.error("Error occurred while verifying the newly generated block {0}.", localNewBlock.blockNum);
                         localNewBlock = null;
                         return;
                     }
@@ -2907,7 +2907,7 @@ namespace DLT
                     }
                 }catch(Exception e)
                 {
-                    Logging.error("Exception occured while generating block {0}: {1}", localNewBlock.blockNum, e);
+                    Logging.error("Exception occurred while generating block {0}: {1}", localNewBlock.blockNum, e);
                     localNewBlock = null;
                 }
             }
@@ -3319,7 +3319,7 @@ namespace DLT
 
             if (totalIxisStaked.getAmount() <= 0)
             {
-                Logging.warn(String.Format("No Ixis were staked or a logic error occured - total ixi staked returned: {0}", totalIxisStaked.getAmount()));
+                Logging.warn("No IXI were staked or a logic error occurred - total IXI staked returned: {0}", totalIxisStaked.getAmount());
                 return transactions;
             }
 

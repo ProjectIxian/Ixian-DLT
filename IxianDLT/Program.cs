@@ -402,9 +402,10 @@ namespace DLTNode
                         }
 
                     }
-                }catch(Exception e)
+                }
+                catch(Exception e)
                 {
-                    Logging.error("Exception occured in mainLoop: " + e);
+                    Logging.error("Exception occurred in mainLoop: " + e);
                 }
                 Thread.Sleep(1000);
             }

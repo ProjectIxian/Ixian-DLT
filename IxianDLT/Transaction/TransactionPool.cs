@@ -631,12 +631,12 @@ namespace DLT
         {
             if(tx.applied != 0)
             {
-                Logging.error("An error occured while setting readyToApply flag to tx {0}, tx was already applied.", Transaction.txIdV8ToLegacy(tx.id));
+                Logging.error("An error occurred while setting readyToApply flag to tx {0}, tx was already applied.", Transaction.txIdV8ToLegacy(tx.id));
                 return false;
             }
             if (block_num == 0)
             {
-                Logging.error("An error occured while setting readyToApply to tx {0} block_num was 0.", Transaction.txIdV8ToLegacy(tx.id));
+                Logging.error("An error occurred while setting readyToApply to tx {0}, block_num was 0.", Transaction.txIdV8ToLegacy(tx.id));
                 return false;
             }
             tx.readyToApply = block_num;
@@ -655,7 +655,7 @@ namespace DLT
                     t.applied = blockNum;
                     if (t.applied == 0)
                     {
-                        Logging.error("An error occured while adding tx {0} to storage, applied was 0.", Transaction.txIdV8ToLegacy(t.id));
+                        Logging.error("An error occurred while adding tx {0} to storage, applied flag was 0.", Transaction.txIdV8ToLegacy(t.id));
                         return false;
                     }
 
@@ -1087,7 +1087,7 @@ namespace DLT
                     Transaction tx = getAppliedTransaction(txid, block.blockNum, true);
                     if(tx == null)
                     {
-                        Logging.error("Error occured while fetching transaction {0} for block #{1} from storage.", Transaction.txIdV8ToLegacy(txid), block.blockNum);
+                        Logging.error("Error occurred while fetching transaction {0} for block #{1} from storage.", Transaction.txIdV8ToLegacy(txid), block.blockNum);
                         return false;
                     }
                     appliedTransactions.Add(txid, tx);
@@ -2383,7 +2383,7 @@ namespace DLT
                     }
                     catch (Exception e)
                     {
-                        Logging.error("Exception occured in transactionPool.cleanUp() " + e);
+                        Logging.error("Exception occurred in transactionPool.cleanUp() " + e);
                         // remove invalid/corrupt transaction
                         unappliedTransactions.Remove(entry.id);
                     }

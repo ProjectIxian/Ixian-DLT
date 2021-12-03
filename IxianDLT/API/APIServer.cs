@@ -278,7 +278,7 @@ namespace DLTNode
                 Block block = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum() - (i - iStart));
                 if (block == null)
                 {
-                    error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "An unknown error occured, while getting one of the last 10 blocks." };
+                    error = new JsonError { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "An unknown error occurred, while getting one of the last 10 blocks." };
                     return new JsonResponse { result = null, error = error };
                 }
 

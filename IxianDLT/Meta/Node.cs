@@ -807,7 +807,7 @@ namespace DLT.Meta
                 }
                 catch (Exception e)
                 {
-                    Logging.error("Exception occured in Node.performMaintenance: " + e);
+                    Logging.error("Exception occurred in Node.performMaintenance: " + e);
                 }
             }
         }
