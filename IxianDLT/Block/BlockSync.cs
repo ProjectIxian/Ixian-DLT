@@ -407,7 +407,10 @@ namespace DLT
                         missingBlocks.Add(blockNum);
                         missingBlocks.Sort();
 
-                        requestedBlockTimes.Add(blockNum, Clock.getTimestamp() - 10);
+                        lock(requestedBlockTimes)
+                        {
+                            requestedBlockTimes.Add(blockNum, Clock.getTimestamp() - 10);
+                        }
                         return true;
                     }
                 }
@@ -427,6 +430,11 @@ namespace DLT
                 return false;
             }
 
+            if (b.fromLocalStorage == false)
+            {
+                return false;
+            }
+
             if (wsSyncConfirmedBlockNum < 50
                 || lastBlockToReadFromStorage < 50)
             {
@@ -439,12 +447,7 @@ namespace DLT
                 return false;
             }
 
-            if (!Node.blockProcessor.verifySignatureFreezeChecksum(b, null))
-            {
-                return false;
-            }
-
-            if (b.fromLocalStorage == false)
+            if (!Node.blockProcessor.verifySignatureFreezeChecksum(b, null, false))
             {
                 return false;
             }
@@ -1260,25 +1263,13 @@ namespace DLT
                             lastMissingBlock = block_height;
                             missingBlocks.Sort();
                         }
-                        if(Config.forceSyncToBlock > 0)
-                        {
-                            syncTargetBlockNum = Config.forceSyncToBlock + 1;
-                        }else
-                        {
-                            syncTargetBlockNum = block_height;
-                        }
+                        determineSyncTargetBlockNum();
                     }
-                }else
+                }
+                else
                 {
                     noNetworkSynchronization = false;
-                    if (Config.forceSyncToBlock > 0)
-                    {
-                        syncTargetBlockNum = Config.forceSyncToBlock + 1;
-                    }
-                    else
-                    {
-                        syncTargetBlockNum = block_height;
-                    }
+                    determineSyncTargetBlockNum();
                 }
             } else
             {
@@ -1294,26 +1285,12 @@ namespace DLT
                     if (lastBlockToReadFromStorage > block_height)
                     {
                         Node.blockProcessor.highestNetworkBlockNum = lastBlockToReadFromStorage;
-                        if (Config.forceSyncToBlock > 0)
-                        {
-                            syncTargetBlockNum = Config.forceSyncToBlock + 1;
-                        }
-                        else
-                        {
-                            syncTargetBlockNum = lastBlockToReadFromStorage;
-                        }
+                        determineSyncTargetBlockNum();
                     }
                     else
                     {
                         Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
-                        if (Config.forceSyncToBlock > 0)
-                        {
-                            syncTargetBlockNum = Config.forceSyncToBlock + 1;
-                        }
-                        else
-                        {
-                            syncTargetBlockNum = block_height;
-                        }
+                        determineSyncTargetBlockNum();
                     }
                     if (Config.fullStorageDataVerification)
                     {
@@ -1362,6 +1339,21 @@ namespace DLT
             if (from_network)
             {
                 noNetworkSynchronization = false;
+            }
+        }
+
+        public void determineSyncTargetBlockNum()
+        {
+            if (Config.forceSyncToBlock > 0)
+            {
+                syncTargetBlockNum = Config.forceSyncToBlock + 1;
+            }
+            else
+            {
+                if (Node.blockProcessor.highestNetworkBlockNum > syncTargetBlockNum)
+                {
+                    syncTargetBlockNum = Node.blockProcessor.highestNetworkBlockNum;
+                }
             }
         }
     }

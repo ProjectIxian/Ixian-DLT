@@ -421,6 +421,11 @@ namespace DLT
                             }
                         }
                         PresenceProtocolMessages.broadcastGetKeepAlives(ka_list, endpoint);
+                        if(request_next_block)
+                        {
+                            Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
+                            Node.blockSync.determineSyncTargetBlockNum();
+                        }
                         if (Node.blockSync.synchronizing)
                         {
                             return;
@@ -434,7 +439,6 @@ namespace DLT
                                 include_tx = 0;
                             }
                             BlockProtocolMessages.broadcastGetBlock(IxianHandler.getLastBlockHeight() + 1, null, endpoint, include_tx, true);
-                            Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                         }
                         foreach (var sig_list in sig_lists)
                         {

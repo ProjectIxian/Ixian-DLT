@@ -843,27 +843,27 @@ namespace DLT
                 Node.storage.insertBlock(block);
             }
 
+            Block new_block = new Block(block);
+
             if (compacted)
             {
-                Block new_block = new Block(block);
-
                 new_block.compact();
+            }
 
-                lock(blocks)
+            lock (blocks)
+            {
+                int block_idx = blocks.FindIndex(x => x.blockNum == new_block.blockNum);
+                if (block_idx >= 0)
                 {
-                    int block_idx = blocks.FindIndex(x => x.blockNum == new_block.blockNum);
-                    if (block_idx >= 0)
+                    blocks[block_idx] = new_block;
+                    lock (blocksDictionary)
                     {
-                        blocks[block_idx] = new_block;
-                        lock (blocksDictionary)
-                        {
-                            blocksDictionary[new_block.blockNum] = new_block;
-                        }
+                        blocksDictionary[new_block.blockNum] = new_block;
                     }
-                    else
-                    {
-                        Logging.error("Error updating block #{0}", new_block.blockNum);
-                    }
+                }
+                else
+                {
+                    Logging.error("Error updating block #{0}", new_block.blockNum);
                 }
             }
         }

@@ -1736,7 +1736,7 @@ namespace DLT
                     if(added_signatures != null && added_signatures.Count > 0)
                     {
                         Node.blockChain.updateBlock(local_block, false);
-                        if (Node.isMasterNode())
+                        if (Node.isMasterNode() && !Node.blockSync.synchronizing)
                         {
                             foreach (var sig in added_signatures)
                             {
