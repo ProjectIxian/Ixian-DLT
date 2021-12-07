@@ -1166,7 +1166,7 @@ namespace DLT
                 int idx = pendingBlocks.FindIndex(x => x.blockNum == b.blockNum);
                 if (idx > -1)
                 {
-                    pendingBlocks[idx] = b;
+                    // pendingBlocks[idx] = b;
                 }
                 else // idx <= -1
                 {
