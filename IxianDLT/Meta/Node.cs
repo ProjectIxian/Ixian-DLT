@@ -382,10 +382,6 @@ namespace DLT.Meta
                     blockChain.setGenesisBlock(genesis);
                 }
                 ulong lastLocalBlockNum = storage.getHighestBlockInStorage();
-                if (lastLocalBlockNum > 6)
-                {
-                    lastLocalBlockNum = lastLocalBlockNum - 6;
-                }
                 if(Config.lastGoodBlock > 0 && Config.lastGoodBlock < lastLocalBlockNum)
                 {
                     lastLocalBlockNum = Config.lastGoodBlock;
@@ -398,11 +394,16 @@ namespace DLT.Meta
                         ConsensusConfig.minRedactedWindowSize = ConsensusConfig.getRedactedWindowSize(b.version);
                         ConsensusConfig.redactedWindowSize = ConsensusConfig.getRedactedWindowSize(b.version);
                     }
+                }
 
+                ulong requestedWsBlockNum = lastLocalBlockNum;
+                if (requestedWsBlockNum > 15)
+                {
+                    requestedWsBlockNum = requestedWsBlockNum - 15;
                 }
 
                 // Start block sync
-                ulong blockNum = WalletStateStorage.restoreWalletState(lastLocalBlockNum);
+                ulong blockNum = WalletStateStorage.restoreWalletState(requestedWsBlockNum);
                 if(blockNum > 0)
                 {
                     Block b = blockChain.getBlock(blockNum, true);

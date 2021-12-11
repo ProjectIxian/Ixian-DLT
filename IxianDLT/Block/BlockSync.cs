@@ -576,7 +576,12 @@ namespace DLT
                     if (tb != null)
                     {
                         Block local_block = Node.blockChain.getBlock(tb.blockNum);
-                        if (local_block != null && tb.blockChecksum.SequenceEqual(local_block.blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb) == BlockVerifyStatus.Valid)
+                        bool verify_sigs = true;
+                        if (tb.blockNum <= wsSyncConfirmedBlockNum)
+                        {
+                            verify_sigs = false;
+                        }
+                        if (local_block != null && tb.blockChecksum.SequenceEqual(local_block.blockChecksum) && Node.blockProcessor.verifyBlockBasic(tb, verify_sigs) == BlockVerifyStatus.Valid)
                         {
                             if (Node.blockProcessor.verifyBlockSignatures(tb, null))
                             {
