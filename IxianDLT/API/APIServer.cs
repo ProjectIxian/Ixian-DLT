@@ -208,6 +208,7 @@ namespace DLTNode
             if(block.frozenSignatures != null)
             {
                 blockData.Add("Frozen Signatures", JsonConvert.SerializeObject(block.frozenSignatures));
+                blockData.Add("Frozen Signature count", block.frozenSignatures.Count.ToString());
             }
             blockData.Add("Sig Checksum", Crypto.hashToString(block.calculateSignatureChecksum()));
             blockData.Add("Signer Difficulty", block.signerDifficulty.ToString());
