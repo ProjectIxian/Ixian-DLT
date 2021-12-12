@@ -713,13 +713,14 @@ namespace DLTNode
                 queues.Add("Inventory", Node.inventoryCache.getItemCount());
                 queues.Add("Inventory Processed", Node.inventoryCache.getProcessedItemCount());
                 queues.Add("Activity", ActivityStorage.getQueuedQueryCount());
-                queues.Add("Blockchain Scanning Active", ActivityScanner.isActive());
-                queues.Add("Activity Scanner Last Block", ActivityScanner.getLastBlockNum());
 
                 networkArray.Add("Queues", queues);
 
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
             }
+
+            networkArray.Add("Blockchain Scanning Active", ActivityScanner.isActive());
+            networkArray.Add("Activity Scanner Last Block", ActivityScanner.getLastBlockNum());
 
             networkArray.Add("Network Clients", NetworkServer.getConnectedClients());
             networkArray.Add("Network Servers", NetworkClientManager.getConnectedClients(true));
