@@ -163,7 +163,7 @@ namespace DLT
                 Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
                 Console.WriteLine("   [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
                 Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
-                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disablefastBlockLoading] [--checksumLock Ixian] [--verboseOutput]");
+                Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disableFastBlockLoading] [--checksumLock Ixian] [--verboseOutput]");
                 Console.WriteLine("   [--maxOutgoingConnections] [--maxIncomingMasterNodes] [--maxIncomingClientNodes] [--minActivityBlockHeight]");
                 Console.WriteLine("   [--forceSyncToBlock]");
                 Console.WriteLine("   [--genesis] [--netdump dumpfile] [--benchmarkKeys key_size] [--recover] [--verifyStorage] [--generateWallet]");
@@ -193,7 +193,7 @@ namespace DLT
                 Console.WriteLine("    --blockStorage\t Specify storage provider for block and transaction storage (SQLite or RocksDB)");
                 Console.WriteLine("    --maxTxPerBlock\t Number of transactions that the node will include in the block");
                 Console.WriteLine("    --disableSetTitle\t Disables automatic title setting for Windows Console");
-                Console.WriteLine("    --disablefastBlockLoading\t Disables fast block loading during start");
+                Console.WriteLine("    --disableFastBlockLoading\t Disables fast block loading during start");
                 Console.WriteLine("    --checksumLock\t Sets the checksum lock for seeding checksums - useful for custom networks.");
                 Console.WriteLine("    --verboseOutput\t Starts node with verbose output.");
                 Console.WriteLine("    --maxOutgoingConnections\t Max outgoing connections.");
@@ -495,7 +495,7 @@ namespace DLT
 
                 cmd_parser.Setup<bool>("disableSetTitle").Callback(value => disableSetTitle = true).Required();
 
-                cmd_parser.Setup<bool>("disablefastBlockLoading").Callback(value => disableFastBlockLoading = true).Required();
+                cmd_parser.Setup<bool>("disableFastBlockLoading").Callback(value => disableFastBlockLoading = true).Required();
 
                 cmd_parser.Setup<string>("checksumLock").Callback(value => checksumLock = Encoding.UTF8.GetBytes(value)).Required();
 
