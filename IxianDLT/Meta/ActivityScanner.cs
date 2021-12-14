@@ -52,25 +52,34 @@ namespace DLTNode.Meta
 
         private static void threadLoop(object data)
         {
-            while (!shouldStop)
+            try
             {
-                // Stop scanning if we reach the highest network block height
-                if(lastBlockNum >= Node.blockProcessor.highestNetworkBlockNum)
+                while (!shouldStop)
                 {
-                    active = false;
-                    shouldStop = true;
-                    return;
-                }
+                    // Stop scanning if we reach the last block height in the stored blockchain
+                    if (lastBlockNum > IxianHandler.getLastBlockHeight())
+                    {
+                        active = false;
+                        shouldStop = true;
+                        return;
+                    }
 
-                // Go through each block in storage
-                IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(lastBlockNum);
-                foreach (Transaction tx in txs)
-                {
-                    TransactionPool.addTransactionToActivityStorage(tx);
-                }
+                    // Go through each block in storage
+                    IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(lastBlockNum);
+                    foreach (Transaction tx in txs)
+                    {
+                        TransactionPool.addTransactionToActivityStorage(tx);
+                    }
 
-                lastBlockNum++;
+                    lastBlockNum++;
+                }
             }
+            catch (Exception e)
+            {
+                Logging.error("Error in ActivityScanner: " + e);
+            }
+
+            active = false;
         }
 
         // Check if the activity scanner is already running
