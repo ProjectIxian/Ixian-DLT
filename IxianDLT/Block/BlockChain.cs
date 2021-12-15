@@ -981,7 +981,12 @@ namespace DLT
                     Logging.error("Cannot revert transaction " + Transaction.txIdV8ToLegacy(tx_id) + ", transaction doesn't exist.");
                     continue;
                 }
-                if(tx.type == (int)Transaction.Type.StakingReward)
+                if (IxianHandler.isMyAddress((new Address(tx.pubKey)).address) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
+                {
+                    ActivityStorage.updateStatus(tx.id, ActivityStatus.Error, block.blockNum);
+                    tx.fromLocalStorage = false;
+                }
+                if (tx.type == (int)Transaction.Type.StakingReward)
                 {
                     TransactionPool.removeAppliedTransaction(tx.id);
                 }else
