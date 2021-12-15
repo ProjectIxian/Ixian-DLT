@@ -24,6 +24,12 @@ namespace DLTNode.Meta
             if (isActive())
                 return false;
 
+            if (!ActivityStorage.clearStorage())
+            {
+                Logging.error("Cannot clear storage before starting ActivityScanner");
+                return false;
+            }
+
             shouldStop = false;          
             lastBlockNum = (ulong)startFromBlock;
 
@@ -37,6 +43,7 @@ namespace DLTNode.Meta
             catch
             {
                 active = false;
+                Logging.error("Cannot start ActivityScanner");
                 return false;
             }
 
