@@ -1054,7 +1054,7 @@ namespace DLTNode
             }
 
             // Start the activity scanner
-            if(!ActivityScanner.start(Int32.Parse(fromIndex)))
+            if(!ActivityScanner.start(UInt64.Parse(fromIndex)))
             {
                 JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_MISC_ERROR, message = "Activity scanner is already running" };
                 return new JsonResponse { result = null, error = error };

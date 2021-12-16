@@ -18,22 +18,16 @@ namespace DLTNode.Meta
         private static ulong lastBlockNum = 0; 
 
         // Starts the activity scanner thread
-        public static bool start(int startFromBlock = 0)
+        public static bool start(ulong startFromBlock = 0)
         {
             // Check if an activity scan is already in progress
             if (isActive())
                 return false;
 
-            if (!ActivityStorage.clearStorage())
-            {
-                Logging.error("Cannot clear storage before starting ActivityScanner");
-                return false;
-            }
-
-            shouldStop = false;          
-            lastBlockNum = (ulong)startFromBlock;
-
             active = true;
+            shouldStop = false;          
+            lastBlockNum = startFromBlock;
+
             try
             {
                 Thread scanner_thread = new Thread(threadLoop);
@@ -61,16 +55,18 @@ namespace DLTNode.Meta
         {
             try
             {
-                while (!shouldStop)
+                if (!ActivityStorage.clearStorage(0))
                 {
-                    // Stop scanning if we reach the last block height in the stored blockchain
-                    if (lastBlockNum > IxianHandler.getLastBlockHeight())
-                    {
-                        active = false;
-                        shouldStop = true;
-                        return;
-                    }
+                    Logging.error("Cannot clear storage before starting ActivityScanner");
+                    shouldStop = true;
+                    active = false;
+                    return;
+                }
 
+                ulong scanToBlockNum = IxianHandler.getLastBlockHeight();
+
+                while (!shouldStop && lastBlockNum < scanToBlockNum)
+                {
                     // Go through each block in storage
                     IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(lastBlockNum);
                     foreach (Transaction tx in txs)
@@ -86,6 +82,7 @@ namespace DLTNode.Meta
                 Logging.error("Error in ActivityScanner: " + e);
             }
 
+            shouldStop = true;
             active = false;
         }
 
