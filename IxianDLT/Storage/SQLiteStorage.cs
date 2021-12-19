@@ -1191,8 +1191,8 @@ namespace DLT
                             lock (connectionCache)
                             {
                                 string fileName = Path.GetFileNameWithoutExtension(connection.DatabasePath);
-                                string fullFilePath = Path.Combine(pathBase, "0000", fileName);
-                                if (fileName == "superblocks.dat")
+                                string fullFilePath = connection.DatabasePath;
+                                if (fileName == "superblocks")
                                 {
                                     if (superBlocksSqlConnection != null)
                                     {
@@ -1200,49 +1200,45 @@ namespace DLT
                                         superBlocksSqlConnection.Dispose();
                                         superBlocksSqlConnection = null;
                                     }
-
-                                    fullFilePath = Path.Combine(pathBase, fileName);
                                 }
 
                                 resetConnectionCache();
 
-                                if (File.Exists(fullFilePath + ".dat-shm") || File.Exists(fullFilePath + ".dat-wal"))
+                                if (File.Exists(fullFilePath + "-shm") || File.Exists(fullFilePath + "-wal"))
                                 {
                                     // First try removing the recovery files
                                     try
                                     {
-                                        File.Delete(fullFilePath + ".dat-shm");
+                                        File.Delete(fullFilePath + "-shm");
                                     }
                                     catch (Exception ex)
                                     {
-                                        Logging.error("Error deleting file " + fullFilePath + ".dat-shm: " + ex);
+                                        Logging.error("Error deleting file " + fullFilePath + "-shm: " + ex);
                                     }
 
                                     try
                                     {
-                                        File.Delete(fullFilePath + ".dat-wal");
+                                        File.Delete(fullFilePath + "-wal");
                                     }
                                     catch (Exception ex)
                                     {
-                                        Logging.error("Error deleting file " + fullFilePath + ".dat-wal: " + ex);
+                                        Logging.error("Error deleting file " + fullFilePath + "-wal: " + ex);
                                     }
                                     Logging.warn("Deleted recovery files for database " + fullFilePath);
                                 }
-                                else if (File.Exists(fullFilePath + ".dat"))
+                                else if (File.Exists(fullFilePath))
                                 {
-                                    fullFilePath = fullFilePath + ".dat";
-
                                     Logging.warn("Repairing database file " + fullFilePath);
                                     Logging.flush();
 
                                     repairDatabase(fullFilePath);
                                     
-                                    if (superBlocksSqlConnection == null)
-                                    {
-                                        superBlocksSqlConnection = getSQLiteConnection(fullFilePath, false);
-                                    }
-
                                     Logging.warn("Repaired database file " + fullFilePath);
+                                }
+
+                                if (superBlocksSqlConnection == null)
+                                {
+                                    superBlocksSqlConnection = getSQLiteConnection(fullFilePath, false);
                                 }
                             }
                         }
