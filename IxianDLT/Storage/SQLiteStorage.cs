@@ -1192,10 +1192,21 @@ namespace DLT
                             {
                                 string fileName = Path.GetFileNameWithoutExtension(connection.DatabasePath);
                                 string fullFilePath = Path.Combine(pathBase, "0000", fileName);
+                                if (fileName == "superblocks.dat")
+                                {
+                                    if (superBlocksSqlConnection != null)
+                                    {
+                                        superBlocksSqlConnection.Close();
+                                        superBlocksSqlConnection.Dispose();
+                                        superBlocksSqlConnection = null;
+                                    }
+
+                                    fullFilePath = Path.Combine(pathBase, fileName);
+                                }
 
                                 resetConnectionCache();
 
-                                if (File.Exists(fullFilePath + ".dat-shm") || File.Exists(fullFilePath + ".dat-shm"))
+                                if (File.Exists(fullFilePath + ".dat-shm") || File.Exists(fullFilePath + ".dat-wal"))
                                 {
                                     // First try removing the recovery files
                                     try
@@ -1226,6 +1237,11 @@ namespace DLT
 
                                     repairDatabase(fullFilePath);
                                     
+                                    if (superBlocksSqlConnection == null)
+                                    {
+                                        superBlocksSqlConnection = getSQLiteConnection(fullFilePath, false);
+                                    }
+
                                     Logging.warn("Repaired database file " + fullFilePath);
                                 }
                             }
@@ -1280,7 +1296,7 @@ namespace DLT
                         }
                         catch (Exception e)
                         {
-                            Logging.warn("Cannot recover blocks from database");
+                            Logging.warn("Cannot recover blocks from database: " + e);
                             break;
                         }
                     }
@@ -1302,7 +1318,7 @@ namespace DLT
                         }
                         catch (Exception e)
                         {
-                            Logging.warn("Cannot recover transactions from database");
+                            Logging.warn("Cannot recover transactions from database: " + e);
                             break;
                         }
                     }
