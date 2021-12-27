@@ -67,9 +67,6 @@ namespace DLT
         static object activePoolBlockLock = new object();
         static Block activePoolBlock = null;
 
-        // the value below is the easiest way to get maximum hash value into a BigInteger (2^256 -1). Ixian shifts the integer 8 places to the right to get 8 decimal places.
-        static BigInteger maxHashValue = new IxiNumber("1157920892373161954235709850086879078532699846656405640394575840079131.29639935").getAmount();
-
         public Miner()
         {
             lastStatTime = DateTime.UtcNow;
@@ -137,107 +134,6 @@ namespace DLT
 
             // Provided mining thread count is allowed
             return miningThreads;
-        }
-
-        public static byte[] getHashCeilFromDifficulty(ulong difficulty)
-        {
-            /*
-             * difficulty is an 8-byte number from 0 to 2^64-1, which represents how hard it is to find a hash for a certain block
-             * the dificulty is converted into a 'ceiling value', which specifies the maximum value a hash can have to be considered valid under that difficulty
-             * to do this, follow the attached algorithm:
-             *  1. calculate a bit-inverse value of the difficulty
-             *  2. create a comparison byte array with the ceiling value of length 10 bytes
-             *  3. set the first two bytes to zero
-             *  4. insert the inverse difficulty as the next 8 bytes (mind the byte order!)
-             *  5. the remaining 22 bytes are assumed to be 'FF'
-             */
-            byte[] hash_ceil = new byte[10];
-            hash_ceil[0] = 0x00;
-            hash_ceil[1] = 0x00;
-            for(int i=0;i<8;i++)
-            {
-                int shift = 8 * (7 - i);
-                ulong mask = ((ulong)0xff) << shift;
-                byte cb = (byte)((difficulty & mask) >> shift);
-                hash_ceil[i + 2] = (byte)~cb;
-            }
-            return hash_ceil;
-        }
-
-        public static BigInteger getTargetHashcountPerBlock(ulong difficulty)
-        {
-            // For difficulty calculations see accompanying TXT document in the IxianDLT folder.
-            // I am sorry for this - Zagar
-            // What it does:
-            // internally (in Miner.cs), we use little-endian byte arrays to represent hashes and solution ceilings, because it is slightly more efficient memory-allocation-wise.
-            // in this place, we are using BigInteger's division function, so we don't have to write our own.
-            // BigInteger uses a big-endian byte-array, so we have to reverse our ceiling, which looks like this:
-            // little endian: 0000 XXXX XXXX XXXX XXXX FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF ; X represents where we set the difficulty
-            // big endian: FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF YYYY YYYY YYYY YYYY 0000 ; Y represents the difficulty, but the bytes are reversed
-            // 9 -(i-22) transforms the index in the big-endian byte array into an index in our 'hash_ceil'. Please also note that due to effciency we only return the
-            // "interesting part" of the hash_ceil (first 10 bytes) and assume the others to be FF when doing comparisons internally. The first part of the 'if' in the loop
-            // fills in those bytes as well, because BigInteger needs them to reconstruct the number.
-            byte[] hash_ceil = Miner.getHashCeilFromDifficulty(difficulty);
-            byte[] full_ceil = new byte[32];
-            // BigInteger requires bytes in big-endian order
-            for (int i = 0; i < 32; i++)
-            {
-                if (i < 22)
-                {
-                    full_ceil[i] = 0xff;
-                }
-                else
-                {
-                    full_ceil[i] = hash_ceil[9 - (i - 22)];
-                }
-            }
-
-            BigInteger ceil = new BigInteger(full_ceil);
-            return maxHashValue / ceil;
-        }
-
-        /*public static ulong calculateEstimatedHashRate()
-        {
-
-        }*/
-
-        public static ulong calculateTargetDifficulty(BigInteger current_hashes_per_block)
-        {
-            // Sorry :-)
-            // Target difficulty is calculated as such:
-            // We input the number of hashes that have been generated to solve a block (Network hash rate * 60 - we want that solving a block should take 60 seconds, if the entire network hash power was focused on one block, thus achieving
-            // an approximate 50% solve rate).
-            // We are using BigInteger for its division function, so that we don't have to write out own.
-            // Dividing the max hash number with the hashrate will give us an appropriate ceiling, which would result in approximately one solution per "current_hashes_per_block" hash attempts.
-            // This target ceiling contains our target difficulty, in the format:
-            // big endian: FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF FFFF YYYY YYYY YYYY YYYY 0000; Y represents the difficulty, but the bytes are reversed
-            // the bytes being reversed is actually okay, because we are using BitConverter.ToUInt64, which takes a big-endian byte array to return a ulong number.
-            if(current_hashes_per_block == 0)
-            {
-                current_hashes_per_block = 1000; // avoid divide by zero
-            }
-            BigInteger target_ceil = maxHashValue / current_hashes_per_block;
-            byte[] temp = target_ceil.ToByteArray();
-            int temp_len = temp.Length;
-            if(temp_len > 32)
-            {
-                temp_len = 32;
-            }
-            // we get the bytes in the reverse order, so the padding should go at the end
-            byte[] target_ceil_bytes = new byte[32];
-            Array.Copy(temp, target_ceil_bytes, temp_len);
-            for (int i = temp_len; i < 32; i++)
-            {
-                target_ceil_bytes[i] = 0;
-            }
-            //
-            byte[] difficulty = new byte[8];
-            Array.Copy(target_ceil_bytes, 22, difficulty, 0, 8);
-            for(int i = 0; i < 8; i++)
-            {
-                difficulty[i] = (byte)~difficulty[i];
-            }
-            return BitConverter.ToUInt64(difficulty, 0);
         }
 
         private void threadLoop(object data)
@@ -541,7 +437,7 @@ namespace DLT
             currentBlockNum = candidate_block.blockNum;
             currentBlockDifficulty = candidate_block.difficulty;
             currentBlockVersion = candidate_block.version;
-            currentHashCeil = getHashCeilFromDifficulty(currentBlockDifficulty);
+            currentHashCeil = MiningUtils.getHashCeilFromDifficulty(currentBlockDifficulty);
 
             activeBlock = candidate_block;
             byte[] block_checksum = activeBlock.blockChecksum;
@@ -615,7 +511,8 @@ namespace DLT
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] nonce = ASCIIEncoding.ASCII.GetBytes(ASCIIEncoding.ASCII.GetString(randomNonce(64)));
-            byte[] hash = findHash_v1(activeBlockChallenge, nonce);
+            byte[] hash = Argon2id.getHash(activeBlockChallenge, nonce, 1, 1024, 2);
+
             if (hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
@@ -652,7 +549,8 @@ namespace DLT
         {
             // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
             byte[] nonce = randomNonce(64);
-            byte[] hash = findHash_v1(activeBlockChallenge, nonce);
+            byte[] hash = Argon2id.getHash(activeBlockChallenge, nonce, 1, 1024, 2);
+
             if (hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
@@ -692,7 +590,8 @@ namespace DLT
             byte[] nonce_bytes = randomNonce(64);
             byte[] fullnonce = expandNonce(nonce_bytes, 234236);
 
-            byte[] hash = findHash_v2(activeBlockChallenge, fullnonce);
+            byte[] hash = Argon2id.getHash(activeBlockChallenge, fullnonce, 2, 2048, 2);
+
             if (hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
@@ -753,10 +652,9 @@ namespace DLT
         // Check if a hash is valid based on the current difficulty
         public static bool validateHash_v0(string hash, ulong difficulty = 0)
         {
-            byte[] hashStartDifficulty = null;
-            // Set the difficulty for verification purposes
-            hashStartDifficulty = setDifficulty_v0((int)difficulty);
-
+            // Set the difficulty for verification purposes   
+            byte[] hashStartDifficulty = setDifficulty_v0((int)difficulty);
+            
             if (hash.Length < hashStartDifficulty.Length)
             {
                 return false;
@@ -809,12 +707,12 @@ namespace DLT
         // Check if a hash is valid based on the current difficulty
         public static bool validateHash_v1(byte[] hash, ulong difficulty)
         {
-            return validateHashInternal_v1(hash, getHashCeilFromDifficulty(difficulty));
+            return validateHashInternal_v1(hash, MiningUtils.getHashCeilFromDifficulty(difficulty));
         }
 
         public static bool validateHash_v2(byte[] hash, ulong difficulty)
         {
-            return validateHashInternal_v2(hash, getHashCeilFromDifficulty(difficulty));
+            return validateHashInternal_v2(hash, MiningUtils.getHashCeilFromDifficulty(difficulty));
         }
 
         // Verify nonce
@@ -836,7 +734,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
             byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce);
-            string hash = Miner.findHash_v0(p1, nonce_bytes);
+            string hash = Argon2id.getHashString(p1, nonce_bytes, 1, 1024, 4);
 
             if (Miner.validateHash_v0(hash, difficulty) == true)
             {
@@ -866,7 +764,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
             byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce);
-            byte[] hash = Miner.findHash_v1(p1, nonce_bytes);
+            byte[] hash = Argon2id.getHash(p1, nonce_bytes, 1, 1024, 2);
 
             if (Miner.validateHash_v1(hash, difficulty) == true)
             {
@@ -896,7 +794,7 @@ namespace DLT
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
             byte[] nonce_bytes = Crypto.stringToHash(nonce);
-            byte[] hash = Miner.findHash_v1(p1, nonce_bytes);
+            byte[] hash = Argon2id.getHash(p1, nonce_bytes, 1, 1024, 2);
 
             if (Miner.validateHash_v2(hash, difficulty) == true)
             {
@@ -926,7 +824,7 @@ namespace DLT
 
             byte[] nonce_bytes = Crypto.stringToHash(nonce);
             byte[] fullnonce = expandNonce(nonce_bytes, 234236);
-            byte[] hash = Miner.findHash_v2(p1, fullnonce);
+            byte[] hash = Argon2id.getHash(p1, fullnonce, 2, 2048, 2);
 
             if (Miner.validateHash_v2(hash, difficulty) == true)
             {
@@ -1015,85 +913,6 @@ namespace DLT
             }
         }
 
-        private static string findHash_v0(byte[] data, byte[] salt)
-        {
-            string ret = "";
-            try
-            {
-                byte[] hash = new byte[32];
-                IntPtr data_ptr = Marshal.AllocHGlobal(data.Length);
-                IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
-                Marshal.Copy(data, 0, data_ptr, data.Length);
-                Marshal.Copy(salt, 0, salt_ptr, salt.Length);
-                UIntPtr data_len = (UIntPtr)data.Length;
-                UIntPtr salt_len = (UIntPtr)salt.Length;
-                IntPtr result_ptr = Marshal.AllocHGlobal(32);
-                int result = NativeMethods.argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)4, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
-                Marshal.Copy(result_ptr, hash, 0, 32);
-                ret = BitConverter.ToString(hash).Replace("-", string.Empty);
-                Marshal.FreeHGlobal(data_ptr);
-                Marshal.FreeHGlobal(result_ptr);
-                Marshal.FreeHGlobal(salt_ptr);
-            }
-            catch (Exception e)
-            {
-                Logging.error(string.Format("Error during mining: {0}", e.Message));
-            }
-            return ret;
-        }
-
-        private static byte[] findHash_v1(byte[] data, byte[] salt)
-        {
-            try
-            {
-                byte[] hash = new byte[32];
-                IntPtr data_ptr = Marshal.AllocHGlobal(data.Length);
-                IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
-                Marshal.Copy(data, 0, data_ptr, data.Length);
-                Marshal.Copy(salt, 0, salt_ptr, salt.Length);
-                UIntPtr data_len = (UIntPtr)data.Length;
-                UIntPtr salt_len = (UIntPtr)salt.Length;
-                IntPtr result_ptr = Marshal.AllocHGlobal(32);
-                int result = NativeMethods.argon2id_hash_raw((UInt32)1, (UInt32)1024, (UInt32)2, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
-                Marshal.Copy(result_ptr, hash, 0, 32);
-                Marshal.FreeHGlobal(data_ptr);
-                Marshal.FreeHGlobal(result_ptr);
-                Marshal.FreeHGlobal(salt_ptr);
-                return hash;
-            }
-            catch(Exception e)
-            {
-                Logging.error(string.Format("Error during mining: {0}", e.Message));
-                return null;
-            }
-        }
-
-        private static byte[] findHash_v2(byte[] data, byte[] salt)
-        {
-            try
-            {
-                byte[] hash = new byte[32];
-                IntPtr data_ptr = Marshal.AllocHGlobal(data.Length);
-                IntPtr salt_ptr = Marshal.AllocHGlobal(salt.Length);
-                Marshal.Copy(data, 0, data_ptr, data.Length);
-                Marshal.Copy(salt, 0, salt_ptr, salt.Length);
-                UIntPtr data_len = (UIntPtr)data.Length;
-                UIntPtr salt_len = (UIntPtr)salt.Length;
-                IntPtr result_ptr = Marshal.AllocHGlobal(32);
-                int result = NativeMethods.argon2id_hash_raw((UInt32)2, (UInt32)2048, (UInt32)2, data_ptr, data_len, salt_ptr, salt_len, result_ptr, (UIntPtr)32);
-                Marshal.Copy(result_ptr, hash, 0, 32);
-                Marshal.FreeHGlobal(data_ptr);
-                Marshal.FreeHGlobal(result_ptr);
-                Marshal.FreeHGlobal(salt_ptr);
-                return hash;
-            }
-            catch (Exception e)
-            {
-                Logging.error(string.Format("Error during mining: {0}", e.Message));
-                return null;
-            }
-        }
-
         // Output the miner status
         private void printMinerStatus()
         {
@@ -1159,7 +978,7 @@ namespace DLT
             while (1 == 1)
             {
                 byte[] nonce = ASCIIEncoding.ASCII.GetBytes(ASCIIEncoding.ASCII.GetString(randomNonce(64)));
-                byte[] hash = findHash_v1(new byte[3]{ 1, 2, 3 }, nonce);
+                byte[] hash = Argon2id.getHash(new byte[3]{ 1, 2, 3 }, nonce, 1, 1024, 2);
 
                 // We have a valid hash, update the corresponding block
                 if (Miner.validateHashInternal_v1(hash, BitConverter.GetBytes(80)) == true)
@@ -1188,7 +1007,7 @@ namespace DLT
                     }
 
                     byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce_str);
-                    byte[] hash_to_test = Miner.findHash_v1(new byte[3] { 1, 2, 3 }, nonce_bytes);
+                    byte[] hash_to_test = Argon2id.getHash(new byte[3] { 1, 2, 3 }, nonce_bytes, 1, 1024, 2);
 
                     if (Miner.validateHashInternal_v1(hash_to_test, BitConverter.GetBytes(80)) == true)
                     {

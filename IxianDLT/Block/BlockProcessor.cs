@@ -2992,13 +2992,13 @@ namespace DLT
                     window_size = Node.blockChain.getLastBlockNum();
                 }
                 // 
-                BigInteger target_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
+                BigInteger target_hashes_per_block = MiningUtils.getTargetHashcountPerBlock(current_difficulty);
                 BigInteger actual_hashes_per_block = target_hashes_per_block * solved_blocks / (window_size / 2);
                 ulong target_difficulty = 0;
                 if (actual_hashes_per_block != 0)
                 {
                     // find an appropriate difficulty for actual hashes:
-                    target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
+                    target_difficulty = MiningUtils.calculateTargetDifficulty(actual_hashes_per_block);
                 }
                 // we jump hafway to the target difficulty each time
                 ulong next_difficulty = 0;
@@ -3045,13 +3045,13 @@ namespace DLT
                     window_size = Node.blockChain.getLastBlockNum();
                 }
                 // 
-                BigInteger target_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
+                BigInteger target_hashes_per_block = MiningUtils.getTargetHashcountPerBlock(current_difficulty);
                 BigInteger actual_hashes_per_block = target_hashes_per_block * solved_blocks / (window_size / 2);
                 ulong target_difficulty = 0;
                 if (actual_hashes_per_block != 0)
                 {
                     // find an appropriate difficulty for actual hashes:
-                    target_difficulty = Miner.calculateTargetDifficulty(actual_hashes_per_block);
+                    target_difficulty = MiningUtils.calculateTargetDifficulty(actual_hashes_per_block);
                 }
                 else
                 {
@@ -3119,7 +3119,7 @@ namespace DLT
                     {
                         continue;
                     }
-                    hash_rate += Miner.getTargetHashcountPerBlock(pow_b.difficulty);
+                    hash_rate += MiningUtils.getTargetHashcountPerBlock(pow_b.difficulty);
                 }
             }
             hash_rate = hash_rate / (i / 2); // i / 2 since every second block has to be full
@@ -3170,7 +3170,7 @@ namespace DLT
 
             ulong next_difficulty = min_difficulty;
             BigInteger current_hashes_per_block = 0;
-            BigInteger previous_hashes_per_block = Miner.getTargetHashcountPerBlock(current_difficulty);
+            BigInteger previous_hashes_per_block = MiningUtils.getTargetHashcountPerBlock(current_difficulty);
 
             // if there are more than 3/4 of solved blocks, max out the difficulty
             if (solved_blocks > window_size * 0.75f)
@@ -3187,13 +3187,13 @@ namespace DLT
                 {
                     // if there are between 25% and 48% of solved blocks, ideally use estimated hashrate * 0.7 for difficulty
                     current_hashes_per_block = calculateEstimatedHashRate() * 7 / 10; // * 0.7f
-                    next_difficulty = Miner.calculateTargetDifficulty(current_hashes_per_block);
+                    next_difficulty = MiningUtils.calculateTargetDifficulty(current_hashes_per_block);
                 }
                 else if (solved_blocks < window_size * 0.53f)
                 {
                     // if there are between 48% and 53% of solved blocks, ideally use estimated hashrate * 1.5 for difficulty
                     current_hashes_per_block = calculateEstimatedHashRate() * 15 / 10; // * 1.5f
-                    next_difficulty = Miner.calculateTargetDifficulty(current_hashes_per_block);
+                    next_difficulty = MiningUtils.calculateTargetDifficulty(current_hashes_per_block);
                 }
                 else
                 {
@@ -3210,7 +3210,7 @@ namespace DLT
                         previous_n = (long)solved_blocks - solutions_in_previous_block - (long)(window_size * 0.50f);
                     }
                     BigInteger estimated_hash_rate = previous_hashes_per_block / (10 + (previous_n / 10));
-                    next_difficulty = Miner.calculateTargetDifficulty(estimated_hash_rate * (10 + (n / 10)));
+                    next_difficulty = MiningUtils.calculateTargetDifficulty(estimated_hash_rate * (10 + (n / 10)));
                 }
 
             }

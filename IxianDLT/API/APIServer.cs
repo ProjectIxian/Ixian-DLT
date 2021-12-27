@@ -199,7 +199,7 @@ namespace DLTNode
             blockData.Add("PoW field", Crypto.hashToString(block.powField));
             blockData.Add("Timestamp", block.timestamp.ToString());
             blockData.Add("Difficulty", block.difficulty.ToString());
-            blockData.Add("Hashrate", (Miner.getTargetHashcountPerBlock(block.difficulty) / 60).ToString());
+            blockData.Add("Hashrate", (MiningUtils.getTargetHashcountPerBlock(block.difficulty) / 60).ToString());
             blockData.Add("Compacted Sigs", block.compactedSigs.ToString());
             blockData.Add("Signature count", block.signatures.Count.ToString());
             blockData.Add("Transaction count", block.transactions.Count.ToString());

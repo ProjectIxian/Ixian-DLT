@@ -269,7 +269,7 @@ namespace DLT
             byte[] nonce_bytes = randomNonce(64);
             byte[] fullnonce = SignerPowSolution.expandNonce(nonce_bytes, 234234);
 
-            byte[] hash = SignerPowSolution.getArgon2idHash(activeBlockChallenge, fullnonce);
+            byte[] hash = Argon2id.getHash(activeBlockChallenge, fullnonce, 2, 2048, 2);
             if (hash.Length < 1)
             {
                 Logging.error("Stopping miner due to invalid hash.");
