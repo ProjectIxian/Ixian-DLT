@@ -28,7 +28,6 @@ namespace DLT
         public SignerPowSolution lastSignerPowSolution = null;
         private long startedSolvingTime = 0; // Started solving time
         private ulong solvingDifficulty = 0;
-        private long lastSentBlockTime = 0;
 
         public long lastHashRate = 0; // Last reported hash rate
         private long hashesPerSecond = 0; // Total number of hashes per second
@@ -37,12 +36,11 @@ namespace DLT
         private bool started = false;
         private bool shouldStop = false; // flag to signal shutdown of threads
 
-        private ThreadLiveCheck TLC;
-
 
         bool blockFound = false;
 
-        byte[] activeBlockChallenge = null;
+        [ThreadStatic] private static byte[] activeBlockChallenge = null;
+        [ThreadStatic] private static ulong activeBlockChallengeBlockNum = 0;
 
         private static Random random = new Random(); // used to seed initial curNonce's
         [ThreadStatic] private static byte[] curNonce = null; // Used for random nonce
@@ -74,7 +72,6 @@ namespace DLT
 
             shouldStop = false;
 
-            TLC = new ThreadLiveCheck();
             // Start primary mining thread
             Thread miner_thread = new Thread(threadLoop);
             miner_thread.Name = "PresenceListMiner_Main_Thread";
@@ -121,23 +118,30 @@ namespace DLT
         {
             while (!shouldStop)
             {
-                if (blockFound == false)
+                try
                 {
-                    searchForBlock();
-                }
-                else
-                {
-                    // TODO Omega increase diff when no block for a long time
-                    calculatePow(solvingDifficulty);
-                }
+                    if (blockFound == false)
+                    {
+                        searchForBlock();
+                    }
+                    else
+                    {
+                        // TODO Omega increase diff when no block for a long time
+                        calculatePow(solvingDifficulty);
+                    }
 
-                // Output mining stats
-                TimeSpan timeSinceLastStat = DateTime.UtcNow - lastStatTime;
-                if (timeSinceLastStat.TotalSeconds > 5)
+                    // Output mining stats
+                    TimeSpan timeSinceLastStat = DateTime.UtcNow - lastStatTime;
+                    if (timeSinceLastStat.TotalSeconds > 5)
+                    {
+                        lastStatTime = DateTime.UtcNow;
+                        lastHashRate = hashesPerSecond / 5;
+                        hashesPerSecond = 0;
+                    }
+                }catch(Exception e)
                 {
-                    lastStatTime = DateTime.UtcNow;
-                    lastHashRate = hashesPerSecond / 5;
-                    hashesPerSecond = 0;
+                    Thread.Sleep(500);
+                    Logging.error("Exception occured in SignerPowMiner.threadLoop(): " + e);
                 }
             }
         }
@@ -146,13 +150,21 @@ namespace DLT
         {
             while (!shouldStop)
             {
-                if (blockFound == false)
+                try
+                {
+                    if (blockFound == false)
+                    {
+                        Thread.Sleep(500);
+                        continue;
+                    }
+                    // TODO Omega increase diff when no block for a long time
+                    calculatePow(solvingDifficulty);
+                }
+                catch (Exception e)
                 {
                     Thread.Sleep(500);
-                    continue;
+                    Logging.error("Exception occured in SignerPowMiner.secondaryThreadLoop(): " + e);
                 }
-                // TODO Omega increase diff when no block for a long time
-                calculatePow(solvingDifficulty);
             }
         }
 
@@ -165,9 +177,9 @@ namespace DLT
         // Returns the most recent fully accepted block
         private void searchForBlock()
         {
-            Block candidate_block = IxianHandler.getLastBlock();
+            Block candidateBlock = IxianHandler.getLastBlock();
 
-            if (candidate_block == null)
+            if (candidateBlock == null)
             {
                 // Not ready yet
                 Thread.Sleep(1000);
@@ -176,7 +188,7 @@ namespace DLT
 
             if (pause
                 || PresenceList.myPresenceType == 'W'
-                || candidate_block.version < BlockVer.v10)
+                || candidateBlock.version < BlockVer.v10)
             {
                 lastStatTime = DateTime.UtcNow;
                 lastHashRate = hashesPerSecond;
@@ -185,19 +197,21 @@ namespace DLT
                 return;
             }
 
-            if (candidate_block.blockNum > 7)
+            if (candidateBlock.blockNum > 7)
             {
-                candidate_block = Node.blockChain.getBlock(candidate_block.blockNum - 7, true, true);
+                candidateBlock = Node.blockChain.getBlock(candidateBlock.blockNum - 7, true, true);
             }
 
-            if (candidate_block == null)
+            if (candidateBlock == null)
             {
                 // Not ready yet
                 Thread.Sleep(1000);
                 return;
             }
 
-            if(candidate_block.blockNum + 50 < IxianHandler.getHighestKnownNetworkBlockHeight())
+            ulong highestNetworkBlockHeight = IxianHandler.getHighestKnownNetworkBlockHeight();
+
+            if (candidateBlock.blockNum + 50 < highestNetworkBlockHeight)
             {
                 // Not ready yet
                 Thread.Sleep(1000);
@@ -207,29 +221,24 @@ namespace DLT
             // TODO Omega mine for 10 minutes, send the best solution
             // TODO Omega make sure to find a min. required difficulty and mine for longer than 10 minutes if necessary; needs computing total PoW of the previously discarded block height
             // TODO Omega handle below if according, to the above 2 TODOs
-            if (lastSolvedBlockNum + 7 + ConsensusConfig.plPowCalculationInterval > IxianHandler.getHighestKnownNetworkBlockHeight())
+            if (highestNetworkBlockHeight > 50 &&
+                lastSolvedBlockNum + 7 + ConsensusConfig.plPowCalculationInterval > highestNetworkBlockHeight)
             {
                 // Not ready yet
                 Thread.Sleep(1000);
                 return;
             }
 
-
-            currentBlockNum = candidate_block.blockNum;
-
             startedSolvingTime = Clock.getTimestamp();
 
-            activeBlock = candidate_block;
             solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty();
             if(solvingDifficulty < 10000)
             {
                 solvingDifficulty = 10000;
             }
-            byte[] block_checksum = activeBlock.blockChecksum;
-            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
-            activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
-            System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
-            System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
+
+            activeBlock = candidateBlock;
+            currentBlockNum = candidateBlock.blockNum;
 
             blockFound = true;
 
@@ -265,14 +274,22 @@ namespace DLT
 
         private void calculatePow(ulong difficulty)
         {
-            // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
-            byte[] nonce_bytes = randomNonce(64);
-            byte[] fullnonce = SignerPowSolution.expandNonce(nonce_bytes, 234234);
-
-            byte[] hash = Argon2id.getHash(activeBlockChallenge, fullnonce, 2, 2048, 2);
+            // PoW = sha512sq( BlockChecksum + SolverAddress + Nonce)
+            byte[] nonce = randomNonce(64);
+            if(activeBlockChallengeBlockNum != currentBlockNum)
+            {
+                byte[] blockChecksum = activeBlock.blockChecksum;
+                byte[] solverAddress = IxianHandler.getWalletStorage().getPrimaryAddress();
+                activeBlockChallengeBlockNum = currentBlockNum;
+                activeBlockChallenge = new byte[blockChecksum.Length + solverAddress.Length + 64];
+                System.Buffer.BlockCopy(blockChecksum, 0, activeBlockChallenge, 0, blockChecksum.Length);
+                System.Buffer.BlockCopy(solverAddress, 0, activeBlockChallenge, blockChecksum.Length, solverAddress.Length);
+            }
+            System.Buffer.BlockCopy(nonce, 0, activeBlockChallenge, activeBlockChallenge.Length - 64, nonce.Length);
+            byte[] hash = Crypto.sha512sq(activeBlockChallenge, 0, 0);
             if (hash.Length < 1)
             {
-                Logging.error("Stopping miner due to invalid hash.");
+                Logging.error("Stopping signing miner due to invalid hash.");
                 stop();
                 return;
             }
@@ -285,7 +302,7 @@ namespace DLT
                 Logging.info("SOLUTION FOUND FOR BLOCK #{0} - {1} > {2} - {3}", activeBlock.blockNum, SignerPowSolution.hashToDifficulty(hash), difficulty, Crypto.hashToString(hash));
 
                 // Broadcast the nonce to the network
-                handleFoundSolution(nonce_bytes, difficulty);
+                handleFoundSolution(nonce, hash, difficulty);
 
                 solutionsFound++;
 
@@ -300,29 +317,24 @@ namespace DLT
         }
 
         // Broadcasts the solution to the network
-        public void handleFoundSolution(byte[] nonce, ulong difficulty)
+        public void handleFoundSolution(byte[] nonce, byte[] hash, ulong difficulty)
         {
             lock(sendSolutionLock)
             {
-                if(lastSignerPowSolution != null && currentBlockNum == lastSignerPowSolution.blockNum && difficulty <= lastSignerPowSolution.difficulty)
+                if(lastSignerPowSolution != null 
+                    && (activeBlockChallengeBlockNum < lastSignerPowSolution.blockNum || (activeBlockChallengeBlockNum == lastSignerPowSolution.blockNum && difficulty <= lastSignerPowSolution.difficulty)))
                 {
                     return;
                 }
-                SignerPowSolution signerPow = new SignerPowSolution()
+                byte[] nonceCopy = new byte[nonce.Length];
+                Array.Copy(nonce, nonceCopy, nonce.Length);
+                SignerPowSolution signerPow = new SignerPowSolution(IxianHandler.primaryWalletAddress)
                 {
-                    blockNum = activeBlock.blockNum,
-                    solution = nonce,
-                    difficulty = difficulty
+                    blockNum = activeBlockChallengeBlockNum,
+                    solution = nonceCopy
                 };
-                signerPow.sign(IxianHandler.getWalletStorage().getPrimaryPrivateKey());
                 lastSignerPowSolution = signerPow;
                 PresenceList.setPowSolution(signerPow);
-                if (Clock.getTimestamp() - lastSentBlockTime < 60)
-                {
-                    return;
-                }
-                lastSentBlockTime = Clock.getTimestamp();
-                CoreProtocolMessage.broadcastSignerPow(IxianHandler.getWalletStorage().getPrimaryAddress(), signerPow, null);
             }
         }
 

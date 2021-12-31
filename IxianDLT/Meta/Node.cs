@@ -378,7 +378,7 @@ namespace DLT.Meta
             {
                 if(File.Exists(Config.genesisFile))
                 {
-                    Block genesis = new Block(Crypto.stringToHash(File.ReadAllText(Config.genesisFile)));
+                    Block genesis = new Block(Crypto.stringToHash(File.ReadAllText(Config.genesisFile)), false);
                     blockChain.setGenesisBlock(genesis);
                 }
                 ulong lastLocalBlockNum = storage.getHighestBlockInStorage();

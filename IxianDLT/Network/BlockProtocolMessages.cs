@@ -886,7 +886,7 @@ namespace DLT
 
             static public void handleBlockData(byte[] data, RemoteEndpoint endpoint)
             {
-                Block block = new Block(data);
+                Block block = new Block(data, false);
                 if (endpoint.blockHeight < block.blockNum)
                 {
                     endpoint.blockHeight = block.blockNum;

@@ -30,7 +30,6 @@ namespace DLTNode.Inventory
             typeOptions[InventoryItemTypes.blockSignature].maxItems = 200000;
             typeOptions[InventoryItemTypes.transaction].maxItems = 600000;
             typeOptions[InventoryItemTypes.keepAlive].maxItems = 600000;
-            typeOptions[InventoryItemTypes.signerPow].maxItems = 600000;
         }
 
         override protected bool sendInventoryRequest(InventoryItem item, RemoteEndpoint endpoint)
@@ -46,8 +45,6 @@ namespace DLTNode.Inventory
                 case InventoryItemTypes.transaction:
                     CoreProtocolMessage.broadcastGetTransaction(item.hash, 0, endpoint);
                     return true;
-                case InventoryItemTypes.signerPow:
-                    return handleSignerPow(item, endpoint);
             }
             return false;
         }
@@ -152,27 +149,6 @@ namespace DLTNode.Inventory
                 {
                     endpoint.sendData(ProtocolMessageCode.getSignatures, data, null);
                 }
-                return true;
-            }
-            return false;
-        }
-
-        private bool handleSignerPow(InventoryItem item, RemoteEndpoint endpoint)
-        {
-            if (endpoint == null)
-            {
-                return false;
-            }
-            InventoryItemSignerPow iisp = (InventoryItemSignerPow)item;
-            Presence p = PresenceList.getPresenceByAddress(iisp.address);
-            if (p == null)
-            {
-                CoreProtocolMessage.broadcastGetPresence(iisp.address, endpoint);
-                return false;
-            }
-            else
-            {
-                CoreProtocolMessage.broadcastGetSignerPow(iisp.address, endpoint);
                 return true;
             }
             return false;

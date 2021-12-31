@@ -407,9 +407,9 @@ namespace DLT
                         str_sig = Convert.ToBase64String(sig.signature);
                     }
                     string str_powSolution = "";
-                    if(sig.powSoluton != null)
+                    if(sig.powSolution != null)
                     {
-                        str_powSolution = Crypto.hashToString(sig.powSoluton.getBytes(false));
+                        str_powSolution = Crypto.hashToString(sig.powSolution.getBytes());
                     }
                     signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig.signerAddress) + ":" + str_powSolution;
                 }
@@ -689,7 +689,7 @@ namespace DLT
                         newSig.signerAddress = Convert.FromBase64String(split_sig[1]);
                         if(split_sig.Length >= 3 && split_sig[2] != "")
                         {
-                            newSig.powSoluton = new SignerPowSolution(Crypto.stringToHash(split_sig[2]));
+                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), newSig.signerAddress);
                         }
                         if (!block.containsSignature(new Address(newSig.signerAddress, null, false)))
                         {

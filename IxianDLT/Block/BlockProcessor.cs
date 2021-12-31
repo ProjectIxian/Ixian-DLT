@@ -1096,9 +1096,9 @@ namespace DLT
                 }
                 else
                 {
-                    if (t.version != 6)
+                    if (t.version < 6 || t.version > 7)
                     {
-                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 6!", t.version);
+                        Logging.error("Block includes a tx version {{ {0} }} but expected tx version is 6 or 7!", t.version);
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -2572,9 +2572,9 @@ namespace DLT
                 }
 
                 // lock transaction v6 with block v10
-                if (block_version >= BlockVer.v10 &&  transaction.version != 6)
+                if (block_version >= BlockVer.v10 && (transaction.version < 6 || transaction.version > 7))
                 {
-                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v9 && transaction.version < 5)
+                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v9 && transaction.version < 6)
                     {
                         TransactionPool.removeUnappliedTransaction(transaction.id);
                     }

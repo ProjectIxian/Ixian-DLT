@@ -926,7 +926,7 @@ namespace DLT
             ConsensusConfig.minRedactedWindowSize = ConsensusConfig.getRedactedWindowSize(lastBlockVersion);
 
             // edge case for first block of block_version 3
-            if (lastBlockVersion == 3 && getBlock(lastBlockNum - 1, true, true).version == 2)
+            if (lastBlockVersion == BlockVer.v3 && getBlock(lastBlockNum - 1, true, true).version == BlockVer.v2)
             {
                 Node.walletState.setCachedBlockVersion(2);
             }

@@ -332,64 +332,6 @@ namespace DLT
                     CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, updated_presence.wallet, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
                 }*/
             }
-
-            public static void handleGetSignerPow(byte[] data, RemoteEndpoint endpoint)
-            {
-                if (!endpoint.isConnected())
-                {
-                    return;
-                }
-
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        int addressLen = (int)reader.ReadIxiVarUInt();
-                        byte[] address = reader.ReadBytes(addressLen);
-
-                        Presence p = PresenceList.getPresenceByAddress(address);
-                        if (p != null && p.powSolution != null)
-                        {
-                            CoreProtocolMessage.broadcastSignerPow(address, p.powSolution, endpoint);
-                        }
-                        else
-                        {
-                            Logging.info("Requested Signer PoW for missing presence address " + Base58Check.Base58CheckEncoding.EncodePlain(address));
-                        }
-                    }
-                }
-            }
-
-            public static void handleSignerPow(byte[] data, RemoteEndpoint endpoint)
-            {
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        int addressLen = (int)reader.ReadIxiVarUInt();
-                        byte[] address = reader.ReadBytes(addressLen);
-
-                        int signerPowLen = (int)reader.ReadIxiVarUInt();
-                        SignerPowSolution signerPow = new SignerPowSolution(reader.ReadBytes(signerPowLen));
-
-                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.signerPow, signerPow.solution, true);
-
-                        Presence p = PresenceList.getPresenceByAddress(address);
-                        if (p != null)
-                        {
-                            if (p.verifyPowSolution(signerPow, Node.blockChain.getMinSignerPowDifficulty()))
-                            {
-                                p.powSolution = signerPow;
-                                CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemSignerPow(address, signerPow.blockNum), endpoint);
-                            } // TODO else blacklist
-                        }
-                        else
-                        {
-                            CoreProtocolMessage.broadcastGetPresence(address, endpoint);
-                        }
-                    }
-                }
-            }
         }
     }
 }
