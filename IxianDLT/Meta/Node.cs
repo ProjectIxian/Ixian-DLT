@@ -601,25 +601,6 @@ namespace DLT.Meta
             NetDump.Instance.shutdown();
         }
 
-        static public void synchronize()
-        {
-            // Clear everything and force a resynchronization
-            Logging.info("\n\n\tSynchronizing to network...\n");
-
-            blockProcessor.stopOperation();
-
-            blockProcessor = new BlockProcessor();
-            blockChain = new BlockChain();
-            walletState.clear();
-            TransactionPool.clear();
-
-            NetworkQueue.stop();
-            NetworkQueue.start();
-
-            // Finally, reconnect to the network
-            CoreNetworkUtils.reconnect();
-        }
-
         // Checks to see if this node can handle the block number
         static public bool checkCurrentBlockDeprecation(ulong block)
         {
@@ -805,6 +786,20 @@ namespace DLT.Meta
 
                     // Remove expired peers from blacklist
                     PeerStorage.updateBlacklist();
+
+                    if(blockSync.synchronizing)
+                    {
+                        int storageQueueCount = storage.getQueuedQueryCount();
+                        int activityQueueCount = ActivityStorage.getQueuedQueryCount();
+                        if (storageQueueCount > 2000 || activityQueueCount > 2000)
+                        {
+                            blockSync.paused = true;
+                        }
+                        else if (storageQueueCount < 1000 && activityQueueCount < 1000)
+                        {
+                            blockSync.paused = false;
+                        }
+                    }
                 }
                 catch (Exception e)
                 {
