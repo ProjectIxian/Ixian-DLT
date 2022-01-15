@@ -63,6 +63,8 @@ namespace DLT
         private long lastProcessedBlockTime = 0;
 
         private List<Block> lastBlocks = new List<Block>();
+
+        public bool paused = false;
         public BlockSync()
         {
             synchronizing = false;
@@ -84,7 +86,7 @@ namespace DLT
             while (running)
             {
                 TLC.Report();
-                if (synchronizing == false || syncDone == true)
+                if (paused || synchronizing == false || syncDone == true)
                 {
                     Thread.Sleep(1000);
                     continue;
@@ -123,7 +125,7 @@ namespace DLT
             while (running)
             {
                 TLC.Report();
-                if (synchronizing == false || syncDone == true)
+                if (paused || synchronizing == false || syncDone == true)
                 {
                     Thread.Sleep(1000);
                     continue;

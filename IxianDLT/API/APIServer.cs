@@ -36,11 +36,6 @@ namespace DLTNode
         {
             JsonResponse response = null;
 
-            if (methodName.Equals("sync", StringComparison.OrdinalIgnoreCase))
-            {
-                response = onSync();
-            }
-
             if (methodName.Equals("getbalance", StringComparison.OrdinalIgnoreCase))
             {
                 response = onGetBalance(parameters);
@@ -174,16 +169,6 @@ namespace DLTNode
             context.Response.Close();
 
             return true;
-        }
-
-
-        public JsonResponse onSync()
-        {
-            JsonError error = null;
-
-            Node.synchronize();
-
-            return new JsonResponse { result = "Synchronizing to network now.", error = error };
         }
 
         private Dictionary<string, string> blockToJsonDictionary(Block block)
