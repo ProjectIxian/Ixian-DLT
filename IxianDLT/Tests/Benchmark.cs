@@ -124,28 +124,30 @@ namespace DLTNode
             int iterations = 0;
             int mode = 0; // Start with sha256
 
-            byte[] text_data = Base58Check.Base58CheckEncoding.DecodePlain("ixianbenchmark"); // TODO For optimum result, randomize contents
-            
+            Random rnd = new Random();
+            Byte[] random_data = new Byte[48]; // 48 bytes worth of data
+
             lastStatTime = DateTime.UtcNow;
 
             while (!shouldStop)
             {
                 byte[] hash = null;
-                
+                rnd.NextBytes(random_data); // Randomize content for each iteration
+
                 // Set hashing mode
-                switch(mode)
+                switch (mode)
                 {
                     case 0:
-                        hash = Crypto.sha256(text_data);
+                        hash = Crypto.sha256(random_data);
                         break;
                     case 1:
-                        hash = Crypto.sha512(text_data);
+                        hash = Crypto.sha512(random_data);
                         break;
                     case 2:
-                        hash = Crypto.sha512sq(text_data);
+                        hash = Crypto.sha512sq(random_data);
                         break;
                     case 3:
-                        hash = Crypto.sha512qu(text_data);
+                        hash = Crypto.sha512qu(random_data);
                         break;
                     default:
                         break;
