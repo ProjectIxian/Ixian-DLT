@@ -12,8 +12,10 @@
 
 using DLT;
 using DLT.Meta;
+using DLT.Storage;
 using IXICore;
 using IXICore.Meta;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -33,8 +35,22 @@ namespace DLTNode
         private static DateTime lastStatTime; // Last statistics output time
         private static bool running = false; // Benchmark running flag
 
+        private static PerformanceCounter cpuCounter;
+        private static PerformanceCounter ramCounter;
+
+        private static BenchmarkNode benchmarkNode;
+
         public static void start(string mode)
         {
+            cpuCounter = new PerformanceCounter("Processor", "% Processor Time","_Total", true);
+            if (IXICore.Platform.onMono() == false)
+            {
+                ramCounter = new PerformanceCounter("Memory", "Available Bytes", true);
+            }
+            else
+            {
+                ramCounter = new PerformanceCounter("Mono Memory", "Available Physical Memory", true);
+            }
 
             lastStatTime = DateTime.UtcNow;
             running = true;
@@ -56,6 +72,16 @@ namespace DLTNode
                     benchmarkRSA();
                     break;
 
+                // Storage benchmark
+                case "storage":
+                    benchmarkStorage();
+                    break;
+
+                // Transaction object benchmark
+                case "tx":
+                    benchmarkTx();
+                    break;
+
                 // Key derivation generation benchmarks
                 case "keys1024":
                     benchmarkKeyGeneration(1024);
@@ -73,7 +99,7 @@ namespace DLTNode
             }
 
             // Wait for benchmark to finish
-            while(running)
+            while (running)
             {
                 Thread.Sleep(100);
             }
@@ -87,7 +113,10 @@ namespace DLTNode
             GC.Collect();
 
             Process currentProcess = System.Diagnostics.Process.GetCurrentProcess();
-            Logging.info("Memory Usage: {0} bytes", currentProcess.WorkingSet64.ToString("N0"));
+            Logging.info("DLT Memory Usage:\t {0} bytes", currentProcess.WorkingSet64.ToString("N0"));
+
+            Logging.info("Available Memory:\t {0} bytes", Convert.ToInt64(ramCounter.NextValue()).ToString("N0"));
+            Logging.info("CPU Usage: {0}%", Convert.ToInt32(cpuCounter.NextValue()).ToString());
         }
 
         // Benchmark for argon2id hashing
@@ -195,7 +224,7 @@ namespace DLTNode
                     {
                         // Proceed to the next mode
                         mode++;
-                        if(mode > 3)
+                        if (mode > 3)
                             shouldStop = true;
                         iterations = 0;
                         hashesPerSecond = 0;
@@ -225,7 +254,7 @@ namespace DLTNode
             int max_iterations = 5;
 
             Random rnd = new Random();
-            Byte[] random_data = new Byte[1024*1024]; // 1MB worth of data
+            Byte[] random_data = new Byte[1024 * 1024]; // 1MB worth of data
             rnd.NextBytes(random_data); // Random content
 
             lastStatTime = DateTime.UtcNow;
@@ -276,7 +305,7 @@ namespace DLTNode
             for (int i = 0; i < max_iterations; i++)
             {
                 bool valid = CryptoManager.lib.verifySignature(random_data, kp.publicKeyBytes, signature);
-                if(!valid)
+                if (!valid)
                 {
                     Logging.error("Error during RSA benchmark, unable to verify signature.");
                     running = false;
@@ -291,6 +320,157 @@ namespace DLTNode
             printSystemStatus();
 
             running = false;
+        }
+
+        // Benchmark for storage
+        public static void benchmarkStorage()
+        {
+            Thread storage_thread = new Thread(storageThreadLoop);
+            storage_thread.Name = "Benchmark_Storage_Thread";
+            storage_thread.Start();
+        }
+
+        private static void storageThreadLoop()
+        {
+            IStorage storage = null;
+
+            // Initialize storage
+            if (storage is null)
+            {
+                storage = IStorage.create(Config.blockStorageProvider);
+            }
+            if (!storage.prepareStorage())
+            {
+                Logging.error("Error while preparing block storage! Aborting.");
+                Program.noStart = true;
+                return;
+            }
+
+            Logging.info("Starting Storage benchmark.");
+            printSystemStatus();
+
+
+            storage.stopStorage();
+            Logging.info("Storage benchmark complete.");
+            printSystemStatus();
+
+            running = false;
+        }
+
+        // Benchmark for transaction objects
+        public static void benchmarkTx()
+        {
+
+
+            Thread tx_thread = new Thread(txThreadLoop);
+            tx_thread.Name = "Benchmark_Tx_Thread";
+            tx_thread.Start();
+        }
+
+        private static void txThreadLoop()
+        {
+            Logging.info("Starting TX benchmark.");
+            printSystemStatus();
+
+            // Initialize the benchmark node
+            benchmarkNode = new BenchmarkNode();
+
+            // Start the node
+            benchmarkNode.start();
+
+            int maxtx = 1000000; // Number of transactions to generate
+
+            IxiNumber amount = ConsensusConfig.transactionPrice;
+            IxiNumber fee = ConsensusConfig.transactionPrice;
+            Random rnd = new Random();
+            byte[] from = new Byte[48];
+            byte[] to = new Byte[48];
+            byte[] pubKey = new Byte[256];
+
+            Dictionary<byte[], Transaction> transactions = new Dictionary<byte[], Transaction>(new ByteArrayComparer());
+            List<byte[]> lookupList = new List<byte[]>();
+
+            Logging.info("Generating {0} transactions", maxtx.ToString("N0"));
+            int txcount = 0;
+
+            Stopwatch s1 = Stopwatch.StartNew();
+            Stopwatch s2 = Stopwatch.StartNew();
+            while (txcount < maxtx)
+            {
+                rnd.NextBytes(from);
+                rnd.NextBytes(to);
+                rnd.NextBytes(pubKey);
+                pubKey[0] = 1; // Set address version to 1
+
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, 1236547);
+                transactions.AddOrReplace(transaction.id, transaction);
+                txcount++;
+
+                if (txcount % 10000 == 0)
+                {
+                    s1.Stop();
+                    Logging.info("{0}/{1} transactions in {2} ms", txcount.ToString("N0"), maxtx.ToString("N0"), s1.ElapsedMilliseconds);
+                    s1.Restart();
+                }
+
+                // Add 12 transactions to the lookup list for later
+                if(txcount % (maxtx / 12) == 0)
+                {
+                    lookupList.Add(transaction.id);
+                }
+            }
+            s1.Stop();
+            s2.Stop();
+            Logging.info("Generated a total of {0} transactions in {1} ms", txcount.ToString("N0"), s2.ElapsedMilliseconds.ToString("N0"));
+            printSystemStatus();
+
+            Logging.info("Preparing lookup benchmark");
+            lookupList.Add(from); // Add a random invalid txid
+
+            Logging.info("Transactions in lookup list: {0}", lookupList.Count);
+            
+            for (int i = 0; i < lookupList.Count; i++)
+            {
+                s1.Reset();
+                if (transactions.ContainsKey(lookupList[i]))
+                {
+                    s1.Stop();
+                    Logging.info("Tx #{0} lookup time took {1} ms", i, s1.ElapsedMilliseconds);
+                    s1.Start();
+                }              
+            }
+            s1.Stop();
+            Logging.info("Total lookup time {0} ms", s1.ElapsedMilliseconds);
+            printSystemStatus();
+
+            Logging.info("Preparing to remove {0} transactions from memory", lookupList.Count);
+            s1.Start();
+            foreach (byte[] txid in lookupList)
+            {
+                transactions.Remove(txid);
+            }
+            lookupList.Clear();
+            s1.Stop();
+            Logging.info("Total transaction removal time {0} ms", s1.ElapsedMilliseconds);
+            Thread.Sleep(1000);
+            printSystemStatus();
+
+            Logging.info("Preparing to remove remaining {0} transactions from memory", transactions.Count.ToString("N0"));
+            s1.Start();
+            transactions.Clear();
+            s1.Stop();
+            Logging.info("Total transaction removal time {0} ms", s1.ElapsedMilliseconds);
+            Thread.Sleep(1000);
+            printSystemStatus();
+
+
+            Logging.info("Objects benchmark complete.");
+            printSystemStatus();
+
+            running = false;
+
+            // Shutdown the node
+            benchmarkNode.shutdown();
         }
 
         // Benchmark for key generation

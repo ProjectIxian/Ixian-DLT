@@ -153,6 +153,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tests\Benchmark.cs" />
+    <Compile Include="Tests\BenchmarkNode.cs" />
     <Compile Include="Tests\StressTest.cs" />
     <Compile Include="Transaction\TransactionPool.cs" />
     <Compile Include="Wallet\WalletState.cs" />
