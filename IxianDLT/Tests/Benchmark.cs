@@ -346,22 +346,64 @@ namespace DLTNode
                 return;
             }
 
+            // Initialize the benchmark node
+            benchmarkNode = new BenchmarkNode();
+
+            // Start the node
+            benchmarkNode.start();
+
             Logging.info("Starting Storage benchmark.");
             printSystemStatus();
 
+
+            ulong highest_block = storage.getHighestBlockInStorage();
+            Logging.info("Highest block is storage is #{0}", highest_block);
+            if(highest_block < 101)
+            {
+                Logging.error("Too few blocks in blockchain storage to perform benchmark.");
+
+                storage.stopStorage();
+                Logging.info("Storage benchmark aborted.");
+                printSystemStatus();
+
+                running = false;
+
+                // Shutdown the node
+                benchmarkNode.shutdown();
+                Program.noStart = true;
+                return;
+            }
+
+            List<Block> blockList = new List<Block>();
+            Logging.info("Fetching last 100 blocks from storage:");
+            Stopwatch s1 = Stopwatch.StartNew();
+            Stopwatch s2 = Stopwatch.StartNew();
+            for (ulong i = 0; i < 100; i++)
+            {
+                s2.Restart();
+                Block block = storage.getBlock(highest_block - i);
+                blockList.Add(block);
+                s2.Stop();
+                Logging.info("Block #{0} fetch took {1} ms", highest_block - i, s2.ElapsedMilliseconds);
+            }
+            s1.Stop();
+            Logging.info("Fetching {0} blocks took {1} ms", blockList.Count, s1.ElapsedMilliseconds);
+
+            blockList.Clear();
 
             storage.stopStorage();
             Logging.info("Storage benchmark complete.");
             printSystemStatus();
 
             running = false;
+
+            // Shutdown the node
+            benchmarkNode.shutdown();
         }
 
         // Benchmark for transaction objects
         public static void benchmarkTx()
         {
-
-
             Thread tx_thread = new Thread(txThreadLoop);
             tx_thread.Name = "Benchmark_Tx_Thread";
             tx_thread.Start();
