@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using static IXICore.Transaction;
 
@@ -313,11 +314,19 @@ namespace DLT
                     return false;
                 }
             }
+            else if (block_version == BlockVer.v10)
+            {
+                if (transaction.version < 6 || transaction.version > 7)
+                {
+                    Logging.warn("Transaction version {0} is incorrect, expecting v6 or v7. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
+                    return false;
+                }
+            }
             else
             {
-                if (transaction.version != 6)
+                if (transaction.version < 7)
                 {
-                    Logging.warn("Transaction version {0} is incorrect, expecting v6. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
+                    Logging.warn("Transaction version {0} is incorrect, expecting v6 or higher. TXid: {1}.", transaction.version, Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
             }
@@ -1814,9 +1823,10 @@ namespace DLT
                 }
 
                 valid = false;
-                List<byte[]> signatureWallets = targetBlock.getSignaturesWalletAddresses();
-                foreach (byte[] wallet_addr in signatureWallets)
+                var signatureWallets = targetBlock.getSignaturesWalletAddressesWithDifficulty();
+                foreach (var wallet_addr_diff in signatureWallets)
                 {
+                    byte[] wallet_addr = wallet_addr_diff.address;
                     if (toEntry.Key.SequenceEqual(wallet_addr))
                         valid = true;
                 }

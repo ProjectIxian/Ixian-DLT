@@ -196,7 +196,7 @@ namespace DLTNode
                 blockData.Add("Frozen Signature count", block.frozenSignatures.Count.ToString());
             }
             blockData.Add("Sig Checksum", Crypto.hashToString(block.calculateSignatureChecksum()));
-            blockData.Add("Signer Difficulty", block.signerDifficulty.ToString());
+            blockData.Add("Signer Bits", block.signerBits.ToString());
             List<string> txids = new List<string>();
             foreach(byte[] tx in block.transactions)
             {
@@ -670,6 +670,7 @@ namespace DLTNode
             {
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
                 networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty());
+                networkArray.Add("Signer Bits", Node.blockChain.getRequiredSignerBits());
                 networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
                 networkArray.Add("Signer Last PoW Solution", Node.signerPowMiner.lastSignerPowSolution);
 

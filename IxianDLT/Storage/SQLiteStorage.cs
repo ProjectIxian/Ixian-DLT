@@ -437,7 +437,7 @@ namespace DLT
                     lock (superBlockStorageLock)
                     {
                         string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                        result = executeSQL(superBlocksSqlConnection, sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer,(long)block.signerDifficulty);
+                        result = executeSQL(superBlocksSqlConnection, sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer,(long)block.signerBits);
                     }
                 }
 
@@ -446,7 +446,7 @@ namespace DLT
                     seekDatabase(block.blockNum, true);
 
                     string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer, (long)block.signerDifficulty);
+                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer, (long)block.signerBits);
                 }
 
                 if (result)
@@ -658,7 +658,7 @@ namespace DLT
                     lastSuperBlockNum = (ulong)blk.lastSuperBlockNum,
                     compactedSigs = blk.compactedSigs,
                     blockProposer = blk.blockProposer,
-                    signerDifficulty = (ulong)blk.signerDifficulty
+                    signerBits = (uint)blk.signerDifficulty
                 };
 
                 try
@@ -692,14 +692,13 @@ namespace DLT
                             newSig.signature = Convert.FromBase64String(split_sig[0]);
                         }
                         newSig.signerAddress = Convert.FromBase64String(split_sig[1]);
-                        
+                        Address signerAddress = new Address(newSig.signerAddress, null, false);
                         if(split_sig.Length >= 3 && split_sig[2] != "")
                         {
-                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), newSig.signerAddress);
+                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), signerAddress.address);
                         }
                          
                         // Go through all block signatures and check if the resulting address matches
-                        Address signerAddress = new Address(newSig.signerAddress, null, false);
                         byte[] sig_address = signerAddress.address;
 
                         bool found = false;

@@ -348,7 +348,7 @@ namespace DLT
             for (int i = 0; i < sigs.Count; i++)
             {
                 // Don't remove block proposer's signature
-                if(new Address(sigs[i].signerAddress, null, false).address.SequenceEqual(b.blockProposer))
+                if(b.blockProposer != null && new Address(sigs[i].signerAddress, null, false).address.SequenceEqual(b.blockProposer))
                 {
                     continue;
                 }
@@ -928,10 +928,10 @@ namespace DLT
 
                     if(b.version >= BlockVer.v10)
                     {
-                        ulong expectedSignerDifficulty = Node.blockChain.getRequiredSignerDifficulty();
-                        if (b.signerDifficulty != expectedSignerDifficulty)
+                        ulong expectedSignerBits = Node.blockChain.getRequiredSignerBits();
+                        if (b.signerBits != expectedSignerBits)
                         {
-                            Logging.warn("Received block #{0} ({1}) which had a signer difficulty {2}, expected signer difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.signerDifficulty, expectedSignerDifficulty);
+                            Logging.warn("Received block #{0} ({1}) which had a signer difficulty {2}, expected signer difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.signerBits, expectedSignerBits);
                             return BlockVerifyStatus.Invalid;
                         }
                     }
@@ -1432,8 +1432,9 @@ namespace DLT
                         int localBlockSigCount = localNewBlock.getSignatureCount();
                         if(b.blockNum == localNewBlock.blockNum)
                         {
-                            if(blockSigCount > localBlockSigCount
-                                || (blockSigCount == localBlockSigCount && b.transactions.Count() >= localNewBlock.transactions.Count()))
+                            if((blockSigCount >= localBlockSigCount && b.getTotalSignerDifficulty() > localNewBlock.getTotalSignerDifficulty())
+                                || (b.getTotalSignerDifficulty() == localNewBlock.getTotalSignerDifficulty() && b.transactions.Count() > localNewBlock.transactions.Count())
+                                )
                             {
                                 Logging.info("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset());
                                 localNewBlock = b;
@@ -1578,7 +1579,7 @@ namespace DLT
         }
 
         // extracts required signatures from a block according to the election block (blockNum - 6)
-        private List<BlockSignature> extractRequiredSignatures(Block block, int max_sig_count = 0)
+        private List<BlockSignature> extractRequiredSignatures(Block block, int max_sig_count, BigInteger required_difficulty)
         {
             Block election_block = Node.blockChain.getBlock(block.blockNum - 6);
             if(election_block == null)
@@ -1604,20 +1605,27 @@ namespace DLT
                     sorted_sigs = new List<BlockSignature>(block.signatures);
                 }
             }
-            sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress, y.signerAddress));
-
-            // First add block proposer's sig
-            if (block.blockProposer != null)
+            if(block.version < BlockVer.v10)
             {
-                BlockSignature signature = sorted_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(block.blockProposer));
-                if (signature == null)
+                sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress, y.signerAddress));
+
+                // First add block proposer's sig
+                if (block.blockProposer != null)
                 {
-                    Logging.error("Error freezing signatures of target block #{0} {1}, cannot find block proposer's signature.", block.blockNum, Crypto.hashToString(block.blockChecksum));
-                    return null;
+                    BlockSignature signature = sorted_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(block.blockProposer));
+                    if (signature == null)
+                    {
+                        Logging.error("Error freezing signatures of target block #{0} {1}, cannot find block proposer's signature.", block.blockNum, Crypto.hashToString(block.blockChecksum));
+                        return null;
+                    }
+                    required_sigs.Add(signature);
+                    sorted_sigs.Remove(signature);
+                    sig_count++;
                 }
-                required_sigs.Add(signature);
-                sorted_sigs.Remove(signature);
-                sig_count++;
+            }
+            else
+            {
+                sorted_sigs.Sort((x, y) => Comparer<BigInteger>.Default.Compare(x.powSolution.difficulty, y.powSolution.difficulty));
             }
 
             var election_block_sigs = election_block.signatures;
@@ -1682,7 +1690,7 @@ namespace DLT
                     return false;
                 }
 
-                List<BlockSignature> required_sigs = extractRequiredSignatures(block);
+                List<BlockSignature> required_sigs = extractRequiredSignatures(block, 0, Node.blockChain.getRequiredSignerDifficulty(block.blockNum));
                 if(required_sigs == null)
                 {
                     return false;
@@ -1802,16 +1810,17 @@ namespace DLT
         public bool freezeSignatures(Block target_block)
         {
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
+            BigInteger required_difficulty = Node.blockChain.getRequiredSignerDifficulty(target_block.blockNum, false);
 
             List<BlockSignature> frozen_block_sigs = null;
             if (highestNetworkBlockNum > target_block.blockNum + 10)
             {
                 // catching up
-                frozen_block_sigs = extractRequiredSignatures(target_block, required_consensus_count);
+                frozen_block_sigs = extractRequiredSignatures(target_block, required_consensus_count, required_difficulty);
             }
             else
             {
-                frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1);
+                frozen_block_sigs = extractRequiredSignatures(target_block, (required_consensus_count / 2) + 1, required_difficulty);
             }
 
             if (frozen_block_sigs == null)
@@ -1819,49 +1828,88 @@ namespace DLT
                 return false;
             }
 
-            PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(target_block.blockChecksum, ConsensusConfig.maximumBlockSigners * 2);
-
-            ByteArrayComparer bac = new ByteArrayComparer();
-
             int sig_count = frozen_block_sigs.Count;
 
             lock (target_block.signatures)
             {
-                foreach (byte[] address in poe)
+                if(target_block.version < BlockVer.v10)
                 {
-                    BlockSignature signature = target_block.signatures.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address));
-                    if (signature != null && frozen_block_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address)) == null)
+                    PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(target_block.blockChecksum, ConsensusConfig.maximumBlockSigners * 2);
+                    foreach (byte[] address in poe)
                     {
-                        frozen_block_sigs.Add(signature);
-                        sig_count++;
+                        BlockSignature signature = target_block.signatures.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address));
+                        if (signature != null && frozen_block_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address)) == null)
+                        {
+                            frozen_block_sigs.Add(signature);
+                            sig_count++;
+                        }
+                        if (sig_count == ConsensusConfig.maximumBlockSigners)
+                        {
+                            break;
+                        }
                     }
-                    if (sig_count == ConsensusConfig.maximumBlockSigners)
+                }
+                else
+                {
+                    foreach(BlockSignature sig in target_block.signatures)
                     {
-                        break;
+                        var address = new Address(sig.signerAddress).address;
+                        if (frozen_block_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address)) == null)
+                        {
+                            if(PresenceList.getPresenceByAddress(address) == null)
+                            {
+                                continue;
+                            }
+                            frozen_block_sigs.Add(sig);
+                            sig_count++;
+                        }
+                        if (sig_count == ConsensusConfig.maximumBlockSigners)
+                        {
+                            break;
+                        }
                     }
                 }
 
                 int required_consensus_count_adjusted = Node.blockChain.getRequiredConsensus(target_block.blockNum, true);
+                if (frozen_block_sigs.Count < required_consensus_count_adjusted)
+                {
+                    Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus {2} < {3}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs.Count, required_consensus_count_adjusted);
+                    return false;
+                }
 
-                if (frozen_block_sigs.Count >= required_consensus_count_adjusted)
+                BigInteger required_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(target_block.blockNum, true);
+                BigInteger frozen_block_sigs_difficulty = 0;
+                foreach(var frozen_block_sig in frozen_block_sigs)
+                {
+                    if(frozen_block_sig.powSolution != null)
+                    {
+                        frozen_block_sigs_difficulty += frozen_block_sig.powSolution.difficulty;
+                    }else
+                    {
+                        frozen_block_sigs_difficulty += 1;
+                    }
+                }
+                if (frozen_block_sigs_difficulty < required_difficulty_adjusted)
+                {
+                    Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus {2} < {3}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs.Count, required_consensus_count_adjusted);
+                    return false;
+                }
+
+                Node.blockChain.setFrozenSignatures(target_block, frozen_block_sigs);
+                if (target_block.version < BlockVer.v10)
                 {
                     if (target_block.blockProposer == null)
                     {
                         target_block.blockProposer = new Address(target_block.signatures[0].signerAddress).address;
                     }
-                    Node.blockChain.setFrozenSignatures(target_block, frozen_block_sigs);
                     if (!target_block.verifyBlockProposer())
                     {
                         Node.blockChain.setFrozenSignatures(target_block, null);
                         Logging.error("Error verifying block proposer while freezing signatures on block {0} ({1})", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum));
                         return false;
                     }
-                    return true;
-                }else
-                {
-                    Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus {2} < {3}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs.Count, required_consensus_count_adjusted);
-                    return false;
                 }
+                return true;
             }
         }
 
@@ -1929,7 +1977,7 @@ namespace DLT
                             if (signature_data != null) 
                             {
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress, localNewBlock.blockChecksum), true);
-                                // ProtocolMessage.broadcastNewBlock(localNewBlock);
+                                //BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, null, true);
                                 SignatureProtocolMessages.broadcastBlockSignature(signature_data, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
 
                                 foreach (var sig in localNewBlock.signatures)
@@ -2853,7 +2901,7 @@ namespace DLT
                     localNewBlock.difficulty = calculateDifficulty(block_version);
 
                     // Calculate signer difficulty
-                    localNewBlock.signerDifficulty = Node.blockChain.getRequiredSignerDifficulty();
+                    localNewBlock.signerBits = Node.blockChain.getRequiredSignerBits();
 
                     // Simulate applying a block to see what the walletstate would look like
                     Node.walletState.beginTransaction(localNewBlock.blockNum);
@@ -3283,7 +3331,7 @@ namespace DLT
             //Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
 
             // Retrieve the list of signature wallets
-            List<byte[]> signatureWallets = targetBlock.getSignaturesWalletAddresses();
+            var signatureWallets = targetBlock.getSignaturesWalletAddressesWithDifficulty();
 
             IxiNumber totalIxisStaked = new IxiNumber(0);
             byte[][] stakeWallets = new byte[signatureWallets.Count][];
@@ -3292,9 +3340,19 @@ namespace DLT
             BigInteger[] awardRemainders = new BigInteger[signatureWallets.Count];
             // First pass, go through each wallet to find its balance
             int stakers = 0;
-            foreach (byte[] wallet_addr in signatureWallets)
+            foreach (var wallet_addr_diff in signatureWallets)
             {
-                if(block_version < BlockVer.v5)
+                byte[] wallet_addr = wallet_addr_diff.address;
+                BigInteger difficulty = wallet_addr_diff.difficulty;
+                if(block_version >= BlockVer.v10)
+                {
+                    totalIxisStaked += new IxiNumber(difficulty);
+                    //Logging.info(String.Format("wallet {0} stakes {1} IXI", Base58Check.Base58CheckEncoding.EncodePlain(wallet_addr), wallet.balance.ToString()));
+                    stakes[stakers] = difficulty;
+                    stakeWallets[stakers] = wallet_addr;
+                    stakers += 1;
+                }
+                else if(block_version < BlockVer.v5)
                 {
                     Wallet wallet = Node.walletState.getWallet(wallet_addr);
                     if (wallet.balance.getAmount() > 0)
@@ -3446,8 +3504,6 @@ namespace DLT
         {
             ulong last_block_num = Node.blockChain.getLastBlockNum();
             ulong block_num = blockSig.blockNum;
-            byte[] signature = blockSig.signature;
-            byte[] address_or_pub_key = blockSig.signerAddress;
             byte[] checksum = blockSig.blockHash;
             if (block_num > last_block_num - 5 && block_num <= last_block_num)
             {
@@ -3492,6 +3548,11 @@ namespace DLT
             if (targetBlock == null)
             {
                 return false;
+            }
+
+            if (targetBlock.version >= BlockVer.v10)
+            {
+                return true;
             }
 
             List<BlockSignature> sigs = null;

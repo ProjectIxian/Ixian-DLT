@@ -32,12 +32,11 @@ namespace DLT
             {
                 signature.blockNum = blockNum;
                 signature.blockHash = blockHash;
-                byte[] signature_data = signature.getBytesForBroadcast();
-
                 if (endpoint != null)
                 {
                     if (endpoint.isConnected())
                     {
+                        byte[] signature_data = signature.getBytesForBroadcast();
                         endpoint.sendData(ProtocolMessageCode.blockSignature2, signature_data);
                         return true;
                     }
@@ -133,7 +132,7 @@ namespace DLT
                 broadcastBlockSignatures(b, null, endpoint);
             }
 
-            public static void broadcastBlockSignatures(ulong block_num, byte[] block_checksum, List<BlockSignature> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
+            public static void broadcastBlockSignaturesOld(ulong block_num, byte[] block_checksum, List<BlockSignature> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
                 int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
 
@@ -204,7 +203,7 @@ namespace DLT
                 }
             }
 
-            public static void broadcastBlockSignatures2(ulong block_num, byte[] block_checksum, List<BlockSignature> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
+            public static void broadcastBlockSignatures(ulong block_num, byte[] block_checksum, List<BlockSignature> signatures, RemoteEndpoint skip_endpoint = null, RemoteEndpoint endpoint = null)
             {
                 int max_sigs_per_chunk = ConsensusConfig.maximumBlockSigners;
 
@@ -314,7 +313,7 @@ namespace DLT
                                 }
                             }
                         }
-                        endpoint.sendData(ProtocolMessageCode.getSignatures, mOut.ToArray(), null);
+                        endpoint.sendData(ProtocolMessageCode.getSignatures2, mOut.ToArray(), null);
                     }
                 }
             }
@@ -808,6 +807,8 @@ namespace DLT
                                 byte[] sig = reader.ReadBytes(sig_len);
 
                                 BlockSignature blockSig = new BlockSignature(sig, false);
+                                blockSig.blockHash = checksum;
+                                blockSig.blockNum = block_num;
 
                                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, checksum), true);
 
@@ -822,6 +823,9 @@ namespace DLT
                                     {
                                         broadcastBlockSignature(blockSig, block_num, checksum, endpoint);
                                     }
+                                }else
+                                {
+                                    Logging.info("SignaturesChunk2 error adding sig");
                                 }
                             }
                         }
@@ -829,6 +833,7 @@ namespace DLT
                     }
                 }
             }
+
             public static bool broadcastGetBlockSignatures(ulong block_num, byte[] block_checksum, RemoteEndpoint endpoint)
             {
                 using (MemoryStream mw = new MemoryStream())

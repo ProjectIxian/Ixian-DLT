@@ -150,7 +150,14 @@ namespace DLT
                             break;
 
                         case ProtocolMessageCode.getSignatures:
-                            SignatureProtocolMessages.handleGetSignatures(data, endpoint);
+                            if (IxianHandler.getLastBlockVersion() >= BlockVer.v10)
+                            {
+                                SignatureProtocolMessages.handleGetSignatures2(data, endpoint);
+                            }
+                            else
+                            {
+                                SignatureProtocolMessages.handleGetSignatures(data, endpoint);
+                            }
                             break;
 
                         case ProtocolMessageCode.getSignatures2:

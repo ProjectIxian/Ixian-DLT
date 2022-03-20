@@ -470,13 +470,18 @@ namespace DLT
             }
         }
 
-        public ulong getRequiredSignerDifficulty()
+        public BigInteger getRequiredSignerDifficulty()
         {
             // TODO TODO TODO cache
             return getRequiredSignerDifficulty(lastBlockNum + 1);
         }
 
-        public ulong getRequiredSignerDifficulty(ulong block_num, bool adjusted_to_ratio = true)
+        public uint getRequiredSignerBits()
+        {
+            return SignerPowSolution.difficultyToBits(getRequiredSignerDifficulty());
+        }
+
+        public BigInteger getRequiredSignerDifficulty(ulong block_num, bool adjusted_to_ratio = true)
         {
             // TODO TODO TODO TODO TODO there is an issue with calculating required consensus after blocks are compacted, for now this is resolved by increasing the compacting window
             int block_offset = 7;
@@ -505,18 +510,20 @@ namespace DLT
                 {
                     return (ulong)ConsensusConfig.maximumBlockSigners;
                 }
-
-                ulong consensus = (ulong)(total_difficulty / block_count);
+                BigInteger consensus = (total_difficulty / block_count);
 
                 if (adjusted_to_ratio)
                 {
-                    consensus = (ulong)(consensus * ConsensusConfig.networkConsensusRatio);
+                    consensus = (consensus * ConsensusConfig.networkConsensusRatioNew) / 100;
                 }
 
                 if (consensus < 2)
                 {
                     consensus = 2;
                 }
+
+                // TODO TODO TODO TODO TODO Limit to +-25% difference from the last average
+                // TODO TODO TODO TODO TODO Limit to min -25% difference from the last superblock
 
                 return consensus;
             }
@@ -1038,12 +1045,12 @@ namespace DLT
             }
         }
 
-        public ulong getMinSignerPowDifficulty()
+        public BigInteger getMinSignerPowDifficulty()
         {
-            if(Count < 8)
+            if (Count < 8)
             {
-                // TODO Omega tweak this constant, perhaps set it in CoreConfig
-                return 10000;
+                // TODO set this in CoreConfig
+                return 1;
             }
             return getRequiredSignerDifficulty() / ((ulong)getBlock(getLastBlockNum() - 7, true, true).getFrozenSignatureCount() * 10);
         }
