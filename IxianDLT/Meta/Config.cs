@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Ixian OU
+// Copyright (C) 2017-2022 Ixian OU
 // This file is part of Ixian DLT - www.github.com/ProjectIxian/Ixian-DLT
 //
 // Ixian DLT is free software: you can redistribute it and/or modify
@@ -91,6 +91,8 @@ namespace DLT
 
             public static bool cleanFlag = false;
 
+
+
             /// <summary>
             /// Number of transactions that the node will include in the block.
             /// </summary>
@@ -115,7 +117,7 @@ namespace DLT
 
             // Debugging values
             public static string networkDumpFile = "";
-            public static int benchmarkKeys = 0;
+            public static string benchmarkMode = "";
             public static bool fullBlockLogging = false; // use with care - it will explode the log files
 
             // Development/testing options
@@ -205,7 +207,7 @@ namespace DLT
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t Start node in genesis mode (to be used only when setting up your own private network)");
                 Console.WriteLine("    --netdump\t\t Enable netdump for debugging purposes");
-                Console.WriteLine("    --benchmarkKeys\t Perform a key-generation benchmark, then exit");
+                Console.WriteLine("    --benchmark\t Performs specified benchmark then exits (argon2id, sha, rsa, keys1024, keys2048, keys4096");
                 Console.WriteLine("    --recover\t\t Recovers from file (to be used only by developers when cold-starting the network)");
 				Console.WriteLine("    --verifyStorage\t Start node with full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
@@ -502,7 +504,7 @@ namespace DLT
                 // Debug
                 cmd_parser.Setup<string>("netdump").Callback(value => networkDumpFile = value).SetDefault("");
 
-                cmd_parser.Setup<int>("benchmarkKeys").Callback(value => benchmarkKeys = value).SetDefault(0);
+                cmd_parser.Setup<string>("benchmark").Callback(value => benchmarkMode = value).SetDefault("");
 
                 cmd_parser.Setup<bool>("generateWallet").Callback(value => generateWalletOnly = value).SetDefault(false);
 

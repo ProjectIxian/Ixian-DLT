@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2017-2020 Ixian OU
+﻿// Copyright (C) 2017-2022 Ixian OU
 // This file is part of Ixian DLT - www.github.com/ProjectIxian/Ixian-DLT
 //
 // Ixian DLT is free software: you can redistribute it and/or modify
@@ -11,14 +11,13 @@
 // MIT License for more details.
 
 using DLT.Meta;
+using DLTNode;
 using IXICore;
 using IXICore.Meta;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Numerics;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -973,53 +972,56 @@ namespace DLT
             return Clock.getRelativeTime(lastSolvedTime);
         }
 
-        public void test()
+        public void benchmark(uint time_cost = 2, uint mem_cost = 2048, uint parallelism = 2)
         {
-            while (1 == 1)
+            Logging.info("Starting Argon2id benchmark - time cost {0}, memory cost {1}, parallelism {2}",
+                time_cost, mem_cost, parallelism);
+            Benchmark.printSystemStatus();
+
+            bool shouldStop = false;
+            int iterations = 0;
+
+            byte[] block_checksum = new byte[3] { 1, 2, 3 };
+            byte[] solver_address = ConsensusConfig.ixianInfiniMineAddress;
+            activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
+            System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
+            System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
+           
+            while (!shouldStop)
             {
-                byte[] nonce = ASCIIEncoding.ASCII.GetBytes(ASCIIEncoding.ASCII.GetString(randomNonce(64)));
-                byte[] hash = Argon2id.getHash(new byte[3]{ 1, 2, 3 }, nonce, 1, 1024, 2);
+                byte[] nonce_bytes = randomNonce(64);
+                byte[] fullnonce = expandNonce(nonce_bytes, 234236);
 
-                // We have a valid hash, update the corresponding block
-                if (Miner.validateHashInternal_v1(hash, BitConverter.GetBytes(80)) == true)
+                byte[] hash = Argon2id.getHash(activeBlockChallenge, fullnonce, time_cost, mem_cost, parallelism);
+
+                if (hash.Length < 1)
                 {
-                    byte[] data = null;
+                    Logging.error("Stopping miner due to invalid hash.");
+                    return;
+                }
 
-                    using (MemoryStream mw = new MemoryStream())
+                validateHash_v2(hash, 0x00ff000000000000);
+                
+                hashesPerSecond++;
+
+                // Output mining stats
+                TimeSpan timeSinceLastStat = DateTime.UtcNow - lastStatTime;
+                if (timeSinceLastStat.TotalSeconds > 3)
+                {
+                    lastStatTime = DateTime.UtcNow;
+                    lastHashRate = (long)(hashesPerSecond / timeSinceLastStat.TotalSeconds);
+                    hashesPerSecond = 0;
+                    iterations++;
+                    if (iterations >= 5)
                     {
-                        using (BinaryWriter writerw = new BinaryWriter(mw))
-                        {
-                            string nonce_hex = ASCIIEncoding.ASCII.GetString(nonce);
-                            writerw.Write(nonce_hex);
-                            data = mw.ToArray();
-                        }
+                        shouldStop = true;
                     }
-
-                    string nonce_str = "";
-
-                    // Extract the block number and nonce
-                    using (MemoryStream m = new MemoryStream(data))
-                    {
-                        using (BinaryReader reader = new BinaryReader(m))
-                        {
-                            nonce_str = reader.ReadString();
-                        }
-                    }
-
-                    byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce_str);
-                    byte[] hash_to_test = Argon2id.getHash(new byte[3] { 1, 2, 3 }, nonce_bytes, 1, 1024, 2);
-
-                    if (Miner.validateHashInternal_v1(hash_to_test, BitConverter.GetBytes(80)) == true)
-                    {
-                        // Hash is valid
-                        Logging.error("Found correct PoW");
-                        //break;
-                    }else
-                    {
-                        Logging.error("PoW solution incorrect");
-                    }
+                    Logging.info("Argon2id: {0} h/s", lastHashRate);
                 }
             }
+            Logging.info("Argon2id benchmark complete.");
+            Benchmark.printSystemStatus();
         }
+
     }
 }

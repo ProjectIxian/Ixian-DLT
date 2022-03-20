@@ -663,11 +663,15 @@ namespace DLT
 
                 try
                 {
-
+                    
                     // Add signatures
                     List<BlockSignature> frozen_signatures = new List<BlockSignature>();
                     string[] split_str = blk.signatures.Split(new string[] { "||" }, StringSplitOptions.None);
                     int sigcounter = 0;
+
+                    // Temporary cache of signature addresses for this block
+                    List<byte[]> cached_sig_addresses = new List<byte[]>();
+
                     foreach (string s1 in split_str)
                     {
                         sigcounter++;
@@ -675,28 +679,49 @@ namespace DLT
                         {
                             continue;
                         }
-
+                        
                         string[] split_sig = s1.Split(new string[] { ":" }, StringSplitOptions.None);
                         if (split_sig.Length < 2)
                         {
                             continue;
                         }
+                        
                         BlockSignature newSig = new BlockSignature();
                         if (split_sig[0] != "0")
                         {
                             newSig.signature = Convert.FromBase64String(split_sig[0]);
                         }
                         newSig.signerAddress = Convert.FromBase64String(split_sig[1]);
+                        
                         if(split_sig.Length >= 3 && split_sig[2] != "")
                         {
                             newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), newSig.signerAddress);
                         }
-                        if (!block.containsSignature(new Address(newSig.signerAddress, null, false)))
+                         
+                        // Go through all block signatures and check if the resulting address matches
+                        Address signerAddress = new Address(newSig.signerAddress, null, false);
+                        byte[] sig_address = signerAddress.address;
+
+                        bool found = false;
+                        foreach (byte[] bsig in cached_sig_addresses)
+                        {
+                             if (bsig.SequenceEqual(sig_address))
+                             {
+                                 found = true;
+                                 break;
+                             }
+                        }
+
+                        // Signature is not already in the block, add it
+                        if(!found)
                         {
                             block.signatures.Add(newSig);
                             frozen_signatures.Add(newSig);
+                            cached_sig_addresses.Add(sig_address);
                         }
                     }
+                    cached_sig_addresses.Clear();
+
                     block.setFrozenSignatures(frozen_signatures);
                     //Logging.trace("Signature parse: {0}ms", sw.Elapsed.TotalMilliseconds);
 
@@ -714,7 +739,7 @@ namespace DLT
                         block.addTransaction(Transaction.txIdLegacyToV8(s1));
                     }
                     //Logging.trace("Tx parse: {0}ms", sw.Elapsed.TotalMilliseconds);
-
+                    
                     if (blk.superBlockSegments != null)
                     {
                         for (int i = 0; i < blk.superBlockSegments.Length;)

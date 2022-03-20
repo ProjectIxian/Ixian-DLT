@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2017-2020 Ixian OU
+﻿// Copyright (C) 2017-2022 Ixian OU
 // This file is part of Ixian DLT - www.github.com/ProjectIxian/Ixian-DLT
 //
 // Ixian DLT is free software: you can redistribute it and/or modify
@@ -240,17 +240,14 @@ namespace DLTNode
             // Read configuration from command line
             Config.init(args);
 
-            // Benchmark keys is a special case, because it will not start any part of the node.
-            if (Config.benchmarkKeys > 0)
+            // Set the logging options
+            Logging.setOptions(Config.maxLogSize, Config.maxLogCount);
+            Logging.flush();
+
+            // Benchmark is a special case, because it will not start any part of the node
+            if (Config.benchmarkMode.Length > 0)
             {
-                if (Config.benchmarkKeys != 1024 && Config.benchmarkKeys != 2048 && Config.benchmarkKeys != 4096)
-                {
-                    Logging.error("Invalid key bit length: {0}. Allowed values are 1024, 2048 or 4096!", Config.benchmarkKeys);
-                }
-                else
-                {
-                    IXICore.CryptoKey.KeyDerivation.BenchmarkKeyGeneration(10000, Config.benchmarkKeys, "bench_keys.out");
-                }
+                Benchmark.start(Config.benchmarkMode);
                 noStart = true;
             }
 
@@ -289,8 +286,6 @@ namespace DLTNode
                 return;
             }
 
-            // Set the logging options
-            Logging.setOptions(Config.maxLogSize, Config.maxLogCount);
 
             Logging.info("Starting IXIAN DLT {0} ({1})", Config.version, CoreConfig.version);
             Logging.flush();
