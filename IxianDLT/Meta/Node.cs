@@ -667,12 +667,17 @@ namespace DLT.Meta
                 return;
             }
 
-            postSyncOperationsDone = true;
-
             if (!isMasterNode())
             {
                 return;
             }
+
+            if (signerPowMiner.lastSignerPowSolution == null)
+            {
+                return;
+            }
+
+            postSyncOperationsDone = true;
 
             ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
             if(lastBlockHeight < 17)
@@ -688,7 +693,7 @@ namespace DLT.Meta
                     BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution());
                     if (blockSig != null)
                     {
-                        inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress, b.blockChecksum), true);
+                        inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress.addressNoChecksum, b.blockChecksum), true);
                         SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
                     }
                 }
@@ -960,7 +965,7 @@ namespace DLT.Meta
 
         public override BlockHeader getBlockHeader(ulong blockNum)
         {
-            Block b = blockChain.getBlock(blockNum, true, true);
+            Block b = blockChain.getBlock(blockNum, true, true); // TODO this should be (blockNum, true, false)
             if (b == null)
             {
                 return null;

@@ -67,7 +67,7 @@ namespace DLT
                 // we can use fromList.First because:
                 //  a: verifyTransaction() checks that there is at least one fromAddress (if there isn't, totalAmount == 0 and transaction is failed before it gets here)
                 //  b: at the start of this function, fromList is checked for fromList.Count > 1 and failed if so
-                byte[] from_address = (new Address(transaction.pubKey, transaction.fromList.First().Key)).address;
+                byte[] from_address = (new Address(transaction.pubKey, transaction.fromList.First().Key)).addressNoChecksum;
 
                 byte[] orig_txid;
                 byte[] signer_pub_key = null;
@@ -120,7 +120,7 @@ namespace DLT
                 {
                     var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
 
-                    Wallet tmp_w = Node.walletState.getWallet((new Address(transaction.pubKey, transaction.fromList.First().Key)).address);
+                    Wallet tmp_w = Node.walletState.getWallet((new Address(transaction.pubKey, transaction.fromList.First().Key)).addressNoChecksum);
                     if (tmp_w.isValidSigner(multisig_obj.addrToAdd))
                     {
                         Logging.warn("Pubkey {0} is already in allowed multisig list for wallet {1}.", Base58Check.Base58CheckEncoding.EncodePlain(multisig_obj.addrToAdd), Base58Check.Base58CheckEncoding.EncodePlain(tmp_w.id));
@@ -154,7 +154,7 @@ namespace DLT
                 {
                     Logging.warn("Multisig transaction {{ {0} }}, has a null signer pubkey!", Transaction.txIdV8ToLegacy(transaction.id));
                 }
-                byte[] tx_signer_address = (new Address(signer_pub_key, signer_nonce)).address;
+                byte[] tx_signer_address = (new Address(signer_pub_key, signer_nonce)).addressNoChecksum;
 
                 Wallet w = Node.walletState.getWallet(from_address);
                 if (!w.isValidSigner(tx_signer_address))
@@ -184,7 +184,7 @@ namespace DLT
                 return true;
             }
 
-            byte[] tx_address = (new Address(transaction.pubKey)).address;
+            byte[] tx_address = (new Address(transaction.pubKey)).addressNoChecksum;
             foreach (byte[] premine_address in premineAddresses)
             {
                 if (tx_address.SequenceEqual(premine_address))
@@ -424,7 +424,7 @@ namespace DLT
                 {
                     if (Node.blockSync.synchronizing == false)
                     {
-                        byte[] tmp_from_address = (new Address(transaction.pubKey, entry.Key)).address;
+                        Address tmp_from_address = new Address(transaction.pubKey, entry.Key);
 
 
                         if (transaction.type != (int)Transaction.Type.ChangeMultisigWallet
@@ -438,7 +438,7 @@ namespace DLT
                             }
                         }
 
-                        Wallet tmp_wallet = Node.walletState.getWallet(tmp_from_address);
+                        Wallet tmp_wallet = Node.walletState.getWallet(tmp_from_address.addressNoChecksum);
 
                         
                         if(transaction.type == (int)Transaction.Type.MultisigTX
@@ -489,16 +489,11 @@ namespace DLT
             totalAmount = new IxiNumber(0);
             foreach (var entry in transaction.toList)
             {
-                if (!Address.validateChecksum(entry.Key))
+                if (!Address.validateAddress(entry.Key.addressNoChecksum))
                 {
-                    Logging.warn("Adding transaction {{ {0} }}, but to address is incorrect!", Transaction.txIdV8ToLegacy(transaction.id));
+                    Logging.warn("Adding transaction {{ {0} }}, but to address is invalid!", Transaction.txIdV8ToLegacy(transaction.id));
                     return false;
                 }
-                /*if (!Address.validateAddress(entry.Key))
-                {
-                    Logging.warn("Adding transaction {{ {0} }}, but to address is incorrect!", Transaction.txIdV8ToLegacy(transaction.id));
-                    return false;
-                }*/
                 if (entry.Value < 0)
                 {
                     Logging.warn("Transaction amount was invalid for txid {0}.", Transaction.txIdV8ToLegacy(transaction.id));
@@ -595,7 +590,7 @@ namespace DLT
             }
             else
             {
-                pubkey = Node.walletState.getWallet((new Address(transaction.pubKey)).address).publicKey;
+                pubkey = Node.walletState.getWallet((new Address(transaction.pubKey)).addressNoChecksum).publicKey;
                 // Generate an address from the public key and compare it with the sender
                 if (pubkey == null)
                 {
@@ -672,7 +667,7 @@ namespace DLT
 
                     if (!t.fromLocalStorage)
                     {
-                        if (IxianHandler.isMyAddress((new Address(t.pubKey)).address) || IxianHandler.extractMyAddressesFromAddressList(t.toList) != null)
+                        if (IxianHandler.isMyAddress((new Address(t.pubKey)).addressNoChecksum) || IxianHandler.extractMyAddressesFromAddressList(t.toList) != null)
                         {
                             ActivityStorage.updateStatus(t.id, ActivityStatus.Final, t.applied);
                         }
@@ -755,7 +750,7 @@ namespace DLT
                     }
                     if (orig_tx != null)
                     {
-                        byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
+                        byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).addressNoChecksum);
                         signer_addresses.Add(signer_address);
                     } else
                     {
@@ -811,7 +806,7 @@ namespace DLT
                                 continue;
                             }
 
-                            byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).address);
+                            byte[] signer_address = ((new Address(signer_pub_key, signer_nonce)).addressNoChecksum);
                             if (signer_addresses.Contains(signer_address, new ByteArrayComparer()))
                             {
                                 Logging.warn("Multisig transaction {{ {0} }} signs an already signed transaction {1} by this address {2}!",
@@ -820,7 +815,7 @@ namespace DLT
                                 continue;
                             }
 
-                            Wallet orig = Node.walletState.getWallet((new Address(tx.pubKey, tx.fromList.First().Key).address));
+                            Wallet orig = Node.walletState.getWallet((new Address(tx.pubKey, tx.fromList.First().Key).addressNoChecksum));
                             if (!orig.isValidSigner(signer_address))
                             {
                                 Logging.warn("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
@@ -872,7 +867,7 @@ namespace DLT
             IxiNumber value = transaction.amount;
             Dictionary<byte[], List<byte[]>> wallet_list = null;
             byte[] wallet = null;
-            byte[] primary_address = (new Address(transaction.pubKey)).address;
+            byte[] primary_address = (new Address(transaction.pubKey)).addressNoChecksum;
             if (IxianHandler.isMyAddress(primary_address))
             {
                 wallet = primary_address;
@@ -907,7 +902,7 @@ namespace DLT
                     {
                         foreach(var address in extractedWallet.Value)
                         {
-                            activity = new Activity(extractedWallet.Key, Base58Check.Base58CheckEncoding.EncodePlain(address), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, transaction.id, transaction.toList[address].ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
+                            activity = new Activity(extractedWallet.Key, Base58Check.Base58CheckEncoding.EncodePlain(address), Base58Check.Base58CheckEncoding.EncodePlain(primary_address), transaction.toList, type, transaction.id, transaction.toList[new Address(address)].ToString(), transaction.timeStamp, status, transaction.applied, Transaction.txIdV8ToLegacy(transaction.id));
                             ActivityStorage.insertActivity(activity);
                         }
                     }
@@ -1000,14 +995,14 @@ namespace DLT
             }
 
             // Send transaction FROM event
-            byte[] from_addr = new Address(transaction.pubKey).address;
+            byte[] from_addr = new Address(transaction.pubKey).addressNoChecksum;
             CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)));
 
             // Send transaction TO event
             foreach (var entry in transaction.toList)
             {
-                byte[] addr = new byte[entry.Key.Length];
-                Array.Copy(entry.Key, addr, addr.Length);
+                byte[] addr = new byte[entry.Key.addressNoChecksum.Length];
+                Array.Copy(entry.Key.addressNoChecksum, addr, addr.Length);
                 CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(transaction.id)));
             }
         }
@@ -1248,7 +1243,7 @@ namespace DLT
                     return true;
                 }
 
-                byte[] primary_address = (new Address(tx.pubKey)).address;
+                byte[] primary_address = (new Address(tx.pubKey)).addressNoChecksum;
 
                 if (block.version == BlockVer.v0)
                 {
@@ -1505,7 +1500,7 @@ namespace DLT
                     if(block.version >= BlockVer.v3)
                     {
                         if (Config.fullBlockLogging) { Logging.info("Checking if transaction has a public key set - {0} B", tx.pubKey == null ? 0 : tx.pubKey.Length); }
-                        byte[] tmp_address = (new Address(tx.pubKey)).address;
+                        byte[] tmp_address = (new Address(tx.pubKey)).addressNoChecksum;
                         // Update the walletstate public key
                         byte[] pubkey = Node.walletState.getWallet(tmp_address).publicKey;
                         // Generate an address from the public key and compare it with the sender
@@ -1543,7 +1538,7 @@ namespace DLT
 
                     if (block.version < BlockVer.v3)
                     {
-                        byte[] tmp_address = (new Address(tx.pubKey)).address;
+                        byte[] tmp_address = (new Address(tx.pubKey)).addressNoChecksum;
                         // Update the walletstate public key
                         byte[] pubkey = Node.walletState.getWallet(tmp_address).publicKey;
                         // Generate an address from the public key and compare it with the sender
@@ -1709,7 +1704,7 @@ namespace DLT
                 {
                     blockSolutionsDictionary[powBlockNum] = new List<object[]>();
                 }
-                byte[] primary_address = (new Address(tx.pubKey)).address;
+                byte[] primary_address = (new Address(tx.pubKey)).addressNoChecksum;
                 if (block.version < BlockVer.v2)
                 {
                     blockSolutionsDictionary[powBlockNum].Add(new object[3] { primary_address, nonce, tx });
@@ -1761,7 +1756,7 @@ namespace DLT
             // Apply the amount
             foreach (var entry in tx.toList)
             {
-                Node.walletState.setWalletBalance(entry.Key, entry.Value);
+                Node.walletState.setWalletBalance(entry.Key.addressNoChecksum, entry.Value);
             }
 
             if (!Node.walletState.inTransaction)
@@ -1786,7 +1781,7 @@ namespace DLT
             {
                 // Check if the staker's transaction has already been processed
                 bool valid = true;
-                if(blockStakers.Exists(x => x.SequenceEqual(toEntry.Key)))
+                if(blockStakers.Exists(x => x.SequenceEqual(toEntry.Key.addressNoChecksum)))
                 {
                     valid = false;
                 }
@@ -1799,7 +1794,7 @@ namespace DLT
                     return true;
                 }
 
-                Wallet staking_wallet = Node.walletState.getWallet(toEntry.Key);
+                Wallet staking_wallet = Node.walletState.getWallet(toEntry.Key.addressNoChecksum);
                 IxiNumber staking_balance_before = staking_wallet.balance;
 
                 IxiNumber tx_amount = toEntry.Value;
@@ -1827,7 +1822,7 @@ namespace DLT
                 foreach (var wallet_addr_diff in signatureWallets)
                 {
                     byte[] wallet_addr = wallet_addr_diff.address;
-                    if (toEntry.Key.SequenceEqual(wallet_addr))
+                    if (toEntry.Key.addressNoChecksum.SequenceEqual(wallet_addr))
                         valid = true;
                 }
                 if (valid == false)
@@ -1840,9 +1835,9 @@ namespace DLT
                 // Deposit the amount
                 IxiNumber staking_balance_after = staking_balance_before + tx_amount;
 
-                Node.walletState.setWalletBalance(toEntry.Key, staking_balance_after);
+                Node.walletState.setWalletBalance(toEntry.Key.addressNoChecksum, staking_balance_after);
 
-                blockStakers.Add(toEntry.Key);
+                blockStakers.Add(toEntry.Key.addressNoChecksum);
             }
 
             if (!Node.walletState.inTransaction)
@@ -1878,7 +1873,7 @@ namespace DLT
                     return null;
                 }
                 object multisig_type = tx.GetMultisigData();
-                byte[] from_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
+                byte[] from_address = (new Address(tx.pubKey, tx.fromList.First().Key)).addressNoChecksum;
                 Wallet orig = Node.walletState.getWallet(from_address);
                 if (orig is null)
                 {
@@ -1911,7 +1906,7 @@ namespace DLT
                             return null;
                         }
 
-                        byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
+                        byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).addressNoChecksum);
                         if (!orig.isValidSigner(signer_address))
                         {
                             Logging.warn("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
@@ -1976,7 +1971,7 @@ namespace DLT
 
                     foreach (var entry in tx.fromList)
                     {
-                        byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
+                        byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).addressNoChecksum;
 
                         Wallet source_wallet = Node.walletState.getWallet(tmp_address);
                         IxiNumber source_balance_before = source_wallet.balance;
@@ -2028,7 +2023,7 @@ namespace DLT
                 }
 
                 object multisig_type = tx.GetMultisigData();
-                byte[] target_wallet_address = (new Address(tx.pubKey, tx.fromList.First().Key)).address;
+                byte[] target_wallet_address = (new Address(tx.pubKey, tx.fromList.First().Key)).addressNoChecksum;
                 Wallet orig = Node.walletState.getWallet(target_wallet_address);
                 if (orig is null)
                 {
@@ -2050,7 +2045,7 @@ namespace DLT
                 {
                     var multisig_obj = (Transaction.MultisigAddrAdd)multisig_type;
 
-                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
+                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).addressNoChecksum);
                     if (!orig.isValidSigner(signer_address))
                     {
                         Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
@@ -2087,7 +2082,7 @@ namespace DLT
                     }
                     var multisig_obj = (Transaction.MultisigAddrDel)multisig_type;
 
-                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
+                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).addressNoChecksum);
                     if (!orig.isValidSigner(signer_address))
                     {
                         Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
@@ -2124,7 +2119,7 @@ namespace DLT
                         return null;
                     }
 
-                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).address);
+                    byte[] signer_address = ((new Address(multisig_obj.signerPubKey, multisig_obj.signerNonce)).addressNoChecksum);
                     if (!orig.isValidSigner(signer_address))
                     {
                         Logging.warn(String.Format("Tried to use Multisig transaction {{ {0} }} without being an actual owner {1}!",
@@ -2147,7 +2142,7 @@ namespace DLT
 
                 foreach (var entry in tx.fromList)
                 {
-                    byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
+                    byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).addressNoChecksum;
 
                     Wallet source_wallet = Node.walletState.getWallet(tmp_address);
                     IxiNumber source_balance_before = source_wallet.balance;
@@ -2217,7 +2212,7 @@ namespace DLT
             IxiNumber total_amount = 0;
             foreach (var entry in tx.fromList)
             {
-                byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).address;
+                byte[] tmp_address = (new Address(tx.pubKey, entry.Key)).addressNoChecksum;
 
                 Wallet source_wallet = Node.walletState.getWallet(tmp_address);
                 IxiNumber source_balance_before = source_wallet.balance;
@@ -2245,7 +2240,7 @@ namespace DLT
             total_amount = 0;
             foreach (var entry in tx.toList)
             {
-                Wallet dest_wallet = Node.walletState.getWallet(entry.Key);
+                Wallet dest_wallet = Node.walletState.getWallet(entry.Key.addressNoChecksum);
                 IxiNumber dest_balance_before = dest_wallet.balance;
 
 
@@ -2257,12 +2252,12 @@ namespace DLT
                 if (Config.fullBlockLogging)
                 {
                     Logging.info("Normal transaction {{ {3} }} updates wallet {0} balance: {1} -> {2}.",
-                        WalletState.Addr2String(entry.Key),
+                        WalletState.Addr2String(entry.Key.addressNoChecksum),
                         dest_balance_before.ToString(),
                         dest_balance_after.ToString(),
                         Transaction.txIdV8ToLegacy(tx.id));
                 }
-                Node.walletState.setWalletBalance(entry.Key, dest_balance_after);
+                Node.walletState.setWalletBalance(entry.Key.addressNoChecksum, dest_balance_after);
                 total_amount += entry.Value;
             }
 
@@ -2384,7 +2379,7 @@ namespace DLT
 
                         if (block == null || block.powField != null)
                         {
-                            if (IxianHandler.isMyAddress((new Address(entry.pubKey)).address))
+                            if (IxianHandler.isMyAddress((new Address(entry.pubKey)).addressNoChecksum))
                             {
                                 ActivityStorage.updateStatus(entry.id, ActivityStatus.Error, 0);
                             }

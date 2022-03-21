@@ -207,7 +207,7 @@ namespace DLT
                                 executeSQL(connection, sql);
                                 sql = "CREATE INDEX `applied` ON `transactions` (`applied`);";
                                 executeSQL(connection, sql);
-                            }catch(Exception e)
+                            }catch(Exception)
                             {
                                 connection.Close();
                                 connection.Dispose();
@@ -411,7 +411,7 @@ namespace DLT
                     {
                         str_powSolution = Crypto.hashToString(sig.powSolution.getBytes());
                     }
-                    signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig.signerAddress) + ":" + str_powSolution;
+                    signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig.signerAddress.getInputBytes()) + ":" + str_powSolution;
                 }
 
                 if (!Node.blockProcessor.verifySigFreezedBlock(block))
@@ -466,7 +466,7 @@ namespace DLT
                 string toList = "";
                 foreach (var to in transaction.toList)
                 {
-                    toList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(to.Key)  + ":" + Convert.ToBase64String(to.Value.getAmount().ToByteArray());
+                    toList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(to.Key.addressNoChecksum)  + ":" + Convert.ToBase64String(to.Value.getAmount().ToByteArray());
                 }
 
                 string fromList = "";
@@ -691,15 +691,14 @@ namespace DLT
                         {
                             newSig.signature = Convert.FromBase64String(split_sig[0]);
                         }
-                        newSig.signerAddress = Convert.FromBase64String(split_sig[1]);
-                        Address signerAddress = new Address(newSig.signerAddress, null, false);
+                        newSig.signerAddress = new Address(Convert.FromBase64String(split_sig[1]), null, false);
                         if(split_sig.Length >= 3 && split_sig[2] != "")
                         {
-                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), signerAddress.address);
+                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), newSig.signerAddress.addressNoChecksum);
                         }
                          
                         // Go through all block signatures and check if the resulting address matches
-                        byte[] sig_address = signerAddress.address;
+                        byte[] sig_address = newSig.signerAddress.addressNoChecksum;
 
                         bool found = false;
                         foreach (byte[] bsig in cached_sig_addresses)
@@ -1097,7 +1096,7 @@ namespace DLT
                         }
                         byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
                         IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                        transaction.toList.AddOrReplace(address, amount);
+                        transaction.toList.AddOrReplace(new Address(address, null, false), amount);
                     }
 
                     if (tx.from != null)
@@ -1564,7 +1563,7 @@ namespace DLT
                             }
                             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
                             IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                            transaction.toList.AddOrReplace(address, amount);
+                            transaction.toList.AddOrReplace(new Address(address, null, false), amount);
                         }
 
                         if (tx.from != null)

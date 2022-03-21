@@ -385,7 +385,7 @@ namespace DLT
                     foreach (var to in from_tx.toList)
                     {
                         toList[i] = new byte[2][];
-                        toList[i][0] = to.Key;
+                        toList[i][0] = to.Key.addressNoChecksum;
                         toList[i][1] = to.Value.getAmount().ToByteArray();
                         i++;
                     }
@@ -419,7 +419,7 @@ namespace DLT
                     tx.fee = new IxiNumber(new System.Numerics.BigInteger(fee));
                     foreach (var to in toList)
                     {
-                        tx.toList.AddOrReplace(to[0], new IxiNumber(new System.Numerics.BigInteger(to[1])));
+                        tx.toList.AddOrReplace(new Address(to[0]), new IxiNumber(new System.Numerics.BigInteger(to[1])));
                     }
                     foreach (var from in fromList)
                     {
@@ -1499,7 +1499,7 @@ namespace DLT
                         }
                         foreach(var t in tx.toList.Keys)
                         {
-                            idxTXTo.delIndexEntry(t, tx_id_bytes);
+                            idxTXTo.delIndexEntry(t.addressNoChecksum, tx_id_bytes);
                         }
                         idxTXTimestamp.delIndexEntry(BitConverter.GetBytes(tx.timeStamp), tx_id_bytes);
                         idxTXType.delIndexEntry(BitConverter.GetBytes(tx.type), tx_id_bytes);

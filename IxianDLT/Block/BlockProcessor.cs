@@ -311,7 +311,7 @@ namespace DLT
             {
                 BlockSignature sig = b.signatures[i];
 
-                Presence p = PresenceList.getPresenceByAddress(sig.signerAddress);
+                Presence p = PresenceList.getPresenceByAddress(sig.signerAddress.addressNoChecksum);
                 if (p != null)
                 {
                     bool masterEntryFound = false;
@@ -348,7 +348,7 @@ namespace DLT
             for (int i = 0; i < sigs.Count; i++)
             {
                 // Don't remove block proposer's signature
-                if(b.blockProposer != null && new Address(sigs[i].signerAddress, null, false).address.SequenceEqual(b.blockProposer))
+                if(b.blockProposer != null && sigs[i].signerAddress.addressNoChecksum.SequenceEqual(b.blockProposer))
                 {
                     continue;
                 }
@@ -1105,7 +1105,7 @@ namespace DLT
 
                 foreach (var entry in t.fromList)
                 {
-                    byte[] address = (new Address(t.pubKey, entry.Key)).address;
+                    byte[] address = (new Address(t.pubKey, entry.Key)).addressNoChecksum;
                     // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
                     if (!minusBalances.ContainsKey(address))
                     {
@@ -1172,7 +1172,7 @@ namespace DLT
                         {
                             orig_txid = t.id;
                         }
-                        byte[] address = (new Address(t.pubKey, t.fromList.Keys.First())).address;
+                        byte[] address = (new Address(t.pubKey, t.fromList.Keys.First())).addressNoChecksum;
                         Wallet from_w = Node.walletState.getWallet(address);
                         int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, b) + 1;
                         if (num_valid_multisigs < from_w.requiredSigs)
@@ -1404,7 +1404,7 @@ namespace DLT
                                 {
                                     foreach (var sig in added_signatures)
                                     {
-                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress, b.blockChecksum), true);
+                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, b.blockChecksum), true);
                                         SignatureProtocolMessages.broadcastBlockSignature(sig, b.blockNum, b.blockChecksum, endpoint, null);
                                     }
                                 }
@@ -1607,12 +1607,12 @@ namespace DLT
             }
             if(block.version < BlockVer.v10)
             {
-                sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress, y.signerAddress));
+                sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress.addressNoChecksum, y.signerAddress.addressNoChecksum));
 
                 // First add block proposer's sig
                 if (block.blockProposer != null)
                 {
-                    BlockSignature signature = sorted_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(block.blockProposer));
+                    BlockSignature signature = sorted_sigs.Find(x => (x.signerAddress.addressWithChecksum.SequenceEqual(block.blockProposer)));
                     if (signature == null)
                     {
                         Logging.error("Error freezing signatures of target block #{0} {1}, cannot find block proposer's signature.", block.blockNum, Crypto.hashToString(block.blockChecksum));
@@ -1635,10 +1635,10 @@ namespace DLT
             }
             foreach (var entry in sorted_sigs)
             {
-                byte[] address = (new Address(entry.signerAddress, null, false)).address;
+                byte[] address = entry.signerAddress.addressNoChecksum;
                 foreach (var prev_entry in election_block_sigs)
                 {
-                    if (address.SequenceEqual((new Address(prev_entry.signerAddress, null, false)).address))
+                    if (address.SequenceEqual(prev_entry.signerAddress.addressNoChecksum))
                     {
                         required_sigs.Add(entry);
                         sig_count++;
@@ -1748,7 +1748,7 @@ namespace DLT
                         {
                             foreach (var sig in added_signatures)
                             {
-                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress, block.blockChecksum), true);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, block.blockChecksum), true);
                                 SignatureProtocolMessages.broadcastBlockSignature(sig, block.blockNum, block.blockChecksum, endpoint, null);
                             }
                         }
@@ -1765,7 +1765,7 @@ namespace DLT
                     {
                         foreach (var sig in local_block.frozenSignatures)
                         {
-                            if(block.containsSignature(new Address(sig.signerAddress)))
+                            if(block.containsSignature(new Address(sig.signerAddress.addressNoChecksum)))
                             {
                                 valid_sig_count++;
                             }
@@ -1837,8 +1837,8 @@ namespace DLT
                     PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(target_block.blockChecksum, ConsensusConfig.maximumBlockSigners * 2);
                     foreach (byte[] address in poe)
                     {
-                        BlockSignature signature = target_block.signatures.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address));
-                        if (signature != null && frozen_block_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address)) == null)
+                        BlockSignature signature = target_block.signatures.Find(x => x.signerAddress.addressNoChecksum.SequenceEqual(address));
+                        if (signature != null && frozen_block_sigs.Find(x => x.signerAddress.addressNoChecksum.SequenceEqual(address)) == null)
                         {
                             frozen_block_sigs.Add(signature);
                             sig_count++;
@@ -1853,8 +1853,8 @@ namespace DLT
                 {
                     foreach(BlockSignature sig in target_block.signatures)
                     {
-                        var address = new Address(sig.signerAddress).address;
-                        if (frozen_block_sigs.Find(x => (new Address(x.signerAddress, null, false)).address.SequenceEqual(address)) == null)
+                        var address = sig.signerAddress.addressNoChecksum;
+                        if (frozen_block_sigs.Find(x => x.signerAddress.addressNoChecksum.SequenceEqual(address)) == null)
                         {
                             if(PresenceList.getPresenceByAddress(address) == null)
                             {
@@ -1900,7 +1900,7 @@ namespace DLT
                 {
                     if (target_block.blockProposer == null)
                     {
-                        target_block.blockProposer = new Address(target_block.signatures[0].signerAddress).address;
+                        target_block.blockProposer = target_block.signatures[0].signerAddress.addressWithChecksum;
                     }
                     if (!target_block.verifyBlockProposer())
                     {
@@ -1976,13 +1976,13 @@ namespace DLT
                             BlockSignature signature_data = localNewBlock.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                             if (signature_data != null) 
                             {
-                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress, localNewBlock.blockChecksum), true);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
                                 //BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, null, true);
                                 SignatureProtocolMessages.broadcastBlockSignature(signature_data, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
 
                                 foreach (var sig in localNewBlock.signatures)
                                 {
-                                    Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress, localNewBlock.blockChecksum), true);
+                                    Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
                                     SignatureProtocolMessages.broadcastBlockSignature(sig, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
                                 }
                             }
@@ -2449,7 +2449,7 @@ namespace DLT
             foreach (BlockSignature sig in target_block_sigs)
             {
                 // Generate the corresponding Ixian address
-                byte[] addressBytes =  (new Address(sig.signerAddress)).address;
+                byte[] addressBytes = sig.signerAddress.addressNoChecksum;
 
                 // Update the walletstate and deposit the award
                 Wallet signer_wallet = Node.walletState.getWallet(addressBytes);
@@ -2470,8 +2470,8 @@ namespace DLT
                     WalletStorage ws = IxianHandler.getWalletStorage();
                     if (signer_wallet.id.SequenceEqual(ws.getPrimaryAddress()))
                     {
-                        SortedDictionary<byte[], IxiNumber> to_list = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
-                        to_list.Add(addressBytes, balance_after);
+                        SortedDictionary<Address, IxiNumber> to_list = new SortedDictionary<Address, IxiNumber>(new AddressComparer());
+                        to_list.Add(new Address(addressBytes), balance_after);
                         string address = Base58Check.Base58CheckEncoding.EncodePlain(ws.getPrimaryAddress());
                         Activity activity = new Activity(ws.getSeedHash(), address, Base58Check.Base58CheckEncoding.EncodePlain(ConsensusConfig.ixianInfiniMineAddress), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum, "");
                         ActivityStorage.insertActivity(activity);
@@ -2495,7 +2495,7 @@ namespace DLT
             // multisig transactions must be complete before they are added
             object multisig_data = transaction.GetMultisigData();
             byte[] orig_txid = transaction.id;
-            byte[] address = (new Address(transaction.pubKey, transaction.fromList.Keys.First())).address;
+            byte[] address = (new Address(transaction.pubKey, transaction.fromList.Keys.First())).addressNoChecksum;
             Wallet from_w = Node.walletState.getWallet(address);
             List<byte[]> related_tx_ids = TransactionPool.getRelatedMultisigTransactions(orig_txid, null);
             int num_valid_multisigs = related_tx_ids.Count() + 1;
@@ -2527,7 +2527,7 @@ namespace DLT
         {
             foreach (var entry in transaction.fromList)
             {
-                byte[] address = (new Address(transaction.pubKey, entry.Key)).address;
+                byte[] address = (new Address(transaction.pubKey, entry.Key)).addressNoChecksum;
                 // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(address))
                 {
@@ -2677,7 +2677,7 @@ namespace DLT
                         }
                         if (block_version >= 2)
                         {
-                            byte[] tmp_address = (new Address(transaction.pubKey)).address;
+                            byte[] tmp_address = (new Address(transaction.pubKey)).addressNoChecksum;
                             if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && (string)x[1] == nonce))
                             {
                                 // Add the miner to the block number dictionary reward list
@@ -2931,7 +2931,7 @@ namespace DLT
                     BlockSignature signature_data = localNewBlock.applySignature(PresenceList.getPowSolution());
                     if (signature_data != null)
                     {
-                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress, localNewBlock.blockChecksum), true);
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
                     }
 
                     localNewBlock.logBlockDetails();
@@ -3440,7 +3440,7 @@ namespace DLT
                 }
             }else
             {
-                SortedDictionary<byte[], IxiNumber> to_list = new SortedDictionary<byte[], IxiNumber>(new ByteArrayComparer());
+                SortedDictionary<Address, IxiNumber> to_list = new SortedDictionary<Address, IxiNumber>(new AddressComparer());
                 for (int i = 0; i < stakers; i++)
                 {
                     IxiNumber award = new IxiNumber(awards[i]);
@@ -3449,7 +3449,7 @@ namespace DLT
                     {
                         byte[] wallet_addr = stakeWallets[i];
                         //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
-                        to_list.Add(wallet_addr, award);
+                        to_list.Add(new Address(wallet_addr), award);
 
                     }
 
@@ -3568,7 +3568,7 @@ namespace DLT
             foreach (BlockSignature sig in sigs)
             {
                 byte[] signature = sig.signature;
-                byte[] signerPubkeyOrAddress = sig.signerAddress;
+                byte[] signerPubkeyOrAddress = sig.signerAddress.addressNoChecksum;
 
                 if (signerPubkeyOrAddress.Length < 70)
                 {
@@ -3584,11 +3584,11 @@ namespace DLT
                     byte[] signerPubKey = signerPubkeyOrAddress;
                     // Generate an address
                     Address p_address = new Address(signerPubKey);
-                    Wallet signerWallet = Node.walletState.getWallet(p_address.address);
+                    Wallet signerWallet = Node.walletState.getWallet(p_address.addressNoChecksum);
                     if (signerWallet.publicKey == null)
                     {
                         // Set the WS public key
-                        Node.walletState.setWalletPublicKey(p_address.address, signerPubKey);
+                        Node.walletState.setWalletPublicKey(p_address.addressNoChecksum, signerPubKey);
                     }
                 }
             }

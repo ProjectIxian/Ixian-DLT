@@ -588,7 +588,7 @@ namespace DLT
                     {
                         foreach (var sig in added_sigs)
                         {
-                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress, b.blockChecksum), true);
+                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, b.blockChecksum), true);
 
                             SignatureProtocolMessages.broadcastBlockSignature(sig, b.blockNum, b.blockChecksum, endpoint, null);
                         }
@@ -662,7 +662,7 @@ namespace DLT
 
                 // Sort the signatures first
                 List<BlockSignature> sortedSigs = new List<BlockSignature>(targetBlock.frozenSignatures??targetBlock.signatures);
-                sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress, y.signerAddress));
+                sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress.addressNoChecksum, y.signerAddress.addressNoChecksum));
                 int maxElectedNodes = 3;
                 if(sortedSigs.Count < 10)
                 {
@@ -676,7 +676,7 @@ namespace DLT
                     BlockSignature sig = sortedSigs[(int)((uint)(sigNr + i) % sortedSigs.Count)];
 
                     // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-                    byte[] address = sig.signerAddress;
+                    byte[] address = sig.signerAddress.addressNoChecksum;
 
                     // Check if we have a public key instead of an address
                     if (address.Length > 70)
@@ -988,7 +988,7 @@ namespace DLT
                     Logging.error("Cannot revert transaction " + Transaction.txIdV8ToLegacy(tx_id) + ", transaction doesn't exist.");
                     continue;
                 }
-                if (IxianHandler.isMyAddress((new Address(tx.pubKey)).address) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
+                if (IxianHandler.isMyAddress((new Address(tx.pubKey)).addressNoChecksum) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
                 {
                     ActivityStorage.updateStatus(tx.id, ActivityStatus.Error, block.blockNum);
                     tx.fromLocalStorage = false;

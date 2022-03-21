@@ -101,7 +101,7 @@ namespace DLT
             public static ulong forceSyncToBlock = 0;
 
             // Read-only values
-            public static readonly string version = "xdc-0.8.3g"; // DLT Node version
+            public static readonly string version = "xdc-0.9.0-dev"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
@@ -131,7 +131,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = BlockVer.v9;
+            public static int maxBlockVersionToGenerate = BlockVer.v10;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
