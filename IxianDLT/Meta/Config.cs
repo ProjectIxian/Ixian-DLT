@@ -209,7 +209,7 @@ namespace DLT
                 Console.WriteLine("    --netdump\t\t\t Enable netdump for debugging purposes");
                 Console.WriteLine("    --benchmark\t\t\t Performs specified benchmark then exits (argon2id, sha, rsa, keys1024, keys2048, keys4096");
                 Console.WriteLine("    --recover\t\t\t Recovers from file (to be used only by developers when cold-starting the network)");
-				Console.WriteLine("    --verifyStorage\t\t Start node with full local storage blocks and transactions verification");
+                Console.WriteLine("    --verifyStorage\t\t Start node with full local storage blocks and transactions verification");
                 Console.WriteLine("    --generateWallet\t\t Generates a wallet file and exits, printing the public address. [TESTNET ONLY!]");
                 Console.WriteLine("    --optimizeDBStorage\t\t Manually compacts all databases before starting the node. MAY TAKE SOME TIME!");
                 Console.WriteLine("    --offline\t\t\t Offline mode - does not connect to other nodes or accepts any connections from other nodes");
@@ -264,10 +264,10 @@ namespace DLT
                 }
                 Logging.info("Reading config file: " + filename);
                 List<string> lines = File.ReadAllLines(filename).ToList();
-                foreach(string line in lines)
+                foreach (string line in lines)
                 {
                     string[] option = line.Split('=');
-                    if(option.Length < 2)
+                    if (option.Length < 2)
                     {
                         continue;
                     }
@@ -407,7 +407,8 @@ namespace DLT
                     if (k.Key == ConsoleKey.Y)
                     {
                         cleanFlag = true;
-                    }else
+                    }
+                    else
                     {
                         DLTNode.Program.noStart = true;
                     }

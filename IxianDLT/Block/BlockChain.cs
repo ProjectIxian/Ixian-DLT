@@ -1118,7 +1118,7 @@ namespace DLT
             {
                 return SignerPowSolution.bitsToDifficulty(SignerPowSolution.maxTargetBits);
             }
-            var difficulty = getRequiredSignerDifficulty(true) / ((ulong)tb.getFrozenSignatureCount() * 10);
+            var difficulty = getRequiredSignerDifficulty(blockNum, true) / ((ulong)tb.getFrozenSignatureCount() * 10);
             if (difficulty < ConsensusConfig.minBlockSignerPowDifficulty)
             {
                 difficulty = ConsensusConfig.minBlockSignerPowDifficulty;
