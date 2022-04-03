@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Threading;
 
 namespace DLT.Meta
@@ -249,11 +250,11 @@ namespace DLT.Meta
             }
 
             Logging.info("Wallet Version: {0}", walletStorage.walletVersion);
-            Logging.info("Public Node Address: {0}", Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
+            Logging.info("Public Node Address: {0}", walletStorage.getPrimaryAddress().ToString());
 
             if(walletStorage.viewingWallet)
             {
-                Logging.error("Viewing-only wallet {0} cannot be used as the primary DLT Node wallet.", Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
+                Logging.error("Viewing-only wallet {0} cannot be used as the primary DLT Node wallet.", walletStorage.getPrimaryAddress().ToString());
                 return false;
             }
 
@@ -266,7 +267,7 @@ namespace DLT.Meta
         {
             blockChain.setLastBlockVersion(Config.maxBlockVersionToGenerate);
 
-            byte[] from = ConsensusConfig.ixianInfiniMineAddress;
+            Address from = ConsensusConfig.ixianInfiniMineAddress;
 
             int tx_type = (int)Transaction.Type.Genesis;
 
@@ -275,7 +276,7 @@ namespace DLT.Meta
 
             if (Config.genesis2Address != "")
             {
-                Transaction txGen2 = new Transaction(tx_type, genesisFunds, new IxiNumber(0), Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address), from, null, null, 1);
+                Transaction txGen2 = new Transaction(tx_type, genesisFunds, new IxiNumber(0), new Address(Base58Check.Base58CheckEncoding.DecodePlain(Config.genesis2Address)), from, null, null, 1);
                 TransactionPool.addTransaction(txGen2);
             }
         }
@@ -500,7 +501,7 @@ namespace DLT.Meta
             doPostSyncOperations();
 
             TimeSpan last_isolate_time_diff = DateTime.UtcNow - lastIsolateTime;
-            if (Node.blockChain.getTimeSinceLastBLock() > 900 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 900 seconds with cooldown of 1800 seconds
+            if (Node.blockChain.getTimeSinceLastBlock() > 900 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 900 seconds with cooldown of 1800 seconds
             {
                 CoreNetworkUtils.isolate();
                 lastIsolateTime = DateTime.UtcNow;
@@ -943,12 +944,12 @@ namespace DLT.Meta
             return TransactionPool.addTransaction(transaction, false, null, true, force_broadcast);
         }
 
-        public override Wallet getWallet(byte[] id)
+        public override Wallet getWallet(Address id)
         {
             return Node.walletState.getWallet(id);
         }
 
-        public override IxiNumber getWalletBalance(byte[] id)
+        public override IxiNumber getWalletBalance(Address id)
         {
             return Node.walletState.getWalletBalance(id);
         }
@@ -963,9 +964,9 @@ namespace DLT.Meta
             ProtocolMessage.parseProtocolMessage(code, data, endpoint);
         }
 
-        public override BlockHeader getBlockHeader(ulong blockNum)
+        public override BlockHeader getBlockHeader(ulong blockNum, bool fullBlock)
         {
-            Block b = blockChain.getBlock(blockNum, true, true); // TODO this should be (blockNum, true, false)
+            Block b = blockChain.getBlock(blockNum, true, fullBlock);
             if (b == null)
             {
                 return null;
@@ -1119,6 +1120,11 @@ namespace DLT.Meta
             Block b = storage.getBlock(blockNum);
             b.signatures = signatures;
             storage.insertBlock(b);
+        }
+
+        public override BigInteger getMinSignerPowDifficulty(ulong blockNum)
+        {
+            return blockChain.getMinSignerPowDifficulty(blockNum);
         }
     }
 

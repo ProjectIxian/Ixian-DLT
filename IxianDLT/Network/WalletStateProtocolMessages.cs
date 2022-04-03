@@ -68,8 +68,8 @@ namespace DLT
                         writer.WriteIxiVarInt(chunk.wallets.Length);
                         foreach (Wallet w in chunk.wallets)
                         {
-                            writer.WriteIxiVarInt(w.id.Length);
-                            writer.Write(w.id);
+                            writer.WriteIxiVarInt(w.id.addressNoChecksum.Length);
+                            writer.Write(w.id.addressNoChecksum);
                             byte[] balance_bytes = w.balance.getAmount().ToByteArray();
                             writer.WriteIxiVarInt(balance_bytes.Length);
                             writer.Write(balance_bytes);
@@ -113,7 +113,7 @@ namespace DLT
                         byte[] address = reader.ReadBytes(addrLen);
 
                         // Retrieve the latest balance
-                        IxiNumber balance = Node.walletState.getWalletBalance(address);
+                        IxiNumber balance = Node.walletState.getWalletBalance(new Address(address));
 
                         // Return the balance for the matching address
                         using (MemoryStream mw = new MemoryStream())
@@ -154,7 +154,7 @@ namespace DLT
                         byte[] address = reader.ReadBytes(addrLen);
 
                         // Retrieve the latest balance
-                        IxiNumber balance = Node.walletState.getWalletBalance(address);
+                        IxiNumber balance = Node.walletState.getWalletBalance(new Address(address));
 
                         // Return the balance for the matching address
                         using (MemoryStream mw = new MemoryStream())
@@ -213,7 +213,7 @@ namespace DLT
                             byte[] w_balance_bytes = reader.ReadBytes(w_balanceLen);
                             IxiNumber w_balance = new IxiNumber(new BigInteger(w_balance_bytes));
 
-                            wallets[i] = new Wallet(w_id, w_balance);
+                            wallets[i] = new Wallet(new Address(w_id), w_balance);
 
                             int w_dataLen = (int)reader.ReadIxiVarUInt();
                             if (w_dataLen > 0)

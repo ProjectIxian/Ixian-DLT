@@ -125,10 +125,44 @@ function Render-SignerHashrates {
     Write-Host -NoNewline -ForegroundColor White "SIGNER HASHRATE:"
     $padding = 12
     foreach($s in $signer_hashrates) {
-    if($s -eq $null)
-    {
-        $s = ""
+        if($s -eq $null)
+        {
+            $s = ""
+        }
+        Write-Host -NoNewline -ForegroundColor Yellow $s.ToString().PadLeft($padding)
+        $padding = 18
     }
+    Write-Host ""
+}
+
+function Render-SignerDifficulties {
+    Param(
+        [System.Collections.ArrayList]$signer_difficulties
+    )
+    Write-Host -NoNewline -ForegroundColor White "SIGNER DIFFICULTY:"
+    $padding = 10
+    foreach($s in $signer_difficulties) {
+        if($s -eq $null)
+        {
+            $s = ""
+        }
+        Write-Host -NoNewline -ForegroundColor Yellow $s.ToString().PadLeft($padding)
+        $padding = 18
+    }
+    Write-Host ""
+}
+
+function Render-SignerBlocknums {
+    Param(
+        [System.Collections.ArrayList]$signer_blocknums
+    )
+    Write-Host -NoNewline -ForegroundColor White "SIGNER BLOCKNUM:"
+    $padding = 12
+    foreach($s in $signer_blocknums) {
+        if($s -eq $null)
+        {
+            $s = ""
+        }
         Write-Host -NoNewline -ForegroundColor Yellow $s.ToString().PadLeft($padding)
         $padding = 18
     }
@@ -246,7 +280,7 @@ function Render-GlobalStats {
     Write-Host -ForegroundColor $col -NoNewline "$($ratio.ToString('0.00'))"
     Write-Host -ForegroundColor White ")"
     # difficulty
-    Write-Host -ForegroundColor White -NoNewline "Difficulty: "
+    Write-Host -ForegroundColor White -NoNewline "Mining Difficulty: "
     Write-Host -ForegroundColor Cyan -NoNewline "$($difficulty)"
     Write-Host -ForegroundColor White -NoNewline " ("
     $hex_diff = [System.BitConverter]::ToString([System.BitConverter]::GetBytes($difficulty)).Replace("-", "")
@@ -283,6 +317,8 @@ function Display-ClientStatus {
     $node_bh_sigs = New-Object System.Collections.ArrayList (20)
     $consensus = New-Object System.Collections.ArrayList (20)
     $signer_hashrates = New-Object System.Collections.ArrayList (20)
+    $signer_difficulties = New-Object System.Collections.ArrayList (20)
+    $signer_blocknums = New-Object System.Collections.ArrayList (20)
     $presences = New-Object System.Collections.ArrayList (20)
     $in_connections = New-Object System.Collections.ArrayList (20)
     $out_connections = New-Object System.Collections.ArrayList (20)
@@ -315,6 +351,8 @@ function Display-ClientStatus {
             [void]$node_bh_sigs.Add(0)
             [void]$consensus.Add(0)
             [void]$signer_hashrates.Add(0)
+            [void]$signer_difficulties.Add(0)
+            [void]$signer_blocknums.Add(0)
             [void]$presences.Add(0)
             [void]$in_connections.Add(0)
             [void]$out_connections.Add(0)
@@ -338,6 +376,8 @@ function Display-ClientStatus {
             [void]$consensus.Add(($ns.'Required Consensus'))
             # Consensus
             [void]$signer_hashrates.Add(($ns.'Signer Hashrate'))
+            [void]$signer_difficulties.Add(($ns.'Signer Last PoW Solution'.'difficulty'))
+            [void]$signer_blocknums.Add(($ns.'Signer Last PoW Solution'.'blockNum'))
             # Presences
             [void]$presences.Add(($ns.'Presences'))
             # In / Out connections
@@ -385,6 +425,8 @@ function Display-ClientStatus {
     Render-BlockHeightSigs $node_bh_sigs $Clients.Count
     Render-Consensus $consensus
     Render-SignerHashrates $signer_hashrates
+    Render-SignerDifficulties $signer_difficulties
+    Render-SignerBlocknums $signer_blocknums
     Render-Presences $presences
     Render-Connections $in_connections $out_connections
     Render-TXs $applied_txs $unapplied_txs

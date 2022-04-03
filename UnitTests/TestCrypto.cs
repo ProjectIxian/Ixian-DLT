@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using IXICore;
 
@@ -39,6 +39,24 @@ namespace UnitTests
             hash_data = Crypto.stringToHash(ixian_hex);
             hash = CryptoManager.lib.sha3_512(hash_data);
             Assert.AreEqual("e9a5f6666f4dc96469793084ab119db1010c884eeb750f30fc63af760f5ecc40038afc75d036bd11dfc750b5a6624a92c9ae6a06d6cfd6059527d4e784678c3b", Crypto.hashToString(hash));
+        }
+
+        [TestMethod]
+        public void TestSha3_512sq()
+        {
+            byte[] hash = null;
+
+            byte[] hash_data = Crypto.stringToHash("");
+            hash = CryptoManager.lib.sha3_512sq(hash_data);
+            Assert.AreEqual("057f7539ed68710b44b6457366839b76ce674ebc214a4ef60a5d5fc9f723d1a40c8137c86e0262394f461b1e562817c8b4e1972a56bfd593320aefe4ca9b26a8", Crypto.hashToString(hash));
+            byte[] hash2 = CryptoManager.lib.sha3_512(CryptoManager.lib.sha3_512(hash_data));
+            Assert.AreEqual(Crypto.hashToString(hash2), Crypto.hashToString(hash));
+
+            hash_data = Crypto.stringToHash(ixian_hex);
+            hash = CryptoManager.lib.sha3_512sq(hash_data);
+            Assert.AreEqual("6972e16726e08aff1a8d0e1be750293a76d1fc6bdbc37b23e5539cd9d83fa95da7769b006bd4baf48af2085ba66cc57ff423e14c4cbb74d5cdb2166b104a84f3", Crypto.hashToString(hash));
+            hash2 = CryptoManager.lib.sha3_512(CryptoManager.lib.sha3_512(hash_data));
+            Assert.AreEqual(Crypto.hashToString(hash2), Crypto.hashToString(hash));
         }
 
 

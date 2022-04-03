@@ -19,6 +19,7 @@ using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -124,7 +125,7 @@ namespace DLTNode
 
             if (walletStorage.viewingWallet)
             {
-                Logging.error("Viewing-only wallet {0} cannot be used as the primary wallet.", Base58Check.Base58CheckEncoding.EncodePlain(walletStorage.getPrimaryAddress()));
+                Logging.error("Viewing-only wallet {0} cannot be used as the primary wallet.", walletStorage.getPrimaryAddress().ToString());
                 return false;
             }
 
@@ -173,12 +174,12 @@ namespace DLTNode
             throw new NotImplementedException();
         }
 
-        public override Wallet getWallet(byte[] id)
+        public override Wallet getWallet(Address id)
         {
             return new Wallet(id, 0);
         }
 
-        public override IxiNumber getWalletBalance(byte[] id)
+        public override IxiNumber getWalletBalance(Address id)
         {
             return 0;
         }
@@ -193,10 +194,14 @@ namespace DLTNode
             ProtocolMessage.parseProtocolMessage(code, data, endpoint);
         }
 
-        public override BlockHeader getBlockHeader(ulong blockNum)
+        public override BlockHeader getBlockHeader(ulong blockNum, bool fullBlock)
         {
             return BlockHeaderStorage.getBlockHeader(blockNum);
         }
 
+        public override BigInteger getMinSignerPowDifficulty(ulong blockNum)
+        {
+            return 1;
+        }
     }
 }

@@ -37,6 +37,8 @@ namespace DLT
         ulong lastBlockNum = 0;
         int lastBlockVersion = 0;
 
+        Block preLastSuperBlock = null;
+        Block lastSuperBlock = null;
         ulong lastSuperBlockNum = 0;
         byte[] lastSuperBlockChecksum = null;
         Dictionary<ulong, Block> pendingSuperBlocks = new Dictionary<ulong, Block>();
@@ -48,14 +50,12 @@ namespace DLT
         ulong solvedBlocksCount = 0;
         ulong solvedBlocksRedactedWindowSize = 0;
 
+        private int blockCount = 0;
         public long Count
         {
             get
             {
-                lock (blocks)
-                {
-                    return blocks.Count;
-                }
+                return blockCount;
             }
         }
 
@@ -98,7 +98,8 @@ namespace DLT
                     }
                     blocks.RemoveAt(0); // Remove from memory
                 }
-                int redacted_block_count = begin_size - blocks.Count();
+                blockCount = blocks.Count;
+                int redacted_block_count = begin_size - blockCount;
                 if (redacted_block_count > 0)
                 {
                     Logging.info("REDACTED {0} blocks to keep the chain length appropriate.", redacted_block_count);
@@ -154,6 +155,7 @@ namespace DLT
                     {
                         blocksDictionary.Add(block_num_to_unredact, b);
                     }
+                    blockCount = blocks.Count;
 
                     if (b.powField != null)
                     {
@@ -204,6 +206,9 @@ namespace DLT
                 {
                     pendingSuperBlocks.Remove(b.blockNum);
 
+                    preLastSuperBlock = lastSuperBlock;
+
+                    lastSuperBlock = b;
                     lastSuperBlockNum = b.blockNum;
                     lastSuperBlockChecksum = b.blockChecksum;
                 }
@@ -216,6 +221,7 @@ namespace DLT
                     {
                         blocksDictionary.Add(b.blockNum, b);
                     }
+                    blockCount = blocks.Count;
                     Node.storage.insertBlock(b);
                     return true;
                 }
@@ -225,8 +231,9 @@ namespace DLT
                 {
                     blocksDictionary.Add(b.blockNum, b);
                 }
+                blockCount = blocks.Count;
 
-                if(reorgBlockStart <= b.blockNum)
+                if (reorgBlockStart <= b.blockNum)
                 {
                     reorgBlockStart = 0;
                 }
@@ -309,13 +316,18 @@ namespace DLT
         {
             lock (blocks)
             {
-                if (blocksDictionary.Remove(blockNum))
+                lock(blocksDictionary)
                 {
-                    if (blocks.RemoveAll(x => x.blockNum == blockNum) > 0)
+                    if (blocksDictionary.Remove(blockNum))
                     {
-                        return true;
+                        if (blocks.RemoveAll(x => x.blockNum == blockNum) > 0)
+                        {
+                            blockCount = blocks.Count;
+                            return true;
+                        }
                     }
                 }
+                blockCount = blocks.Count;
                 return false;
             }
         }
@@ -470,62 +482,114 @@ namespace DLT
             }
         }
 
-        public BigInteger getRequiredSignerDifficulty()
+        public BigInteger getRequiredSignerDifficulty(bool adjustToRatio)
         {
             // TODO TODO TODO cache
-            return getRequiredSignerDifficulty(lastBlockNum + 1);
+            return getRequiredSignerDifficulty(lastBlockNum + 1, adjustToRatio);
+        }
+
+        public BigInteger getRequiredSignerDifficulty(ulong blockNum, bool adjustToRatio)
+        {
+            // TODO TODO TODO cache
+            BigInteger difficulty = SignerPowSolution.bitsToDifficulty(getRequiredSignerBits(blockNum));
+            if (adjustToRatio)
+            {
+                difficulty = (difficulty * ConsensusConfig.networkConsensusRatioNew) / 100;
+            }
+            return difficulty;
         }
 
         public uint getRequiredSignerBits()
         {
-            return SignerPowSolution.difficultyToBits(getRequiredSignerDifficulty());
+            // TODO TODO TODO cache
+            return getRequiredSignerBits(lastBlockNum + 1);
         }
 
-        public BigInteger getRequiredSignerDifficulty(ulong block_num, bool adjusted_to_ratio = true)
+        public uint getRequiredSignerBits(ulong blockNum)
+        {
+            if (blockNum == 1)
+            {
+                return SignerPowSolution.difficultyToBits(ConsensusConfig.minBlockSignerPowDifficulty);
+            }
+            if (lastSuperBlock == null || lastSuperBlock.signerBits == 0)
+            {
+                return SignerPowSolution.difficultyToBits(ConsensusConfig.minBlockSignerPowDifficulty);
+            }
+            if (blockNum <= lastSuperBlock.blockNum)
+            {
+                if(preLastSuperBlock == null || preLastSuperBlock.signerBits == 0)
+                {
+                    return SignerPowSolution.difficultyToBits(ConsensusConfig.minBlockSignerPowDifficulty);
+                }
+                return preLastSuperBlock.signerBits;
+            }
+            return lastSuperBlock.signerBits;
+        }
+
+        public uint calculateRequiredSignerBits(bool adjustToRatio)
+        {
+            // TODO TODO TODO cache
+            return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio));
+        }
+
+        public BigInteger calculateRequiredSignerDifficulty(bool adjustToRatio)
         {
             // TODO TODO TODO TODO TODO there is an issue with calculating required consensus after blocks are compacted, for now this is resolved by increasing the compacting window
-            int block_offset = 7;
-            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
+            ulong blockNum = getLastBlockNum() + 1;
+            ulong blockOffset = 7;
+            if (blockNum < blockOffset + 1) return ConsensusConfig.minBlockSignerPowDifficulty; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
-                BigInteger total_difficulty = 0;
-                int block_count = 0;
-                for (int i = 0; i < 10; i++)
+                BigInteger totalDifficulty = 0;
+                int blockCount = 0;
+                for (ulong i = 0; i < ConsensusConfig.superblockInterval; i++)
                 {
-                    ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
+                    ulong consensusBlockNum = blockNum - i - blockOffset;
                     Block b = null;
-                    if (blocksDictionary.ContainsKey(consensus_block_num))
+                    if (blocksDictionary.ContainsKey(consensusBlockNum))
                     {
-                        b = blocksDictionary[consensus_block_num];
+                        b = blocksDictionary[consensusBlockNum];
                     }
                     if (b == null)
                     {
                         break;
                     }
-                    total_difficulty += b.getTotalSignerDifficulty();
-                    block_count++;
+                    totalDifficulty += b.getTotalSignerDifficulty();
+                    blockCount++;
                 }
 
-                if (block_count == 0)
+                if (blockCount == 0)
                 {
-                    return (ulong)ConsensusConfig.maximumBlockSigners;
+                    return ConsensusConfig.minBlockSignerPowDifficulty;
                 }
-                BigInteger consensus = (total_difficulty / block_count);
+                BigInteger newDifficulty = totalDifficulty / blockCount;
 
-                if (adjusted_to_ratio)
+                if (adjustToRatio)
                 {
-                    consensus = (consensus * ConsensusConfig.networkConsensusRatioNew) / 100;
+                    // Adjust to ratio
+                    newDifficulty = (newDifficulty * ConsensusConfig.networkConsensusRatioNew) / 100;
                 }
 
-                if (consensus < 2)
+                // Limit to max *2, /2
+                BigInteger maxDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) * 2;
+                if (newDifficulty > maxDifficulty)
                 {
-                    consensus = 2;
+                    newDifficulty = maxDifficulty;
+                }else
+                {
+                    BigInteger minDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) / 2;
+                    if (newDifficulty < minDifficulty)
+                    {
+                        newDifficulty = minDifficulty;
+                    }
                 }
 
-                // TODO TODO TODO TODO TODO Limit to +-25% difference from the last average
-                // TODO TODO TODO TODO TODO Limit to min -25% difference from the last superblock
+                if (newDifficulty < ConsensusConfig.minBlockSignerPowDifficulty)
+                {
+                    newDifficulty = ConsensusConfig.minBlockSignerPowDifficulty;
+                }
 
-                return consensus;
+                return newDifficulty;
             }
         }
 
@@ -675,17 +739,14 @@ namespace DLT
                 {
                     BlockSignature sig = sortedSigs[(int)((uint)(sigNr + i) % sortedSigs.Count)];
 
-                    // Note: we don't need any further validation, since this block has already passed through BlockProcessor.verifyBlock() at this point.
-                    byte[] address = sig.signerAddress.addressNoChecksum;
-
                     // Check if we have a public key instead of an address
-                    if (address.Length > 70)
+                    if (sig.signerAddress.pubKey != null)
                     {
-                        pubKeys.Add(address);
+                        pubKeys.Add(sig.signerAddress.pubKey);
                         continue;
                     }
 
-                    Wallet signerWallet = Node.walletState.getWallet(address);
+                    Wallet signerWallet = Node.walletState.getWallet(sig.signerAddress);
                     pubKeys.Add(signerWallet.publicKey); // signer pub key
                 }
             }
@@ -730,7 +791,7 @@ namespace DLT
             }
         }
 
-        public long getTimeSinceLastBLock()
+        public long getTimeSinceLastBlock()
         {
             return Clock.getTimestamp() - lastBlockReceivedTime;
         }
@@ -765,14 +826,15 @@ namespace DLT
             lastBlock = null;
             lastBlockNum = 0;
             lastBlockVersion = 0;
-            lock (blocksDictionary)
-            {
-                blocksDictionary.Clear();
-            }
             lock (blocks)
             {
+                lock (blocksDictionary)
+                {
+                    blocksDictionary.Clear();
+                }
                 blocks.Clear();
             }
+            blockCount = blocks.Count;
         }
 
         // this function prunes un-needed sigs from blocks
@@ -988,7 +1050,7 @@ namespace DLT
                     Logging.error("Cannot revert transaction " + Transaction.txIdV8ToLegacy(tx_id) + ", transaction doesn't exist.");
                     continue;
                 }
-                if (IxianHandler.isMyAddress((new Address(tx.pubKey)).addressNoChecksum) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
+                if (IxianHandler.isMyAddress(new Address(tx.pubKey)) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
                 {
                     ActivityStorage.updateStatus(tx.id, ActivityStatus.Error, block.blockNum);
                     tx.fromLocalStorage = false;
@@ -1002,7 +1064,7 @@ namespace DLT
                     if (tx.type == (int)Transaction.Type.PoWSolution)
                     {
                         ulong pow_blocknum = 0;
-                        using (MemoryStream m = new MemoryStream(tx.data))
+                        using (MemoryStream m = new MemoryStream(tx.toList.First().Value.data))
                         {
                             using (BinaryReader reader = new BinaryReader(m))
                             {
@@ -1045,14 +1107,23 @@ namespace DLT
             }
         }
 
-        public BigInteger getMinSignerPowDifficulty()
+        public BigInteger getMinSignerPowDifficulty(ulong blockNum)
         {
             if (Count < 8)
             {
-                // TODO set this in CoreConfig
-                return 1;
+                return ConsensusConfig.minBlockSignerPowDifficulty;
             }
-            return getRequiredSignerDifficulty() / ((ulong)getBlock(getLastBlockNum() - 7, true, true).getFrozenSignatureCount() * 10);
+            Block tb = getBlock(blockNum - 6, true, true);
+            if (tb == null)
+            {
+                return SignerPowSolution.bitsToDifficulty(SignerPowSolution.maxTargetBits);
+            }
+            var difficulty = getRequiredSignerDifficulty(true) / ((ulong)tb.getFrozenSignatureCount() * 10);
+            if (difficulty < ConsensusConfig.minBlockSignerPowDifficulty)
+            {
+                difficulty = ConsensusConfig.minBlockSignerPowDifficulty;
+            }
+            return difficulty;
         }
     }
 }

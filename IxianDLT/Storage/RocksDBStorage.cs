@@ -386,7 +386,7 @@ namespace DLT
                     {
                         toList[i] = new byte[2][];
                         toList[i][0] = to.Key.addressNoChecksum;
-                        toList[i][1] = to.Value.getAmount().ToByteArray();
+                        toList[i][1] = to.Value.getBytes();
                         i++;
                     }
                     fromList = new byte[from_tx.fromList.Count][][];
@@ -398,8 +398,6 @@ namespace DLT
                         fromList[i][1] = from.Value.getAmount().ToByteArray();
                         i++;
                     }
-                    dataChecksum = from_tx.dataChecksum;
-                    data = from_tx.data;
                     blockHeight = from_tx.blockHeight;
                     nonce = from_tx.nonce;
                     timestamp = from_tx.timeStamp;
@@ -412,14 +410,14 @@ namespace DLT
 
                 public Transaction asTransaction()
                 {
-                    Transaction tx = new Transaction(type, dataChecksum, data);
+                    Transaction tx = new Transaction(type);
                     tx.id = id;
                     tx.type = type;
                     tx.amount = new IxiNumber(new System.Numerics.BigInteger(amount));
                     tx.fee = new IxiNumber(new System.Numerics.BigInteger(fee));
                     foreach (var to in toList)
                     {
-                        tx.toList.AddOrReplace(new Address(to[0]), new IxiNumber(new System.Numerics.BigInteger(to[1])));
+                        tx.toList.AddOrReplace(new Address(to[0]), new Transaction.ToEntry(version, to[1]));
                     }
                     foreach (var from in fromList)
                     {

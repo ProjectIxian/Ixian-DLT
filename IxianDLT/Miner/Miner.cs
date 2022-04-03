@@ -440,7 +440,7 @@ namespace DLT
 
             activeBlock = candidate_block;
             byte[] block_checksum = activeBlock.blockChecksum;
-            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
+            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress().addressNoChecksum;
             activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
@@ -982,7 +982,7 @@ namespace DLT
             int iterations = 0;
 
             byte[] block_checksum = new byte[3] { 1, 2, 3 };
-            byte[] solver_address = ConsensusConfig.ixianInfiniMineAddress;
+            byte[] solver_address = ConsensusConfig.ixianInfiniMineAddress.addressNoChecksum;
             activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);

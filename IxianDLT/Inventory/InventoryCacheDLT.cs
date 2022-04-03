@@ -76,10 +76,11 @@ namespace DLTNode.Inventory
                 return false;
             }
             InventoryItemKeepAlive iika = (InventoryItemKeepAlive)item;
+            byte[] address = iika.address.addressNoChecksum;
             Presence p = PresenceList.getPresenceByAddress(iika.address);
             if (p == null)
             {
-                CoreProtocolMessage.broadcastGetPresence(iika.address, endpoint);
+                CoreProtocolMessage.broadcastGetPresence(address, endpoint);
                 return false;
             }
             else
@@ -87,14 +88,14 @@ namespace DLTNode.Inventory
                 var pa = p.addresses.Find(x => x.device.SequenceEqual(iika.deviceId));
                 if (pa == null || iika.lastSeen > pa.lastSeenTime)
                 {
-                    byte[] address_len_bytes = ((ulong)iika.address.Length).GetIxiVarIntBytes();
+                    byte[] address_len_bytes = ((ulong)address.Length).GetIxiVarIntBytes();
                     byte[] device_len_bytes = ((ulong)iika.deviceId.Length).GetIxiVarIntBytes();
-                    byte[] data = new byte[1 + address_len_bytes.Length + iika.address.Length + device_len_bytes.Length + iika.deviceId.Length];
+                    byte[] data = new byte[1 + address_len_bytes.Length + address.Length + device_len_bytes.Length + iika.deviceId.Length];
                     data[0] = 1;
                     Array.Copy(address_len_bytes, 0, data, 1, address_len_bytes.Length);
-                    Array.Copy(iika.address, 0, data, 1 + address_len_bytes.Length, iika.address.Length);
-                    Array.Copy(device_len_bytes, 0, data, 1 + address_len_bytes.Length + iika.address.Length, device_len_bytes.Length);
-                    Array.Copy(iika.deviceId, 0, data, 1 + address_len_bytes.Length + iika.address.Length + device_len_bytes.Length, iika.deviceId.Length);
+                    Array.Copy(address, 0, data, 1 + address_len_bytes.Length, address.Length);
+                    Array.Copy(device_len_bytes, 0, data, 1 + address_len_bytes.Length + address.Length, device_len_bytes.Length);
+                    Array.Copy(iika.deviceId, 0, data, 1 + address_len_bytes.Length + address.Length + device_len_bytes.Length, iika.deviceId.Length);
                     endpoint.sendData(ProtocolMessageCode.getKeepAlives, data, null);
                     return true;
                 }
@@ -106,7 +107,7 @@ namespace DLTNode.Inventory
         {
             InventoryItemSignature iis = (InventoryItemSignature)item;
             ulong last_block_height = IxianHandler.getLastBlockHeight();
-            byte[] address = iis.address;
+            Address address = iis.address;
             ulong block_num = iis.blockNum;
             if (block_num + 5 > last_block_height && block_num <= last_block_height + 1)
             {
@@ -136,18 +137,18 @@ namespace DLTNode.Inventory
                     }
                 }
                 byte[] block_num_bytes = block_num.GetIxiVarIntBytes();
-                byte[] addr_len_bytes = ((ulong)address.Length).GetIxiVarIntBytes();
-                byte[] data = new byte[block_num_bytes.Length + 1 + addr_len_bytes.Length + address.Length];
+                byte[] addr_len_bytes = ((ulong)address.addressNoChecksum.Length).GetIxiVarIntBytes();
+                byte[] data = new byte[block_num_bytes.Length + 1 + addr_len_bytes.Length + address.addressNoChecksum.Length];
                 Array.Copy(block_num_bytes, data, block_num_bytes.Length);
                 data[block_num_bytes.Length] = 1;
                 Array.Copy(addr_len_bytes, 0, data, block_num_bytes.Length + 1, addr_len_bytes.Length);
-                Array.Copy(address, 0, data, block_num_bytes.Length + 1 + addr_len_bytes.Length, address.Length);
+                Array.Copy(address.addressNoChecksum, 0, data, block_num_bytes.Length + 1 + addr_len_bytes.Length, address.addressNoChecksum.Length);
                 if(endpoint == null)
                 {
-                    CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[]{ 'M', 'H' }, ProtocolMessageCode.getSignatures, data, block_num);
+                    CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[]{ 'M', 'H' }, ProtocolMessageCode.getSignatures2, data, block_num);
                 }else
                 {
-                    endpoint.sendData(ProtocolMessageCode.getSignatures, data, null);
+                    endpoint.sendData(ProtocolMessageCode.getSignatures2, data, null);
                 }
                 return true;
             }

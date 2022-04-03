@@ -187,6 +187,7 @@ namespace DLTNode
             blockData.Add("Hashrate", (MiningUtils.getTargetHashcountPerBlock(block.difficulty) / 60).ToString());
             blockData.Add("Compacted Sigs", block.compactedSigs.ToString());
             blockData.Add("Signature count", block.signatures.Count.ToString());
+            blockData.Add("Total Signer Difficulty", block.getTotalSignerDifficulty().ToString());
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
             blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
@@ -342,7 +343,7 @@ namespace DLTNode
 
             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain((string)parameters["address"]);
 
-            IxiNumber balance = Node.walletState.getWalletBalance(address);
+            IxiNumber balance = Node.walletState.getWalletBalance(new Address(address));
 
             return new JsonResponse { result = balance.ToString(), error = null };
         }
@@ -398,10 +399,10 @@ namespace DLTNode
 
             // Show own address, balance and blockchain synchronization status
             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain((string)parameters["id"]);
-            Wallet w = Node.walletState.getWallet(address);
+            Wallet w = Node.walletState.getWallet(new Address(address));
 
             Dictionary<string, string> walletData = new Dictionary<string, string>();
-            walletData.Add("id", Base58Check.Base58CheckEncoding.EncodePlain(w.id));
+            walletData.Add("id", w.id.ToString());
             walletData.Add("balance", w.balance.ToString());
             walletData.Add("type", w.type.ToString());
             walletData.Add("requiredSigs", w.requiredSigs.ToString());
@@ -409,8 +410,8 @@ namespace DLTNode
             {
                 if (w.allowedSigners != null)
                 {
-                    walletData.Add("allowedSigners", "(" + (w.allowedSigners.Length + 1) + " keys): " +
-                        w.allowedSigners.Aggregate(Base58Check.Base58CheckEncoding.EncodePlain(w.id), (aggr, n) => aggr += "," + Base58Check.Base58CheckEncoding.EncodePlain(n), aggr => aggr)
+                    walletData.Add("allowedSigners", "(" + (w.allowedSigners.Count + 1) + " keys): " +
+                        w.allowedSigners.Aggregate(w.id.ToString(), (aggr, n) => aggr += "," + n.ToString(), aggr => aggr)
                         );
                 }
                 else
@@ -452,7 +453,7 @@ namespace DLTNode
             foreach (Wallet w in wallets)
             {
                 Dictionary<string, string> walletData = new Dictionary<string, string>();
-                walletData.Add("id", Base58Check.Base58CheckEncoding.EncodePlain(w.id));
+                walletData.Add("id", w.id.ToString());
                 walletData.Add("balance", w.balance.ToString());
                 walletData.Add("type", w.type.ToString());
                 walletData.Add("requiredSigs", w.requiredSigs.ToString());
@@ -460,8 +461,8 @@ namespace DLTNode
                 {
                     if (w.allowedSigners != null)
                     {
-                        walletData.Add("allowedSigners", "(" + (w.allowedSigners.Length + 1) + " keys): " +
-                            w.allowedSigners.Aggregate(Base58Check.Base58CheckEncoding.EncodePlain(w.id), (aggr, n) => aggr += "," + Base58Check.Base58CheckEncoding.EncodePlain(n), aggr => aggr)
+                        walletData.Add("allowedSigners", "(" + (w.allowedSigners.Count + 1) + " keys): " +
+                            w.allowedSigners.Aggregate(w.id.ToString(), (aggr, n) => aggr += "," + n.ToString(), aggr => aggr)
                             );
                     }
                     else
@@ -628,7 +629,7 @@ namespace DLTNode
             if (Node.blockSync.synchronizing)
                 dltStatus = "Synchronizing";
 
-            if (Node.blockChain.getTimeSinceLastBLock() > 1800) // if no block for over 1800 seconds
+            if (Node.blockChain.getTimeSinceLastBlock() > 1800) // if no block for over 1800 seconds
             {
                 dltStatus = "ErrorLongTimeNoBlock";
             }
@@ -655,11 +656,14 @@ namespace DLTNode
                 networkArray.Add("Block Height", last_block.blockNum);
                 networkArray.Add("Block Version", last_block.version);
                 networkArray.Add("Block Signature Count", last_block.getFrozenSignatureCount());
-            }else
+                networkArray.Add("Block Total Signer Difficulty", last_block.getTotalSignerDifficulty());
+            }
+            else
             {
                 networkArray.Add("Block Height", 0);
                 networkArray.Add("Block Version", 0);
-                networkArray.Add("Block Signature Count", 1);
+                networkArray.Add("Block Signature Count", 0);
+                networkArray.Add("Block Total Signer Difficulty", 0);
             }
 
             networkArray.Add("Network Block Height", IxianHandler.getHighestKnownNetworkBlockHeight());
@@ -669,7 +673,7 @@ namespace DLTNode
             if (parameters.ContainsKey("vv") || parameters.ContainsKey("verbose"))
             {
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty());
+                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(false));
                 networkArray.Add("Signer Bits", Node.blockChain.getRequiredSignerBits());
                 networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
                 networkArray.Add("Signer Last PoW Solution", Node.signerPowMiner.lastSignerPowSolution);
@@ -865,9 +869,17 @@ namespace DLTNode
 
             ulong blockdiff = ulong.Parse((string)parameters["diff"]);
 
-            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
+            Address solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
 
-            bool verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, blockdiff);
+            bool verify_result;
+            if (block.version < BlockVer.v10)
+            {
+                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressWithChecksum, blockdiff);
+            }
+            else 
+            {
+                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressNoChecksum, blockdiff);
+            }
 
             if (verify_result)
             {
@@ -915,8 +927,16 @@ namespace DLTNode
 
             Logging.info("Received miner share: {0} #{1}", nonce, blocknum);
 
-            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
-            bool verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address, block.difficulty);
+            Address solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
+            bool verify_result;
+            if (block.version < BlockVer.v10)
+            {
+                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressWithChecksum, block.difficulty);
+            }
+            else
+            {
+                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressNoChecksum, block.difficulty);
+            }
 
             bool send_result = false;
 
@@ -976,7 +996,7 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INTERNAL_ERROR, message = "Cannot retrieve mining block" } };
             }
 
-            byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
+            Address solver_address = IxianHandler.getWalletStorage().getPrimaryAddress();
 
             Dictionary<string, Object> resultArray = new Dictionary<string, Object>
             {
@@ -984,7 +1004,7 @@ namespace DLTNode
                 { "ver", block.version }, // Block version
                 { "dif", block.difficulty }, // Block difficulty
                 { "chk", block.blockChecksum }, // Block checksum
-                { "adr", solver_address } // Solver address
+                { "adr", solver_address.ToString() } // Solver address
             };
 
             return new JsonResponse { result = resultArray, error = null };

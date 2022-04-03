@@ -34,7 +34,7 @@ namespace DLT
 
     public abstract class WSJEntry
     {
-        public byte[] targetWallet { get; protected set; }
+        public Address targetWallet { get; protected set; }
 
         public virtual byte[] checksum()
         {
@@ -57,7 +57,7 @@ namespace DLT
         public abstract bool revert();
         public virtual string toString()
         {
-            return Base58Check.Base58CheckEncoding.EncodePlain(targetWallet) + ": " + this.GetType().Name;
+            return targetWallet.ToString() + ": " + this.GetType().Name;
         }
     }
 
@@ -66,7 +66,7 @@ namespace DLT
         private IxiNumber old_value;
         private IxiNumber new_value;
 
-        public WSJE_Balance(byte[] address, IxiNumber old_balance, IxiNumber new_balance)
+        public WSJE_Balance(Address address, IxiNumber old_balance, IxiNumber new_balance)
         {
             targetWallet = address;
             old_value = old_balance;
@@ -83,7 +83,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = r.ReadBytes(target_wallet_len);
+                targetWallet = new Address(r.ReadBytes(target_wallet_len));
             }
             string old_str = r.ReadString();
             string new_str = r.ReadString();
@@ -96,8 +96,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Balance);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.Length);
-                w.Write(targetWallet);
+                w.Write(targetWallet.addressNoChecksum.Length);
+                w.Write(targetWallet.addressNoChecksum);
             }
             else
             {
@@ -135,11 +135,11 @@ namespace DLT
 
     public class WSJE_AllowedSigner : WSJEntry
     {
-        private byte[] signer;
+        private Address signer;
         private bool adding;
         private bool adjustSigners;
 
-        public WSJE_AllowedSigner(byte[] address, bool adding_signer, byte[] signer_address, bool adjust_signers = false)
+        public WSJE_AllowedSigner(Address address, bool adding_signer, Address signer_address, bool adjust_signers = false)
         {
             targetWallet = address;
             adding = adding_signer;
@@ -165,12 +165,12 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = r.ReadBytes(target_wallet_len);
+                targetWallet = new Address(r.ReadBytes(target_wallet_len));
             }
             int target_signer_len = r.ReadInt32();
             if (target_signer_len > 0)
             {
-                signer = r.ReadBytes(target_signer_len);
+                signer = new Address(r.ReadBytes(target_signer_len));
             }
             adding = r.ReadBoolean();
             if (!adding)
@@ -188,8 +188,8 @@ namespace DLT
             w.Write((int)WSJEntryType.MS_AllowedSigner);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.Length);
-                w.Write(targetWallet);
+                w.Write(targetWallet.addressNoChecksum.Length);
+                w.Write(targetWallet.addressNoChecksum);
             }
             else
             {
@@ -197,8 +197,8 @@ namespace DLT
             }
             if (signer != null)
             {
-                w.Write(signer.Length);
-                w.Write(signer);
+                w.Write(signer.addressNoChecksum.Length);
+                w.Write(signer.addressNoChecksum);
             }
             else
             {
@@ -251,7 +251,7 @@ namespace DLT
         private byte old_sigs;
         private byte new_sigs;
 
-        public WSJE_Signers(byte[] address, byte old_req_sigs, byte new_req_sigs)
+        public WSJE_Signers(Address address, byte old_req_sigs, byte new_req_sigs)
         {
             targetWallet = address;
             old_sigs = old_req_sigs;
@@ -268,7 +268,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = r.ReadBytes(target_wallet_len);
+                targetWallet = new Address(r.ReadBytes(target_wallet_len));
             }
             old_sigs = r.ReadByte();
             new_sigs = r.ReadByte();
@@ -279,8 +279,8 @@ namespace DLT
             w.Write((int)WSJEntryType.MS_RequiredSignatures);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.Length);
-                w.Write(targetWallet);
+                w.Write(targetWallet.addressNoChecksum.Length);
+                w.Write(targetWallet.addressNoChecksum);
             }
             else
             {
@@ -315,7 +315,7 @@ namespace DLT
     {
         private byte[] pubkey;
 
-        public WSJE_Pubkey(byte[] address, byte[] adding_pubkey)
+        public WSJE_Pubkey(Address address, byte[] adding_pubkey)
         {
             targetWallet = address;
             pubkey = adding_pubkey;
@@ -331,7 +331,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = r.ReadBytes(target_wallet_len);
+                targetWallet = new Address(r.ReadBytes(target_wallet_len));
             }
             int target_pubkey_len = r.ReadInt32();
             if (target_pubkey_len > 0)
@@ -345,8 +345,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Pubkey);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.Length);
-                w.Write(targetWallet);
+                w.Write(targetWallet.addressNoChecksum.Length);
+                w.Write(targetWallet.addressNoChecksum);
             }
             else
             {
@@ -394,7 +394,7 @@ namespace DLT
         private byte[] new_data;
         private byte[] old_data;
 
-        public WSJE_Data(byte[] address, byte[] old_wallet_data, byte[] new_wallet_data)
+        public WSJE_Data(Address address, byte[] old_wallet_data, byte[] new_wallet_data)
         {
             targetWallet = address;
             old_data = old_wallet_data;
@@ -411,7 +411,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = r.ReadBytes(target_wallet_len);
+                targetWallet = new Address(r.ReadBytes(target_wallet_len));
             }
             int new_data_len = r.ReadInt32();
             if (new_data_len > 0)
@@ -430,8 +430,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Data);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.Length);
-                w.Write(targetWallet);
+                w.Write(targetWallet.addressNoChecksum.Length);
+                w.Write(targetWallet.addressNoChecksum);
             }
             else
             {
@@ -480,7 +480,7 @@ namespace DLT
 
     public class WSJE_Create : WSJEntry
     {
-        public WSJE_Create(byte[] address)
+        public WSJE_Create(Address address)
         {
             targetWallet = address;
         }
@@ -495,7 +495,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = r.ReadBytes(target_wallet_len);
+                targetWallet = new Address(r.ReadBytes(target_wallet_len));
             }
         }
 
@@ -504,8 +504,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Create);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.Length);
-                w.Write(targetWallet);
+                w.Write(targetWallet.addressNoChecksum.Length);
+                w.Write(targetWallet.addressNoChecksum);
             }
             else
             {
@@ -538,7 +538,7 @@ namespace DLT
     {
         private Wallet wallet;
 
-        public WSJE_Destroy(byte[] address, Wallet old_wallet)
+        public WSJE_Destroy(Address address, Wallet old_wallet)
         {
             targetWallet = address;
             wallet = old_wallet;
@@ -554,7 +554,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = r.ReadBytes(target_wallet_len);
+                targetWallet = new Address(r.ReadBytes(target_wallet_len));
             }
             int wallet_len = r.ReadInt32();
             if (wallet_len > 0)
@@ -568,8 +568,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Destroy);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.Length);
-                w.Write(targetWallet);
+                w.Write(targetWallet.addressNoChecksum.Length);
+                w.Write(targetWallet.addressNoChecksum);
             }
             else
             {
@@ -691,7 +691,7 @@ namespace DLT
         {
             // TODO TODO TODO Block v8 SortedSet can be replaced with something faster (i.e. List) and should exclude duplicate entries as the order
             // of the entries is determined by order of transactions on the block
-            SortedSet<Wallet> sortedWallets = new SortedSet<Wallet>(new LambdaComparer<Wallet>((a, b) => _ByteArrayComparer.Compare(a.id, b.id) ));
+            SortedSet<Wallet> sortedWallets = new SortedSet<Wallet>(new LambdaComparer<Wallet>((a, b) => _ByteArrayComparer.Compare(a.id.addressNoChecksum, b.id.addressNoChecksum) ));
             foreach(var entry in entries)
             {
                 sortedWallets.Add(Node.walletState.getWallet(entry.targetWallet));

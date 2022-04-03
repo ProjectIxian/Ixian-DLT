@@ -466,7 +466,21 @@ namespace DLT
                 string toList = "";
                 foreach (var to in transaction.toList)
                 {
-                    toList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(to.Key.addressNoChecksum)  + ":" + Convert.ToBase64String(to.Value.getAmount().ToByteArray());
+                    string tx_data_string = "";
+                    if(to.Value.data != null)
+                    {
+                        byte[] tx_data_shuffled = shuffleStorageBytes(to.Value.data);
+                        tx_data_string = Convert.ToBase64String(tx_data_shuffled);
+                    }
+
+                    string tx_data_checksum_string = "";
+                    if (to.Value.data != null)
+                    {
+                        byte[] tx_data_checksum = to.Value.dataChecksum;
+                        tx_data_checksum_string = Convert.ToBase64String(tx_data_checksum);
+                    }
+                    
+                    toList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(to.Key.addressNoChecksum)  + ":" + Convert.ToBase64String(to.Value.amount.getAmount().ToByteArray()) + ":" + tx_data_checksum_string + ":" + tx_data_string;
                 }
 
                 string fromList = "";
@@ -475,16 +489,14 @@ namespace DLT
                     fromList += "||" + Base58Check.Base58CheckEncoding.EncodePlain(from.Key) + ":" + Convert.ToBase64String(from.Value.getAmount().ToByteArray());
                 }
 
-                byte[] tx_data_shuffled = shuffleStorageBytes(transaction.data);
-
                 bool result = false;
                 lock (storageLock)
                 {
                     // Transaction was not found in any existing database, seek to the proper database
                     seekDatabase(transaction.applied, true);
 
-                    string sql = "INSERT OR REPLACE INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`dataChecksum`,`data`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, Transaction.txIdV8ToLegacy(transaction.id), transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, transaction.dataChecksum, tx_data_shuffled, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
+                    string sql = "INSERT OR REPLACE INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, Transaction.txIdV8ToLegacy(transaction.id), transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                 }
 
                 return result;
@@ -694,7 +706,7 @@ namespace DLT
                         newSig.signerAddress = new Address(Convert.FromBase64String(split_sig[1]), null, false);
                         if(split_sig.Length >= 3 && split_sig[2] != "")
                         {
-                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), newSig.signerAddress.addressNoChecksum);
+                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), newSig.signerAddress);
                         }
                          
                         // Go through all block signatures and check if the resulting address matches
@@ -1061,7 +1073,7 @@ namespace DLT
 
                 _storage_Transaction tx = _storage_tx[0];
 
-                transaction = new Transaction(tx.type, tx.dataChecksum, unshuffleStorageBytes(tx.data))
+                transaction = new Transaction(tx.type)
                 {
                     id = Transaction.txIdLegacyToV8(tx.id),
                     amount = new IxiNumber(tx.amount),
@@ -1096,7 +1108,31 @@ namespace DLT
                         }
                         byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
                         IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                        transaction.toList.AddOrReplace(new Address(address, null, false), amount);
+                        byte[] data = null;
+                        byte[] dataChecksum = null;
+                        if(split_to.Length == 4)
+                        {
+                            if (split_to[2] != "")
+                            {
+                                dataChecksum = Convert.FromBase64String(split_to[2]);
+                            }
+                            if (split_to[3] != "")
+                            {
+                                data = Convert.FromBase64String(split_to[3]);
+                            }
+                        }
+                        Transaction.ToEntry toEntry = new Transaction.ToEntry(tx.version, amount, data, dataChecksum);
+                        transaction.toList.AddOrReplace(new Address(address, null, false), toEntry);
+                    }
+
+                    if (tx.dataChecksum != null)
+                    {
+                        transaction.toList.First().Value.dataChecksum = tx.dataChecksum;
+                    }
+
+                    if (tx.data != null)
+                    {
+                        transaction.toList.First().Value.data = tx.data;
                     }
 
                     if (tx.from != null)
@@ -1527,7 +1563,7 @@ namespace DLT
 
                 foreach(_storage_Transaction tx in _storage_tx)
                 {
-                    Transaction transaction = new Transaction(tx.type, tx.dataChecksum, unshuffleStorageBytes(tx.data))
+                    Transaction transaction = new Transaction(tx.type)
                     {
                         id = Transaction.txIdLegacyToV8(tx.id),
                         amount = new IxiNumber(tx.amount),
@@ -1563,7 +1599,21 @@ namespace DLT
                             }
                             byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
                             IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                            transaction.toList.AddOrReplace(new Address(address, null, false), amount);
+                            byte[] data = null;
+                            byte[] dataChecksum = null;
+                            if (split_to.Length == 4)
+                            {
+                                if (split_to[2] != "")
+                                {
+                                    dataChecksum = Convert.FromBase64String(split_to[2]);
+                                }
+                                if (split_to[3] != "")
+                                {
+                                    data = Convert.FromBase64String(split_to[3]);
+                                }
+                            }
+                            Transaction.ToEntry toEntry = new Transaction.ToEntry(tx.version, amount, data, dataChecksum);
+                            transaction.toList.AddOrReplace(new Address(address, null, false), toEntry);
                         }
 
                         if (tx.from != null)

@@ -61,7 +61,7 @@ namespace DLTNode
                         Logging.error("Cannot start txspam test, to parameters wasn't provided.");
                         return;
                     }
-                    startTxSpamTest(tx_count, Base58Check.Base58CheckEncoding.DecodePlain(to), threads);
+                    startTxSpamTest(tx_count, new Address(Base58Check.Base58CheckEncoding.DecodePlain(to)), threads);
                 }
 
                 // Run the transaction spam file generation test
@@ -187,8 +187,8 @@ namespace DLTNode
                     writer.Write(publicHostname);
 
                     // Send the public node address
-                    byte[] address = ws.getPrimaryAddress();
-                    writer.Write(address);
+                    Address address = ws.getPrimaryAddress();
+                    writer.Write(address.addressNoChecksum);
 
                     // Send the testnet designator
                     writer.Write(IxianHandler.isTestNet);
@@ -221,14 +221,14 @@ namespace DLTNode
             Logging.info("Ending spam connect test");
         }
 
-        public static void startTxSpamTest(int tx_count, byte[] to, int threads)
+        public static void startTxSpamTest(int tx_count, Address to, int threads)
         {
             Logging.info("Starting tx spam test");
 
             IxiNumber amount = ConsensusConfig.transactionPrice;
             IxiNumber fee = ConsensusConfig.transactionPrice;
             WalletStorage ws = IxianHandler.getWalletStorage();
-            byte[] from = ws.getPrimaryAddress();
+            Address from = ws.getPrimaryAddress();
             byte[] pubKey = ws.getPrimaryPublicKey();
 
             for (int thread = 0; thread < threads; thread++)
@@ -296,8 +296,8 @@ namespace DLTNode
             {
                 IxiNumber amount = new IxiNumber("0.01");
                 IxiNumber fee = ConsensusConfig.transactionPrice;
-                byte[] to = ConsensusConfig.foundationAddress;
-                byte[] from = ws.getPrimaryAddress();
+                Address to = ConsensusConfig.foundationAddress;
+                Address from = ws.getPrimaryAddress();
 
                 byte[] pubKey = ws.getPrimaryPublicKey();
                 // Check if this wallet's public key is already in the WalletState

@@ -205,7 +205,7 @@ namespace DLT.Meta
                 dltStatus = "connecting   ";
             }
 
-            if (Node.blockChain.getTimeSinceLastBLock() > 1800) // if no block for over 1800 seconds
+            if (Node.blockChain.getTimeSinceLastBlock() > 1800) // if no block for over 1800 seconds
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 dltStatus = "No fully signed block received for over 30 minutes";
@@ -232,7 +232,7 @@ namespace DLT.Meta
             writeLine(dltStatusDetail);
 
             writeLine(" Last Block:           {0} ({1} sigs) - {2}...", lastBlockNum, sigCount, lastBlockChecksum);
-            writeLine(" Last Block Added:     {0}s ago", Node.blockChain.getTimeSinceLastBLock());
+            writeLine(" Last Block Added:     {0}s ago", Node.blockChain.getTimeSinceLastBlock());
             writeLine(" Connections (I/O):    {0}", connectionsInStr + "/" + connectionsOut);
             writeLine(" Presences:            {0}", PresenceList.getTotalPresences());
             writeLine(" Transaction Pool:     {0}", TransactionPool.getUnappliedTransactionCount());

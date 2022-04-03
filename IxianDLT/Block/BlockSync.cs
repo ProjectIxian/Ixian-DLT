@@ -108,10 +108,17 @@ namespace DLT
                 if(CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
                     // Proceed with rolling forward the chain
-                    var lastBh = IxianHandler.getLastBlockHeight();
-                    rollForward();
-                    if(lastBh == IxianHandler.getLastBlockHeight())
+                    try
                     {
+                        var lastBh = IxianHandler.getLastBlockHeight();
+                        rollForward();
+                        if (lastBh == IxianHandler.getLastBlockHeight())
+                        {
+                            Thread.Sleep(100);
+                        }
+                    }catch(Exception e)
+                    {
+                        Logging.error("Exception caught in rollForwardLoop: " + e);
                         Thread.Sleep(100);
                     }
                     continue;
@@ -467,7 +474,7 @@ namespace DLT
             {
                 if (b.transactions.Contains(tx.id))
                 {
-                    ulong blockNum = BitConverter.ToUInt64(tx.data, 0);
+                    ulong blockNum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
                     Block solvedBlock = Node.blockChain.getBlock(blockNum, false, true);
                     if (solvedBlock != null && solvedBlock.powField == null)
                     {
