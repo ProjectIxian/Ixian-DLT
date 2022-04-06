@@ -666,6 +666,7 @@ namespace DLTNode
                 networkArray.Add("Block Total Signer Difficulty", 0);
             }
 
+            networkArray.Add("Block generated seconds ago", Node.blockChain.getTimeSinceLastBlock());
             networkArray.Add("Network Block Height", IxianHandler.getHighestKnownNetworkBlockHeight());
             networkArray.Add("Node Type", PresenceList.myPresenceType);
             networkArray.Add("Connectable", NetworkServer.isConnectable());

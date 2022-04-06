@@ -1434,17 +1434,21 @@ namespace DLT
                         int localBlockSigCount = localNewBlock.getSignatureCount();
                         if(b.blockNum == localNewBlock.blockNum)
                         {
-                            if((blockSigCount >= localBlockSigCount && b.getTotalSignerDifficulty() > localNewBlock.getTotalSignerDifficulty())
-                                || (b.getTotalSignerDifficulty() == localNewBlock.getTotalSignerDifficulty() && b.transactions.Count() > localNewBlock.transactions.Count())
-                                || (hasRequiredSignatureCount(b) && highestNetworkBlockNum > b.blockNum + 5))
+                            bool hasNodeSig = hasElectedNodeSignature(b);
+                            if (hasNodeSig)
                             {
-                                Logging.info("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset());
-                                localNewBlock = b;
-                                currentBlockStartTime = DateTime.UtcNow;
-                                lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                                BlockProtocolMessages.broadcastNewBlock(b, null, null);
-                                acceptLocalNewBlock();
-                                return;
+                                if ((blockSigCount >= localBlockSigCount && b.getTotalSignerDifficulty() > localNewBlock.getTotalSignerDifficulty())
+                                    || (b.getTotalSignerDifficulty() == localNewBlock.getTotalSignerDifficulty() && b.transactions.Count() > localNewBlock.transactions.Count())
+                                    || (hasRequiredSignatureCount(b) && highestNetworkBlockNum > b.blockNum + 5))
+                                {
+                                    Logging.info("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset());
+                                    localNewBlock = b;
+                                    currentBlockStartTime = DateTime.UtcNow;
+                                    lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                                    BlockProtocolMessages.broadcastNewBlock(b, null, null);
+                                    acceptLocalNewBlock();
+                                    return;
+                                }
                             }
                         }
                         if (!Node.isMasterNode())
@@ -1456,25 +1460,9 @@ namespace DLT
                 }
                 else // localNewBlock == null
                 {
-                    bool hasNodeSig = false;
-                    int offset = getElectedNodeOffset();
-                    if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
-                    {
-                        var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
-                        foreach(var pubKey in electedNodePubKeys)
-                        {
-                            if(b.hasNodeSignature(new Address(pubKey)))
-                            {
-                                hasNodeSig = true;
-                                break;
-                            }
-                        }
-                    }else
-                    {
-                        hasNodeSig = true;
-                    }
+                    bool hasNodeSig = hasElectedNodeSignature(b);
                     if (hasNodeSig
-                        || b.getSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO TODO think about /2 thing
+                        || b.getSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO Omega think about /2 thing
                         || firstBlockAfterSync)
                     {
                         localNewBlock = b;
@@ -1489,6 +1477,29 @@ namespace DLT
                     }
                 }
             }
+        }
+
+        public bool hasElectedNodeSignature(Block b)
+        {
+            bool hasNodeSig = false;
+            int offset = getElectedNodeOffset();
+            if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
+            {
+                var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
+                foreach (var pubKey in electedNodePubKeys)
+                {
+                    if (b.hasNodeSignature(new Address(pubKey)))
+                    {
+                        hasNodeSig = true;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                hasNodeSig = true;
+            }
+            return hasNodeSig;
         }
 
         // Adds a block to the blacklist
@@ -1784,7 +1795,7 @@ namespace DLT
                     {
                         foreach (var localSig in local_block.frozenSignatures)
                         {
-                            if (block.containsSignature(localSig))
+                            if (block.containsSignature(localSig.signerAddress))
                             {
                                 valid_sig_count++;
                             }
@@ -3017,6 +3028,11 @@ namespace DLT
                     if (signature_data != null)
                     {
                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
+                    }else
+                    {
+                        Logging.error("Could not apply signature on a newly generated block {0}.", localNewBlock.blockNum);
+                        localNewBlock = null;
+                        return;
                     }
 
                     localNewBlock.logBlockDetails();

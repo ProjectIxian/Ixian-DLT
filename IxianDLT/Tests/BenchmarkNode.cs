@@ -17,11 +17,7 @@ using IXICore.Meta;
 using IXICore.Network;
 using IXICore.Utils;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DLTNode
 {
@@ -194,7 +190,7 @@ namespace DLTNode
             ProtocolMessage.parseProtocolMessage(code, data, endpoint);
         }
 
-        public override BlockHeader getBlockHeader(ulong blockNum, bool fullBlock)
+        public override BlockHeader getBlockHeader(ulong blockNum)
         {
             return BlockHeaderStorage.getBlockHeader(blockNum);
         }

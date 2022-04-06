@@ -257,14 +257,19 @@ function Render-GlobalStats {
         [int]$unsolved,
         [int]$wallets,
         [uint64]$difficulty,
-        [uint64]$signer_difficulty
+        [uint64]$signer_difficulty,
+        [int]$last_block_time
     )
     Write-Host -ForegroundColor Gray "========================================================================"
     Write-Host -ForegroundColor White "Global stats:"
     # wallets
     Write-Host -ForegroundColor White -NoNewline "Wallets: "
     Write-Host -ForegroundColor Cyan "$($wallets)"
-    # Block solution stats
+    # Block stats
+    Write-Host -ForegroundColor White -NoNewline "Block generated "
+    Write-Host -ForegroundColor Cyan -NoNewline "$($last_block_time)"
+    Write-Host -ForegroundColor White " seconds ago"
+
     Write-Host -ForegroundColor White -NoNewline "Solved/Unsolved blocks: "
     Write-Host -ForegroundColor Cyan -NoNewline "$($solved)"
     Write-Host -ForegroundColor White -NoNewline "/"
@@ -279,6 +284,7 @@ function Render-GlobalStats {
     }
     Write-Host -ForegroundColor $col -NoNewline "$($ratio.ToString('0.00'))"
     Write-Host -ForegroundColor White ")"
+
     # difficulty
     Write-Host -ForegroundColor White -NoNewline "Mining Difficulty: "
     Write-Host -ForegroundColor Cyan -NoNewline "$($difficulty)"
@@ -334,6 +340,7 @@ function Display-ClientStatus {
     $global_wallets = 0
     $global_difficulty = 0
     $global_signer_difficulty = 0
+    $global_last_block_time = 0
     $mining_globals_captured = $false
 
     foreach($node in $Clients) {
@@ -401,6 +408,7 @@ function Display-ClientStatus {
                     # Caputer global stats from first node
                     $global_wallets = $ns.'Wallets'
                     $global_signer_difficulty = $ns.'Signer Difficulty'
+                    $global_last_block_time = $ns.'Block generated seconds ago'
                 }
                 if($node.Miner -eq $true -and $mining_globals_captured -eq $false) {
                     # Capture mining globals from the first miner
@@ -432,6 +440,6 @@ function Display-ClientStatus {
     Render-TXs $applied_txs $unapplied_txs
     Render-MinerHashrate $hashrates
     Render-MinerSolved $solved_counts
-    Render-GlobalStats $global_solved $global_unsolved $global_wallets $global_difficulty $global_signer_difficulty
+    Render-GlobalStats $global_solved $global_unsolved $global_wallets $global_difficulty $global_signer_difficulty $global_last_block_time
     Render-Footer
 }

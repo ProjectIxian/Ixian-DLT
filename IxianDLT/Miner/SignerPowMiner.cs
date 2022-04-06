@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2017-2021 Ixian OU
+﻿// Copyright (C) 2017-2022 Ixian OU
 // This file is part of Ixian Core - www.github.com/ProjectIxian/Ixian-Core
 //
 // Ixian DLT is free software: you can redistribute it and/or modify
@@ -15,7 +15,9 @@ using IXICore;
 using IXICore.Meta;
 using IXICore.Utils;
 using System;
+using System.Linq;
 using System.Numerics;
+using System.Security.Cryptography;
 using System.Threading;
 
 namespace DLT
@@ -43,7 +45,6 @@ namespace DLT
         [ThreadStatic] private static byte[] activeBlockChallenge = null;
         [ThreadStatic] private static ulong activeBlockChallengeBlockNum = 0;
 
-        private static Random random = new Random(); // used to seed initial curNonce's
         [ThreadStatic] private static byte[] curNonce = null; // Used for random nonce
 
         public static long solutionsFound { get; private set; } = 0;
@@ -184,6 +185,8 @@ namespace DLT
                 || candidateBlock.version < BlockVer.v10)
             {
                 // paused or not synced/worker node or lower than v10
+                blockReadyForMining = false;
+                currentBlockNum = 0;
                 lastStatTime = DateTime.UtcNow;
                 lastHashRate = hashesPerSecond;
                 hashesPerSecond = 0;
@@ -197,11 +200,19 @@ namespace DLT
             else
             {
                 candidateBlock = Node.blockChain.getBlock(candidateBlock.blockNum - 7, false, false);
+                // TODO TODO Omega find first v10 block
             }
 
             if (candidateBlock == null)
             {
                 // Not ready yet
+                return;
+            }
+
+            if (currentBlockNum == candidateBlock.blockNum
+                && activeBlock.blockChecksum.SequenceEqual(candidateBlock.blockChecksum))
+            {
+                // already mining this block
                 return;
             }
 
@@ -220,7 +231,7 @@ namespace DLT
                 return;
             }
 
-            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight());
+            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1);
 
             if (solvingDifficulty < 0)
             {
@@ -243,10 +254,7 @@ namespace DLT
             if (curNonce == null)
             {
                 curNonce = new byte[length];
-                lock (random)
-                {
-                    random.NextBytes(curNonce);
-                }
+                RandomNumberGenerator.Create().GetBytes(curNonce); 
             }
             bool inc_next = true;
             length = curNonce.Length;
@@ -315,13 +323,13 @@ namespace DLT
 
             if (hashDifficulty >= solvingDifficulty)
             {
-                var lastSolution = lastSignerPowSolution;
                 // valid hash
+                var lastSolution = lastSignerPowSolution;
                 if (lastSolution == null
                     || lastSolution.blockNum != activeBlockChallengeBlockNum
                     || (lastSolution.blockNum == activeBlockChallengeBlockNum && hashDifficulty > lastSolution.difficulty))
                 {
-                    Logging.info("SOLUTION FOUND FOR BLOCK #{0} - {1} > {2} - {3}", activeBlock.blockNum, SignerPowSolution.hashToDifficulty(hash), solvingDifficulty, Crypto.hashToString(hash));
+                    Logging.info("SOLUTION FOUND FOR BLOCK #{0} - {1} > {2} - {3}", activeBlock.blockNum, hashDifficulty, solvingDifficulty, Crypto.hashToString(hash));
 
                     byte[] nonceCopy = new byte[nonce.Length];
                     Array.Copy(nonce, nonceCopy, nonce.Length);
@@ -358,15 +366,21 @@ namespace DLT
             }
 
             var solution = PresenceList.getPowSolution();
-            if (solution != null
-                && newSolution.blockNum == solution.blockNum
-                && newSolution.difficulty <= solution.difficulty)
+            if (solution != null)
             {
-                // If the new solution has a lower difficulty for the same block height than the already submitted solution
-                return;
+                ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
+
+                if (newSolution.difficulty <= solution.difficulty
+                    && solution.blockNum + ConsensusConfig.plPowBlocksValidity - (ulong)ConsensusConfig.plPowMinCalculationTime > lastBlockHeight
+                )
+                {
+                    // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
+                    return;
+                }
             }
+
             PresenceList.setPowSolution(newSolution);
-            // TODO TODO Omega - reapply signature with new solution on sigfreezed block up to the current block
+            // TODO TODO Omega - reapply signature with new solution on sigfreezed block up to the current block <---- do this only if the chain is stuck
         }
     }
 }

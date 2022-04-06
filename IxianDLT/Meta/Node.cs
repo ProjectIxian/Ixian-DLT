@@ -964,9 +964,9 @@ namespace DLT.Meta
             ProtocolMessage.parseProtocolMessage(code, data, endpoint);
         }
 
-        public override BlockHeader getBlockHeader(ulong blockNum, bool fullBlock)
+        public override BlockHeader getBlockHeader(ulong blockNum)
         {
-            Block b = blockChain.getBlock(blockNum, true, fullBlock);
+            Block b = blockChain.getBlock(blockNum, true, false);
             if (b == null)
             {
                 return null;

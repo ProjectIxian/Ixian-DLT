@@ -728,7 +728,7 @@ namespace DLT
                 List<BlockSignature> sortedSigs = new List<BlockSignature>(targetBlock.frozenSignatures??targetBlock.signatures);
                 sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress.addressNoChecksum, y.signerAddress.addressNoChecksum));
                 int maxElectedNodes = 3;
-                if(sortedSigs.Count < 10)
+                if(sortedSigs.Count < 100)
                 {
                     maxElectedNodes = 1;
                 }else
