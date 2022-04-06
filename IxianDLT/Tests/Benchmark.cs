@@ -265,7 +265,7 @@ namespace DLTNode
             // Perform multiple iterations
             for (int i = 0; i < max_iterations; i++)
             {
-                kp = CryptoManager.lib.generateKeys(ConsensusConfig.defaultRsaKeySize);
+                kp = CryptoManager.lib.generateKeys(ConsensusConfig.defaultRsaKeySize, 2);
                 if (kp == null)
                 {
                     Logging.error("Error during RSA benchmark, unable to generate a keypair.");

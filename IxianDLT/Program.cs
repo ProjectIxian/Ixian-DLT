@@ -438,7 +438,7 @@ namespace DLTNode
 
             // Create a crypto lib
             CryptoLib crypto_lib = new CryptoLib(new IXICore.BouncyCastle());
-            IxianKeyPair kp = crypto_lib.generateKeys(ConsensusConfig.defaultRsaKeySize);
+            IxianKeyPair kp = crypto_lib.generateKeys(ConsensusConfig.defaultRsaKeySize, 2);
 
             Logging.log(LogSeverity.info, String.Format("Public Key base64: {0}", kp.publicKeyBytes));
             Logging.log(LogSeverity.info, String.Format("Private Key base64: {0}", kp.privateKeyBytes));
