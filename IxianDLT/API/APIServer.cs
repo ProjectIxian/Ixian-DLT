@@ -678,6 +678,7 @@ namespace DLTNode
                 networkArray.Add("Signer Bits", Node.blockChain.getRequiredSignerBits());
                 networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
                 networkArray.Add("Signer Last PoW Solution", Node.signerPowMiner.lastSignerPowSolution);
+                networkArray.Add("Signer Active PoW Solution", PresenceList.getPowSolution());
 
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());

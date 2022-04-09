@@ -371,7 +371,7 @@ namespace DLT
                 ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
 
                 if (newSolution.difficulty <= solution.difficulty
-                    && solution.blockNum + ConsensusConfig.plPowBlocksValidity - (ulong)ConsensusConfig.plPowMinCalculationTime > lastBlockHeight
+                    && solution.blockNum + ConsensusConfig.plPowBlocksValidity - ConsensusConfig.plPowMinCalculationBlockTime > lastBlockHeight
                 )
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid

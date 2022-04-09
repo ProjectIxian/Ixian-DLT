@@ -206,6 +206,10 @@ namespace DLT.Meta
                     {
                         success = true;
                     }
+                    else if (Config.dangerCommandlinePasswordCleartextUnsafe != "")
+                    {
+                        return false;
+                    }
                 }
             }
 

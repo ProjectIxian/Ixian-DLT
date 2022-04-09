@@ -389,11 +389,6 @@ namespace DLT
                     if (targetBlock != null && sigFreezeChecksum.SequenceEqual(targetBlock.calculateSignatureChecksum()) && targetBlock.verifyBlockProposer())
                     {
                         // we already have the correct block
-                        if (!b.calculateSignatureChecksum().SequenceEqual(sigFreezeChecksum) || !targetBlock.verifyBlockProposer())
-                        {
-                            // we already have the correct block but the sender does not, broadcast our block
-                            BlockProtocolMessages.broadcastNewBlock(targetBlock, null, endpoint);
-                        }
                         return false;
                     }
                     if (sigFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()) && b.verifyBlockProposer())
@@ -1445,7 +1440,6 @@ namespace DLT
                                     localNewBlock = b;
                                     currentBlockStartTime = DateTime.UtcNow;
                                     lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                                    BlockProtocolMessages.broadcastNewBlock(b, null, null);
                                     acceptLocalNewBlock();
                                     return;
                                 }
@@ -1468,7 +1462,6 @@ namespace DLT
                         localNewBlock = b;
                         currentBlockStartTime = DateTime.UtcNow;
                         firstBlockAfterSync = false;
-                        BlockProtocolMessages.broadcastNewBlock(b, endpoint, null);
                         acceptLocalNewBlock();
                     }
                     else
@@ -2010,15 +2003,12 @@ namespace DLT
                             BlockSignature signature_data = localNewBlock.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
                             if (signature_data != null) 
                             {
-                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
-                                //BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, null, true);
-                                SignatureProtocolMessages.broadcastBlockSignature(signature_data, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
-
                                 foreach (var sig in localNewBlock.signatures)
                                 {
                                     Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
                                     SignatureProtocolMessages.broadcastBlockSignature(sig, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
                                 }
+                                BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, null);
                             }
                         }
                     }
