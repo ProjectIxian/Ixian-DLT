@@ -66,7 +66,7 @@ namespace DLT
             started = true;
 
             // Calculate the allowed number of threads based on logical processor count
-            uint miningThreads = 1;// calculateMiningThreadsCount(); //TODO TODO Omega fix before commit
+            uint miningThreads = calculateMiningThreadsCount();
             Logging.info("Starting Presence List miner with {0} threads on {1} logical processors.", miningThreads, Environment.ProcessorCount);
 
             shouldStop = false;
@@ -209,6 +209,14 @@ namespace DLT
                 return;
             }
 
+            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1);
+
+            if (solvingDifficulty < 0)
+            {
+                Logging.error("SignerPowMiner: Solving difficulty is negative.");
+                return;
+            }
+
             if (currentBlockNum == candidateBlock.blockNum
                 && activeBlock.blockChecksum.SequenceEqual(candidateBlock.blockChecksum))
             {
@@ -231,14 +239,6 @@ namespace DLT
                 return;
             }
 
-            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1);
-
-            if (solvingDifficulty < 0)
-            {
-                Logging.error("SignerPowMiner: Solving difficulty is negative.");
-                return;
-            }
-
             startedSolvingTime = Clock.getTimestamp();
 
             activeBlock = candidateBlock;
@@ -254,7 +254,7 @@ namespace DLT
             if (curNonce == null)
             {
                 curNonce = new byte[length];
-                RandomNumberGenerator.Create().GetBytes(curNonce); 
+                RandomNumberGenerator.Create().GetBytes(curNonce);
             }
             bool inc_next = true;
             length = curNonce.Length;
@@ -273,11 +273,15 @@ namespace DLT
             return curNonce;
         }
 
-        private Random rnd = new Random();
+        [ThreadStatic] private Random rnd = null;
         private int rndInt = 10000 - new Random().Next(100);
         private void calculatePow()
         {
             // TODO TODO Omega remove this, for testing purposes only
+            if (rnd == null)
+            {
+                rnd = new Random();
+            }
             int rndNr = rnd.Next(10000);
             if (rndNr > rndInt)
             {
@@ -372,6 +376,7 @@ namespace DLT
 
                 if (newSolution.difficulty <= solution.difficulty
                     && solution.blockNum + ConsensusConfig.plPowBlocksValidity - ConsensusConfig.plPowMinCalculationBlockTime > lastBlockHeight
+                    && solution.difficulty > solvingDifficulty
                 )
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
