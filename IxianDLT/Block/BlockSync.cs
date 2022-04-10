@@ -474,7 +474,7 @@ namespace DLT
             {
                 if (b.transactions.Contains(tx.id))
                 {
-                    ulong blockNum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+                    ulong blockNum = tx.powSolution.blockNum;
                     Block solvedBlock = Node.blockChain.getBlock(blockNum, false, true);
                     if (solvedBlock != null && solvedBlock.powField == null)
                     {

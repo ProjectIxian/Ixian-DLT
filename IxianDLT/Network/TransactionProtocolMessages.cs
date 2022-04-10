@@ -513,7 +513,7 @@ namespace DLT
                                             tx = TransactionPool.getAppliedTransaction(txid);
                                             if (tx == null)
                                             {
-                                                Logging.warn("I do not have txid '{0}.", Transaction.txIdV8ToLegacy(txid)); // convert to string
+                                                Logging.warn("I do not have txid '{0}.", Transaction.getTxIdString(txid)); // convert to string
                                                 continue;
                                             }
                                         }
@@ -719,11 +719,11 @@ namespace DLT
 
                         if (transaction == null)
                         {
-                            Logging.warn("I do not have txid '{0}.", Transaction.txIdV8ToLegacy(txid));
+                            Logging.warn("I do not have txid '{0}.", Transaction.getTxIdString(txid));
                             return;
                         }
 
-                        Logging.info("Sending transaction {0} - {1} - {2}.", Transaction.txIdV8ToLegacy(transaction.id), Crypto.hashToString(transaction.checksum), transaction.amount);
+                        Logging.info("Sending transaction {0} - {1} - {2}.", transaction.getTxIdString(), Crypto.hashToString(transaction.checksum), transaction.amount);
 
                         endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true));
                     }

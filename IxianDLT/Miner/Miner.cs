@@ -14,6 +14,7 @@ using DLT.Meta;
 using DLTNode;
 using IXICore;
 using IXICore.Meta;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -522,7 +523,7 @@ namespace DLT
             hashesPerSecond++;
 
             // We have a valid hash, update the corresponding block
-            if (Miner.validateHashInternal_v1(hash, hash_ceil) == true)
+            if (validateHashInternal_v1(hash, hash_ceil) == true)
             {
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
 
@@ -560,7 +561,7 @@ namespace DLT
             hashesPerSecond++;
 
             // We have a valid hash, update the corresponding block
-            if (Miner.validateHashInternal_v2(hash, hash_ceil) == true)
+            if (validateHashInternal_v2(hash, hash_ceil) == true)
             {
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
 
@@ -601,7 +602,7 @@ namespace DLT
             hashesPerSecond++;
 
             // We have a valid hash, update the corresponding block
-            if (Miner.validateHashInternal_v2(hash, hash_ceil) == true)
+            if (validateHashInternal_v2(hash, hash_ceil) == true)
             {
                 Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
 
@@ -735,7 +736,7 @@ namespace DLT
             byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce);
             string hash = Argon2id.getHashString(p1, nonce_bytes, 1, 1024, 4);
 
-            if (Miner.validateHash_v0(hash, difficulty) == true)
+            if (validateHash_v0(hash, difficulty) == true)
             {
                 // Hash is valid
                 return true;
@@ -765,7 +766,7 @@ namespace DLT
             byte[] nonce_bytes = ASCIIEncoding.ASCII.GetBytes(nonce);
             byte[] hash = Argon2id.getHash(p1, nonce_bytes, 1, 1024, 2);
 
-            if (Miner.validateHash_v1(hash, difficulty) == true)
+            if (validateHash_v1(hash, difficulty) == true)
             {
                 // Hash is valid
                 return true;
@@ -795,7 +796,7 @@ namespace DLT
             byte[] nonce_bytes = Crypto.stringToHash(nonce);
             byte[] hash = Argon2id.getHash(p1, nonce_bytes, 1, 1024, 2);
 
-            if (Miner.validateHash_v2(hash, difficulty) == true)
+            if (validateHash_v2(hash, difficulty) == true)
             {
                 // Hash is valid
                 return true;
@@ -805,9 +806,9 @@ namespace DLT
         }
 
         // Verify nonce
-        public static bool verifyNonce_v3(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
+        public static bool verifyNonce_v3(byte[] nonce_bytes, ulong block_num, byte[] solver_address, ulong difficulty)
         {
-            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
+            if (nonce_bytes == null || nonce_bytes.Length < 1 || nonce_bytes.Length > 64)
             {
                 return false;
             }
@@ -821,11 +822,10 @@ namespace DLT
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
-            byte[] nonce_bytes = Crypto.stringToHash(nonce);
             byte[] fullnonce = expandNonce(nonce_bytes, 234236);
             byte[] hash = Argon2id.getHash(p1, fullnonce, 2, 2048, 2);
 
-            if (Miner.validateHash_v2(hash, difficulty) == true)
+            if (validateHash_v2(hash, difficulty) == true)
             {
                 // Hash is valid
                 return true;
@@ -854,10 +854,18 @@ namespace DLT
             {
                 using (BinaryWriter writerw = new BinaryWriter(mw))
                 {
-                    writerw.Write(blocknum);
-                    writerw.Write(Crypto.hashToString(nonce));                   
-                    data = mw.ToArray();
+                    if (Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()) >= 7)
+                    {
+                        writerw.WriteIxiVarInt(blocknum);
+                        writerw.WriteIxiVarInt(nonce.Length);
+                        writerw.Write(nonce);
+                    }else
+                    {
+                        writerw.Write(blocknum);
+                        writerw.Write(Crypto.hashToString(nonce));
+                    }
                 }
+                data = mw.ToArray();
             }
 
             Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());

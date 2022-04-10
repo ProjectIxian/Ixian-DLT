@@ -386,7 +386,7 @@ namespace DLT
                 string transactions = "";
                 foreach (byte[] tx in block.transactions)
                 {
-                    transactions += "||" + Transaction.txIdV8ToLegacy(tx);
+                    transactions += "||" + Transaction.getTxIdString(tx);
                 }
 
                 List<BlockSignature> tmp_sigs = null;
@@ -409,7 +409,7 @@ namespace DLT
                     string str_powSolution = "";
                     if(sig.powSolution != null)
                     {
-                        str_powSolution = Crypto.hashToString(sig.powSolution.getBytes());
+                        str_powSolution = Convert.ToBase64String(sig.powSolution.getBytes());
                     }
                     signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig.signerAddress.getInputBytes()) + ":" + str_powSolution;
                 }
@@ -496,7 +496,7 @@ namespace DLT
                     seekDatabase(transaction.applied, true);
 
                     string sql = "INSERT OR REPLACE INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, Transaction.txIdV8ToLegacy(transaction.id), transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
+                    result = executeSQL(sql, transaction.getTxIdString(), transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
                 }
 
                 return result;
@@ -706,7 +706,7 @@ namespace DLT
                         newSig.signerAddress = new Address(Convert.FromBase64String(split_sig[1]), null, false);
                         if(split_sig.Length >= 3 && split_sig[2] != "")
                         {
-                            newSig.powSolution = new SignerPowSolution(Crypto.stringToHash(split_sig[2]), newSig.signerAddress);
+                            newSig.powSolution = new SignerPowSolution(Convert.FromBase64String(split_sig[2]), newSig.signerAddress);
                         }
                          
                         // Go through all block signatures and check if the resulting address matches
@@ -978,7 +978,7 @@ namespace DLT
                             }
                             seekDatabase(block_num, true);
                         }
-                        _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, Transaction.txIdV8ToLegacy(txid));
+                        _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, Transaction.getTxIdString(txid));
 
                     }
                     catch (Exception e)
@@ -1007,7 +1007,7 @@ namespace DLT
 
                         if (db_blocknum == 0)
                         {
-                            Logging.error("Invalid txid {0} - generated at block height 0.", Transaction.txIdV8ToLegacy(txid));
+                            Logging.error("Invalid txid {0} - generated at block height 0.", Transaction.getTxIdString(txid));
                             return null;
                         }
 
@@ -1030,7 +1030,7 @@ namespace DLT
                             seekDatabase(db_blocknum, true);
                             try
                             {
-                                _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, Transaction.txIdV8ToLegacy(txid));
+                                _storage_tx = sqlConnection.Query<_storage_Transaction>(sql, Transaction.getTxIdString(txid));
 
                             }
                             catch (Exception)
@@ -1221,7 +1221,7 @@ namespace DLT
                 lock (storageLock)
                 {
                     string sql = "DELETE FROM transactions where `id` = ? LIMIT 1";
-                    return executeSQL(sql, Transaction.txIdV8ToLegacy(txid));
+                    return executeSQL(sql, Transaction.getTxIdString(txid));
                 }
             }
 

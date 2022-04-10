@@ -1047,7 +1047,7 @@ namespace DLT
                 Transaction tx = TransactionPool.getAppliedTransaction(tx_id, block.blockNum, true);
                 if(tx == null)
                 {
-                    Logging.error("Cannot revert transaction " + Transaction.txIdV8ToLegacy(tx_id) + ", transaction doesn't exist.");
+                    Logging.error("Cannot revert transaction " + Transaction.getTxIdString(tx_id) + ", transaction doesn't exist.");
                     continue;
                 }
                 if (IxianHandler.isMyAddress(new Address(tx.pubKey)) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
@@ -1063,14 +1063,7 @@ namespace DLT
                     TransactionPool.unapplyTransaction(tx.id);
                     if (tx.type == (int)Transaction.Type.PoWSolution)
                     {
-                        ulong pow_blocknum = 0;
-                        using (MemoryStream m = new MemoryStream(tx.toList.First().Value.data))
-                        {
-                            using (BinaryReader reader = new BinaryReader(m))
-                            {
-                                pow_blocknum = reader.ReadUInt64();
-                            }
-                        }
+                        ulong pow_blocknum = tx.powSolution.blockNum;
 
                         Block pow_block = getBlock(pow_blocknum, true, true);
                         // Check if the block is valid

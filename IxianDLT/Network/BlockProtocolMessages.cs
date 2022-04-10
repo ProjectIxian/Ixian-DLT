@@ -296,7 +296,7 @@ namespace DLT
                     {
                         if (b.version < BlockVer.v8)
                         {
-                            pit.add(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx)));
+                            pit.add(UTF8Encoding.UTF8.GetBytes(Transaction.getTxIdString(tx)));
                         }
                         else
                         {
@@ -360,10 +360,10 @@ namespace DLT
                     {
                         if (b.version < BlockVer.v8)
                         {
-                            pit.add(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx)));
+                            pit.add(UTF8Encoding.UTF8.GetBytes(Transaction.getTxIdString(tx)));
                             if (cf.Contains(tx))
                             {
-                                interesting_transactions.Add(UTF8Encoding.UTF8.GetBytes(Transaction.txIdV8ToLegacy(tx)));
+                                interesting_transactions.Add(UTF8Encoding.UTF8.GetBytes(Transaction.getTxIdString(tx)));
                             }
                         }
                         else

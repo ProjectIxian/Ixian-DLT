@@ -1021,7 +1021,7 @@ namespace DLT
                     }
                     if (fetchTransactions)
                     {
-                        Logging.info("Missing transaction '{0}', adding to fetch queue.", Transaction.txIdV8ToLegacy(txid));
+                        Logging.info("Missing transaction '{0}', adding to fetch queue.", Transaction.getTxIdString(txid));
                         var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
                         if (pii.processed || pii.lastRequested == 0)
                         {
@@ -1125,7 +1125,7 @@ namespace DLT
                         // someone is doing something bad with this transaction, so we invalidate the block
                         // TODO: Blacklisting for the transaction originator node
                         Logging.error("Overflow caused by transaction {0}: amount: {1} from: {2}",
-                            Transaction.txIdV8ToLegacy(t.id), t.amount, Base58Check.Base58CheckEncoding.EncodePlain(address));
+                            t.getTxIdString(), t.amount, Base58Check.Base58CheckEncoding.EncodePlain(address));
                         return BlockVerifyStatus.Invalid;
                     }
                 }
@@ -1148,12 +1148,12 @@ namespace DLT
                     }
                     if(b.blockNum >= ConsensusConfig.miningExpirationBlockHeight && t.type == (int)Transaction.Type.PoWSolution)
                     {
-                        Logging.error("Block #{0} includes a PoW transaction {1}. Mining has stopped after block #{2}.", b.blockNum, Transaction.txIdV8ToLegacy(t.id), ConsensusConfig.miningExpirationBlockHeight);
+                        Logging.error("Block #{0} includes a PoW transaction {1}. Mining has stopped after block #{2}.", b.blockNum, t.getTxIdString(), ConsensusConfig.miningExpirationBlockHeight);
                         return BlockVerifyStatus.Invalid;
                     }
                     if (t.blockHeight > b.blockNum)
                     {
-                        Logging.error("Block #{0} includes a transaction {1} which has a higher blockheight.", b.blockNum, Transaction.txIdV8ToLegacy(t.id));
+                        Logging.error("Block #{0} includes a transaction {1} which has a higher blockheight.", b.blockNum, t.getTxIdString());
                         return BlockVerifyStatus.Invalid;
                     }
                     if (t.type == (int)Transaction.Type.MultisigTX || t.type == (int)Transaction.Type.ChangeMultisigWallet || t.type == (int)Transaction.Type.MultisigAddTxSignature)
@@ -1174,7 +1174,7 @@ namespace DLT
                         if (num_valid_multisigs < from_w.requiredSigs)
                         {
                             Logging.error("Block #{0} includes a multisig transaction {{ {1} }} which does not have enough signatures to be processed! (Signatures: {2}, Required: {3}",
-                                b.blockNum, Transaction.txIdV8ToLegacy(t.id), num_valid_multisigs, from_w.requiredSigs);
+                                b.blockNum, t.getTxIdString(), num_valid_multisigs, from_w.requiredSigs);
                             return BlockVerifyStatus.Invalid;
                         }
                     }
@@ -2306,7 +2306,7 @@ namespace DLT
             if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (version {1})", b.blockNum, b.version); }
             try
             {
-                distributeStakingRewards(b, b.version);
+                distributeStakingRewards(b);
             }catch(Exception)
             {
                 return false;
@@ -2324,11 +2324,6 @@ namespace DLT
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
                 applyTransactionFeeRewards(b);
             }
-
-            // Update wallet state public keys
-            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> updateWalletStatePublicKeys (version {1})", b.blockNum, b.version); }
-            updateWalletStatePublicKeys(b.blockNum);
-
             return true;
         }
 
@@ -2377,7 +2372,6 @@ namespace DLT
 
         public void applyTransactionFeeRewards(Block b)
         {
-            // TODO TODO Omega; tx fee should be split up according to the hashrate, a tx type should be sent or the same as for staking should be used
             byte[] sigfreezechecksum = null;
             lock (localBlockLock)
             {
@@ -2739,7 +2733,7 @@ namespace DLT
                 {
                     // TODO: pre-validate the transaction in such a way it doesn't affect performance
                     ulong powBlockNum = 0;
-                    string nonce = "";
+                    byte[] nonce = null;
                     if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce, block_version))
                     {
                         TransactionPool.removeUnappliedTransaction(transaction.id);
@@ -2755,7 +2749,7 @@ namespace DLT
                         if (block_version >= 2)
                         {
                             byte[] tmp_address = (new Address(transaction.pubKey)).addressNoChecksum;
-                            if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && (string)x[1] == nonce))
+                            if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && ((byte[])x[1]).SequenceEqual(nonce)))
                             {
                                 // Add the miner to the block number dictionary reward list
                                 blockSolutionsDictionary[powBlockNum].Add(new object[3] { tmp_address, nonce, transaction });
@@ -2943,10 +2937,26 @@ namespace DLT
 
                     Node.walletState.setCachedBlockVersion(block_version);
 
-                    Logging.info(String.Format("\t\t|- Block Number: {0}", localNewBlock.blockNum));
+                    Logging.info("\t\t|- Block Number: {0}", localNewBlock.blockNum);
+
+                    ulong stakingRewardBlockNum = 0;
+                    if (block_version >= BlockVer.v10)
+                    {
+                        if (localNewBlock.blockNum > ConsensusConfig.rewardMaturity)
+                        {
+                            stakingRewardBlockNum = localNewBlock.blockNum - ConsensusConfig.rewardMaturity;
+                        }
+                    }
+                    else
+                    {
+                        if (localNewBlock.blockNum >= 10)
+                        {
+                            stakingRewardBlockNum = localNewBlock.blockNum - 6;
+                        }
+                    }
 
                     // Apply staking transactions to block. 
-                    List<Transaction> staking_transactions = generateStakingTransactions(localNewBlock.blockNum - 6, block_version, localNewBlock.timestamp);
+                    List<Transaction> staking_transactions = generateStakingTransactions(stakingRewardBlockNum, block_version, localNewBlock.timestamp);
                     foreach (Transaction transaction in staking_transactions)
                     {
                         localNewBlock.addTransaction(transaction.id);
@@ -3256,7 +3266,7 @@ namespace DLT
                 List<Transaction> b_txs = TransactionPool.getFullBlockTransactions(b).FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
                 foreach (Transaction tx in b_txs)
                 {
-                    Block pow_b = Node.blockChain.getBlock(BitConverter.ToUInt64(tx.toList.First().Value.data, 0), false, false);
+                    Block pow_b = Node.blockChain.getBlock(tx.powSolution.blockNum, false, false);
                     if(pow_b == null)
                     {
                         continue;
@@ -3280,7 +3290,7 @@ namespace DLT
             Dictionary<ulong, ulong> solved_blocks = new Dictionary<ulong, ulong>();
             foreach (Transaction tx in b_txs)
             {
-                ulong pow_block_num = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+                ulong pow_block_num = tx.powSolution.blockNum;
                 solved_blocks.AddOrReplace(pow_block_num, pow_block_num);
             }
             return solved_blocks.LongCount();
@@ -3494,11 +3504,26 @@ namespace DLT
         {
             List<Transaction> transactions = new List<Transaction>();
 
-            // Prevent distribution if we don't have 10 fully generated blocks yet
-            if (Node.blockChain.getLastBlockNum() < 10)
+            // Prevent distribution if we don't have enough fully generated blocks yet
+            if (block_version >= BlockVer.v10)
             {
-                return transactions;
+                if (targetBlockNum < 2)
+                {
+                    return transactions;
+                }
+                if (Node.blockChain.getBlock(targetBlockNum - 1).version < BlockVer.v10)
+                {
+                    return transactions;
+                }
             }
+            else
+            {
+                if (Node.blockChain.getLastBlockNum() < 10)
+                {
+                    return transactions;
+                }
+            }
+
 
             Block targetBlock = Node.blockChain.getBlock(targetBlockNum);
             if (targetBlock == null)
@@ -3659,22 +3684,41 @@ namespace DLT
 
 
         // Distribute the staking rewards according to the 5th last block signatures
-        public bool distributeStakingRewards(Block b, int block_version)
+        public bool distributeStakingRewards(Block b)
         {
-            // Prevent distribution if we don't have 10 fully generated blocks yet
-            if (Node.blockChain.getLastBlockNum() < 10)
+            int blockVersion = b.version;
+            ulong stakingRewardBlockNum;
+            if (blockVersion >= BlockVer.v10)
             {
-                return false;
+                // Prevent distribution if we don't have enough fully generated blocks yet
+                if (b.blockNum <= ConsensusConfig.rewardMaturity + 1)
+                {
+                    return false;
+                }
+                stakingRewardBlockNum = b.blockNum - ConsensusConfig.rewardMaturity;
+                if (Node.blockChain.getBlock(stakingRewardBlockNum - 1).version < BlockVer.v10)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                // Prevent distribution if we don't have 10 fully generated blocks yet
+                if (Node.blockChain.getLastBlockNum() < 10)
+                {
+                    return false;
+                }
+                stakingRewardBlockNum = b.blockNum - 6;
             }
 
             if (!Node.walletState.inTransaction)
             {
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (transaction = {1})", b.blockNum, Node.walletState.inTransaction); }
-                List<Transaction> transactions = generateStakingTransactions(b.blockNum - 6, block_version, b.timestamp);
+                List<Transaction> transactions = generateStakingTransactions(stakingRewardBlockNum, blockVersion, b.timestamp);
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards: generated {1} staking transactions:", b.blockNum, transactions.Count); }
                 foreach (Transaction transaction in transactions)
                 {
-                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Staking transaction {{ {1} }} -> {2} IxiCash to {3} recipients", b.blockNum, Transaction.txIdV8ToLegacy(transaction.id), transaction.amount.getAmount(), transaction.toList.Count); }
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> Staking transaction {{ {1} }} -> {2} IxiCash to {3} recipients", b.blockNum, transaction.getTxIdString(), transaction.amount.getAmount(), transaction.toList.Count); }
                     TransactionPool.addTransaction(transaction, true);
                 }
             }
@@ -3754,7 +3798,8 @@ namespace DLT
 
             foreach (BlockSignature sig in sigs)
             {
-                if (sig.signerAddress.pubKey == null)
+                byte[] signerPubKey = sig.signerAddress.pubKey;
+                if (signerPubKey == null)
                 {
                     Address signerAddress = sig.signerAddress;
                     Wallet signerWallet = Node.walletState.getWallet(signerAddress);
@@ -3765,7 +3810,6 @@ namespace DLT
                 }
                 else
                 {
-                    byte[] signerPubKey = sig.signerAddress.pubKey;
                     Wallet signerWallet = Node.walletState.getWallet(sig.signerAddress);
                     if (signerWallet.publicKey == null)
                     {

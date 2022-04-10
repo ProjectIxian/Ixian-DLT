@@ -201,7 +201,7 @@ namespace DLTNode
             List<string> txids = new List<string>();
             foreach(byte[] tx in block.transactions)
             {
-                txids.Add(Transaction.txIdV8ToLegacy(tx));
+                txids.Add(Transaction.getTxIdString(tx));
             }
             blockData.Add("TX IDs", JsonConvert.SerializeObject(txids));
             blockData.Add("Last Superblock", block.lastSuperBlockNum.ToString());
@@ -546,7 +546,7 @@ namespace DLTNode
 
             foreach (Transaction t in transactions)
             {
-                tx_list.Add(Transaction.txIdV8ToLegacy(t.id), t.toDictionary());
+                tx_list.Add(t.getTxIdString(), t.toDictionary());
             }
 
             return new JsonResponse { result = tx_list, error = error };
@@ -574,7 +574,7 @@ namespace DLTNode
 
             foreach (Transaction t in transactions)
             {
-                tx_list.Add(Transaction.txIdV8ToLegacy(t.id), t.toDictionary());
+                tx_list.Add(t.getTxIdString(), t.toDictionary());
             }
 
             return new JsonResponse { result = tx_list, error = error };
@@ -602,7 +602,7 @@ namespace DLTNode
 
             foreach (Transaction t in transactions)
             {
-                tx_list.Add(Transaction.txIdV8ToLegacy(t.id), t.toDictionary());
+                tx_list.Add(t.getTxIdString(), t.toDictionary());
             }
 
             return new JsonResponse { result = tx_list, error = error };
@@ -860,6 +860,7 @@ namespace DLTNode
                 Logging.info("Received incorrect verify nonce from miner.");
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
             }
+            byte[] nonce_bytes = Crypto.stringToHash(nonce);
 
             ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
             Block block = Node.blockChain.getBlock(blocknum, false, false);
@@ -876,11 +877,11 @@ namespace DLTNode
             bool verify_result;
             if (block.version < BlockVer.v10)
             {
-                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressWithChecksum, blockdiff);
+                verify_result = Miner.verifyNonce_v3(nonce_bytes, blocknum, solver_address.addressWithChecksum, blockdiff);
             }
             else 
             {
-                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressNoChecksum, blockdiff);
+                verify_result = Miner.verifyNonce_v3(nonce_bytes, blocknum, solver_address.addressNoChecksum, blockdiff);
             }
 
             if (verify_result)
@@ -919,6 +920,8 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid nonce was specified" } };
             }
 
+            byte[] nonce_bytes = Crypto.stringToHash(nonce);
+
             ulong blocknum = ulong.Parse((string)parameters["blocknum"]);
             Block block = Node.blockChain.getBlock(blocknum, false, false);
             if (block == null)
@@ -933,11 +936,11 @@ namespace DLTNode
             bool verify_result;
             if (block.version < BlockVer.v10)
             {
-                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressWithChecksum, block.difficulty);
+                verify_result = Miner.verifyNonce_v3(nonce_bytes, blocknum, solver_address.addressWithChecksum, block.difficulty);
             }
             else
             {
-                verify_result = Miner.verifyNonce_v3(nonce, blocknum, solver_address.addressNoChecksum, block.difficulty);
+                verify_result = Miner.verifyNonce_v3(nonce_bytes, blocknum, solver_address.addressNoChecksum, block.difficulty);
             }
 
             bool send_result = false;

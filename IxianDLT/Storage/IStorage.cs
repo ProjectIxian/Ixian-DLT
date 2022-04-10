@@ -188,7 +188,7 @@ namespace DLT
 
             private void debugDumpCrashTX(Transaction tx)
             {
-                Logging.error("Transaction {0}, checksum: {1}", Transaction.txIdV8ToLegacy(tx.id), Base58Check.Base58CheckEncoding.EncodePlain(tx.checksum));
+                Logging.error("Transaction {0}, checksum: {1}", tx.getTxIdString(), Base58Check.Base58CheckEncoding.EncodePlain(tx.checksum));
                 Logging.error("Type: {0}, amount: {1}", tx.type, tx.amount);
                 Logging.error("Complete transaction: {0}", Base58Check.Base58CheckEncoding.EncodePlain(tx.getBytes()));
             }
