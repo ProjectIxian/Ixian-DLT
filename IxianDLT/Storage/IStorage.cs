@@ -190,7 +190,7 @@ namespace DLT
             {
                 Logging.error("Transaction {0}, checksum: {1}", tx.getTxIdString(), Base58Check.Base58CheckEncoding.EncodePlain(tx.checksum));
                 Logging.error("Type: {0}, amount: {1}", tx.type, tx.amount);
-                Logging.error("Complete transaction: {0}", Base58Check.Base58CheckEncoding.EncodePlain(tx.getBytes()));
+                Logging.error("Complete transaction: {0}", Base58Check.Base58CheckEncoding.EncodePlain(tx.getBytes(true, true)));
             }
 
             public virtual bool redactBlockStorage(ulong removeBlocksBelow)

@@ -383,7 +383,7 @@ namespace DLT
                                 i++;
                                 if (tx != null)
                                 {
-                                    byte[] txBytes = tx.getBytes();
+                                    byte[] txBytes = tx.getBytes(true, true);
 
                                     long rollback_len = mOut.Length;
                                     writer.WriteIxiVarInt(txBytes.Length);
@@ -518,7 +518,7 @@ namespace DLT
                                             }
                                         }
 
-                                        byte[] tx_bytes = tx.getBytes();
+                                        byte[] tx_bytes = tx.getBytes(true, true);
                                         byte[] tx_len = IxiVarInt.GetIxiVarIntBytes(tx_bytes.Length);
                                         writer.Write(tx_len);
                                         writer.Write(tx_bytes);
@@ -624,7 +624,7 @@ namespace DLT
                             int tx_len = (int)reader.ReadIxiVarUInt();
                             byte[] tx_bytes = reader.ReadBytes(tx_len);
 
-                            Transaction tx = new Transaction(tx_bytes);
+                            Transaction tx = new Transaction(tx_bytes, false, true);
 
                             totalTxCount++;
                             if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
@@ -725,7 +725,7 @@ namespace DLT
 
                         Logging.info("Sending transaction {0} - {1} - {2}.", transaction.getTxIdString(), Crypto.hashToString(transaction.checksum), transaction.amount);
 
-                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true));
+                        endpoint.sendData(ProtocolMessageCode.transactionData2, transaction.getBytes(true, true));
                     }
                 }
             }
@@ -739,6 +739,36 @@ namespace DLT
                 }*/
 
                 Transaction transaction = new Transaction(data);
+                if (transaction == null)
+                    return;
+
+                bool no_broadcast = false;
+                if (!Node.blockSync.synchronizing)
+                {
+                    if (transaction.type == (int)Transaction.Type.StakingReward)
+                    {
+                        // Skip received staking transactions if we're not synchronizing
+                        return;
+                    }
+                }
+                else
+                {
+                    no_broadcast = true;
+                }
+
+                // Add the transaction to the pool
+                TransactionPool.addTransaction(transaction, no_broadcast, endpoint);
+            }
+
+            public static void handleTransactionData2(byte[] data, RemoteEndpoint endpoint)
+            {
+                /*if(TransactionPool.checkSocketTransactionLimits(socket) == true)
+                {
+                    // Throttled, ignore this transaction
+                    return;
+                }*/
+
+                Transaction transaction = new Transaction(data, false, true);
                 if (transaction == null)
                     return;
 

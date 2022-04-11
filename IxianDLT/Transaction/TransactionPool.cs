@@ -543,7 +543,7 @@ namespace DLT
                 if (transaction.fee < expectedFee)
                 {
                     // Prevent transactions that can't pay the minimum fee
-                    Logging.warn("Transaction fee does not cover minimum fee for {{ {0} }}, specified tx fee: {1}, min. expected fee: {2}, tx length: {3}.", transaction.getTxIdString(), transaction.fee, expectedFee, transaction.getBytes().Length);
+                    Logging.warn("Transaction fee does not cover minimum fee for {{ {0} }}, specified tx fee: {1}, min. expected fee: {2}, tx length: {3}.", transaction.getTxIdString(), transaction.fee, expectedFee, transaction.getBytes(false, true).Length);
                     return false;
                 }
             }

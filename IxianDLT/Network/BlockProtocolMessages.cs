@@ -70,7 +70,7 @@ namespace DLT
 
                         if (block != null)
                         {
-                            endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header), BitConverter.GetBytes(block.blockNum));
+                            endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, true, true), BitConverter.GetBytes(block.blockNum));
 
                             if (include_segments > 0)
                             {
@@ -84,7 +84,7 @@ namespace DLT
 
                                     Block segment_block = Node.blockChain.getBlock(segment.blockNum, true);
 
-                                    endpoint.sendData(ProtocolMessageCode.blockData, segment_block.getBytes(), BitConverter.GetBytes(segment.blockNum));
+                                    endpoint.sendData(ProtocolMessageCode.blockData, segment_block.getBytes(true, true, true), BitConverter.GetBytes(segment.blockNum));
                                 }
                             }
                         }
@@ -506,9 +506,44 @@ namespace DLT
                 }
                 else
                 {
-                    if(force_broadcast)
+                    if (force_broadcast)
                     {
                         return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum), skipEndpoint);
+                    }
+                    else
+                    {
+                        return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemBlock(b.blockChecksum, b.blockNum), skipEndpoint);
+                    }
+                }
+            }
+
+            public static bool broadcastNewBlock2(Block b, RemoteEndpoint skipEndpoint = null, RemoteEndpoint endpoint = null, bool force_broadcast = false)
+            {
+                if (!Node.isMasterNode())
+                {
+                    return true;
+                }
+
+                if (IxianHandler.getLastBlockHeight() + 1 == b.blockNum && !Node.blockProcessor.verifySignatureFreezeChecksum(b, null, false))
+                {
+                    Logging.warn("Sigfreezing block {0} was requested. but we don't have the correctly sigfreezed block!", b.blockNum);
+                    return false;
+                }
+
+                if (endpoint != null)
+                {
+                    if (endpoint.isConnected())
+                    {
+                        endpoint.sendData(ProtocolMessageCode.blockData2, b.getBytes(false, true, true), BitConverter.GetBytes(b.blockNum));
+                        return true;
+                    }
+                    return false;
+                }
+                else
+                {
+                    if (force_broadcast)
+                    {
+                        return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockData2, b.getBytes(false, true, true), BitConverter.GetBytes(b.blockNum), skipEndpoint);
                     }
                     else
                     {
@@ -552,116 +587,6 @@ namespace DLT
                         sw.Stop();
                         TimeSpan elapsed = sw.Elapsed;
                         Logging.info("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds);
-                    }
-                }
-            }
-
-            [Obsolete("handleGetBlock is deprecated and will be removed in future versions, please use handleGetBlock2 instead")]
-            public static void handleGetBlock(byte[] data, RemoteEndpoint endpoint)
-            {
-                if (!Node.isMasterNode())
-                {
-                    Logging.warn("Block data was requested, but this node isn't a master node");
-                    return;
-                }
-
-                if (Node.blockSync.synchronizing)
-                {
-                    return;
-                }
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        ulong block_number = reader.ReadUInt64();
-                        byte include_transactions = reader.ReadByte();
-                        bool full_header = false;
-                        try
-                        {
-                            full_header = reader.ReadBoolean();
-                        }
-                        catch (Exception)
-                        {
-
-                        }
-
-                        //Logging.info(String.Format("Block #{0} has been requested.", block_number));
-
-                        ulong last_block_height = IxianHandler.getLastBlockHeight() + 1;
-
-                        if (block_number > last_block_height)
-                        {
-                            return;
-                        }
-
-                        Block block = null;
-                        if (block_number == last_block_height)
-                        {
-                            bool haveLock = false;
-                            try
-                            {
-                                Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
-                                if (!haveLock)
-                                {
-                                    throw new TimeoutException();
-                                }
-
-                                Block tmp = Node.blockProcessor.getLocalBlock();
-                                if (tmp != null && tmp.blockNum == last_block_height)
-                                {
-                                    if (!Node.blockProcessor.verifySignatureFreezeChecksum(tmp, null, false))
-                                    {
-                                        Logging.warn("Sigfreezing block {0} was requested. but we don't have the correctly sigfreezed block!", tmp.blockNum);
-                                        return;
-                                    }
-                                    block = tmp;
-                                }
-                            }
-                            finally
-                            {
-                                if (haveLock)
-                                {
-                                    Monitor.Exit(Node.blockProcessor.localBlockLock);
-                                }
-                            }
-                        }
-
-                        if (block == null)
-                        {
-                            block = Node.blockChain.getBlock(block_number, Config.storeFullHistory);
-                        }
-
-                        if (block == null)
-                        {
-                            Logging.warn("Unable to find block #{0} in the chain!", block_number);
-                            return;
-                        }
-                        //Logging.info(String.Format("Block #{0} ({1}) found, transmitting...", block_number, Crypto.hashToString(block.blockChecksum.Take(4).ToArray())));
-                        // Send the block
-
-                        if (include_transactions == 1)
-                        {
-                            TransactionProtocolMessages.handleGetBlockTransactions(block_number, false, endpoint);
-                        }
-                        else if (include_transactions == 2)
-                        {
-                            TransactionProtocolMessages.handleGetBlockTransactions(block_number, true, endpoint);
-                        }
-
-                        if (!Node.blockProcessor.verifySigFreezedBlock(block))
-                        {
-                            Logging.warn("Sigfreezed block {0} was requested. but we don't have the correct sigfreeze!", block.blockNum);
-                            return;
-                        }
-
-                        bool frozen_sigs_only = true;
-
-                        if (block_number + 5 > last_block_height)
-                        {
-                            frozen_sigs_only = false;
-                        }
-
-                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
                     }
                 }
             }
@@ -878,8 +803,8 @@ namespace DLT
                         {
                             frozen_sigs_only = false;
                         }
-
-                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum), 0, MessagePriority.high);
+                        // TODO TODO Omega Change this to blockData2 and return v10 block byte structure after upgrade
+                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only, false), BitConverter.GetBytes(block.blockNum), 0, MessagePriority.high);
                     }
                 }
             }
@@ -897,6 +822,26 @@ namespace DLT
                 lock(Node.blockProcessor.localBlockLock)
                 {
                     if(block.blockNum <= Node.blockChain.getLastBlockNum()
+                        || (Node.blockProcessor.localNewBlock != null && Node.blockProcessor.localNewBlock.blockNum == block.blockNum && Node.blockProcessor.localNewBlock.blockChecksum.SequenceEqual(block.blockChecksum)))
+                    {
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.block, block.blockChecksum, true);
+                    }
+                }
+            }
+
+            static public void handleBlockData2(byte[] data, RemoteEndpoint endpoint)
+            {
+                Block block = new Block(data, true);
+                if (endpoint.blockHeight < block.blockNum)
+                {
+                    endpoint.blockHeight = block.blockNum;
+                }
+
+                Node.blockSync.onBlockReceived(block, endpoint);
+                Node.blockProcessor.onBlockReceived(block, endpoint);
+                lock (Node.blockProcessor.localBlockLock)
+                {
+                    if (block.blockNum <= Node.blockChain.getLastBlockNum()
                         || (Node.blockProcessor.localNewBlock != null && Node.blockProcessor.localNewBlock.blockNum == block.blockNum && Node.blockProcessor.localNewBlock.blockChecksum.SequenceEqual(block.blockChecksum)))
                     {
                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.block, block.blockChecksum, true);

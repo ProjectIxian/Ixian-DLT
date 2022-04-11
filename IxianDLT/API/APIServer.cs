@@ -237,7 +237,7 @@ namespace DLTNode
 
             if(parameters.ContainsKey("bytes") && (string)parameters["bytes"] == "1")
             {
-                return new JsonResponse { result = Crypto.hashToString(block.getBytes()), error = error };
+                return new JsonResponse { result = Crypto.hashToString(block.getBytes(true, true, true)), error = error };
             }
             else
             {

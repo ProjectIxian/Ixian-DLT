@@ -212,7 +212,7 @@ namespace DLTNode
             //byte[] data = string.Format("{0}||{1}||{2}", Node.walletStorage.publicKey, 0, 1);
             //tx.data = data;
 
-            sendData(ProtocolMessageCode.transactionData, tx.getBytes());
+            sendData(ProtocolMessageCode.transactionData2, tx.getBytes(true, true));
 
 
             disconnect();
@@ -309,7 +309,7 @@ namespace DLTNode
                 }
 
                 Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
-                byte[] bytes = transaction.getBytes();
+                byte[] bytes = transaction.getBytes(true, true);
                 
                 writer.Write(bytes.Length);
                 writer.Write(bytes);
@@ -353,7 +353,7 @@ namespace DLTNode
                 {
                     int length = reader.ReadInt32();
                     byte[] bytes = reader.ReadBytes(length);
-                    Transaction transaction = new Transaction(bytes);
+                    Transaction transaction = new Transaction(bytes, false, true);
                     TransactionPool.addTransaction(transaction);
                     spam_counter++;
                     if(spam_counter >= targetTps)
