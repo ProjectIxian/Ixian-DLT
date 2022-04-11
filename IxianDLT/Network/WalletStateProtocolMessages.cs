@@ -245,8 +245,8 @@ namespace DLT
             {
                 if (Node.blockSync.startOutgoingWSSync(endpoint) == false)
                 {
-                    Logging.warn(String.Format("Unable to start synchronizing with neighbor {0}",
-                        endpoint.presence.addresses[0].address));
+                    Logging.warn("Unable to start synchronizing with neighbor {0}",
+                        endpoint.presence.addresses[0].address);
                     return;
                 }
 
@@ -257,10 +257,8 @@ namespace DLT
                     {
                         ulong walletstate_block = Node.blockSync.pendingWsBlockNum;
                         long walletstate_count = Node.walletState.numWallets;
-                        int walletstate_version = Node.walletState.version;
 
                         // Return the current walletstate block and walletstate count
-                        writer.WriteIxiVarInt(walletstate_version);
                         writer.WriteIxiVarInt(walletstate_block);
                         writer.WriteIxiVarInt(walletstate_count);
 #if TRACE_MEMSTREAM_SIZES
@@ -280,10 +278,8 @@ namespace DLT
                     {
                         ulong walletstate_block = 0;
                         ulong walletstate_count = 0;
-                        int walletstate_version = 0;
                         try
                         {
-                            walletstate_version = (int)reader.ReadIxiVarUInt();
                             walletstate_block = reader.ReadIxiVarUInt();
                             walletstate_count = reader.ReadIxiVarUInt();
                         }
@@ -292,7 +288,7 @@ namespace DLT
                             Logging.warn("Error while receiving the WalletState header: {0}.", e.Message);
                             return;
                         }
-                        Node.blockSync.onWalletStateHeader(walletstate_version, walletstate_block, (long)walletstate_count);
+                        Node.blockSync.onWalletStateHeader(walletstate_block, (long)walletstate_count);
                     }
                 }
             }

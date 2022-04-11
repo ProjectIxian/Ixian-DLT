@@ -1322,7 +1322,7 @@ namespace DLT
                             }
                             else
                             {
-                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(b.blockNum);
+                                ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(b.blockNum, b.version);
                             }
                         } else
                         {
@@ -3010,7 +3010,7 @@ namespace DLT
                     }
                     if (localNewBlock.lastSuperBlockChecksum == null)
                     {
-                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum(localNewBlock.blockNum));
+                        localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum(localNewBlock.blockNum, localNewBlock.version));
                     }
                     else
                     {

@@ -687,16 +687,33 @@ namespace DLT
             entries.Add(entry);
         }
 
-        public IEnumerable<Wallet> getAffectedWallets()
+        public IEnumerable<Wallet> getAffectedWallets(int blockVer)
         {
-            // TODO TODO TODO Block v8 SortedSet can be replaced with something faster (i.e. List) and should exclude duplicate entries as the order
-            // of the entries is determined by order of transactions on the block
-            SortedSet<Wallet> sortedWallets = new SortedSet<Wallet>(new LambdaComparer<Wallet>((a, b) => _ByteArrayComparer.Compare(a.id.addressNoChecksum, b.id.addressNoChecksum) ));
-            foreach(var entry in entries)
+            if(blockVer < BlockVer.v10)
             {
-                sortedWallets.Add(Node.walletState.getWallet(entry.targetWallet));
+                // TODO TODO TODO Block v8 SortedSet can be replaced with something faster (i.e. List) and should exclude duplicate entries as the order
+                // of the entries is determined by order of transactions on the block
+                SortedSet<Wallet> sortedWallets = new SortedSet<Wallet>(new LambdaComparer<Wallet>((a, b) => _ByteArrayComparer.Compare(a.id.addressNoChecksum, b.id.addressNoChecksum)));
+                foreach (var entry in entries)
+                {
+                    sortedWallets.Add(Node.walletState.getWallet(entry.targetWallet));
+                }
+                return sortedWallets;
+            }else
+            {
+                List<Wallet> wallets = new List<Wallet>();
+                Dictionary<byte[], bool> addresses = new Dictionary<byte[], bool>(new ByteArrayComparer());
+                foreach (var entry in entries)
+                {
+                    if(addresses.ContainsKey(entry.targetWallet.addressNoChecksum))
+                    {
+                        continue;
+                    }
+                    wallets.Add(Node.walletState.getWallet(entry.targetWallet));
+                    addresses.Add(entry.targetWallet.addressNoChecksum, true);
+                }
+                return wallets;
             }
-            return sortedWallets;
 
         }
 

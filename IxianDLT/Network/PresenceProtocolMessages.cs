@@ -183,7 +183,7 @@ namespace DLT
 
                             int ka_len = (int)reader.ReadIxiVarUInt();
                             byte[] ka_bytes = reader.ReadBytes(ka_len);
-                            byte[] hash = Crypto.sha512sqTrunc(ka_bytes);
+                            byte[] hash = CryptoManager.lib.sha3_512sqTrunc(ka_bytes);
 
                             Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, hash, true);
 
@@ -269,7 +269,7 @@ namespace DLT
                 long last_seen = 0;
                 byte[] device_id = null;
 
-                byte[] hash = Crypto.sha512sqTrunc(data);
+                byte[] hash = CryptoManager.lib.sha3_512sqTrunc(data);
 
                 Node.inventoryCache.setProcessedFlag(InventoryItemTypes.keepAlive, hash, true);
 

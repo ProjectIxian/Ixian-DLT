@@ -29,7 +29,7 @@ namespace DLT.Meta
             string db_path = path + Path.DirectorySeparatorChar + "0000" + Path.DirectorySeparatorChar + blockNum + ".dat";
 
             FileStream fs = File.Open(db_path, FileMode.Create, FileAccess.Write, FileShare.None);
-            fs.Write(BitConverter.GetBytes(Node.walletState.version), 0, 4);
+            fs.Write(BitConverter.GetBytes(0), 0, 4);
 
             WsChunk[] chunk = Node.walletState.getWalletStateChunks(0, blockNum);
             fs.Write(BitConverter.GetBytes(chunk[0].wallets.LongLength), 0, 8);
@@ -81,7 +81,7 @@ namespace DLT.Meta
                 Node.walletState.clear();
                 byte[] walletVersionBytes = new byte[4];
                 fs.Read(walletVersionBytes, 0, 4);
-                Node.walletState.version = BitConverter.ToInt32(walletVersionBytes, 0);
+                BitConverter.ToInt32(walletVersionBytes, 0); // version
 
                 byte[] walletCountBytes = new byte[8];
                 fs.Read(walletCountBytes, 0, 8);

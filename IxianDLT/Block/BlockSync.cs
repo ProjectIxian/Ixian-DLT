@@ -13,7 +13,6 @@
 using DLT.Meta;
 using DLT.Network;
 using IXICore;
-using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
 using System;
@@ -42,7 +41,6 @@ namespace DLT
         int maxBlockRequests = 50; // Maximum number of block requests per iteration
 
         public ulong wsSyncConfirmedBlockNum = 0;
-        int wsSyncConfirmedVersion;
         bool wsSynced = false;
         string syncNeighbor;
         HashSet<int> missingWsChunks = new HashSet<int>();
@@ -343,10 +341,10 @@ namespace DLT
 
         private void performWalletStateSync()
         {
-            Logging.info(String.Format("WS SYNC block: {0}", wsSyncConfirmedBlockNum));
+            Logging.info("WS SYNC block: {0}", wsSyncConfirmedBlockNum);
             if (wsSyncConfirmedBlockNum > 0)
             {
-                Logging.info(String.Format("We are synchronizing to block #{0}.", wsSyncConfirmedBlockNum));
+                Logging.info("We are synchronizing to block #{0}.", wsSyncConfirmedBlockNum);
                 requestWalletChunks();
                 if (missingWsChunks.Count == 0)
                 {
@@ -356,7 +354,6 @@ namespace DLT
                         if (pendingWsChunks.Count > 0)
                         {
                             Node.walletState.clear();
-                            Node.walletState.version = wsSyncConfirmedVersion;
                             foreach (WsChunk c in pendingWsChunks)
                             {
                                 Logging.info(String.Format("Applying chunk {0}.", c.chunkNum));
@@ -1209,7 +1206,7 @@ namespace DLT
             synchronizing = true;
         }
 
-        public void onWalletStateHeader(int ws_version, ulong ws_block, long ws_count)
+        public void onWalletStateHeader(ulong ws_block, long ws_count)
         {
             if(synchronizing == true && wsSyncConfirmedBlockNum == 0)
             {
@@ -1224,7 +1221,6 @@ namespace DLT
                 Logging.info(String.Format("WalletState Starting block: #{0}. Wallets: {1} ({2} chunks)", 
                     ws_block, ws_count, chunks));
                 wsSyncConfirmedBlockNum = ws_block;
-                wsSyncConfirmedVersion = ws_version;
                 lock (missingWsChunks)
                 {
                     missingWsChunks.Clear();
@@ -1328,7 +1324,6 @@ namespace DLT
                                 {
                                     wsSyncConfirmedBlockNum = block_height;
                                     wsSynced = true;
-                                    wsSyncConfirmedVersion = Node.walletState.version;
                                 }
                                 else
                                 {

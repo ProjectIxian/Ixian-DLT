@@ -32,7 +32,6 @@ namespace DLT
     public class WalletState
     {
         private readonly object stateLock = new object();
-        public int version = 0;
         private readonly Dictionary<byte[], Wallet> walletState = new Dictionary<byte[], Wallet>(new ByteArrayComparer()); // The entire wallet list
         private byte[] cachedChecksum = null;
         private int cachedBlockVersion = 0;
@@ -166,12 +165,12 @@ namespace DLT
             }
         }
 
-        private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id)
+        private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id, int block_version)
         {
             if (wsjTransaction != null && wsjTransaction.wsjTxNumber == transaction_id)
             {
                 WSJTransaction wsjt = wsjTransaction;
-                return wsjt.getAffectedWallets();
+                return wsjt.getAffectedWallets(block_version);
             }
             else
             {
@@ -180,7 +179,7 @@ namespace DLT
                 {
                     return null;
                 }
-                return wsjt.getAffectedWallets();
+                return wsjt.getAffectedWallets(block_version);
             }
         }
 
@@ -629,12 +628,16 @@ namespace DLT
                 eligible_addresses = new SortedSet<byte[]>(walletState.Keys, new ByteArrayComparer());
 
                 byte[] checksum = null;
-                if (cachedBlockVersion <= 2)
+                if (cachedBlockVersion <= BlockVer.v2)
                 {
-                    checksum = Crypto.sha512quTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
+                    checksum = Crypto.sha512quTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT0"));
+                }else if(cachedBlockVersion < BlockVer.v10)
+                {
+                    checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT0"), 0, 0, 64);
                 }else
                 {
-                    checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT" + version), 0, 0, 64);
+                    // TODO TODO Omega - checksum lock probably isn't necessary
+                    checksum = ConsensusConfig.ixianChecksumLock;
                 }
 
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
@@ -642,14 +645,20 @@ namespace DLT
                 foreach (byte[] addr in eligible_addresses)
                 {
                     byte[] wallet_checksum = getWallet(new Address(addr)).calculateChecksum(cachedBlockVersion);
-                    if (cachedBlockVersion <= 2)
+                    if (cachedBlockVersion <= BlockVer.v2)
                     {
                         checksum = Crypto.sha512quTrunc(Encoding.UTF8.GetBytes(Crypto.hashToString(checksum) + Crypto.hashToString(wallet_checksum)));
-                    }else
+                    }else if (cachedBlockVersion < BlockVer.v10)
                     {
                         List<byte> tmp_hash = checksum.ToList();
                         tmp_hash.AddRange(wallet_checksum);
                         checksum = Crypto.sha512sqTrunc(tmp_hash.ToArray(), 0, 0, 64);
+                    }else
+                    {
+                        byte[] tmp_hash = new byte[checksum.Length + wallet_checksum.Length];
+                        Array.Copy(checksum, tmp_hash, checksum.Length);
+                        Array.Copy(wallet_checksum, 0, tmp_hash, checksum.Length, wallet_checksum.Length);
+                        checksum = CryptoManager.lib.sha3_512sqTrunc(tmp_hash.ToArray(), 0, 0, 64);
                     }
                 }
 
@@ -658,7 +667,7 @@ namespace DLT
             }
         }
 
-        public byte[] calculateWalletStateDeltaChecksum(ulong transaction_id, bool block_debug = false)
+        public byte[] calculateWalletStateDeltaChecksum(ulong transaction_id, int block_version, bool block_debug = false)
         {
             lock (stateLock)
             {
@@ -666,9 +675,20 @@ namespace DLT
                 {
                     using (BinaryWriter w = new BinaryWriter(m))
                     {
-                        w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT" + version));
+                        if(block_version >= BlockVer.v10)
+                        {
+                            // TODO TODO Omega - checksum lock probably isn't necessary
+                            w.Write(ConsensusConfig.ixianChecksumLock);
+                        }
+                        else
+                        {
+                            w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT0"));
+                        }
+
+                        // TODO TODO Omega - this can be optimized by calculating checksums through WSJ; make sure it can be processed in parallel
+
                         // TODO: WSJ: Kludge until Blockversion upgrade, so we can replace WS Deltas with WSJ
-                        var altered_wallets = getAlteredWalletsSinceWSJTX(transaction_id);
+                        var altered_wallets = getAlteredWalletsSinceWSJTX(transaction_id, block_version);
                         if(altered_wallets == null)
                         {
                             Logging.error("Attempted to calculate WS Delta checksum since WSJ transaction {0}, but no such transaction is open.", transaction_id);
@@ -696,6 +716,7 @@ namespace DLT
                         Logging.info(String.Format("WalletState::calculateWalletStateDeltaChecksum: {0}", m.Length));
 #endif
                     }
+                    // TODO TODO Omega update to sha3
                     return Crypto.sha512sqTrunc(m.ToArray(), 0, 0, 64);
                 }
             }
