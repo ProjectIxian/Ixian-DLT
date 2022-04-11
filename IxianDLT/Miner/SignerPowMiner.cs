@@ -235,7 +235,7 @@ namespace DLT
             if (lastSignerPowSolution != null
                 && Node.blockChain.getTimeSinceLastBlock() < 1800
                 && currentBlockNum + ConsensusConfig.plPowCalculationInterval + ConsensusConfig.plPowMinCalculationBlockTime > highestNetworkBlockHeight
-                && solvingDifficulty < PresenceList.getPowSolution().difficulty)
+                && solvingDifficulty <= PresenceList.getPowSolution().difficulty)
             {
                 // If the chain isn't stuck and we've already processed PoW within the interval
                 return;

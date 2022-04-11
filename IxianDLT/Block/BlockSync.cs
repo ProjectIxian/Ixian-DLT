@@ -472,6 +472,11 @@ namespace DLT
 
             foreach (var tx in txs)
             {
+                if(tx.type != (int)Transaction.Type.PoWSolution)
+                {
+                    Logging.error("Sync error, received a non-PoWSolution transaction from storage.");
+                    continue;
+                }
                 if (b.transactions.Contains(tx.id))
                 {
                     ulong blockNum = tx.powSolution.blockNum;

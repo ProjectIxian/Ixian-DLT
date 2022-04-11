@@ -27,613 +27,6 @@ namespace DLT
     {
         class RocksDBInternal
         {
-            // Internal representation
-            class _storage_Block
-            {
-                public ulong blockNum { get; set; }
-                public byte[] blockChecksum { get; set; }
-                public byte[] lastBlockChecksum { get; set; }
-                public ulong lastSuperblockNum { get; set; }
-                public byte[] superBlockSegments { get; set; }
-                public byte[] lastSuperblockChecksum { get; set; }
-                public byte[] walletStateChecksum { get; set; }
-                public byte[] sigFreezeChecksum { get; set; }
-                public ulong difficulty { get; set; }
-                public byte[] powField { get; set; }
-                public byte[][] signatures { get; set; }
-                public byte[][] transactions { get; set; }
-                public long timestamp { get; set; }
-                public int version { get; set; }
-                //
-                public bool compactedSigs { get; set; }
-                //
-                public byte[] blockProposer { get; set; }
-                public _storage_Block() { }
-                public _storage_Block(Block from_block)
-                {
-                    blockNum = from_block.blockNum;
-                    blockChecksum = from_block.blockChecksum;
-                    lastBlockChecksum = from_block.lastBlockChecksum;
-                    lastSuperblockNum = from_block.lastSuperBlockNum;
-                    if (lastSuperblockChecksum != null)
-                    {
-                        //this is a superblock
-                        MemoryStream ms = new MemoryStream();
-                        using (BinaryWriter bw = new BinaryWriter(ms, Encoding.UTF8, true))
-                        {
-                            foreach (var entry in from_block.superBlockSegments)
-                            {
-                                bw.Write(BitConverter.GetBytes(entry.Value.blockNum));
-                                bw.Write(BitConverter.GetBytes(entry.Value.blockChecksum.Length));
-                                bw.Write(entry.Value.blockChecksum);
-                            }
-                        }
-                        superBlockSegments = ms.ToArray();
-                    }
-                    lastSuperblockChecksum = from_block.lastSuperBlockChecksum;
-                    walletStateChecksum = from_block.walletStateChecksum;
-                    sigFreezeChecksum = from_block.signatureFreezeChecksum;
-                    difficulty = from_block.difficulty;
-                    powField = from_block.powField;
-
-                    List<BlockSignature> source_signatures = null;
-                    if(from_block.frozenSignatures != null)
-                    {
-                        source_signatures = from_block.frozenSignatures;
-                    } else
-                    {
-                        source_signatures = from_block.signatures;
-                    }
-
-                    signatures = new byte[source_signatures.Count][];
-                    int i = 0;
-                    foreach (BlockSignature sig in source_signatures)
-                    {
-                        signatures[i] = sig.getBytesForBlock();
-                        i += 1;
-                    }
-
-                    transactions = from_block.transactions.ToArray();
-                    timestamp = from_block.timestamp;
-                    version = from_block.version;
-                    compactedSigs = from_block.compactedSigs;
-                    blockProposer = from_block.blockProposer;
-                }
-                public Block asBlock()
-                {
-                    Block b = new Block();
-                    b.blockNum = blockNum;
-                    b.blockChecksum = blockChecksum;
-                    b.lastBlockChecksum = lastBlockChecksum;
-                    b.lastSuperBlockNum = lastSuperblockNum;
-                    b.lastSuperBlockChecksum = lastSuperblockChecksum;
-                    if (superBlockSegments != null)
-                    {
-                        for (int i = 0; i < superBlockSegments.Length;)
-                        {
-                            ulong seg_block_num = BitConverter.ToUInt64(superBlockSegments, i);
-                            i += 8;
-                            int seg_bc_len = BitConverter.ToInt32(superBlockSegments, i);
-                            i += 4;
-                            byte[] seg_bc = new byte[seg_bc_len];
-                            Array.Copy(superBlockSegments, i, seg_bc, 0, seg_bc_len);
-                            i += seg_bc_len;
-
-                            b.superBlockSegments.Add(seg_block_num, new SuperBlockSegment(seg_block_num, seg_bc));
-                        }
-                    }
-                    b.walletStateChecksum = walletStateChecksum;
-                    b.signatureFreezeChecksum = sigFreezeChecksum;
-                    b.difficulty = difficulty;
-                    b.powField = powField;
-                    b.signatures = new List<BlockSignature>();
-                    List<BlockSignature> frozenSignatures = new List<BlockSignature>();
-                    foreach (var sig in signatures)
-                    {
-                        BlockSignature newSig = new BlockSignature(sig, false);
-                        b.signatures.Add(newSig);
-                        frozenSignatures.Add(newSig);
-                    }
-                    b.setFrozenSignatures(frozenSignatures);
-                    if (transactions != null)
-                    {
-                        foreach (byte[] txid in transactions)
-                        {
-                            b.addTransaction(txid);
-                        }
-                    }
-                    b.timestamp = timestamp;
-                    b.version = version;
-                    b.compactedSigs = compactedSigs;
-                    b.blockProposer = blockProposer;
-                    // special flag:
-                    b.fromLocalStorage = true;
-                    return b;
-                }
-                public _storage_Block(byte[] from_bytes)
-                {
-                    using (MemoryStream ms = new MemoryStream(from_bytes))
-                    {
-                        using (BinaryReader br = new BinaryReader(ms))
-                        {
-                            int count = 0;
-                            blockNum = br.ReadUInt64();
-
-                            count = br.ReadInt32();
-                            if (count > 0) { blockChecksum = br.ReadBytes(count); } else { blockChecksum = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { lastBlockChecksum = br.ReadBytes(count); } else { lastBlockChecksum = null; }
-
-                            lastSuperblockNum = br.ReadUInt64();
-
-                            count = br.ReadInt32();
-                            if (count > 0) { lastSuperblockChecksum = br.ReadBytes(count); } else { lastSuperblockChecksum = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { walletStateChecksum = br.ReadBytes(count); } else { walletStateChecksum = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { sigFreezeChecksum = br.ReadBytes(count); } else { sigFreezeChecksum = null; }
-
-                            difficulty = br.ReadUInt64();
-
-                            count = br.ReadInt32();
-                            if (count > 0) { powField = br.ReadBytes(count); } else { powField = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0)
-                            {
-                                // signature is [sig][address]
-                                signatures = new byte[count][];
-                                for (int i = 0; i < count; i++)
-                                {
-                                    int s_len = br.ReadInt32();
-                                    if (s_len > 0) { signatures[i] = br.ReadBytes(s_len); } else { signatures[i] = null; }
-                                }
-                            }
-                            else { signatures = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0)
-                            {
-                                transactions = new byte[count][];
-                                for (int i = 0; i < count; i++)
-                                {
-                                    int txid_len = br.ReadInt32();
-                                    transactions[i] = br.ReadBytes(txid_len);
-                                }
-                            }
-                            else { transactions = null; }
-
-                            timestamp = br.ReadInt64();
-                            version = br.ReadInt32();
-
-                            count = br.ReadInt32();
-                            if(count > 0)
-                            {
-                                superBlockSegments = br.ReadBytes(count);
-                            }
-
-                            compactedSigs = br.ReadBoolean();
-
-                            int bp_len = br.ReadInt32();
-                            if(bp_len > 0)
-                            {
-                                blockProposer = br.ReadBytes(bp_len);
-                            }
-                        }
-                    }
-                }
-                public byte[] asBytes()
-                {
-                    using (MemoryStream ms = new MemoryStream())
-                    {
-                        using (BinaryWriter wr = new BinaryWriter(ms))
-                        {
-                            wr.Write(blockNum);
-
-                            if (blockChecksum != null)
-                            {
-                                wr.Write(blockChecksum.Length);
-                                wr.Write(blockChecksum);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (lastBlockChecksum != null)
-                            {
-                                wr.Write(lastBlockChecksum.Length);
-                                wr.Write(lastBlockChecksum);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            wr.Write(lastSuperblockNum);
-
-                            if (lastSuperblockChecksum != null)
-                            {
-                                wr.Write(lastSuperblockChecksum.Length);
-                                wr.Write(lastSuperblockChecksum);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (walletStateChecksum != null)
-                            {
-                                wr.Write(walletStateChecksum.Length);
-                                wr.Write(walletStateChecksum);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (sigFreezeChecksum != null)
-                            {
-                                wr.Write(sigFreezeChecksum.Length);
-                                wr.Write(sigFreezeChecksum);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            wr.Write(difficulty);
-
-                            if (powField != null)
-                            {
-                                wr.Write(powField.Length);
-                                wr.Write(powField);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (signatures != null)
-                            {
-                                wr.Write(signatures.Length);
-                                foreach (var s in signatures)
-                                {
-                                    // signature is [sig][address]
-                                    wr.Write(s.Length);
-                                    wr.Write(s);
-                                }
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (transactions != null)
-                            {
-                                wr.Write(transactions.Length);
-                                foreach (var txid in transactions)
-                                {
-                                    wr.Write(txid.Length);
-                                    wr.Write(txid);
-                                }
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            wr.Write(timestamp);
-                            wr.Write(version);
-                            // superblock segments
-                            if(superBlockSegments != null)
-                            {
-                                wr.Write(superBlockSegments.Length);
-                                wr.Write(superBlockSegments);
-                            } else
-                            {
-                                wr.Write(0);
-                            }
-                            wr.Write(compactedSigs);
-
-                            if(blockProposer != null)
-                            {
-                                wr.Write(blockProposer.Length);
-                                wr.Write(blockProposer);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-                        }
-                        return ms.ToArray();
-                    }
-                }
-            }
-
-            class _storage_Transaction
-            {
-                public byte[] id { get; set; }
-                public int type { get; set; }
-                public byte[] amount { get; set; }
-                public byte[] fee { get; set; }
-                public byte[][][] toList { get; set; }
-                public byte[][][] fromList { get; set; }
-                public byte[] dataChecksum { get; set; }
-                public byte[] data { get; set; }
-                public ulong blockHeight { get; set; }
-                public int nonce { get; set; }
-                public long timestamp { get; set; }
-                public byte[] checksum { get; set; }
-                public byte[] signature { get; set; }
-                public byte[] pubKey { get; set; }
-                public ulong applied { get; set; }
-                public int version { get; set; }
-
-                public _storage_Transaction() { }
-                public _storage_Transaction(Transaction from_tx)
-                {
-                    id = from_tx.id;
-                    type = from_tx.type;
-                    amount = from_tx.amount.getAmount().ToByteArray();
-                    fee = from_tx.fee.getAmount().ToByteArray();
-                    toList = new byte[from_tx.toList.Count][][];
-                    int i = 0;
-                    foreach (var to in from_tx.toList)
-                    {
-                        toList[i] = new byte[2][];
-                        toList[i][0] = to.Key.addressNoChecksum;
-                        toList[i][1] = to.Value.getBytes();
-                        i++;
-                    }
-                    fromList = new byte[from_tx.fromList.Count][][];
-                    i = 0;
-                    foreach (var from in from_tx.fromList)
-                    {
-                        fromList[i] = new byte[2][];
-                        fromList[i][0] = from.Key;
-                        fromList[i][1] = from.Value.getAmount().ToByteArray();
-                        i++;
-                    }
-                    blockHeight = from_tx.blockHeight;
-                    nonce = from_tx.nonce;
-                    timestamp = from_tx.timeStamp;
-                    checksum = from_tx.checksum;
-                    signature = from_tx.signature;
-                    pubKey = from_tx.pubKey;
-                    applied = from_tx.applied;
-                    version = from_tx.version;
-                }
-
-                public Transaction asTransaction()
-                {
-                    Transaction tx = new Transaction(type);
-                    tx.id = id;
-                    tx.type = type;
-                    tx.amount = new IxiNumber(new System.Numerics.BigInteger(amount));
-                    tx.fee = new IxiNumber(new System.Numerics.BigInteger(fee));
-                    foreach (var to in toList)
-                    {
-                        tx.toList.AddOrReplace(new Address(to[0]), new Transaction.ToEntry(version, to[1]));
-                    }
-                    foreach (var from in fromList)
-                    {
-                        tx.fromList.AddOrReplace(from[0], new IxiNumber(new System.Numerics.BigInteger(from[1])));
-                    }
-                    tx.blockHeight = blockHeight;
-                    tx.nonce = nonce;
-                    tx.timeStamp = timestamp;
-                    tx.checksum = checksum;
-                    tx.signature = signature;
-                    tx.pubKey = pubKey;
-                    tx.applied = applied;
-                    tx.version = version;
-                    // special flag
-                    tx.fromLocalStorage = true;
-                    return tx;
-                }
-
-                public _storage_Transaction(byte[] from_bytes)
-                {
-                    using (MemoryStream ms = new MemoryStream(from_bytes))
-                    {
-                        using (BinaryReader br = new BinaryReader(ms))
-                        {
-                            int count = 0;
-                            int id_len = br.ReadInt32();
-                            id = br.ReadBytes(id_len);
-
-                            type = br.ReadInt32();
-
-                            count = br.ReadInt32();
-                            if (count > 0) { amount = br.ReadBytes(count); } else { amount = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { fee = br.ReadBytes(count); } else { fee = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0)
-                            {
-                                toList = new byte[count][][];
-                                for (int i = 0; i < toList.Length; i++)
-                                {
-                                    toList[i] = new byte[2][];
-                                    int a_len = br.ReadInt32();
-                                    if (a_len > 0) { toList[i][0] = br.ReadBytes(a_len); } else { toList[i][0] = null; }
-                                    int b_len = br.ReadInt32();
-                                    if (b_len > 0) { toList[i][1] = br.ReadBytes(b_len); } else { toList[i][1] = null; }
-                                }
-                            }
-                            else { toList = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0)
-                            {
-                                fromList = new byte[count][][];
-                                for (int i = 0; i < fromList.Length; i++)
-                                {
-                                    fromList[i] = new byte[2][];
-                                    int a_len = br.ReadInt32();
-                                    if (a_len > 0) { fromList[i][0] = br.ReadBytes(a_len); } else { fromList[i][0] = null; }
-                                    int b_len = br.ReadInt32();
-                                    if (b_len > 0) { fromList[i][1] = br.ReadBytes(b_len); } else { fromList[i][1] = null; }
-                                }
-                            }
-                            else { fromList = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { dataChecksum = br.ReadBytes(count); } else { dataChecksum = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { data = br.ReadBytes(count); } else { data = null; }
-
-                            blockHeight = br.ReadUInt64();
-                            nonce = br.ReadInt32();
-                            timestamp = br.ReadInt64();
-
-                            count = br.ReadInt32();
-                            if (count > 0) { checksum = br.ReadBytes(count); } else { checksum = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { signature = br.ReadBytes(count); } else { signature = null; }
-
-                            count = br.ReadInt32();
-                            if (count > 0) { pubKey = br.ReadBytes(count); } else { pubKey = null; }
-
-                            applied = br.ReadUInt64();
-                            version = br.ReadInt32();
-                        }
-                    }
-                }
-
-                public byte[] asBytes()
-                {
-                    using (MemoryStream ms = new MemoryStream())
-                    {
-                        using (BinaryWriter wr = new BinaryWriter(ms))
-                        {
-                            wr.Write(id.Length);
-                            wr.Write(id);
-                            wr.Write(type);
-
-                            if (amount != null)
-                            {
-                                wr.Write(amount.Length);
-                                wr.Write(amount);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (fee != null)
-                            {
-                                wr.Write(fee.Length);
-                                wr.Write(fee);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (toList != null)
-                            {
-                                wr.Write(toList.Length);
-                                for (int i = 0; i < toList.Length; i++)
-                                {
-                                    wr.Write(toList[i][0].Length);
-                                    wr.Write(toList[i][0]);
-                                    wr.Write(toList[i][1].Length);
-                                    wr.Write(toList[i][1]);
-                                }
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-
-                            if (fromList != null)
-                            {
-                                wr.Write(fromList.Length);
-                                for (int i = 0; i < fromList.Length; i++)
-                                {
-                                    wr.Write(fromList[i][0].Length);
-                                    wr.Write(fromList[i][0]);
-                                    wr.Write(fromList[i][1].Length);
-                                    wr.Write(fromList[i][1]);
-                                }
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (dataChecksum != null)
-                            {
-                                wr.Write(dataChecksum.Length);
-                                wr.Write(dataChecksum);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (data != null)
-                            {
-                                wr.Write(data.Length);
-                                wr.Write(data);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            wr.Write(blockHeight);
-                            wr.Write(nonce);
-                            wr.Write(timestamp);
-
-                            if (checksum != null)
-                            {
-                                wr.Write(checksum.Length);
-                                wr.Write(checksum);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (signature != null)
-                            {
-                                wr.Write(signature.Length);
-                                wr.Write(signature);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            if (pubKey != null)
-                            {
-                                wr.Write(pubKey.Length);
-                                wr.Write(pubKey);
-                            }
-                            else
-                            {
-                                wr.Write(0);
-                            }
-
-                            wr.Write(applied);
-                            wr.Write(version);
-                        }
-                        return ms.ToArray();
-                    }
-                }
-            }
-
             public class _applied_tx_idx_entry
             {
                 public ulong tx_original_bh;
@@ -1116,20 +509,20 @@ namespace DLT
                 }
             }
 
-            private void updateBlockIndexes(_storage_Block sb)
+            private void updateBlockIndexes(Block sb)
             {
                 byte[] block_num_bytes = BitConverter.GetBytes(sb.blockNum);
                 idxBlocksChecksum.addIndexEntry(sb.blockChecksum, block_num_bytes);
                 idxBlocksChecksum.updateDBIndex(database);
-                if (sb.lastSuperblockChecksum != null)
+                if (sb.lastSuperBlockChecksum != null)
                 {
-                    idxBlocksLastSBChecksum.addIndexEntry(sb.lastSuperblockChecksum, block_num_bytes);
+                    idxBlocksLastSBChecksum.addIndexEntry(sb.lastSuperBlockChecksum, block_num_bytes);
                     idxBlocksLastSBChecksum.updateDBIndex(database);
                 }
                 lastUsedTime = DateTime.Now;
             }
 
-            private void updateTXIndexes(_storage_Transaction st)
+            private void updateTXIndexes(Transaction st)
             {
                 byte[] tx_id_bytes = st.id;
 
@@ -1138,20 +531,20 @@ namespace DLT
 
                 foreach (var from in st.fromList)
                 {
-                    idxTXFrom.addIndexEntry(from[0], tx_id_bytes);
+                    idxTXFrom.addIndexEntry(new Address(st.pubKey, from.Key).addressNoChecksum, tx_id_bytes);
                 }
                 idxTXFrom.updateDBIndex(database);
 
                 foreach (var to in st.toList)
                 {
-                    idxTXTo.addIndexEntry(to[0], tx_id_bytes);
+                    idxTXTo.addIndexEntry(to.Key.addressNoChecksum, tx_id_bytes);
                 }
                 idxTXTo.updateDBIndex(database);
 
                 idxTXBlockHeight.addIndexEntry(BitConverter.GetBytes(st.blockHeight), tx_id_bytes);
                 idxTXBlockHeight.updateDBIndex(database);
 
-                idxTXTimestamp.addIndexEntry(BitConverter.GetBytes(st.timestamp), tx_id_bytes);
+                idxTXTimestamp.addIndexEntry(BitConverter.GetBytes(st.timeStamp), tx_id_bytes);
                 idxTXTimestamp.updateDBIndex(database);
 
                 lastUsedTime = DateTime.Now;
@@ -1181,10 +574,9 @@ namespace DLT
                     {
                         return false;
                     }
-                    var sb = new _storage_Block(block);
-                    database.Put(BitConverter.GetBytes(sb.blockNum), sb.asBytes(), rocksCFBlocks);
-                    updateBlockIndexes(sb);
-                    updateMinMax(sb.blockNum);
+                    database.Put(BitConverter.GetBytes(block.blockNum), block.getBytes(true, true, true), rocksCFBlocks);
+                    updateBlockIndexes(block);
+                    updateMinMax(block.blockNum);
                 }
                 lastUsedTime = DateTime.Now;
                 return true;
@@ -1198,9 +590,8 @@ namespace DLT
                     {
                         return false;
                     }
-                    var st = new _storage_Transaction(transaction);
-                    database.Put(st.id, st.asBytes(), rocksCFTransactions);
-                    updateTXIndexes(st);
+                    database.Put(transaction.id, transaction.getBytes(true, true), rocksCFTransactions);
+                    updateTXIndexes(transaction);
                 }
                 lastUsedTime = DateTime.Now;
                 return true;
@@ -1226,8 +617,9 @@ namespace DLT
                 lastUsedTime = DateTime.Now;
                 if (block_bytes != null)
                 {
-                    var sb = new _storage_Block(block_bytes);
-                    return sb.asBlock();
+                    Block b = new Block(block_bytes, true);
+                    b.fromLocalStorage = true;
+                    return b;
                 }
                 return null;
             }
@@ -1297,7 +689,9 @@ namespace DLT
                         ulong block_num = BitConverter.ToUInt64(iter.Key(), 0);
                         if (block_num >= from && block_num <= to)
                         {
-                            blocks.Add(new _storage_Block(iter.Value()).asBlock());
+                            Block b = new Block(iter.Value(), true);
+                            b.fromLocalStorage = true;
+                            blocks.Add(b);
                         }
                     }
                     iter.Dispose();
@@ -1313,7 +707,9 @@ namespace DLT
                     var tx_bytes = database.Get(txid_bytes, rocksCFTransactions);
                     if (tx_bytes != null)
                     {
-                        return new _storage_Transaction(tx_bytes).asTransaction();
+                        Transaction t = new Transaction(tx_bytes, true, true);
+                        t.fromLocalStorage = true;
+                        return t;
                     }
                     return null;
                 }
