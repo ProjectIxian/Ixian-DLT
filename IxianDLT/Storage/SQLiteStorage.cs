@@ -467,15 +467,12 @@ namespace DLT
                 foreach (var to in transaction.toList)
                 {
                     string tx_data_string = "";
-                    if(to.Value.data != null)
-                    {
-                        byte[] tx_data_shuffled = shuffleStorageBytes(to.Value.data);
-                        tx_data_string = Convert.ToBase64String(tx_data_shuffled);
-                    }
-
                     string tx_data_checksum_string = "";
                     if (to.Value.data != null)
                     {
+                        byte[] tx_data_shuffled = shuffleStorageBytes(to.Value.data);
+                        tx_data_string = Convert.ToBase64String(tx_data_shuffled);
+
                         byte[] tx_data_checksum = to.Value.dataChecksum;
                         tx_data_checksum_string = Convert.ToBase64String(tx_data_checksum);
                     }
@@ -953,10 +950,116 @@ namespace DLT
             }
 
 
+            private Transaction getTransactionFromStorageTransaction(_storage_Transaction tx)
+            {
+                Transaction transaction = new Transaction(tx.type)
+                {
+                    id = Transaction.txIdLegacyToV8(tx.id),
+                    amount = new IxiNumber(tx.amount),
+                    fee = new IxiNumber(tx.fee),
+                    blockHeight = (ulong)tx.blockHeight,
+                    nonce = tx.nonce,
+                    timeStamp = tx.timestamp,
+                    checksum = tx.checksum,
+                    signature = tx.signature,
+                    version = tx.version,
+                    pubKey = tx.pubKey,
+                    applied = (ulong)tx.applied
+                };
+
+                try
+                {
+                    // Add toList
+                    string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
+                    int sigcounter = 0;
+                    foreach (string s1 in split_str)
+                    {
+                        sigcounter++;
+                        if (sigcounter == 1)
+                        {
+                            continue;
+                        }
+
+                        string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                        if (split_to.Length < 2)
+                        {
+                            continue;
+                        }
+                        byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
+                        IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
+                        byte[] data = null;
+                        byte[] dataChecksum = null;
+                        if (split_to.Length == 4)
+                        {
+                            if (split_to[2] != "")
+                            {
+                                dataChecksum = Convert.FromBase64String(split_to[2]);
+                            }
+                            if (split_to[3] != "")
+                            {
+                                data = unshuffleStorageBytes(Convert.FromBase64String(split_to[3]));
+                            }
+                        }
+                        Transaction.ToEntry toEntry = new Transaction.ToEntry(tx.version, amount, data, dataChecksum);
+                        transaction.toList.AddOrReplace(new Address(address, null, false), toEntry);
+                    }
+
+                    if (tx.dataChecksum != null)
+                    {
+                        transaction.toList.First().Value.dataChecksum = tx.dataChecksum;
+                    }
+
+                    if (tx.data != null)
+                    {
+                        transaction.toList.First().Value.data = unshuffleStorageBytes(tx.data);
+                    }
+
+                    if (tx.from != null)
+                    {
+                        if (tx.pubKey == null)
+                        {
+                            transaction.pubKey = tx.from;
+                        }
+                        transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
+                    }
+                    else
+                    {
+                        // Add fromList
+                        split_str = tx.fromList.Split(new string[] { "||" }, StringSplitOptions.None);
+                        sigcounter = 0;
+                        foreach (string s1 in split_str)
+                        {
+                            sigcounter++;
+                            if (sigcounter == 1)
+                            {
+                                continue;
+                            }
+
+                            string[] split_from = s1.Split(new string[] { ":" }, StringSplitOptions.None);
+                            if (split_from.Length < 2)
+                            {
+                                continue;
+                            }
+                            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_from[0]);
+                            IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_from[1])));
+                            transaction.fromList.AddOrReplace(address, amount);
+                        }
+                    }
+
+                    transaction.fromLocalStorage = true;
+                }
+                catch (Exception e)
+                {
+                    Logging.error("Error reading transaction {0} from storage: {1}", tx.id, e);
+                    return null;
+                }
+
+                return transaction;
+            }
+
             // Retrieve a transaction from the sql database
             public override Transaction getTransaction(byte[] txid, ulong block_num)
             {
-                Transaction transaction = null;
                 List<_storage_Transaction> _storage_tx = null;
 
                 string sql = "select * from transactions where `id` = ? LIMIT 1";
@@ -997,7 +1100,7 @@ namespace DLT
 
                     if(!found && block_num > 0)
                     {
-                        return transaction;
+                        return null;
                     }
 
                     if(!found)
@@ -1042,7 +1145,7 @@ namespace DLT
                                 else
                                 {
                                     // Transaction not found
-                                    return transaction;
+                                    return null;
                                 }
                             }
 
@@ -1055,7 +1158,7 @@ namespace DLT
                                 else
                                 {
                                     // Transaction not found in any database
-                                    return transaction;
+                                    return null;
                                 }
                                 continue;
                             }
@@ -1068,112 +1171,12 @@ namespace DLT
 
                 if (_storage_tx.Count < 1)
                 {
-                    return transaction;
+                    return null;
                 }
 
                 _storage_Transaction tx = _storage_tx[0];
 
-                transaction = new Transaction(tx.type)
-                {
-                    id = Transaction.txIdLegacyToV8(tx.id),
-                    amount = new IxiNumber(tx.amount),
-                    fee = new IxiNumber(tx.fee),
-                    blockHeight = (ulong)tx.blockHeight,
-                    nonce = tx.nonce,
-                    timeStamp = tx.timestamp,
-                    checksum = tx.checksum,
-                    signature = tx.signature,
-                    version = tx.version,
-                    pubKey = tx.pubKey,
-                    applied = (ulong)tx.applied
-                };
-
-                try
-                {
-                    // Add toList
-                    string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
-                    int sigcounter = 0;
-                    foreach (string s1 in split_str)
-                    {
-                        sigcounter++;
-                        if (sigcounter == 1)
-                        {
-                            continue;
-                        }
-
-                        string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                        if (split_to.Length < 2)
-                        {
-                            continue;
-                        }
-                        byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
-                        IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                        byte[] data = null;
-                        byte[] dataChecksum = null;
-                        if(split_to.Length == 4)
-                        {
-                            if (split_to[2] != "")
-                            {
-                                dataChecksum = Convert.FromBase64String(split_to[2]);
-                            }
-                            if (split_to[3] != "")
-                            {
-                                data = Convert.FromBase64String(split_to[3]);
-                            }
-                        }
-                        Transaction.ToEntry toEntry = new Transaction.ToEntry(tx.version, amount, data, dataChecksum);
-                        transaction.toList.AddOrReplace(new Address(address, null, false), toEntry);
-                    }
-
-                    if (tx.dataChecksum != null)
-                    {
-                        transaction.toList.First().Value.dataChecksum = tx.dataChecksum;
-                    }
-
-                    if (tx.data != null)
-                    {
-                        transaction.toList.First().Value.data = tx.data;
-                    }
-
-                    if (tx.from != null)
-                    {
-                        if (tx.pubKey == null)
-                        {
-                            transaction.pubKey = tx.from;
-                        }
-                        transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
-                    }
-                    else
-                    {
-                        // Add fromList
-                        split_str = tx.fromList.Split(new string[] { "||" }, StringSplitOptions.None);
-                        sigcounter = 0;
-                        foreach (string s1 in split_str)
-                        {
-                            sigcounter++;
-                            if (sigcounter == 1)
-                            {
-                                continue;
-                            }
-
-                            string[] split_from = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                            if (split_from.Length < 2)
-                            {
-                                continue;
-                            }
-                            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_from[0]);
-                            IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_from[1])));
-                            transaction.fromList.AddOrReplace(address, amount);
-                        }
-                    }
-
-                    transaction.fromLocalStorage = true;
-                }catch(Exception e)
-                {
-                    Logging.error("Error reading transaction {0} from storage: {1}", tx.id, e);
-                }
-
-                return transaction;
+                return getTransactionFromStorageTransaction(tx);
             }
 
             // Removes a block from the storage database
@@ -1563,100 +1566,8 @@ namespace DLT
 
                 foreach(_storage_Transaction tx in _storage_tx)
                 {
-                    Transaction transaction = new Transaction(tx.type)
-                    {
-                        id = Transaction.txIdLegacyToV8(tx.id),
-                        amount = new IxiNumber(tx.amount),
-                        fee = new IxiNumber(tx.fee),
-                        blockHeight = (ulong)tx.blockHeight,
-                        nonce = tx.nonce,
-                        timeStamp = tx.timestamp,
-                        checksum = tx.checksum,
-                        signature = tx.signature,
-                        version = tx.version,
-                        pubKey = tx.pubKey,
-                        applied = (ulong)tx.applied
-                    };
-
- 
-                    try
-                    {
-                        // Add toList
-                        string[] split_str = tx.toList.Split(new string[] { "||" }, StringSplitOptions.None);
-                        int sigcounter = 0;
-                        foreach (string s1 in split_str)
-                        {
-                            sigcounter++;
-                            if (sigcounter == 1)
-                            {
-                                continue;
-                            }
-
-                            string[] split_to = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                            if (split_to.Length < 2)
-                            {
-                                continue;
-                            }
-                            byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_to[0]);
-                            IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_to[1])));
-                            byte[] data = null;
-                            byte[] dataChecksum = null;
-                            if (split_to.Length == 4)
-                            {
-                                if (split_to[2] != "")
-                                {
-                                    dataChecksum = Convert.FromBase64String(split_to[2]);
-                                }
-                                if (split_to[3] != "")
-                                {
-                                    data = Convert.FromBase64String(split_to[3]);
-                                }
-                            }
-                            Transaction.ToEntry toEntry = new Transaction.ToEntry(tx.version, amount, data, dataChecksum);
-                            transaction.toList.AddOrReplace(new Address(address, null, false), toEntry);
-                        }
-
-                        if (tx.from != null)
-                        {
-                            if (tx.pubKey == null)
-                            {
-                                transaction.pubKey = tx.from;
-                            }
-                            transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
-                        }
-                        else
-                        {
-                            // Add fromList
-                            split_str = tx.fromList.Split(new string[] { "||" }, StringSplitOptions.None);
-                            sigcounter = 0;
-                            foreach (string s1 in split_str)
-                            {
-                                sigcounter++;
-                                if (sigcounter == 1)
-                                {
-                                    continue;
-                                }
-
-                                string[] split_from = s1.Split(new string[] { ":" }, StringSplitOptions.None);
-                                if (split_from.Length < 2)
-                                {
-                                    continue;
-                                }
-                                byte[] address = Base58Check.Base58CheckEncoding.DecodePlain(split_from[0]);
-                                IxiNumber amount = new IxiNumber(new BigInteger(Convert.FromBase64String(split_from[1])));
-                                transaction.fromList.AddOrReplace(address, amount);
-                            }
-                        }
-
-                        transaction.fromLocalStorage = true;
-                    }
-                    catch (Exception e)
-                    {
-                        Logging.error("Error reading transaction {0} from storage: {1}", tx.id, e);
-                    }
- 
+                    Transaction transaction = getTransactionFromStorageTransaction(tx);
                     transactions.Add(transaction);
-
                 }
 
                 return transactions;

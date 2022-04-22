@@ -902,10 +902,19 @@ namespace DLT
             {
                 using (BinaryWriter writerw = new BinaryWriter(mw))
                 {
-                    writerw.Write(activeBlock.blockNum);
-                    writerw.Write(Crypto.hashToString(nonce));
-                    data = mw.ToArray();
+                    if (Transaction.getExpectedVersion(IxianHandler.getLastBlockVersion()) >= 7)
+                    {
+                        writerw.WriteIxiVarInt(activeBlock.blockNum);
+                        writerw.WriteIxiVarInt(nonce.Length);
+                        writerw.Write(nonce);
+                    }
+                    else
+                    {
+                        writerw.Write(activeBlock.blockNum);
+                        writerw.Write(Crypto.hashToString(nonce));
+                    }
                 }
+                data = mw.ToArray();
             }
 
             Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());

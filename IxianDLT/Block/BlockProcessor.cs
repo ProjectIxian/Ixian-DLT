@@ -160,15 +160,16 @@ namespace DLT
                             // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
                         }
 
-                        int block_version = Node.blockChain.getLastBlockVersion();
-                        if(block_version < Config.maxBlockVersionToGenerate)
-                        {
-                            block_version = Config.maxBlockVersionToGenerate;
-                        }
-
                         bool generateNextBlock = Node.forceNextBlock;
 
                         ulong last_block_num = Node.blockChain.getLastBlockNum();
+                        int block_version = Node.blockChain.getLastBlockVersion();
+
+                        if(block_version < Config.maxBlockVersionToGenerate
+                            && last_block_num % ConsensusConfig.superblockInterval == 0)
+                        {
+                            block_version = Config.maxBlockVersionToGenerate;
+                        }
 
                         if (generateNextBlock)
                         {
