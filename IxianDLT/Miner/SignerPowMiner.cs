@@ -66,7 +66,7 @@ namespace DLT
             started = true;
 
             // Calculate the allowed number of threads based on logical processor count
-            uint miningThreads = calculateMiningThreadsCount() / 2;
+            uint miningThreads = 1; // calculateMiningThreadsCount() / 2;
             Logging.info("Starting Presence List miner with {0} threads on {1} logical processors.", miningThreads, Environment.ProcessorCount);
 
             shouldStop = false;
@@ -232,10 +232,11 @@ namespace DLT
                 return;
             }
 
+            var submittedSolution = PresenceList.getPowSolution();
             if (lastSignerPowSolution != null
                 && Node.blockChain.getTimeSinceLastBlock() < 1800
                 && currentBlockNum + ConsensusConfig.plPowCalculationInterval + ConsensusConfig.plPowMinCalculationBlockTime > highestNetworkBlockHeight
-                && solvingDifficulty <= PresenceList.getPowSolution().difficulty)
+                && (submittedSolution != null && solvingDifficulty <= submittedSolution.difficulty))
             {
                 // If the chain isn't stuck and we've already processed PoW within the interval
                 return;
