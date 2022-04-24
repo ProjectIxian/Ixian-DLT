@@ -1511,21 +1511,28 @@ namespace DLT
 
                     if(block.version >= BlockVer.v3)
                     {
-                        if (Config.fullBlockLogging) { Logging.info("Checking if transaction has a public key set - {0} B", tx.pubKey == null ? 0 : tx.pubKey.Length); }
-                        Address tmp_address = new Address(tx.pubKey);
-                        // Update the walletstate public key
-                        byte[] pubkey = Node.walletState.getWallet(tmp_address).publicKey;
-                        // Generate an address from the public key and compare it with the sender
-                        if (pubkey == null)
+                        if (block.version < BlockVer.v10
+                            || tx.type != (int)Transaction.Type.PoWSolution)
                         {
-                            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, tx.getTxIdString(), 
-                                tmp_address.ToString()); }
-                            // There is no supplied public key, extract it from transaction
-                            pubkey = tx.pubKey;
-                            if (pubkey != null)
+                            if (Config.fullBlockLogging) { Logging.info("Checking if transaction has a public key set - {0} B", tx.pubKey == null ? 0 : tx.pubKey.Length); }
+                            Address tmp_address = new Address(tx.pubKey);
+                            // Update the walletstate public key
+                            byte[] pubkey = Node.walletState.getWallet(tmp_address).publicKey;
+                            // Generate an address from the public key and compare it with the sender
+                            if (pubkey == null)
                             {
-                                // Update the walletstate public key
-                                Node.walletState.setWalletPublicKey(tmp_address, pubkey);
+                                if (Config.fullBlockLogging)
+                                {
+                                    Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, tx.getTxIdString(),
+         tmp_address.ToString());
+                                }
+                                // There is no supplied public key, extract it from transaction
+                                pubkey = tx.pubKey;
+                                if (pubkey != null)
+                                {
+                                    // Update the walletstate public key
+                                    Node.walletState.setWalletPublicKey(tmp_address, pubkey);
+                                }
                             }
                         }
                     }
@@ -2454,6 +2461,16 @@ namespace DLT
                     IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
                     Node.walletState.setWalletBalance(miner_wallet.id, miner_balance_after);
+
+                    if (miner_wallet.publicKey == null)
+                    {
+                        if(entry.address.pubKey == null)
+                        {
+                            throw new Exception("Missing Public key.");
+                        }
+                        // Update the walletstate public key
+                        Node.walletState.setWalletPublicKey(miner_wallet.id, entry.address.pubKey);
+                    }
 
                     if (miner_wallet.id.addressNoChecksum.SequenceEqual(IxianHandler.getWalletStorage().getPrimaryAddress().addressNoChecksum))
                     {
