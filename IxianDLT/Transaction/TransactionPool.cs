@@ -2368,12 +2368,12 @@ namespace DLT
 
         private static void rewardMinersV10(Block block, IDictionary<ulong, List<BlockSolution>> blockSolutionsDictionary)
         {
-            // TODO could use caching
             ulong blockNum = block.blockNum;
             if (blockSolutionsDictionary.Count > 0)
             {
                 setAppliedFlagToTransactionsFromBlock(blockNum, blockSolutionsDictionary);
             }
+
             if(blockNum <= ConsensusConfig.rewardMaturity + 1)
             {
                 return;
@@ -2392,6 +2392,7 @@ namespace DLT
                 return;
             }
 
+            // TODO could use caching
             Dictionary<ulong, List<BlockSolution>> targetBlockSolutionsDictionary = new Dictionary<ulong, List<BlockSolution>>();
             var powTransactions = TransactionPool.getFullBlockTransactions(targetBlock); // TODO TODO optimize this to fetch only PoW transactions - fetch tx by type
             foreach (var powTx in powTransactions)
@@ -2404,21 +2405,21 @@ namespace DLT
                 byte[] nonce = powTx.powSolution.nonce;
 
                 // Check if we already have a key matching the block number
-                if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
+                if (targetBlockSolutionsDictionary.ContainsKey(powBlockNum) == false)
                 {
-                    blockSolutionsDictionary[powBlockNum] = new List<BlockSolution>();
+                    targetBlockSolutionsDictionary[powBlockNum] = new List<BlockSolution>();
                 }
                 Address primary_address = new Address(powTx.pubKey);
                 if (block.version < BlockVer.v2)
                 {
-                    blockSolutionsDictionary[powBlockNum].Add(new BlockSolution { address = primary_address, nonce = nonce, tx = powTx });
+                    targetBlockSolutionsDictionary[powBlockNum].Add(new BlockSolution { address = primary_address, nonce = nonce, tx = powTx });
                 }
                 else
                 {
-                    if (!blockSolutionsDictionary[powBlockNum].Exists(x => x.address.addressNoChecksum.SequenceEqual(primary_address.addressNoChecksum) && x.nonce.SequenceEqual(nonce)))
+                    if (!targetBlockSolutionsDictionary[powBlockNum].Exists(x => x.address.addressNoChecksum.SequenceEqual(primary_address.addressNoChecksum) && x.nonce.SequenceEqual(nonce)))
                     {
                         // Add the miner to the block number dictionary reward list
-                        blockSolutionsDictionary[powBlockNum].Add(new BlockSolution { address = primary_address, nonce = nonce, tx = powTx });
+                        targetBlockSolutionsDictionary[powBlockNum].Add(new BlockSolution { address = primary_address, nonce = nonce, tx = powTx });
                     }
                     else
                     {
