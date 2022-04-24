@@ -1802,6 +1802,21 @@ namespace DLT
             {
                 return false;
             }
+            // Check if the transaction is in the sigfreeze
+            // TODO: refactor this and make it more efficient
+            ulong blocknum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+            // Verify the staking transaction is accurate
+            Block targetBlock = Node.blockChain.getBlock(blocknum);
+            if (targetBlock == null)
+            {
+                failed_transactions.Add(tx);
+                return true;
+            }
+            if(targetBlock.getFrozenSignatureCount() != tx.toList.Count)
+            {
+                failed_transactions.Add(tx);
+                return true;
+            }
             List<Address> blockStakers = new List<Address>();
             foreach (var toEntry in tx.toList)
             {
@@ -1832,17 +1847,6 @@ namespace DLT
                     return true;
                 }
 
-                // Check if the transaction is in the sigfreeze
-                // TODO: refactor this and make it more efficient
-                ulong blocknum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
-                // Verify the staking transaction is accurate
-                Block targetBlock = Node.blockChain.getBlock(blocknum);
-                if (targetBlock == null)
-                {
-                    failed_transactions.Add(tx);
-                    return true;
-                }
-
                 valid = false;
                 var signatureWallets = targetBlock.getSignaturesWalletAddressesWithDifficulty();
                 foreach (var wallet_addr_diff in signatureWallets)
@@ -1865,20 +1869,15 @@ namespace DLT
                 IxiNumber staking_balance_after = staking_balance_before + tx_amount;
 
                 Node.walletState.setWalletBalance(toEntry.Key, staking_balance_after);
-                if (toEntry.Key.pubKey == null)
+                if (staking_wallet.publicKey == null)
                 {
-                    if (staking_wallet.publicKey == null)
+                    var sig = targetBlock.getSignature(toEntry.Key);
+                    if (sig == null || sig.signerAddress.pubKey == null)
                     {
                         throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
                     }
-                }
-                else
-                {
-                    if (staking_wallet.publicKey == null)
-                    {
-                        // Set the WS public key
-                        Node.walletState.setWalletPublicKey(toEntry.Key, toEntry.Key.pubKey);
-                    }
+                    // Set the WS public key
+                    Node.walletState.setWalletPublicKey(toEntry.Key, sig.signerAddress.pubKey);
                 }
 
                 blockStakers.Add(toEntry.Key);
