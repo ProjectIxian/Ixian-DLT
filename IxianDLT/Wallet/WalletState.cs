@@ -658,7 +658,7 @@ namespace DLT
                         byte[] tmp_hash = new byte[checksum.Length + wallet_checksum.Length];
                         Array.Copy(checksum, tmp_hash, checksum.Length);
                         Array.Copy(wallet_checksum, 0, tmp_hash, checksum.Length, wallet_checksum.Length);
-                        checksum = CryptoManager.lib.sha3_512sqTrunc(tmp_hash.ToArray(), 0, 0, 64);
+                        checksum = CryptoManager.lib.sha3_512sq(tmp_hash.ToArray());
                     }
                 }
 

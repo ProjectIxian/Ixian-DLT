@@ -309,7 +309,7 @@ namespace DLT
                 System.Buffer.BlockCopy(solverAddress, 0, activeBlockChallenge, blockNumBytes.Length + blockChecksum.Length, solverAddress.Length);
             }
             System.Buffer.BlockCopy(nonce, 0, activeBlockChallenge, activeBlockChallenge.Length - 64, nonce.Length);
-            byte[] hash = CryptoManager.lib.sha3_512sqTrunc(activeBlockChallenge);
+            byte[] hash = CryptoManager.lib.sha3_512sq(activeBlockChallenge);
 
             hashesPerSecond++;
 

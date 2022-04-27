@@ -383,7 +383,7 @@ namespace DLT
                         Logging.error("Target block #{0} ({1}) is null, cannot handle sig freeze.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                         return false;
                     }
-                    if(b.blockProposer == null)
+                    if(b.blockProposer == null && b.version < BlockVer.v10)
                     {
                         b.blockProposer = targetBlock.blockProposer;
                     }
@@ -925,7 +925,7 @@ namespace DLT
                     // TODO perhaps move the bottom if section to onSuperBlockReceived
                     if((b.lastSuperBlockChecksum != null || b.blockNum == 1) && b.version >= BlockVer.v10)
                     {
-                        uint expectedSignerBits = Node.blockChain.calculateRequiredSignerBits(false);
+                        ulong expectedSignerBits = Node.blockChain.calculateRequiredSignerBits(false);
                         if (b.signerBits != expectedSignerBits)
                         {
                             Logging.warn("Received block #{0} ({1}) which had a signer difficulty {2}, expected signer difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.signerBits, expectedSignerBits);

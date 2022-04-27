@@ -499,13 +499,13 @@ namespace DLT
             return difficulty;
         }
 
-        public uint getRequiredSignerBits()
+        public ulong getRequiredSignerBits()
         {
             // TODO TODO TODO cache
             return getRequiredSignerBits(lastBlockNum + 1);
         }
 
-        public uint getRequiredSignerBits(ulong blockNum)
+        public ulong getRequiredSignerBits(ulong blockNum)
         {
             if (blockNum == 1)
             {
@@ -526,7 +526,7 @@ namespace DLT
             return lastSuperBlock.signerBits;
         }
 
-        public uint calculateRequiredSignerBits(bool adjustToRatio)
+        public ulong calculateRequiredSignerBits(bool adjustToRatio)
         {
             // TODO TODO TODO cache
             return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio));
