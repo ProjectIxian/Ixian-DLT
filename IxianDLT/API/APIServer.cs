@@ -197,7 +197,7 @@ namespace DLTNode
                 blockData.Add("Frozen Signature count", block.frozenSignatures.Count.ToString());
             }
             blockData.Add("Sig Checksum", Crypto.hashToString(block.calculateSignatureChecksum()));
-            blockData.Add("Signer Bits", block.signerBits.ToString());
+            blockData.Add("Signer Bits", Crypto.hashToString(BitConverter.GetBytes(block.signerBits)));
             List<string> txids = new List<string>();
             foreach(byte[] tx in block.transactions)
             {
@@ -656,7 +656,7 @@ namespace DLTNode
                 networkArray.Add("Block Height", last_block.blockNum);
                 networkArray.Add("Block Version", last_block.version);
                 networkArray.Add("Block Signature Count", last_block.getFrozenSignatureCount());
-                networkArray.Add("Block Total Signer Difficulty", last_block.getTotalSignerDifficulty());
+                networkArray.Add("Block Total Signer Difficulty", last_block.getTotalSignerDifficulty().ToString());
             }
             else
             {
@@ -674,11 +674,33 @@ namespace DLTNode
             if (parameters.ContainsKey("vv") || parameters.ContainsKey("verbose"))
             {
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(false));
-                networkArray.Add("Signer Bits", Node.blockChain.getRequiredSignerBits());
+                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(false).ToString());
+                networkArray.Add("Signer Bits", Crypto.hashToString(BitConverter.GetBytes(Node.blockChain.getRequiredSignerBits())));
                 networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
-                networkArray.Add("Signer Last PoW Solution", Node.signerPowMiner.lastSignerPowSolution);
-                networkArray.Add("Signer Active PoW Solution", PresenceList.getPowSolution());
+
+                var tmpSolution = Node.signerPowMiner.lastSignerPowSolution;
+                Dictionary<string, object> signerPowSolution = new Dictionary<string, object>();
+                if(tmpSolution != null)
+                {
+                    signerPowSolution.Add("blockNum", tmpSolution.blockNum);
+                    signerPowSolution.Add("solution", tmpSolution.solution);
+                    signerPowSolution.Add("checksum", tmpSolution.checksum);
+                    signerPowSolution.Add("difficulty", tmpSolution.difficulty.ToString());
+                    signerPowSolution.Add("bits", Crypto.hashToString(BitConverter.GetBytes(tmpSolution.bits)));
+                }
+                networkArray.Add("Signer Last PoW Solution", signerPowSolution);
+
+                tmpSolution = PresenceList.getPowSolution();
+                signerPowSolution = new Dictionary<string, object>();
+                if (tmpSolution != null)
+                {
+                    signerPowSolution.Add("blockNum", tmpSolution.blockNum);
+                    signerPowSolution.Add("solution", tmpSolution.solution);
+                    signerPowSolution.Add("checksum", tmpSolution.checksum);
+                    signerPowSolution.Add("difficulty", tmpSolution.difficulty.ToString());
+                    signerPowSolution.Add("bits", Crypto.hashToString(BitConverter.GetBytes(tmpSolution.bits)));
+                }
+                networkArray.Add("Signer Active PoW Solution", signerPowSolution);
 
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());
@@ -1008,9 +1030,17 @@ namespace DLTNode
                 { "num", block.blockNum }, // Block number
                 { "ver", block.version }, // Block version
                 { "dif", block.difficulty }, // Block difficulty
-                { "chk", block.blockChecksum }, // Block checksum
-                { "adr", solver_address.ToString() } // Solver address
+                { "chk", block.blockChecksum } // Block checksum
             };
+
+            // Solver address
+            if (block.version < BlockVer.v10)
+            {
+                resultArray.Add("adr", solver_address.addressWithChecksum); 
+            }else
+            {
+                resultArray.Add("adr", solver_address.addressNoChecksum);
+            }
 
             return new JsonResponse { result = resultArray, error = null };
         }

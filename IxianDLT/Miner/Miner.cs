@@ -442,6 +442,10 @@ namespace DLT
             activeBlock = candidate_block;
             byte[] block_checksum = activeBlock.blockChecksum;
             byte[] solver_address = IxianHandler.getWalletStorage().getPrimaryAddress().addressNoChecksum;
+            if(currentBlockVersion < BlockVer.v10)
+            {
+                solver_address = IxianHandler.getWalletStorage().getPrimaryAddress().addressWithChecksum;
+            }
             activeBlockChallenge = new byte[block_checksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block_checksum, 0, activeBlockChallenge, 0, block_checksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, activeBlockChallenge, block_checksum.Length, solver_address.Length);
