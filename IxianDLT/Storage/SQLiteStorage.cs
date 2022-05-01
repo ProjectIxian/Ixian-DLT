@@ -667,7 +667,7 @@ namespace DLT
                     lastSuperBlockNum = (ulong)blk.lastSuperBlockNum,
                     compactedSigs = blk.compactedSigs,
                     blockProposer = blk.blockProposer,
-                    signerBits = (uint)blk.signerDifficulty
+                    signerBits = (ulong)blk.signerDifficulty
                 };
 
                 try

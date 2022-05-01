@@ -195,7 +195,7 @@ namespace DLTNode
             return BlockHeaderStorage.getBlockHeader(blockNum);
         }
 
-        public override BigInteger getMinSignerPowDifficulty(ulong blockNum)
+        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum)
         {
             return 1;
         }

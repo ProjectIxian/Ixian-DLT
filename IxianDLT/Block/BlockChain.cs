@@ -482,16 +482,16 @@ namespace DLT
             }
         }
 
-        public BigInteger getRequiredSignerDifficulty(bool adjustToRatio)
+        public IxiNumber getRequiredSignerDifficulty(bool adjustToRatio)
         {
             // TODO TODO TODO cache
             return getRequiredSignerDifficulty(lastBlockNum + 1, adjustToRatio);
         }
 
-        public BigInteger getRequiredSignerDifficulty(ulong blockNum, bool adjustToRatio)
+        public IxiNumber getRequiredSignerDifficulty(ulong blockNum, bool adjustToRatio)
         {
             // TODO TODO TODO cache
-            BigInteger difficulty = SignerPowSolution.bitsToDifficulty(getRequiredSignerBits(blockNum));
+            IxiNumber difficulty = SignerPowSolution.bitsToDifficulty(getRequiredSignerBits(blockNum));
             if (adjustToRatio)
             {
                 difficulty = (difficulty * ConsensusConfig.networkConsensusRatioNew) / 100;
@@ -532,7 +532,7 @@ namespace DLT
             return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio));
         }
 
-        public BigInteger calculateRequiredSignerDifficulty(bool adjustToRatio)
+        public IxiNumber calculateRequiredSignerDifficulty(bool adjustToRatio)
         {
             // TODO TODO TODO TODO TODO there is an issue with calculating required consensus after blocks are compacted, for now this is resolved by increasing the compacting window
             ulong blockNum = getLastBlockNum() + 1;
@@ -540,7 +540,7 @@ namespace DLT
             if (blockNum < blockOffset + 1) return ConsensusConfig.minBlockSignerPowDifficulty; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
-                BigInteger totalDifficulty = 0;
+                IxiNumber totalDifficulty = 0;
                 int blockCount = 0;
                 for (ulong i = 0; i < ConsensusConfig.superblockInterval; i++)
                 {
@@ -562,7 +562,7 @@ namespace DLT
                 {
                     return ConsensusConfig.minBlockSignerPowDifficulty;
                 }
-                BigInteger newDifficulty = totalDifficulty / blockCount;
+                IxiNumber newDifficulty = totalDifficulty / blockCount;
 
                 if (adjustToRatio)
                 {
@@ -571,13 +571,13 @@ namespace DLT
                 }
 
                 // Limit to max *2, /2
-                BigInteger maxDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) * 2;
+                IxiNumber maxDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) * 2;
                 if (newDifficulty > maxDifficulty)
                 {
                     newDifficulty = maxDifficulty;
                 }else
                 {
-                    BigInteger minDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) / 2;
+                    IxiNumber minDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) / 2;
                     if (newDifficulty < minDifficulty)
                     {
                         newDifficulty = minDifficulty;
@@ -1101,7 +1101,7 @@ namespace DLT
             }
         }
 
-        public BigInteger getMinSignerPowDifficulty(ulong blockNum)
+        public IxiNumber getMinSignerPowDifficulty(ulong blockNum)
         {
             if (Count < 8)
             {
@@ -1110,7 +1110,7 @@ namespace DLT
             Block tb = getBlock(blockNum - 6, true, true);
             if (tb == null)
             {
-                return SignerPowSolution.bitsToDifficulty(SignerPowSolution.maxTargetBits);
+                return SignerPowSolution.bitsToDifficulty(0x00000000000000FF);
             }
             var difficulty = getRequiredSignerDifficulty(blockNum, true) / ((ulong)tb.getFrozenSignatureCount() * 10);
             if (difficulty < ConsensusConfig.minBlockSignerPowDifficulty)

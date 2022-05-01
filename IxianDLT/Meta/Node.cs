@@ -1126,7 +1126,7 @@ namespace DLT.Meta
             storage.insertBlock(b);
         }
 
-        public override BigInteger getMinSignerPowDifficulty(ulong blockNum)
+        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum)
         {
             return blockChain.getMinSignerPowDifficulty(blockNum);
         }

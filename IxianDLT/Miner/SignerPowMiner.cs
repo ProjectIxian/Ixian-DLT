@@ -30,7 +30,7 @@ namespace DLT
         private ulong currentBlockNum = 0; // Mining block number
         public SignerPowSolution lastSignerPowSolution { get; private set; } = null;
         private long startedSolvingTime = 0; // Started solving time
-        private BigInteger solvingDifficulty = 0;
+        private IxiNumber solvingDifficulty = 0;
 
         public ulong lastHashRate { get; private set; } = 0; // Last reported hash rate
         private ulong hashesPerSecond = 0; // Total number of hashes per second
@@ -326,7 +326,7 @@ namespace DLT
                 return;
             }
 
-            BigInteger hashDifficulty = SignerPowSolution.hashToDifficulty(hash);
+            IxiNumber hashDifficulty = SignerPowSolution.hashToDifficulty(hash);
 
             if (hashDifficulty >= solvingDifficulty)
             {
@@ -364,14 +364,6 @@ namespace DLT
                 return;
             }
 
-            // Check if we're mining for at least X minutes and that the blockchain isn't stuck
-            if (Clock.getTimestamp() - startedSolvingTime > ConsensusConfig.plPowMinCalculationTime
-                && Node.blockChain.getTimeSinceLastBlock() < 1800) // TODO move 1800 to CoreConfig
-            {
-                // Reset the blockReadyForMining, to stop mining on all threads
-                blockReadyForMining = false;
-            }
-
             var solution = PresenceList.getPowSolution();
             if (solution != null)
             {
@@ -383,6 +375,14 @@ namespace DLT
                 )
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
+
+                    // Check if we're mining for at least X minutes and that the blockchain isn't stuck
+                    if (Clock.getTimestamp() - startedSolvingTime > ConsensusConfig.plPowMinCalculationTime
+                        && Node.blockChain.getTimeSinceLastBlock() < 1800) // TODO move 1800 to CoreConfig
+                    {
+                        // Reset the blockReadyForMining, to stop mining on all threads
+                        blockReadyForMining = false;
+                    }
                     return;
                 }
             }

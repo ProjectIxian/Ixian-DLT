@@ -636,8 +636,7 @@ namespace DLT
                     checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT0"), 0, 0, 64);
                 }else
                 {
-                    // TODO TODO Omega - checksum lock probably isn't necessary
-                    checksum = ConsensusConfig.ixianChecksumLock;
+                    checksum = CryptoManager.lib.sha3_512sq(ConsensusConfig.ixianChecksumLock);
                 }
 
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
@@ -716,8 +715,14 @@ namespace DLT
                         Logging.info(String.Format("WalletState::calculateWalletStateDeltaChecksum: {0}", m.Length));
 #endif
                     }
-                    // TODO TODO Omega update to sha3
-                    return Crypto.sha512sqTrunc(m.ToArray(), 0, 0, 64);
+                    if(block_version >= BlockVer.v10)
+                    {
+                        return CryptoManager.lib.sha3_512sq(m.ToArray());
+                    }
+                    else
+                    {
+                        return Crypto.sha512sqTrunc(m.ToArray(), 0, 0, 64);
+                    }
                 }
             }
         }

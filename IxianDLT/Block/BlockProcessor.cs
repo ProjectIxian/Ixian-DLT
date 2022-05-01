@@ -60,8 +60,6 @@ namespace DLT
 
         public bool firstBlockAfterSync;
 
-        private static string[] splitter = { "::" };
-
         private SortedList<ulong, long> fetchingTxForBlocks = new SortedList<ulong, long>();
         private SortedList<ulong, long> fetchingBulkTxForBlocks = new SortedList<ulong, long>();
 
@@ -1632,7 +1630,8 @@ namespace DLT
             }
             else
             {
-                sorted_sigs.Sort((x, y) => Comparer<BigInteger>.Default.Compare(x.powSolution.difficulty, y.powSolution.difficulty));
+                //sorted_sigs.Sort((x, y) => Comparer<IxiNumber>.Default.Compare(x.powSolution.difficulty, y.powSolution.difficulty));
+                sorted_sigs = sorted_sigs.OrderBy(x => x.powSolution.difficulty, Comparer<IxiNumber>.Default).ThenBy(x => x.signerAddress.addressNoChecksum, new ByteArrayComparer()).ToList();
             }
 
             var election_block_sigs = election_block.signatures;
@@ -1678,8 +1677,8 @@ namespace DLT
                     //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
                     return false;
                 }
-                BigInteger required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
-                BigInteger frozen_sig_difficulty = block.getTotalSignerDifficulty();
+                IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
+                IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
                 if (frozen_sig_difficulty < required_signer_difficulty)
                 {
                     //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
@@ -1704,8 +1703,8 @@ namespace DLT
                     return false;
                 }
 
-                BigInteger frozen_sig_difficulty = block.getTotalSignerDifficulty();
-                BigInteger required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
+                IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
+                IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
 
                 // verify sig difficulty
                 if (frozen_sig_difficulty < required_signer_difficulty)
@@ -1834,7 +1833,7 @@ namespace DLT
         public bool freezeSignatures(Block target_block)
         {
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
-            BigInteger required_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(target_block.blockNum, true);
+            IxiNumber required_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(target_block.blockNum, true);
 
             List<BlockSignature> frozen_block_sigs = null;
             if (highestNetworkBlockNum > target_block.blockNum + 10)
@@ -1899,7 +1898,7 @@ namespace DLT
 
 
 
-                BigInteger frozen_block_sigs_difficulty = 0;
+                IxiNumber frozen_block_sigs_difficulty = 0;
                 foreach(var frozen_block_sig in frozen_block_sigs)
                 {
                     if(frozen_block_sig.powSolution != null)
@@ -3268,7 +3267,7 @@ namespace DLT
                 foreach (Transaction tx in b_txs)
                 {
                     Block pow_b = Node.blockChain.getBlock(tx.powSolution.blockNum, false, false);
-                    if(pow_b == null)
+                    if (pow_b == null)
                     {
                         continue;
                     }
@@ -3276,7 +3275,7 @@ namespace DLT
                 }
             }
             hash_rate = hash_rate / (i / 2); // i / 2 since every second block has to be full
-            if(hash_rate == 0)
+            if (hash_rate == 0)
             {
                 hash_rate = 1000;
             }
@@ -3388,90 +3387,90 @@ namespace DLT
         public static ulong calculateDifficulty_v4()
         {
             // TODO cache
-            ulong min_difficulty = 0xA2CB1211629F6141; // starting/min difficulty (requires approx 180 Khashes to find a solution)
-            ulong current_difficulty = min_difficulty;
+            ulong minDifficulty = 0xA2CB1211629F6141; // starting/min difficulty (requires approx 180 Khashes to find a solution)
+            ulong currentDifficulty = minDifficulty;
 
             if (Node.blockChain.getLastBlockNum() <= 10)
             {
-                return current_difficulty;
+                return currentDifficulty;
             }
-            Block previous_block = Node.blockChain.getLastBlock();
-            if (previous_block != null)
-                current_difficulty = previous_block.difficulty;
+            Block previousBlock = Node.blockChain.getLastBlock();
+            if (previousBlock != null)
+                currentDifficulty = previousBlock.difficulty;
 
             // Increase or decrease the difficulty according to the number of solved blocks in the redacted window
-            ulong solved_blocks = Node.blockChain.getSolvedBlocksCount(ConsensusConfig.getRedactedWindowSize(BlockVer.v10));
-            ulong window_size = ConsensusConfig.getRedactedWindowSize(BlockVer.v10);
+            ulong solvedBlocks = Node.blockChain.getSolvedBlocksCount(ConsensusConfig.getRedactedWindowSize(BlockVer.v10));
+            ulong windowSize = ConsensusConfig.getRedactedWindowSize(BlockVer.v10);
 
             // Special consideration for early blocks
-            if (Node.blockChain.getLastBlockNum() < window_size)
+            if (Node.blockChain.getLastBlockNum() < windowSize)
             {
-                window_size = Node.blockChain.getLastBlockNum();
+                windowSize = Node.blockChain.getLastBlockNum();
             }
 
-            ulong next_difficulty = min_difficulty;
-            BigInteger current_hashes_per_block = 0;
-            BigInteger previous_hashes_per_block = MiningUtils.getTargetHashcountPerBlock(current_difficulty);
+            ulong solvedBlocksRatio = (solvedBlocks * 1000) / windowSize; // * 1000 for 0.1 precision
 
-            // if there are more than 3/4 of solved blocks, max out the difficulty
-            if (solved_blocks > window_size * 0.75f)
+            ulong nextDifficulty = currentDifficulty;
+            BigInteger currentHashesPerBlock = MiningUtils.getTargetHashcountPerBlock(currentDifficulty);
+            BigInteger estimatedHashesPerBlock = 0;
+
+            if (solvedBlocksRatio < 300)
             {
-                next_difficulty = ulong.MaxValue;
-            }
-            else if (solved_blocks < window_size * 0.25f)
+                // if there are less than 30% of solved blocks, set min difficulty
+                nextDifficulty = minDifficulty;
+            }else if (solvedBlocksRatio > 700)
             {
-                // if there are less than 25% of solved blocks, set min difficulty
-                next_difficulty = min_difficulty;
+                // if there are less than 70% of solved blocks, set max difficulty
+                nextDifficulty = ulong.MaxValue;
             }
             else
             {
-                if (solved_blocks < window_size * 0.48f)
+                estimatedHashesPerBlock = calculateEstimatedHashRate();
+                if (solvedBlocksRatio < 480)
                 {
-                    // if there are between 25% and 48% of solved blocks, ideally use estimated hashrate / 1.5 for difficulty
-                    current_hashes_per_block = calculateEstimatedHashRate() * 10 / 15; // / 1.5f
-                    next_difficulty = MiningUtils.calculateTargetDifficulty(current_hashes_per_block);
+                    // if there are between 30% and 48% of solved blocks, estimated hashrate * solved blocks ratio
+                    estimatedHashesPerBlock = estimatedHashesPerBlock * solvedBlocksRatio / 1000;
                 }
-                else if (solved_blocks < window_size * 0.51f)
+                else if (solvedBlocksRatio < 510)
                 {
-                    // if there are between 48% and 51% of solved blocks, ideally use estimated hashrate * 1.5 for difficulty
-                    current_hashes_per_block = calculateEstimatedHashRate() * 15 / 10; // * 1.5f
-                    next_difficulty = MiningUtils.calculateTargetDifficulty(current_hashes_per_block);
+                    // if there are between 48% and 51% of solved blocks, estimated hashrate
+                    //current_hashes_per_block = current_hashes_per_block;
                 }
                 else
                 {
-                    // otherwise there's between 51% and 75% solved blocks, use estimated hashrate * (10 + (n / 10)) for difficulty, where n is number of blocks solved over 50%
-                    // to get estimated hashrate, use previous block's hashrate
-                    long n = (long)solved_blocks - (long)(window_size * 0.50f);
-                    long solutions_in_previous_block = countLastBlockPowSolutions();
-                    long previous_n = 0;
-                    if (window_size < ConsensusConfig.getRedactedWindowSize(BlockVer.v10)) // TODO ensure this is correct
-                    {
-                        previous_n = (long)solved_blocks - solutions_in_previous_block - (long)((window_size - 1) * 0.50f); // TODO ensure this is correct
-                    }
-                    else
-                    {
-                        previous_n = (long)solved_blocks - solutions_in_previous_block - (long)(window_size * 0.50f); // TODO ensure this is correct
-                    }
-                    BigInteger estimated_hash_rate = previous_hashes_per_block / (10 + (previous_n / 10)); // TODO ensure this is correct
-                    next_difficulty = MiningUtils.calculateTargetDifficulty(estimated_hash_rate * (10 + (n / 10))); // TODO ensure this is correct
+                    // otherwise there's between 51% and 70% solved blocks, estimated hashrate * (1 + solved blocks ratio)
+                    estimatedHashesPerBlock = estimatedHashesPerBlock * (1000 + solvedBlocksRatio) / 1000;
                 }
+
+                if(currentDifficulty != minDifficulty && currentDifficulty != ulong.MaxValue)
+                {
+                    if (estimatedHashesPerBlock > currentHashesPerBlock * 4)
+                    {
+                        estimatedHashesPerBlock = currentHashesPerBlock * 4;
+                    }
+                    else if (estimatedHashesPerBlock < currentHashesPerBlock / 4)
+                    {
+                        estimatedHashesPerBlock = currentHashesPerBlock / 4;
+                    }
+                }
+
+                nextDifficulty = MiningUtils.calculateTargetDifficulty(estimatedHashesPerBlock);
             }
 
             // clamp to minimum
-            if (next_difficulty < min_difficulty)
+            if (nextDifficulty < minDifficulty)
             {
-                next_difficulty = min_difficulty;
+                nextDifficulty = minDifficulty;
             }
 
             // TODO: maybe pretty-fy the hashrate (ie: 15 MH/s, rather than 15000000 H/s) also could prettify the difficulty number
-            Logging.info(String.Format("Estimated network hash rate is {0} H/s (previous was: {1} H/s). Difficulty adjusts from {2} -> {3}. (Delta: {4})",
-                (current_hashes_per_block / 60).ToString(),
-                (previous_hashes_per_block / 60).ToString(),
-                current_difficulty, next_difficulty,
-                current_difficulty - next_difficulty));
-            current_difficulty = next_difficulty;
+            Logging.info("Estimated network hash rate is {0} H/s (previous was: {1} H/s). Difficulty adjusts from {2} -> {3}. (Delta: {4})",
+                (estimatedHashesPerBlock / 60).ToString(),
+                (currentHashesPerBlock / 60).ToString(),
+                currentDifficulty, nextDifficulty,
+                currentDifficulty - nextDifficulty);
 
-            return current_difficulty;
+            return nextDifficulty;
         }
 
 
@@ -3557,12 +3556,12 @@ namespace DLT
             foreach (var wallet_addr_diff in signatureWallets)
             {
                 Address wallet_addr = wallet_addr_diff.address;
-                BigInteger difficulty = wallet_addr_diff.difficulty;
+                IxiNumber difficulty = wallet_addr_diff.difficulty;
                 if(block_version >= BlockVer.v10)
                 {
-                    totalIxisStaked += new IxiNumber(difficulty);
+                    totalIxisStaked += difficulty;
                     //Logging.info(String.Format("wallet {0} stakes {1} IXI", Base58Check.Base58CheckEncoding.EncodePlain(wallet_addr), wallet.balance.ToString()));
-                    stakes[stakers] = difficulty;
+                    stakes[stakers] = difficulty.getAmount();
                     stakeWallets[stakers] = wallet_addr;
                     stakers += 1;
                 }
