@@ -257,7 +257,8 @@ function Render-GlobalStats {
         [int]$unsolved,
         [int]$wallets,
         [uint64]$difficulty,
-        [uint64]$signer_difficulty,
+        [string]$signer_difficulty,
+        [string]$signer_bits,
         [int]$last_block_time
     )
     Write-Host -ForegroundColor Gray "========================================================================"
@@ -292,6 +293,7 @@ function Render-GlobalStats {
     $hex_diff = [System.BitConverter]::ToString([System.BitConverter]::GetBytes($difficulty)).Replace("-", "")
     Write-Host -ForegroundColor Green -NoNewline "$($hex_diff)"
     Write-Host -ForegroundColor White ")"
+
     # signer difficulty
     Write-Host -ForegroundColor White -NoNewline "Signer Difficulty: "
     Write-Host -ForegroundColor Cyan -NoNewline "$($signer_difficulty)"
@@ -300,6 +302,9 @@ function Render-GlobalStats {
     Write-Host -ForegroundColor Green -NoNewline "$($hex_diff)"
     Write-Host -ForegroundColor White ")"
 
+    # signer bits
+    Write-Host -ForegroundColor White -NoNewline "Signer Bits: "
+    Write-Host -ForegroundColor Cyan "$($signer_bits)"
 }
 
 function Render-Footer {
@@ -340,6 +345,7 @@ function Display-ClientStatus {
     $global_wallets = 0
     $global_difficulty = 0
     $global_signer_difficulty = 0
+    $global_signer_bits = 0
     $global_last_block_time = 0
     $mining_globals_captured = $false
 
@@ -383,7 +389,7 @@ function Display-ClientStatus {
             [void]$consensus.Add(($ns.'Required Consensus'))
             # Consensus
             [void]$signer_hashrates.Add(($ns.'Signer Hashrate'))
-            [void]$signer_difficulties.Add(($ns.'Signer Last PoW Solution'.'difficulty'))
+            [void]$signer_difficulties.Add(($ns.'Signer Last PoW Solution'.'bits'))
             [void]$signer_blocknums.Add(($ns.'Signer Last PoW Solution'.'blockNum'))
             # Presences
             [void]$presences.Add(($ns.'Presences'))
@@ -408,6 +414,7 @@ function Display-ClientStatus {
                     # Caputer global stats from first node
                     $global_wallets = $ns.'Wallets'
                     $global_signer_difficulty = $ns.'Signer Difficulty'
+                    $global_signer_bits = $ns.'Signer Bits'
                     $global_last_block_time = $ns.'Block generated seconds ago'
                 }
                 if($node.Miner -eq $true -and $mining_globals_captured -eq $false) {
@@ -440,6 +447,6 @@ function Display-ClientStatus {
     Render-TXs $applied_txs $unapplied_txs
     Render-MinerHashrate $hashrates
     Render-MinerSolved $solved_counts
-    Render-GlobalStats $global_solved $global_unsolved $global_wallets $global_difficulty $global_signer_difficulty $global_last_block_time
+    Render-GlobalStats $global_solved $global_unsolved $global_wallets $global_difficulty $global_signer_difficulty $global_signer_bits $global_last_block_time
     Render-Footer
 }
