@@ -175,7 +175,7 @@ namespace DLT
                                 writer.WriteIxiVarInt(sig.signature.Length);
                                 writer.Write(sig.signature);
 
-                                var signerAddress = sig.signerAddress.getInputBytes();
+                                var signerAddress = sig.signerAddress.getInputBytes(true);
                                 // address/pubkey
                                 writer.WriteIxiVarInt(signerAddress.Length);
                                 writer.Write(signerAddress);
@@ -425,7 +425,7 @@ namespace DLT
                                         writer.Write(signature.signature);
 
                                         writer.WriteIxiVarInt(address_len);
-                                        writer.Write(address.getInputBytes());
+                                        writer.Write(address.getInputBytes(true));
                                     }
                                 }
                                 endpoint.sendData(ProtocolMessageCode.signaturesChunk, mOut.ToArray(), null);

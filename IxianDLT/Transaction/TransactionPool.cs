@@ -1238,7 +1238,7 @@ namespace DLT
                 if (block.version == BlockVer.v0)
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v0(Crypto.hashToString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
+                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v0(UTF8Encoding.UTF8.GetString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1247,7 +1247,7 @@ namespace DLT
                 else if (block.version == BlockVer.v1)
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v1(Crypto.hashToString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
+                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v1(UTF8Encoding.UTF8.GetString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1812,7 +1812,7 @@ namespace DLT
                 failed_transactions.Add(tx);
                 return true;
             }
-            if(targetBlock.getFrozenSignatureCount() != tx.toList.Count)
+            if (block.version >= BlockVer.v10 && targetBlock.getFrozenSignatureCount() != tx.toList.Count)
             {
                 failed_transactions.Add(tx);
                 return true;

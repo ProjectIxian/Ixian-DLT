@@ -2324,6 +2324,11 @@ namespace DLT
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
                 applyTransactionFeeRewards(b);
             }
+
+            if(b.blockNum < 10)
+            {
+                updateWalletStatePublicKeys(b.blockNum);
+            }
             return true;
         }
 

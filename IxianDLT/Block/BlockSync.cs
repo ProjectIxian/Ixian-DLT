@@ -1297,16 +1297,19 @@ namespace DLT
                     // This should happen when node first starts up.
                     Logging.info("Network synchronization started. Target block height: #{0}.", block_height);
 
-                    if (lastBlockToReadFromStorage > block_height)
+                    if (CoreConfig.preventNetworkOperations)
+                    {
+                        Node.blockProcessor.highestNetworkBlockNum = last_block_to_read_from_storage;
+                    }
+                    else if (lastBlockToReadFromStorage > block_height)
                     {
                         Node.blockProcessor.highestNetworkBlockNum = lastBlockToReadFromStorage;
-                        determineSyncTargetBlockNum();
                     }
                     else
                     {
                         Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
-                        determineSyncTargetBlockNum();
                     }
+                    determineSyncTargetBlockNum();
                     if (Config.fullStorageDataVerification)
                     {
                         Node.walletState.clear();
