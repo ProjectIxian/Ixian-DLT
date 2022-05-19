@@ -864,7 +864,6 @@ namespace DLT
                             Logging.warn("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum));
                         }
                         // blocknum is higher than the network's, switching to catch-up mode, but only if half of required consensus is reached on the block
-                        // TODO TODO TODO TODO lock sigs to 1000 when the network is big enough
                         if (b.blockNum > lastBlockNum + 1 && b.getFrozenSignatureCount() >= (Node.blockChain.getRequiredConsensus() / 2)) // if at least 2 blocks behind
                         {
                             // TODO TODO TODO TODO uncomment this once sig pruning and sync from superblocks is enabled
@@ -2323,12 +2322,13 @@ namespace DLT
                 // Apply transaction fees
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
                 applyTransactionFeeRewards(b);
+
+                if (b.blockNum < 10)
+                {
+                    updateWalletStatePublicKeys(b.blockNum);
+                }
             }
 
-            if(b.blockNum < 10)
-            {
-                updateWalletStatePublicKeys(b.blockNum);
-            }
             return true;
         }
 
@@ -3658,7 +3658,15 @@ namespace DLT
                 }
             }else
             {
-                SortedDictionary<Address, Transaction.ToEntry> to_list = new SortedDictionary<Address, Transaction.ToEntry>(new AddressComparer());
+                IDictionary<Address, Transaction.ToEntry> to_list;
+                if (block_version >= BlockVer.v10)
+                {
+                    to_list = new Dictionary<Address, Transaction.ToEntry>(new AddressComparer());
+                }
+                else
+                {
+                    to_list = new SortedDictionary<Address, Transaction.ToEntry>(new AddressComparer());
+                }
                 for (int i = 0; i < stakers; i++)
                 {
                     IxiNumber award = new IxiNumber(awards[i]);
@@ -3674,7 +3682,14 @@ namespace DLT
                 }
                 if(to_list.Count > 0)
                 {
-                    to_list.First().Value.data = BitConverter.GetBytes(targetBlock.blockNum);
+                    if (block_version >= BlockVer.v10)
+                    {
+                        to_list.First().Value.data = targetBlock.blockNum.GetIxiVarIntBytes();
+                    }
+                    else
+                    {
+                        to_list.First().Value.data = BitConverter.GetBytes(targetBlock.blockNum);
+                    }
                 }
                 Transaction tx = new Transaction((int)Transaction.Type.StakingReward, new IxiNumber(0), to_list, ConsensusConfig.ixianInfiniMineAddress, null, Node.blockChain.getLastBlockNum(), 0, block_timestamp);
 

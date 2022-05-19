@@ -57,6 +57,7 @@ namespace DLT
             // multisig verification
             if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
             {
+                return false;
                 // multiple "from" addresses are not supported
                 if (transaction.fromList.Count != 1)
                 {
@@ -1388,7 +1389,16 @@ namespace DLT
                 if (tx.readyToApply > 0 || tx.applied > 0)
                     continue;
 
-                ulong txbnum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+                ulong txbnum;
+                if (block.version >= BlockVer.v10)
+                {
+                    txbnum = tx.toList.First().Value.data.GetIxiVarUInt(0).num;
+                }
+                else
+                {
+                    txbnum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+                }
+                txbnum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
 
                 if (txbnum != stakingRewardBlockNum)
                 {
@@ -1804,7 +1814,17 @@ namespace DLT
             }
             // Check if the transaction is in the sigfreeze
             // TODO: refactor this and make it more efficient
-            ulong blocknum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+            ulong blocknum;
+
+            if (block.version >= BlockVer.v10)
+            {
+                blocknum = tx.toList.First().Value.data.GetIxiVarUInt(0).num;
+            }
+            else
+            {
+                blocknum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+            }
+
             // Verify the staking transaction is accurate
             Block targetBlock = Node.blockChain.getBlock(blocknum);
             if (targetBlock == null)
