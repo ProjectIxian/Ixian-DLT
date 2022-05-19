@@ -2224,31 +2224,38 @@ namespace DLT
         // Returns false if walletstate is not correct
         public bool applyAcceptedBlock(Block b, bool generating_new = false)
         {
-            if (Node.blockChain.getBlock(b.blockNum) != null)
+            try
             {
-                Logging.warn(String.Format("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace));
-                return false;
-            }
+                if (Node.blockChain.getBlock(b.blockNum) != null)
+                {
+                    Logging.warn(String.Format("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace));
+                    return false;
+                }
 
-            // Distribute staking rewards first
-            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (version {1})", b.blockNum, b.version); }
-            distributeStakingRewards(b, b.version);
+                // Distribute staking rewards first
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (version {1})", b.blockNum, b.version); }
+                distributeStakingRewards(b, b.version);
 
-            // Apply transactions from block
-            if (!TransactionPool.applyTransactionsFromBlock(b, generating_new))
+                // Apply transactions from block
+                if (!TransactionPool.applyTransactionsFromBlock(b, generating_new))
+                {
+                    return false;
+                }
+
+                // Apply transaction fees
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
+                applyTransactionFeeRewards(b);
+
+                // Update wallet state public keys
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> updateWalletStatePublicKeys (version {1})", b.blockNum, b.version); }
+                updateWalletStatePublicKeys(b.blockNum);
+
+                return true;
+            }catch(Exception e)
             {
-                return false;
+                Logging.error("Exception occurred in applyAcceptedBlock(): " + e);
             }
-
-            // Apply transaction fees
-            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
-            applyTransactionFeeRewards(b);
-
-            // Update wallet state public keys
-            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> updateWalletStatePublicKeys (version {1})", b.blockNum, b.version); }
-            updateWalletStatePublicKeys(b.blockNum);
-
-            return true;
+            return false;
         }
 
         public void applyTransactionFeeRewards(Block b)
@@ -3504,6 +3511,7 @@ namespace DLT
                 sigs = targetBlock.signatures;
             }
 
+            List<BlockSignature> sigsToRemove = new List<BlockSignature>();
             foreach (BlockSignature sig in sigs)
             {
                 byte[] signature = sig.signature;
@@ -3515,7 +3523,9 @@ namespace DLT
                     Wallet signerWallet = Node.walletState.getWallet(signerAddress);
                     if (signerWallet.publicKey == null)
                     {
-                        throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        sigsToRemove.Add(sig);
+                        continue;
                     }
                 }
                 else
@@ -3532,6 +3542,15 @@ namespace DLT
                 }
             }
 
+            foreach (BlockSignature sig in sigsToRemove)
+            {
+                targetBlock.signatures.Remove(sig);
+            }
+            
+            if(sigsToRemove.Count > 0)
+            {
+                return false;
+            }
             return true;
         }
 
