@@ -729,11 +729,14 @@ namespace DLT
                 return;
             }
 
-
-            // remove signatures without PL entry but not if we're catching up with the network
-            if (b.blockNum > IxianHandler.getHighestKnownNetworkBlockHeight() - 5 && removeSignaturesWithoutPlEntry(b))
+            // remove signatures without PL entry but not if we're catching up with the network or if the chain is stuck
+            if (IxianHandler.getHighestKnownNetworkBlockHeight() < b.blockNum + 5
+                && b.timestamp + 3600 > Clock.getNetworkTimestamp())
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                if(removeSignaturesWithoutPlEntry(b))
+                {
+                    Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                }
                 // TODO: Blacklisting point
             }
             if (b.signatures.Count == 0)
@@ -1712,7 +1715,8 @@ namespace DLT
                     // sigfreezed block
 
 
-                    if (highestNetworkBlockNum > last_block_num + 5)
+                    if (highestNetworkBlockNum > last_block_num + 5
+                        || block.timestamp + 3600 < Clock.getNetworkTimestamp())
                     {
                         // catching up
 
@@ -1804,7 +1808,8 @@ namespace DLT
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
 
             List<BlockSignature> frozen_block_sigs = null;
-            if (highestNetworkBlockNum > target_block.blockNum + 10)
+            if (highestNetworkBlockNum > target_block.blockNum + 10
+                || target_block.timestamp + 3600 < Clock.getNetworkTimestamp())
             {
                 // catching up
                 frozen_block_sigs = extractRequiredSignatures(target_block, required_consensus_count);

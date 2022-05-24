@@ -50,6 +50,8 @@ namespace DLT
             // multisig verification
             if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet || transaction.type == (int)Transaction.Type.MultisigAddTxSignature)
             {
+                return false;
+
                 // multiple "from" addresses are not supported
                 if (transaction.fromList.Count != 1)
                 {
