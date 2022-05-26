@@ -1534,7 +1534,7 @@ namespace DLT
                                 if (Config.fullBlockLogging)
                                 {
                                     Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, tx.getTxIdString(),
-         tmp_address.ToString());
+                                        tmp_address.ToString());
                                 }
                                 // There is no supplied public key, extract it from transaction
                                 pubkey = tx.pubKey;
@@ -1889,15 +1889,19 @@ namespace DLT
                 IxiNumber staking_balance_after = staking_balance_before + tx_amount;
 
                 Node.walletState.setWalletBalance(toEntry.Key, staking_balance_after);
-                if (staking_wallet.publicKey == null)
+
+                if (block.version < BlockVer.v10)
                 {
-                    var sig = targetBlock.getSignature(toEntry.Key);
-                    if (sig == null || sig.signerAddress.pubKey == null)
+                    if (staking_wallet.publicKey == null)
                     {
-                        throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        var sig = targetBlock.getSignature(toEntry.Key);
+                        if (sig == null || sig.recipientPubKeyOrAddress.pubKey == null)
+                        {
+                            throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        }
+                        // Set the WS public key
+                        Node.walletState.setWalletPublicKey(toEntry.Key, sig.recipientPubKeyOrAddress.pubKey);
                     }
-                    // Set the WS public key
-                    Node.walletState.setWalletPublicKey(toEntry.Key, sig.signerAddress.pubKey);
                 }
 
                 blockStakers.Add(toEntry.Key);
@@ -2480,16 +2484,6 @@ namespace DLT
                     IxiNumber miner_balance_before = miner_wallet.balance;
                     IxiNumber miner_balance_after = miner_balance_before + powRewardPart;
                     Node.walletState.setWalletBalance(miner_wallet.id, miner_balance_after);
-
-                    if (miner_wallet.publicKey == null)
-                    {
-                        if(entry.address.pubKey == null)
-                        {
-                            throw new Exception("Missing Public key.");
-                        }
-                        // Update the walletstate public key
-                        Node.walletState.setWalletPublicKey(miner_wallet.id, entry.address.pubKey);
-                    }
 
                     if (miner_wallet.id.addressNoChecksum.SequenceEqual(IxianHandler.getWalletStorage().getPrimaryAddress().addressNoChecksum))
                     {

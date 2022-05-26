@@ -16,7 +16,6 @@ using IXICore.Meta;
 using IXICore.Utils;
 using System;
 using System.Linq;
-using System.Numerics;
 using System.Security.Cryptography;
 using System.Threading;
 
@@ -26,6 +25,7 @@ namespace DLT
     {
         public bool pause = false; // Flag to toggle miner activity
 
+        IxianKeyPair currentKeyPair = null;
         Block activeBlock = null;
         private ulong currentBlockNum = 0; // Mining block number
         public SignerPowSolution lastSignerPowSolution { get; private set; } = null;
@@ -42,6 +42,8 @@ namespace DLT
 
         bool blockReadyForMining = false;
 
+        [ThreadStatic] private static IxianKeyPair activeKeyPair = null;
+        [ThreadStatic] private static byte[] activePubKeyHash = null;
         [ThreadStatic] private static byte[] activeBlockChallenge = null;
         [ThreadStatic] private static ulong activeBlockChallengeBlockNum = 0;
 
@@ -62,7 +64,6 @@ namespace DLT
             {
                 return false;
             }
-
             started = true;
 
             // Calculate the allowed number of threads based on logical processor count
@@ -244,6 +245,7 @@ namespace DLT
 
             startedSolvingTime = Clock.getTimestamp();
 
+            currentKeyPair = CryptoManager.lib.generateKeys(ConsensusConfig.defaultRsaKeySize, 2);
             activeBlock = candidateBlock;
             currentBlockNum = candidateBlock.blockNum;
 
@@ -291,7 +293,7 @@ namespace DLT
                 Thread.Sleep(10);
             }
 
-            // PoW = sha3_512sq(BlockNum + BlockChecksum + SolverAddress + Nonce)
+            // PoW = sha3_512sq(BlockNum + BlockChecksum + RecipientAddress + pubKeyHash + Nonce)
             byte[] nonce = randomNonce(64);
             if (activeBlockChallengeBlockNum != currentBlockNum)
             {
@@ -299,14 +301,16 @@ namespace DLT
                 byte[] blockNumBytes = block.blockNum.GetIxiVarIntBytes();
                 byte[] blockChecksum = block.blockChecksum;
 
-                byte[] solverAddress = IxianHandler.getWalletStorage().getPrimaryAddress().addressNoChecksum;
-
+                byte[] recipientAddress = IxianHandler.primaryWalletAddress.addressNoChecksum;
+                activeKeyPair = currentKeyPair;
+                activePubKeyHash = CryptoManager.lib.sha3_512sq(currentKeyPair.publicKeyBytes);
                 activeBlockChallengeBlockNum = currentBlockNum;
-                activeBlockChallenge = new byte[blockNumBytes.Length + blockChecksum.Length + solverAddress.Length + 64];
+                activeBlockChallenge = new byte[blockNumBytes.Length + blockChecksum.Length + recipientAddress.Length + activePubKeyHash.Length + 64];
 
                 System.Buffer.BlockCopy(blockNumBytes, 0, activeBlockChallenge, 0, blockNumBytes.Length);
                 System.Buffer.BlockCopy(blockChecksum, 0, activeBlockChallenge, blockNumBytes.Length, blockChecksum.Length);
-                System.Buffer.BlockCopy(solverAddress, 0, activeBlockChallenge, blockNumBytes.Length + blockChecksum.Length, solverAddress.Length);
+                System.Buffer.BlockCopy(recipientAddress, 0, activeBlockChallenge, blockNumBytes.Length + blockChecksum.Length, recipientAddress.Length);
+                System.Buffer.BlockCopy(activePubKeyHash, 0, activeBlockChallenge, blockNumBytes.Length + blockChecksum.Length + recipientAddress.Length, activePubKeyHash.Length);
             }
             System.Buffer.BlockCopy(nonce, 0, activeBlockChallenge, activeBlockChallenge.Length - 64, nonce.Length);
             byte[] hash = CryptoManager.lib.sha3_512sq(activeBlockChallenge);
@@ -344,7 +348,9 @@ namespace DLT
                     SignerPowSolution signerPow = new SignerPowSolution(IxianHandler.primaryWalletAddress)
                     {
                         blockNum = activeBlockChallengeBlockNum,
-                        solution = nonceCopy
+                        solution = nonceCopy,
+                        keyPair = activeKeyPair,
+                        signingPubKey = activeKeyPair.publicKeyBytes
                     };
 
                     lastSignerPowSolution = signerPow;

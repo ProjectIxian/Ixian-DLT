@@ -44,7 +44,7 @@ namespace DLT
                 }
                 else
                 {
-                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(signature.signerAddress, signature.blockNum, signature.blockHash), skipEndpoint);
+                    return CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItemSignature(signature.recipientPubKeyOrAddress, signature.blockNum, signature.blockHash), skipEndpoint);
                 }
             }
 
@@ -76,9 +76,9 @@ namespace DLT
                     }
                 }
 
-                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress.addressNoChecksum, blockSig.blockHash), true);
+                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.recipientPubKeyOrAddress.addressNoChecksum, blockSig.blockHash), true);
 
-                if (PresenceList.getPresenceByAddress(blockSig.signerAddress) == null)
+                if (PresenceList.getPresenceByAddress(blockSig.recipientPubKeyOrAddress) == null)
                 {
                     Logging.info("Received signature for block {0} whose signer isn't in the PL", blockSig.blockNum);
                     return;
@@ -175,7 +175,7 @@ namespace DLT
                                 writer.WriteIxiVarInt(sig.signature.Length);
                                 writer.Write(sig.signature);
 
-                                var signerAddress = sig.signerAddress.getInputBytes(true);
+                                var signerAddress = sig.recipientPubKeyOrAddress.getInputBytes(true);
                                 // address/pubkey
                                 writer.WriteIxiVarInt(signerAddress.Length);
                                 writer.Write(signerAddress);
@@ -648,10 +648,10 @@ namespace DLT
                                 int addr_len = (int)reader.ReadIxiVarUInt();
                                 byte[] addr = reader.ReadBytes(addr_len);
 
-                                BlockSignature blockSig = new BlockSignature() { signature = sig, signerAddress = new Address(addr) };
+                                BlockSignature blockSig = new BlockSignature() { signature = sig, recipientPubKeyOrAddress = new Address(addr) };
                                 dummy_block.signatures.Add(blockSig);
 
-                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress.addressNoChecksum, checksum), true);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.recipientPubKeyOrAddress.addressNoChecksum, checksum), true);
                             }
 
                             Node.blockProcessor.handleSigFreezedBlock(dummy_block, true, endpoint);
@@ -680,7 +680,7 @@ namespace DLT
                                     Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
                                     continue;
                                 }
-                                BlockSignature blockSig = new BlockSignature() { blockNum = block_num, blockHash = checksum, signature = sig, signerAddress = signerAddress };
+                                BlockSignature blockSig = new BlockSignature() { blockNum = block_num, blockHash = checksum, signature = sig, recipientPubKeyOrAddress = signerAddress };
                                 if (Node.blockProcessor.addSignatureToBlock(blockSig, endpoint))
                                 {
                                     if (Node.isMasterNode())
@@ -789,7 +789,7 @@ namespace DLT
 
                                 BlockSignature blockSig = new BlockSignature(sig, false);
 
-                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress.addressNoChecksum, checksum), true);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.recipientPubKeyOrAddress.addressNoChecksum, checksum), true);
 
                                 dummy_block.signatures.Add(blockSig);
                             }
@@ -812,9 +812,9 @@ namespace DLT
                                 blockSig.blockHash = checksum;
                                 blockSig.blockNum = block_num;
 
-                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress.addressNoChecksum, checksum), true);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.recipientPubKeyOrAddress.addressNoChecksum, checksum), true);
 
-                                if (PresenceList.getPresenceByAddress(blockSig.signerAddress) == null)
+                                if (PresenceList.getPresenceByAddress(blockSig.recipientPubKeyOrAddress) == null)
                                 {
                                     Logging.info("Received signature for block {0} whose signer isn't in the PL", block_num);
                                     continue;

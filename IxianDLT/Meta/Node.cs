@@ -698,7 +698,7 @@ namespace DLT.Meta
                     BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution());
                     if (blockSig != null)
                     {
-                        inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.signerAddress.addressNoChecksum, b.blockChecksum), true);
+                        inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.recipientPubKeyOrAddress.addressNoChecksum, b.blockChecksum), true);
                         SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
                     }
                 }
@@ -735,10 +735,10 @@ namespace DLT.Meta
                 return false;
             }
 
-            var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
-            foreach (var pubKey in electedNodePubKeys)
+            var electedNodeAddresses = Node.blockChain.getElectedNodeAddresses(offset);
+            foreach (var address in electedNodeAddresses)
             {
-                if (pubKey != null && pubKey.SequenceEqual(IxianHandler.getWalletStorage().getPrimaryPublicKey()))
+                if (address != null && address.SequenceEqual(IxianHandler.primaryWalletAddress.addressNoChecksum))
                 {
                     return true;
                 }

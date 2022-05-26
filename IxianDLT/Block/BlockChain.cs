@@ -652,7 +652,7 @@ namespace DLT
                     {
                         foreach (var sig in added_sigs)
                         {
-                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, b.blockChecksum), true);
+                            Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.recipientPubKeyOrAddress.addressNoChecksum, b.blockChecksum), true);
 
                             SignatureProtocolMessages.broadcastBlockSignature(sig, b.blockNum, b.blockChecksum, endpoint, null);
                         }
@@ -714,9 +714,9 @@ namespace DLT
         }
 
         // Gets the elected nodes's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
-        public List<byte[]> getElectedNodesPubKeys(int offset)
+        public List<byte[]> getElectedNodeAddresses(int offset)
         {
-            List<byte[]> pubKeys = new List<byte[]>();
+            List<byte[]> addresses = new List<byte[]>();
             Block targetBlock = getBlock(getLastBlockNum() - 6);
             Block curBlock = getBlock(getLastBlockNum());
             if (targetBlock != null && curBlock != null)
@@ -724,11 +724,9 @@ namespace DLT
                 byte[] sigFreezeChecksum = curBlock.signatureFreezeChecksum;
                 int sigNr = BitConverter.ToInt32(sigFreezeChecksum, 0);
 
-                // Sort the signatures first
-                List<BlockSignature> sortedSigs = new List<BlockSignature>(targetBlock.frozenSignatures??targetBlock.signatures);
-                sortedSigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress.addressNoChecksum, y.signerAddress.addressNoChecksum));
+                var sigs = targetBlock.frozenSignatures??targetBlock.signatures;
                 int maxElectedNodes = 3;
-                if(sortedSigs.Count < 100)
+                if(sigs.Count < 100)
                 {
                     maxElectedNodes = 1;
                 }else
@@ -737,20 +735,12 @@ namespace DLT
                 }
                 for(int i = offset; i < maxElectedNodes; i++)
                 {
-                    BlockSignature sig = sortedSigs[(int)((uint)(sigNr + i) % sortedSigs.Count)];
+                    BlockSignature sig = sigs[(int)((uint)(sigNr + i) % sigs.Count)];
 
-                    // Check if we have a public key instead of an address
-                    if (sig.signerAddress.pubKey != null)
-                    {
-                        pubKeys.Add(sig.signerAddress.pubKey);
-                        continue;
-                    }
-
-                    Wallet signerWallet = Node.walletState.getWallet(sig.signerAddress);
-                    pubKeys.Add(signerWallet.publicKey); // signer pub key
+                    addresses.Add(sig.recipientPubKeyOrAddress.addressNoChecksum); // signer pub key
                 }
             }
-            return pubKeys;
+            return addresses;
         }
 
         // Get the number of PoW solved blocks

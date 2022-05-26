@@ -310,7 +310,7 @@ namespace DLT
             {
                 BlockSignature sig = b.signatures[i];
 
-                Presence p = PresenceList.getPresenceByAddress(sig.signerAddress);
+                Presence p = PresenceList.getPresenceByAddress(sig.recipientPubKeyOrAddress);
                 if (p != null)
                 {
                     bool masterEntryFound = false;
@@ -347,7 +347,7 @@ namespace DLT
             for (int i = 0; i < sigs.Count; i++)
             {
                 // Don't remove block proposer's signature
-                if(b.blockProposer != null && sigs[i].signerAddress.addressNoChecksum.SequenceEqual(b.blockProposer))
+                if(b.blockProposer != null && sigs[i].recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(b.blockProposer))
                 {
                     continue;
                 }
@@ -724,10 +724,14 @@ namespace DLT
             }
 
 
-            // remove signatures without PL entry but not if we're catching up with the network
-            if (b.blockNum > IxianHandler.getHighestKnownNetworkBlockHeight() - 5 && removeSignaturesWithoutPlEntry(b))
+            // remove signatures without PL entry but not if we're catching up with the network or if the chain is stuck
+            if (IxianHandler.getHighestKnownNetworkBlockHeight() < b.blockNum + 5
+                && b.timestamp + 3600 > Clock.getNetworkTimestamp())
             {
-                Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                if (removeSignaturesWithoutPlEntry(b))
+                {
+                    Logging.warn(String.Format("Received block #{0} ({1}) which had a signature that wasn't found in the PL!", b.blockNum, Crypto.hashToString(b.blockChecksum)));
+                }
                 // TODO: Blacklisting point
             }
             if (b.signatures.Count == 0)
@@ -1399,7 +1403,7 @@ namespace DLT
                                 {
                                     foreach (var sig in added_signatures)
                                     {
-                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, b.blockChecksum), true);
+                                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.recipientPubKeyOrAddress.addressNoChecksum, b.blockChecksum), true);
                                         SignatureProtocolMessages.broadcastBlockSignature(sig, b.blockNum, b.blockChecksum, endpoint, null);
                                     }
                                 }
@@ -1476,10 +1480,10 @@ namespace DLT
             int offset = getElectedNodeOffset();
             if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
             {
-                var electedNodePubKeys = Node.blockChain.getElectedNodesPubKeys(offset);
-                foreach (var pubKey in electedNodePubKeys)
+                var electedNodeAddresses = Node.blockChain.getElectedNodeAddresses(offset);
+                foreach (var address in electedNodeAddresses)
                 {
-                    if (b.hasNodeSignature(new Address(pubKey)))
+                    if (b.hasNodeSignature(new Address(address)))
                     {
                         hasNodeSig = true;
                         break;
@@ -1611,12 +1615,12 @@ namespace DLT
             }
             if(block.version < BlockVer.v10)
             {
-                sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.signerAddress.addressNoChecksum, y.signerAddress.addressNoChecksum));
+                sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.recipientPubKeyOrAddress.addressNoChecksum, y.recipientPubKeyOrAddress.addressNoChecksum));
 
                 // First add block proposer's sig
                 if (block.blockProposer != null)
                 {
-                    BlockSignature signature = sorted_sigs.Find(x => (x.signerAddress.addressWithChecksum.SequenceEqual(block.blockProposer)));
+                    BlockSignature signature = sorted_sigs.Find(x => (x.recipientPubKeyOrAddress.addressWithChecksum.SequenceEqual(block.blockProposer)));
                     if (signature == null)
                     {
                         Logging.error("Error freezing signatures of target block #{0} {1}, cannot find block proposer's signature.", block.blockNum, Crypto.hashToString(block.blockChecksum));
@@ -1630,7 +1634,7 @@ namespace DLT
             else
             {
                 //sorted_sigs.Sort((x, y) => Comparer<IxiNumber>.Default.Compare(x.powSolution.difficulty, y.powSolution.difficulty));
-                sorted_sigs = sorted_sigs.OrderBy(x => x.powSolution.difficulty, Comparer<IxiNumber>.Default).ThenBy(x => x.signerAddress.addressNoChecksum, new ByteArrayComparer()).ToList();
+                sorted_sigs = sorted_sigs.OrderBy(x => x.powSolution.difficulty, Comparer<IxiNumber>.Default).ThenBy(x => x.recipientPubKeyOrAddress.addressNoChecksum, new ByteArrayComparer()).ToList();
             }
 
             var election_block_sigs = election_block.signatures;
@@ -1640,10 +1644,10 @@ namespace DLT
             }
             foreach (var entry in sorted_sigs)
             {
-                byte[] address = entry.signerAddress.addressNoChecksum;
+                byte[] address = entry.recipientPubKeyOrAddress.addressNoChecksum;
                 foreach (var prev_entry in election_block_sigs)
                 {
-                    if (address.SequenceEqual(prev_entry.signerAddress.addressNoChecksum))
+                    if (address.SequenceEqual(prev_entry.recipientPubKeyOrAddress.addressNoChecksum))
                     {
                         required_sigs.Add(entry);
                         sig_count++;
@@ -1742,7 +1746,8 @@ namespace DLT
                     // sigfreezed block
 
 
-                    if (highestNetworkBlockNum > last_block_num + 5)
+                    if (highestNetworkBlockNum > last_block_num + 5
+                        || block.timestamp + 3600 < Clock.getNetworkTimestamp())
                     {
                         // catching up
 
@@ -1770,7 +1775,7 @@ namespace DLT
                         {
                             foreach (var sig in added_signatures)
                             {
-                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, block.blockChecksum), true);
+                                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.recipientPubKeyOrAddress.addressNoChecksum, block.blockChecksum), true);
                                 SignatureProtocolMessages.broadcastBlockSignature(sig, block.blockNum, block.blockChecksum, endpoint, null);
                             }
                         }
@@ -1787,7 +1792,7 @@ namespace DLT
                     {
                         foreach (var localSig in local_block.frozenSignatures)
                         {
-                            if (block.containsSignature(localSig.signerAddress))
+                            if (block.containsSignature(localSig.recipientPubKeyOrAddress))
                             {
                                 valid_sig_count++;
                             }
@@ -1835,7 +1840,8 @@ namespace DLT
             IxiNumber required_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(target_block.blockNum, true);
 
             List<BlockSignature> frozen_block_sigs = null;
-            if (highestNetworkBlockNum > target_block.blockNum + 10)
+            if (highestNetworkBlockNum > target_block.blockNum + 10
+                || target_block.timestamp + 3600 < Clock.getNetworkTimestamp())
             {
                 // catching up
                 frozen_block_sigs = extractRequiredSignatures(target_block, required_consensus_count);
@@ -1859,8 +1865,8 @@ namespace DLT
                     PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(target_block.blockChecksum, ConsensusConfig.maximumBlockSigners * 2);
                     foreach (byte[] address in poe)
                     {
-                        BlockSignature signature = target_block.signatures.Find(x => x.signerAddress.addressNoChecksum.SequenceEqual(address));
-                        if (signature != null && frozen_block_sigs.Find(x => x.signerAddress.addressNoChecksum.SequenceEqual(address)) == null)
+                        BlockSignature signature = target_block.signatures.Find(x => x.recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(address));
+                        if (signature != null && frozen_block_sigs.Find(x => x.recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(address)) == null)
                         {
                             frozen_block_sigs.Add(signature);
                             sig_count++;
@@ -1875,8 +1881,8 @@ namespace DLT
                 {
                     foreach(BlockSignature sig in target_block.signatures)
                     {
-                        var address = sig.signerAddress;
-                        if (frozen_block_sigs.Find(x => x.signerAddress.addressNoChecksum.SequenceEqual(address.addressNoChecksum)) == null)
+                        var address = sig.recipientPubKeyOrAddress;
+                        if (frozen_block_sigs.Find(x => x.recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(address.addressNoChecksum)) == null)
                         {
                             if(PresenceList.getPresenceByAddress(address) == null)
                             {
@@ -1926,7 +1932,7 @@ namespace DLT
                 {
                     if (target_block.blockProposer == null)
                     {
-                        target_block.blockProposer = target_block.signatures[0].signerAddress.addressWithChecksum;
+                        target_block.blockProposer = target_block.signatures[0].recipientPubKeyOrAddress.addressWithChecksum;
                     }
                     if (!target_block.verifyBlockProposer())
                     {
@@ -2004,7 +2010,7 @@ namespace DLT
                             {
                                 foreach (var sig in localNewBlock.signatures)
                                 {
-                                    Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
+                                    Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(sig.recipientPubKeyOrAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
                                     SignatureProtocolMessages.broadcastBlockSignature(sig, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
                                 }
                                 BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, null);
@@ -2295,41 +2301,49 @@ namespace DLT
         // Returns false if walletstate is not correct
         public bool applyAcceptedBlock(Block b, bool generating_new = false)
         {
-            if (Node.blockChain.getBlock(b.blockNum) != null)
-            {
-                Logging.warn("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace);
-                return false;
-            }
-
-            // Distribute staking rewards first
-            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (version {1})", b.blockNum, b.version); }
             try
             {
-                distributeStakingRewards(b);
-            }catch(Exception)
-            {
-                return false;
-            }
-
-            // Apply transactions from block
-            if (!TransactionPool.applyTransactionsFromBlock(b, generating_new))
-            {
-                return false;
-            }
-
-            if(b.version < BlockVer.v10)
-            {
-                // Apply transaction fees
-                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
-                applyTransactionFeeRewards(b);
-
-                if (b.blockNum < 10)
+                if (Node.blockChain.getBlock(b.blockNum) != null)
                 {
-                    updateWalletStatePublicKeys(b.blockNum);
+                    Logging.warn("Block #{0} has already been applied. Stack trace: {1}", b.blockNum, Environment.StackTrace);
+                    return false;
                 }
-            }
 
-            return true;
+                // Distribute staking rewards first
+                if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> distributingStakingRewards (version {1})", b.blockNum, b.version); }
+                try
+                {
+                    distributeStakingRewards(b);
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+
+                // Apply transactions from block
+                if (!TransactionPool.applyTransactionsFromBlock(b, generating_new))
+                {
+                    return false;
+                }
+
+                if (b.version < BlockVer.v10)
+                {
+                    // Apply transaction fees
+                    if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applyTransactionFeeRewards (version {1})", b.blockNum, b.version); }
+                    applyTransactionFeeRewards(b);
+
+                    if (b.blockNum < 10)
+                    {
+                        updateWalletStatePublicKeys(b.blockNum);
+                    }
+                }
+
+                return true;
+            }catch(Exception e)
+            {
+                Logging.error("Exception occurred in applyAcceptedBlock(): " + e);
+            }
+            return false;
         }
 
         public IxiNumber calculateTotalTransactionFeeReward(Block targetBlock)
@@ -2525,7 +2539,7 @@ namespace DLT
             foreach (BlockSignature sig in target_block_sigs)
             {
                 // Generate the corresponding Ixian address
-                Address sigAddress = sig.signerAddress;
+                Address sigAddress = sig.recipientPubKeyOrAddress;
 
                 // Update the walletstate and deposit the award
                 Wallet signer_wallet = Node.walletState.getWallet(sigAddress);
@@ -3032,7 +3046,7 @@ namespace DLT
                     BlockSignature signature_data = localNewBlock.applySignature(PresenceList.getPowSolution());
                     if (signature_data != null)
                     {
-                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.signerAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.recipientPubKeyOrAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
                     }else
                     {
                         Logging.error("Could not apply signature on a newly generated block {0}.", localNewBlock.blockNum);
@@ -3816,27 +3830,40 @@ namespace DLT
                 sigs = targetBlock.signatures;
             }
 
+            List<BlockSignature> sigsToRemove = new List<BlockSignature>();
             foreach (BlockSignature sig in sigs)
             {
-                byte[] signerPubKey = sig.signerAddress.pubKey;
+                byte[] signerPubKey = sig.recipientPubKeyOrAddress.pubKey;
                 if (signerPubKey == null)
                 {
-                    Address signerAddress = sig.signerAddress;
+                    Address signerAddress = sig.recipientPubKeyOrAddress;
                     Wallet signerWallet = Node.walletState.getWallet(signerAddress);
                     if (signerWallet.publicKey == null)
                     {
-                        throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        sigsToRemove.Add(sig);
+                        continue;
                     }
                 }
                 else
                 {
-                    Wallet signerWallet = Node.walletState.getWallet(sig.signerAddress);
+                    Wallet signerWallet = Node.walletState.getWallet(sig.recipientPubKeyOrAddress);
                     if (signerWallet.publicKey == null)
                     {
                         // Set the WS public key
-                        Node.walletState.setWalletPublicKey(sig.signerAddress, signerPubKey);
+                        Node.walletState.setWalletPublicKey(sig.recipientPubKeyOrAddress, signerPubKey);
                     }
                 }
+            }
+
+            foreach (BlockSignature sig in sigsToRemove)
+            {
+                targetBlock.signatures.Remove(sig);
+            }
+
+            if (sigsToRemove.Count > 0)
+            {
+                return false;
             }
 
             return true;

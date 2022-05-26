@@ -411,7 +411,7 @@ namespace DLT
                     {
                         str_powSolution = Convert.ToBase64String(sig.powSolution.getBytes());
                     }
-                    signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig.signerAddress.getInputBytes()) + ":" + str_powSolution;
+                    signatures += "||" + str_sig + ":" + Convert.ToBase64String(sig.recipientPubKeyOrAddress.getInputBytes()) + ":" + str_powSolution;
                 }
 
                 if (!Node.blockProcessor.verifySigFreezedBlock(block))
@@ -700,14 +700,14 @@ namespace DLT
                         {
                             newSig.signature = Convert.FromBase64String(split_sig[0]);
                         }
-                        newSig.signerAddress = new Address(Convert.FromBase64String(split_sig[1]), null, false);
+                        newSig.recipientPubKeyOrAddress = new Address(Convert.FromBase64String(split_sig[1]), null, false);
                         if(split_sig.Length >= 3 && split_sig[2] != "")
                         {
-                            newSig.powSolution = new SignerPowSolution(Convert.FromBase64String(split_sig[2]), newSig.signerAddress);
+                            newSig.powSolution = new SignerPowSolution(Convert.FromBase64String(split_sig[2]), newSig.recipientPubKeyOrAddress);
                         }
                          
                         // Go through all block signatures and check if the resulting address matches
-                        byte[] sig_address = newSig.signerAddress.addressNoChecksum;
+                        byte[] sig_address = newSig.recipientPubKeyOrAddress.addressNoChecksum;
 
                         bool found = false;
                         foreach (byte[] bsig in cached_sig_addresses)
