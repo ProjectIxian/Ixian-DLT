@@ -1476,7 +1476,6 @@ namespace DLT
 
         public bool hasElectedNodeSignature(Block b)
         {
-            bool hasNodeSig = false;
             int offset = getElectedNodeOffset();
             if (offset != -1 && IxianHandler.getLastBlockHeight() + 2 > IxianHandler.getHighestKnownNetworkBlockHeight())
             {
@@ -1485,16 +1484,15 @@ namespace DLT
                 {
                     if (b.hasNodeSignature(new Address(address)))
                     {
-                        hasNodeSig = true;
-                        break;
+                        return true;
                     }
                 }
             }
             else
             {
-                hasNodeSig = true;
+                return true;
             }
-            return hasNodeSig;
+            return false;
         }
 
         // Adds a block to the blacklist
@@ -1634,7 +1632,7 @@ namespace DLT
             else
             {
                 //sorted_sigs.Sort((x, y) => Comparer<IxiNumber>.Default.Compare(x.powSolution.difficulty, y.powSolution.difficulty));
-                sorted_sigs = sorted_sigs.OrderBy(x => x.powSolution.difficulty, Comparer<IxiNumber>.Default).ThenBy(x => x.recipientPubKeyOrAddress.addressNoChecksum, new ByteArrayComparer()).ToList();
+                //sorted_sigs = sorted_sigs.OrderBy(x => x.powSolution.difficulty, Comparer<IxiNumber>.Default).ThenBy(x => x.recipientPubKeyOrAddress.addressNoChecksum, new ByteArrayComparer()).ToList();
             }
 
             var election_block_sigs = election_block.signatures;
@@ -1925,6 +1923,11 @@ namespace DLT
                 {
                     Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty_adjusted, frozen_block_sigs.Count, required_consensus_count_adjusted);
                     return false;
+                }
+
+                if (target_block.version >= BlockVer.v10 && target_block.blockNum != 1)
+                {
+                    frozen_block_sigs = frozen_block_sigs.OrderBy(x => x.powSolution.difficulty, Comparer<IxiNumber>.Default).ThenBy(x => x.recipientPubKeyOrAddress.addressNoChecksum, new ByteArrayComparer()).ToList();
                 }
 
                 Node.blockChain.setFrozenSignatures(target_block, frozen_block_sigs);

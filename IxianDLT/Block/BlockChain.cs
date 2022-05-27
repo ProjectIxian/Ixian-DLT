@@ -721,10 +721,9 @@ namespace DLT
             Block curBlock = getBlock(getLastBlockNum());
             if (targetBlock != null && curBlock != null)
             {
-                byte[] sigFreezeChecksum = curBlock.signatureFreezeChecksum;
-                int sigNr = BitConverter.ToInt32(sigFreezeChecksum, 0);
+                uint sigNr = BitConverter.ToUInt32(curBlock.blockChecksum, 0);
 
-                var sigs = targetBlock.frozenSignatures??targetBlock.signatures;
+                var sigs = targetBlock.frozenSignatures ?? targetBlock.signatures;
                 int maxElectedNodes = 3;
                 if(sigs.Count < 100)
                 {
@@ -733,7 +732,7 @@ namespace DLT
                 {
                     offset = 0;
                 }
-                for(int i = offset; i < maxElectedNodes; i++)
+                for(int i = offset; i < maxElectedNodes + offset; i++)
                 {
                     BlockSignature sig = sigs[(int)((uint)(sigNr + i) % sigs.Count)];
 

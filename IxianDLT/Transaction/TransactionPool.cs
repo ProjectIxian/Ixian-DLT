@@ -1398,7 +1398,6 @@ namespace DLT
                 {
                     txbnum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
                 }
-                txbnum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
 
                 if (txbnum != stakingRewardBlockNum)
                 {
