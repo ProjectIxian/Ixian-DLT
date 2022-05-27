@@ -631,12 +631,9 @@ namespace DLT
                 if (cachedBlockVersion <= BlockVer.v2)
                 {
                     checksum = Crypto.sha512quTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT0"));
-                }else if(cachedBlockVersion < BlockVer.v10)
-                {
-                    checksum = Crypto.sha512sqTrunc(Encoding.UTF8.GetBytes("IXIAN-DLT0"), 0, 0, 64);
                 }else
                 {
-                    checksum = CryptoManager.lib.sha3_512sq(ConsensusConfig.ixianChecksumLock);
+                    checksum = Crypto.sha512sq(Encoding.UTF8.GetBytes("IXIAN-DLT0"));
                 }
 
                 // TODO: This is probably not the optimal way to do this. Maybe we could do it by blocks to reduce calls to sha256
@@ -647,17 +644,12 @@ namespace DLT
                     if (cachedBlockVersion <= BlockVer.v2)
                     {
                         checksum = Crypto.sha512quTrunc(Encoding.UTF8.GetBytes(Crypto.hashToString(checksum) + Crypto.hashToString(wallet_checksum)));
-                    }else if (cachedBlockVersion < BlockVer.v10)
-                    {
-                        List<byte> tmp_hash = checksum.ToList();
-                        tmp_hash.AddRange(wallet_checksum);
-                        checksum = Crypto.sha512sqTrunc(tmp_hash.ToArray(), 0, 0, 64);
                     }else
                     {
                         byte[] tmp_hash = new byte[checksum.Length + wallet_checksum.Length];
                         Array.Copy(checksum, tmp_hash, checksum.Length);
                         Array.Copy(wallet_checksum, 0, tmp_hash, checksum.Length, wallet_checksum.Length);
-                        checksum = CryptoManager.lib.sha3_512sq(tmp_hash.ToArray());
+                        checksum = Crypto.sha512sq(tmp_hash);
                     }
                 }
 
@@ -674,15 +666,7 @@ namespace DLT
                 {
                     using (BinaryWriter w = new BinaryWriter(m))
                     {
-                        if(block_version >= BlockVer.v10)
-                        {
-                            // TODO TODO Omega - checksum lock probably isn't necessary
-                            w.Write(ConsensusConfig.ixianChecksumLock);
-                        }
-                        else
-                        {
-                            w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT0"));
-                        }
+                        w.Write(Encoding.UTF8.GetBytes("IXIAN-DLT0"));
 
                         // TODO TODO Omega - this can be optimized by calculating checksums through WSJ; make sure it can be processed in parallel
 
@@ -715,14 +699,7 @@ namespace DLT
                         Logging.info(String.Format("WalletState::calculateWalletStateDeltaChecksum: {0}", m.Length));
 #endif
                     }
-                    if(block_version >= BlockVer.v10)
-                    {
-                        return CryptoManager.lib.sha3_512sq(m.ToArray());
-                    }
-                    else
-                    {
-                        return Crypto.sha512sqTrunc(m.ToArray(), 0, 0, 64);
-                    }
+                    return Crypto.sha512sq(m.ToArray());
                 }
             }
         }
