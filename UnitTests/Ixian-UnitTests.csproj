@@ -51,10 +51,12 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="TestMinerPow.cs" />
     <Compile Include="TestPrefixInclusionTree.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TestCuckooFilter.cs" />
     <Compile Include="TestCrypto.cs" />
+    <Compile Include="TestRewards.cs" />
     <Compile Include="TestSignerPowSolution.cs" />
   </ItemGroup>
   <ItemGroup>
