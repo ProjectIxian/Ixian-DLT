@@ -872,7 +872,7 @@ namespace DLT
                 data = mw.ToArray();
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, new Address(pubkey), Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {
@@ -921,7 +921,7 @@ namespace DLT
                 data = mw.ToArray();
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, new Address(pubkey), Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {

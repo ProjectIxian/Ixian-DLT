@@ -250,7 +250,7 @@ namespace DLTNode
                             }
                         }
 
-                        Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                        Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, new Address(pubKey), Node.blockChain.getLastBlockNum());
                         // Console.WriteLine("> sending {0}", transaction.id);
                         TransactionPool.addTransaction(transaction);
 
@@ -308,7 +308,7 @@ namespace DLTNode
                     pubKey = null;
                 }
 
-                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, new Address(pubKey), Node.blockChain.getLastBlockNum());
                 byte[] bytes = transaction.getBytes(true, true);
                 
                 writer.Write(bytes.Length);

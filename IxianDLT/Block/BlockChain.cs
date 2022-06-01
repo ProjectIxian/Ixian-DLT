@@ -1040,7 +1040,7 @@ namespace DLT
                     Logging.error("Cannot revert transaction " + Transaction.getTxIdString(tx_id) + ", transaction doesn't exist.");
                     continue;
                 }
-                if (IxianHandler.isMyAddress(new Address(tx.pubKey)) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
+                if (IxianHandler.isMyAddress(tx.pubKey) || IxianHandler.extractMyAddressesFromAddressList(tx.toList) != null)
                 {
                     ActivityStorage.updateStatus(tx.id, ActivityStatus.Error, block.blockNum);
                     tx.fromLocalStorage = false;

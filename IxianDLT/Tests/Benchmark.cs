@@ -444,7 +444,7 @@ namespace DLTNode
                 rnd.NextBytes(pubKey);
                 pubKey[0] = 1; // Set address version to 1
 
-                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, new Address(to), new Address(from), null, pubKey, 1236547);
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, new Address(to), new Address(from), null, new Address(pubKey), 1236547);
                 transactions.AddOrReplace(transaction.id, transaction);
                 txcount++;
 

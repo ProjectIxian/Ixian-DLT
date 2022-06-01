@@ -405,7 +405,7 @@ namespace DLT
                 {
                     Transaction t = TransactionPool.getAppliedTransaction(txid, b.blockNum, true);
 
-                    if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionFrom, new Address(t.pubKey).addressNoChecksum))
+                    if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionFrom, t.pubKey.addressNoChecksum))
                     {
                         endpoint.sendData(ProtocolMessageCode.transactionData, t.getBytes(true), null);
                     }

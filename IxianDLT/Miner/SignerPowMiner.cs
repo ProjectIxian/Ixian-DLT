@@ -245,7 +245,7 @@ namespace DLT
 
             startedSolvingTime = Clock.getTimestamp();
 
-            currentKeyPair = CryptoManager.lib.generateKeys(ConsensusConfig.defaultRsaKeySize, 2);
+            currentKeyPair = CryptoManager.lib.generateKeys(2048, 2); // TODO move to config with v11
             activeBlock = candidateBlock;
             currentBlockNum = candidateBlock.blockNum;
 
@@ -394,7 +394,6 @@ namespace DLT
             }
 
             PresenceList.setPowSolution(newSolution);
-            // TODO TODO Omega - reapply signature with new solution on sigfreezed block up to the current block <---- do this only if the chain is stuck
         }
     }
 }

@@ -188,6 +188,10 @@ namespace DLT
                             TransactionProtocolMessages.handleTransactionsChunk2(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.transactionsChunk3:
+                            TransactionProtocolMessages.handleTransactionsChunk3(data, endpoint);
+                            break;
+
                         case ProtocolMessageCode.getBlockHeaders2:
                             BlockProtocolMessages.handleGetBlockHeaders2(data, endpoint);
                             break;

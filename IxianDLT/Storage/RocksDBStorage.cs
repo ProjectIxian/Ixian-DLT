@@ -531,7 +531,7 @@ namespace DLT
 
                 foreach (var from in st.fromList)
                 {
-                    idxTXFrom.addIndexEntry(new Address(st.pubKey, from.Key).addressNoChecksum, tx_id_bytes);
+                    idxTXFrom.addIndexEntry(new Address(st.pubKey.addressNoChecksum, from.Key).addressNoChecksum, tx_id_bytes);
                 }
                 idxTXFrom.updateDBIndex(database);
 

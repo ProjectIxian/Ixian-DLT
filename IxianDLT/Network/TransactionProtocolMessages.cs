@@ -383,7 +383,8 @@ namespace DLT
                                 i++;
                                 if (tx != null)
                                 {
-                                    byte[] txBytes = tx.getBytes(true, true);
+                                    // TODO Omega - force v7 structure and send as transactionsChunk3
+                                    byte[] txBytes = tx.getBytes(true, false);
 
                                     long rollback_len = mOut.Length;
                                     writer.WriteIxiVarInt(txBytes.Length);
@@ -518,7 +519,8 @@ namespace DLT
                                             }
                                         }
 
-                                        byte[] tx_bytes = tx.getBytes(true, true);
+                                        // TODO Omega - force v7 structure and send as transactionsChunk3
+                                        byte[] tx_bytes = tx.getBytes(true, false);
                                         byte[] tx_len = IxiVarInt.GetIxiVarIntBytes(tx_bytes.Length);
                                         writer.Write(tx_len);
                                         writer.Write(tx_bytes);
@@ -597,6 +599,64 @@ namespace DLT
                         {
                             ulong blockNum = (ulong)-msg_id;
                             if(!Node.blockProcessor.isBlockWaitingForTransactions(blockNum))
+                            {
+                                return;
+                            }
+                        }
+
+                        int tx_count = (int)reader.ReadIxiVarUInt();
+
+                        int max_tx_per_chunk = CoreConfig.maximumTransactionsPerChunk;
+                        if (tx_count > max_tx_per_chunk)
+                        {
+                            tx_count = max_tx_per_chunk;
+                        }
+
+                        var sw = new System.Diagnostics.Stopwatch();
+                        sw.Start();
+                        int processedTxCount = 0;
+                        int totalTxCount = 0;
+                        for (int i = 0; i < tx_count; i++)
+                        {
+                            if (m.Position == m.Length)
+                            {
+                                break;
+                            }
+
+                            int tx_len = (int)reader.ReadIxiVarUInt();
+                            byte[] tx_bytes = reader.ReadBytes(tx_len);
+
+                            Transaction tx = new Transaction(tx_bytes, false, false);
+
+                            totalTxCount++;
+                            if (tx.type == (int)Transaction.Type.StakingReward && !Node.blockSync.synchronizing)
+                            {
+                                continue;
+                            }
+                            if (TransactionPool.addTransaction(tx, false, endpoint))
+                            {
+                                processedTxCount++;
+                            }
+                        }
+                        sw.Stop();
+                        TimeSpan elapsed = sw.Elapsed;
+                        Logging.info("Processed {0}/{1} txs in {2}ms", processedTxCount, totalTxCount, elapsed.TotalMilliseconds);
+                    }
+                }
+            }
+
+            public static void handleTransactionsChunk3(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        long msg_id = reader.ReadIxiVarInt();
+
+                        if (msg_id < 0)
+                        {
+                            ulong blockNum = (ulong)-msg_id;
+                            if (!Node.blockProcessor.isBlockWaitingForTransactions(blockNum))
                             {
                                 return;
                             }
@@ -724,8 +784,9 @@ namespace DLT
                         }
 
                         Logging.info("Sending transaction {0} - {1} - {2}.", transaction.getTxIdString(), Crypto.hashToString(transaction.checksum), transaction.amount);
-
-                        endpoint.sendData(ProtocolMessageCode.transactionData2, transaction.getBytes(true, true));
+                        // TODO Omega replace the uncommented line with commented out line after upgrade
+                        //endpoint.sendData(ProtocolMessageCode.transactionData2, transaction.getBytes(true, true));
+                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true, false));
                     }
                 }
             }

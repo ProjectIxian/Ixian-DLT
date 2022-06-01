@@ -493,7 +493,7 @@ namespace DLT
                     seekDatabase(transaction.applied, true);
 
                     string sql = "INSERT OR REPLACE INTO `transactions`(`id`,`type`,`amount`,`fee`,`toList`,`fromList`,`blockHeight`, `nonce`, `timestamp`,`checksum`,`signature`, `pubKey`, `applied`, `version`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, transaction.getTxIdString(), transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey, (long)transaction.applied, transaction.version);
+                    result = executeSQL(sql, transaction.getTxIdString(), transaction.type, transaction.amount.ToString(), transaction.fee.ToString(), toList, fromList, (long)transaction.blockHeight, transaction.nonce, transaction.timeStamp, transaction.checksum, transaction.signature, transaction.pubKey.getInputBytes(), (long)transaction.applied, transaction.version);
                 }
 
                 return result;
@@ -963,7 +963,7 @@ namespace DLT
                     checksum = tx.checksum,
                     signature = tx.signature,
                     version = tx.version,
-                    pubKey = tx.pubKey,
+                    pubKey = new Address(tx.pubKey),
                     applied = (ulong)tx.applied
                 };
 
@@ -1018,7 +1018,7 @@ namespace DLT
                     {
                         if (tx.pubKey == null)
                         {
-                            transaction.pubKey = tx.from;
+                            transaction.pubKey = new Address(tx.from);
                         }
                         transaction.fromList.Add(new byte[1] { 0 }, transaction.amount + transaction.fee);
                     }

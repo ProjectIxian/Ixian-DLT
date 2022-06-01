@@ -1103,7 +1103,7 @@ namespace DLT
 
                 foreach (var entry in t.fromList)
                 {
-                    byte[] address = (new Address(t.pubKey, entry.Key)).addressNoChecksum;
+                    byte[] address = (new Address(t.pubKey.addressNoChecksum, entry.Key)).addressNoChecksum;
                     // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
                     if (!minusBalances.ContainsKey(address))
                     {
@@ -1170,7 +1170,7 @@ namespace DLT
                         {
                             orig_txid = t.id;
                         }
-                        Address address = new Address(t.pubKey, t.fromList.Keys.First());
+                        Address address = new Address(t.pubKey.addressNoChecksum, t.fromList.Keys.First());
                         Wallet from_w = Node.walletState.getWallet(address);
                         int num_valid_multisigs = TransactionPool.getNumRelatedMultisigTransactions(orig_txid, b) + 1;
                         if (num_valid_multisigs < from_w.requiredSigs)
@@ -1678,12 +1678,15 @@ namespace DLT
                     //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
                     return false;
                 }
-                IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
-                IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
-                if (frozen_sig_difficulty < required_signer_difficulty)
+                if (block.version >= BlockVer.v10)
                 {
-                    //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
-                    return false;
+                    IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
+                    IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
+                    if (frozen_sig_difficulty < required_signer_difficulty)
+                    {
+                        //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
+                        return false;
+                    }
                 }
             }
             return true;
@@ -1705,13 +1708,17 @@ namespace DLT
                 }
 
                 IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
-                IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
 
-                // verify sig difficulty
-                if (frozen_sig_difficulty < required_signer_difficulty)
+                if (block.version >= BlockVer.v10)
                 {
-                    Logging.info("Block {0} has less than required signer difficulty ({1} < {2}).", block.blockNum, frozen_sig_difficulty, required_signer_difficulty);
-                    return false;
+                    IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
+
+                    // verify sig difficulty
+                    if (frozen_sig_difficulty < required_signer_difficulty)
+                    {
+                        Logging.info("Block {0} has less than required signer difficulty ({1} < {2}).", block.blockNum, frozen_sig_difficulty, required_signer_difficulty);
+                        return false;
+                    }
                 }
 
                 List<BlockSignature> required_sigs = extractRequiredSignatures(block, 0);
@@ -1919,13 +1926,16 @@ namespace DLT
                     return false;
                 }
 
-                if (frozen_block_sigs_difficulty < required_difficulty_adjusted)
+                if (target_block.version >= BlockVer.v10)
                 {
-                    Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty_adjusted, frozen_block_sigs.Count, required_consensus_count_adjusted);
-                    return false;
+                    if (frozen_block_sigs_difficulty < required_difficulty_adjusted)
+                    {
+                        Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty_adjusted, frozen_block_sigs.Count, required_consensus_count_adjusted);
+                        return false;
+                    }
                 }
 
-                if (target_block.version >= BlockVer.v10 && target_block.blockNum != 1)
+                if (target_block.blockNum != 1 && target_block.version >= BlockVer.v10 && IxianHandler.getBlockHeader(target_block.blockNum - 1).version >= BlockVer.v10)
                 {
                     frozen_block_sigs = frozen_block_sigs.OrderBy(x => x.powSolution.difficulty, Comparer<IxiNumber>.Default).ThenBy(x => x.recipientPubKeyOrAddress.addressNoChecksum, new ByteArrayComparer()).ToList();
                 }
@@ -2564,7 +2574,7 @@ namespace DLT
                     if (signer_wallet.id.addressNoChecksum.SequenceEqual(ws.getPrimaryAddress().addressNoChecksum))
                     {
                         SortedDictionary<Address, Transaction.ToEntry> to_list = new SortedDictionary<Address, Transaction.ToEntry>(new AddressComparer());
-                        to_list.Add(sigAddress, new Transaction.ToEntry(b.version, tAward));
+                        to_list.Add(sigAddress, new Transaction.ToEntry(Transaction.getExpectedVersion(b.version), tAward));
                         string address = ws.getPrimaryAddress().ToString();
                         Activity activity = new Activity(ws.getSeedHash(), address, ConsensusConfig.ixianInfiniMineAddress.ToString(), to_list, (int)ActivityType.TxFeeReward, Encoding.UTF8.GetBytes("TXFEEREWARD-" + b.blockNum + "-" + address), tAward.ToString(), b.timestamp, (int)ActivityStatus.Final, b.blockNum, "");
                         ActivityStorage.insertActivity(activity);
@@ -2588,7 +2598,7 @@ namespace DLT
             // multisig transactions must be complete before they are added
             object multisig_data = transaction.GetMultisigData();
             byte[] orig_txid = transaction.id;
-            Address address = new Address(transaction.pubKey, transaction.fromList.Keys.First());
+            Address address = new Address(transaction.pubKey.addressNoChecksum, transaction.fromList.Keys.First());
             Wallet from_w = Node.walletState.getWallet(address);
             List<byte[]> related_tx_ids = TransactionPool.getRelatedMultisigTransactions(orig_txid, null);
             int num_valid_multisigs = related_tx_ids.Count() + 1;
@@ -2620,7 +2630,7 @@ namespace DLT
         {
             foreach (var entry in transaction.fromList)
             {
-                Address address = new Address(transaction.pubKey, entry.Key);
+                Address address = new Address(transaction.pubKey.addressNoChecksum, entry.Key);
                 // TODO TODO TODO TODO plus balances should also be added (and be processed first) to prevent overspending false alarms
                 if (!minusBalances.ContainsKey(address.addressNoChecksum))
                 {
@@ -2770,7 +2780,7 @@ namespace DLT
                         }
                         if (block_version >= 2)
                         {
-                            byte[] tmp_address = (new Address(transaction.pubKey)).addressNoChecksum;
+                            byte[] tmp_address = transaction.pubKey.addressNoChecksum;
                             if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && ((byte[])x[1]).SequenceEqual(nonce)))
                             {
                                 // Add the miner to the block number dictionary reward list
@@ -2939,7 +2949,7 @@ namespace DLT
                     localNewBlock.timestamp = Clock.getNetworkTimestamp();
                     if(IxianHandler.getLastBlockVersion() < BlockVer.v10)
                     {
-                        localNewBlock.blockProposer = IxianHandler.getWalletStorage().getPrimaryAddress().addressNoChecksum;
+                        localNewBlock.blockProposer = IxianHandler.getWalletStorage().getPrimaryAddress().addressWithChecksum;
                     }
 
                     Block last_block = Node.blockChain.getLastBlock();
@@ -3285,7 +3295,7 @@ namespace DLT
             for (i = 0; i < 10; i++)
             {
                 Block b = Node.blockChain.getBlock(last_block_num - i, false, true);
-                List<Transaction> b_txs = TransactionPool.getFullBlockTransactions(b).FindAll(x => x.type == (int)Transaction.Type.PoWSolution);
+                List<Transaction> b_txs = TransactionPool.getFullBlockTransactions(b).FindAll(x => x.type == (int)Transaction.Type.PoWSolution); // TODO TODO optimize this to fetch only PoW transactions - fetch tx by type
                 foreach (Transaction tx in b_txs)
                 {
                     Block pow_b = Node.blockChain.getBlock(tx.powSolution.blockNum, false, false);
@@ -3692,7 +3702,7 @@ namespace DLT
                     {
                         Address wallet_addr = stakeWallets[i];
                         //Console.WriteLine("----> Awarding {0} to {1}", award, wallet_addr);
-                        to_list.Add(wallet_addr, new Transaction.ToEntry(block_version, award));
+                        to_list.Add(wallet_addr, new Transaction.ToEntry(Transaction.getExpectedVersion(block_version), award));
 
                     }
 
