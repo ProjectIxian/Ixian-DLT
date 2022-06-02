@@ -163,8 +163,8 @@ namespace DLT
                         ulong last_block_num = Node.blockChain.getLastBlockNum();
                         int block_version = Node.blockChain.getLastBlockVersion();
 
-                        if(block_version < Config.maxBlockVersionToGenerate
-                            && last_block_num % ConsensusConfig.superblockInterval == 0)
+                        if (block_version < Config.maxBlockVersionToGenerate
+                            && last_block_num + 1 % ConsensusConfig.superblockInterval == 0)
                         {
                             block_version = Config.maxBlockVersionToGenerate;
                         }
@@ -910,6 +910,14 @@ namespace DLT
                 if (b.version < IxianHandler.getLastBlockVersion())
                 {
                     return BlockVerifyStatus.PotentiallyForkedBlock;
+                }
+
+                // verify that the upgrade happened on superblock
+                if (b.version >= BlockVer.v10
+                    && b.version != IxianHandler.getLastBlockVersion()
+                    && b.lastSuperBlockChecksum == null)
+                {
+                    return BlockVerifyStatus.Invalid;
                 }
 
                 // verify difficulty
@@ -1678,7 +1686,7 @@ namespace DLT
                     //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
                     return false;
                 }
-                if (block.version >= BlockVer.v10)
+                if (block.version >= BlockVer.v10 && IxianHandler.getBlockHeader(block.blockNum - 1).version >= BlockVer.v10)
                 {
                     IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
                     IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
@@ -1709,7 +1717,7 @@ namespace DLT
 
                 IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
 
-                if (block.version >= BlockVer.v10)
+                if (block.version >= BlockVer.v10 && IxianHandler.getBlockHeader(block.blockNum - 1).version >= BlockVer.v10)
                 {
                     IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
 
@@ -1926,7 +1934,8 @@ namespace DLT
                     return false;
                 }
 
-                if (target_block.version >= BlockVer.v10)
+                if (target_block.version >= BlockVer.v10
+                    && IxianHandler.getBlockHeader(target_block.blockNum - 1).version >= BlockVer.v10)
                 {
                     if (frozen_block_sigs_difficulty < required_difficulty_adjusted)
                     {

@@ -571,16 +571,20 @@ namespace DLT
                 }
 
                 // Limit to max *2, /2
-                IxiNumber maxDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) * 2;
-                if (newDifficulty > maxDifficulty)
+                if (lastSuperBlock != null && lastSuperBlock.signerBits > 0)
                 {
-                    newDifficulty = maxDifficulty;
-                }else
-                {
-                    IxiNumber minDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) / 2;
-                    if (newDifficulty < minDifficulty)
+                    IxiNumber maxDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) * 2;
+                    if (newDifficulty > maxDifficulty)
                     {
-                        newDifficulty = minDifficulty;
+                        newDifficulty = maxDifficulty;
+                    }
+                    else
+                    {
+                        IxiNumber minDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) / 2;
+                        if (newDifficulty < minDifficulty)
+                        {
+                            newDifficulty = minDifficulty;
+                        }
                     }
                 }
 
