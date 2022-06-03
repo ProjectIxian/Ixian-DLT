@@ -913,7 +913,8 @@ namespace DLT
                 }
 
                 // verify that the upgrade happened on superblock
-                if (b.version >= BlockVer.v10
+                if (b.blockNum > 1
+                    && b.version >= BlockVer.v10
                     && b.version != IxianHandler.getLastBlockVersion()
                     && b.lastSuperBlockChecksum == null)
                 {

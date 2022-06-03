@@ -67,7 +67,7 @@ namespace DLT
             started = true;
 
             // Calculate the allowed number of threads based on logical processor count
-            uint miningThreads = 1; // calculateMiningThreadsCount() / 2;
+            uint miningThreads = calculateMiningThreadsCount() / 2;
             Logging.info("Starting Presence List miner with {0} threads on {1} logical processors.", miningThreads, Environment.ProcessorCount);
 
             shouldStop = false;
@@ -201,7 +201,6 @@ namespace DLT
             else
             {
                 candidateBlock = Node.blockChain.getBlock(candidateBlock.blockNum - 7, false, false);
-                // TODO TODO Omega find first v10 block
             }
 
             if (candidateBlock == null)
@@ -235,8 +234,8 @@ namespace DLT
 
             var submittedSolution = PresenceList.getPowSolution();
             if (lastSignerPowSolution != null
-                && Node.blockChain.getTimeSinceLastBlock() < 1800
-                && currentBlockNum + ConsensusConfig.plPowCalculationInterval + ConsensusConfig.plPowMinCalculationBlockTime > highestNetworkBlockHeight
+                && Node.blockChain.getTimeSinceLastBlock() < 450
+                && lastSignerPowSolution.blockNum + ConsensusConfig.plPowCalculationInterval + ConsensusConfig.plPowMinCalculationBlockTime > highestNetworkBlockHeight
                 && (submittedSolution != null && solvingDifficulty <= submittedSolution.difficulty))
             {
                 // If the chain isn't stuck and we've already processed PoW within the interval
@@ -283,7 +282,7 @@ namespace DLT
         private void calculatePow()
         {
             // TODO TODO Omega remove this, for testing purposes only
-            if (rnd == null)
+            /*if (rnd == null)
             {
                 rnd = new Random();
             }
@@ -291,7 +290,7 @@ namespace DLT
             if (rndNr > rndInt)
             {
                 Thread.Sleep(10);
-            }
+            }*/
 
             // PoW = sha3_512sq(BlockNum + BlockChecksum + RecipientAddress + pubKeyHash + Nonce)
             byte[] nonce = randomNonce(64);
@@ -356,7 +355,6 @@ namespace DLT
                     lastSignerPowSolution = signerPow;
                     solvingDifficulty = hashDifficulty;
                 }
-
                 solutionsFound++;
             }
         }
@@ -377,17 +375,17 @@ namespace DLT
 
                 if (newSolution.difficulty <= solution.difficulty
                     && solution.blockNum + ConsensusConfig.plPowBlocksValidity - ConsensusConfig.plPowMinCalculationBlockTime > lastBlockHeight
-                    && solution.difficulty > solvingDifficulty
-                )
+                    && solution.difficulty > solvingDifficulty)
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
 
                     // Check if we're mining for at least X minutes and that the blockchain isn't stuck
                     if (Clock.getTimestamp() - startedSolvingTime > ConsensusConfig.plPowMinCalculationTime
-                        && Node.blockChain.getTimeSinceLastBlock() < 1800) // TODO move 1800 to CoreConfig
+                        && Node.blockChain.getTimeSinceLastBlock() < 450) // TODO move 450 to CoreConfig
                     {
                         // Reset the blockReadyForMining, to stop mining on all threads
                         blockReadyForMining = false;
+                        currentBlockNum = 0;
                     }
                     return;
                 }
