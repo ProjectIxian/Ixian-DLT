@@ -1268,7 +1268,7 @@ namespace DLT
                 else if (block.version <= BlockVer.v4)
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v2(Crypto.hashToString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
+                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v2(nonce_bytes, blocknum, primary_address.addressWithChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1676,7 +1676,7 @@ namespace DLT
                 // Remove all failed transactions from the TxPool and block
                 foreach (Transaction tx in failed_transactions)
                 {
-                    Logging.warn(String.Format("Removing failed transaction #{0} from pool.", tx.id));
+                    Logging.warn(String.Format("Removing failed transaction #{0} from pool.", tx.getTxIdString()));
                     // Remove from TxPool
                     if (tx.applied == 0)
                     {
@@ -1766,6 +1766,7 @@ namespace DLT
                     {
                         if (failedTransactions != null)
                         {
+                            Logging.warn("Duplicate PoW transaction {0}.", tx.getTxIdString());
                             failedTransactions.Add(tx);
                         }
                     }
@@ -1774,6 +1775,7 @@ namespace DLT
             {
                 if (failedTransactions != null)
                 {
+                    Logging.warn("Invalid PoW transaction {0}.", tx.getTxIdString());
                     failedTransactions.Add(tx);
                 }
             }

@@ -76,7 +76,7 @@ namespace DLTNode.Inventory
                 return false;
             }
             InventoryItemKeepAlive iika = (InventoryItemKeepAlive)item;
-            byte[] address = iika.address.addressNoChecksum;
+            byte[] address = iika.address.addressWithChecksum;
             Presence p = PresenceList.getPresenceByAddress(iika.address);
             if (p == null)
             {

@@ -780,9 +780,9 @@ namespace DLT
         }
 
         // Verify nonce
-        public static bool verifyNonce_v2(string nonce, ulong block_num, byte[] solver_address, ulong difficulty)
+        public static bool verifyNonce_v2(byte[] nonce_bytes, ulong block_num, byte[] solver_address, ulong difficulty)
         {
-            if (nonce == null || nonce.Length < 1 || nonce.Length > 128)
+            if (nonce_bytes == null || nonce_bytes.Length < 1 || nonce_bytes.Length > 64)
             {
                 return false;
             }
@@ -797,7 +797,6 @@ namespace DLT
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
 
-            byte[] nonce_bytes = Crypto.stringToHash(nonce);
             byte[] hash = Argon2id.getHash(p1, nonce_bytes, 1, 1024, 2);
 
             if (validateHash_v2(hash, difficulty) == true)
