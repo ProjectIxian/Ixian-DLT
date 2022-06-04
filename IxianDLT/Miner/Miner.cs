@@ -842,10 +842,10 @@ namespace DLT
         public static bool sendSolution(byte[] nonce, ulong blocknum)
         {
             WalletStorage ws = IxianHandler.getWalletStorage();
-            byte[] pubkey = ws.getPrimaryPublicKey();
+            Address pubkey = new Address(ws.getPrimaryPublicKey());
             // Check if this wallet's public key is already in the WalletState
             Wallet mywallet = Node.walletState.getWallet(ws.getPrimaryAddress());
-            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey))
+            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubkey.pubKey))
             {
                 // Walletstate public key matches, we don't need to send the public key in the transaction
                 pubkey = null;
@@ -871,7 +871,7 @@ namespace DLT
                 data = mw.ToArray();
             }
 
-            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, new Address(pubkey), Node.blockChain.getLastBlockNum());
+            Transaction tx = new Transaction((int)Transaction.Type.PoWSolution, new IxiNumber(0), new IxiNumber(0), ConsensusConfig.ixianInfiniMineAddress, IxianHandler.getWalletStorage().getPrimaryAddress(), data, pubkey, Node.blockChain.getLastBlockNum());
 
             if (TransactionPool.addTransaction(tx))
             {
