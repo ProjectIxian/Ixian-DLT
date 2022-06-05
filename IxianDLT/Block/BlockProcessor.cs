@@ -1443,7 +1443,7 @@ namespace DLT
                             bool hasNodeSig = hasElectedNodeSignature(b);
                             if (hasNodeSig)
                             {
-                                if ((blockSigCount >= localBlockSigCount && b.getTotalSignerDifficulty() > localNewBlock.getTotalSignerDifficulty())
+                                if ((blockSigCount >= localBlockSigCount && (b.version < BlockVer.v10 || b.getTotalSignerDifficulty() > localNewBlock.getTotalSignerDifficulty()))
                                     || (b.getTotalSignerDifficulty() == localNewBlock.getTotalSignerDifficulty() && b.transactions.Count() > localNewBlock.transactions.Count())
                                     || (hasRequiredSignatureCount(b) && highestNetworkBlockNum > b.blockNum + 5))
                                 {
