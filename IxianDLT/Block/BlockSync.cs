@@ -481,7 +481,7 @@ namespace DLT
                     if (solvedBlock != null && solvedBlock.powField == null)
                     {
                         Node.blockChain.increaseSolvedBlocksCount();
-                        solvedBlock.powField = BitConverter.GetBytes(blockNum);
+                        solvedBlock.powField = BitConverter.GetBytes(b.blockNum);
                         Node.blockChain.updateBlock(solvedBlock);
                     }
                 }
