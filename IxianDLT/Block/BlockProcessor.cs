@@ -1443,8 +1443,10 @@ namespace DLT
                             bool hasNodeSig = hasElectedNodeSignature(b);
                             if (hasNodeSig)
                             {
-                                if ((blockSigCount >= localBlockSigCount && (b.version < BlockVer.v10 || b.getTotalSignerDifficulty() > localNewBlock.getTotalSignerDifficulty()))
-                                    || (b.getTotalSignerDifficulty() == localNewBlock.getTotalSignerDifficulty() && b.transactions.Count() > localNewBlock.transactions.Count())
+                                var remoteTotalSignerDifficult = b.getTotalSignerDifficulty();
+                                var localTotalSignerDifficult = localNewBlock.getTotalSignerDifficulty();
+                                if ((blockSigCount >= localBlockSigCount && (blockSigCount == remoteTotalSignerDifficult || remoteTotalSignerDifficult > localTotalSignerDifficult))
+                                    || (remoteTotalSignerDifficult == localTotalSignerDifficult && b.transactions.Count() > localNewBlock.transactions.Count())
                                     || (hasRequiredSignatureCount(b) && highestNetworkBlockNum > b.blockNum + 5))
                                 {
                                     Logging.info("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset());
