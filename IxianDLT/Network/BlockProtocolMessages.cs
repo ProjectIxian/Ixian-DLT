@@ -92,91 +92,6 @@ namespace DLT
                 }
             }
 
-            [Obsolete("handleGetBlockHeaders is deprecated and will be removed in future versions, please use handleGetBlockHeaders2 instead")]
-            public static void handleGetBlockHeaders(byte[] data, RemoteEndpoint endpoint)
-            {
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        ulong from = reader.ReadUInt64();
-                        ulong to = reader.ReadUInt64();
-
-                        ulong totalCount = to - from;
-                        if (totalCount < 1)
-                            return;
-
-                        ulong lastBlockNum = Node.blockChain.getLastBlockNum();
-
-                        if (from > lastBlockNum - 1)
-                            return;
-
-                        if (to > lastBlockNum)
-                            to = lastBlockNum;
-
-                        // Adjust total count if necessary
-                        totalCount = to - from;
-                        if (totalCount < 1)
-                            return;
-
-                        // Cap total block headers sent
-                        if (totalCount > (ulong)CoreConfig.maximumBlockHeadersPerChunk)
-                            totalCount = (ulong)CoreConfig.maximumBlockHeadersPerChunk;
-
-                        if (endpoint == null)
-                        {
-                            return;
-                        }
-
-                        if (!endpoint.isConnected())
-                        {
-                            return;
-                        }
-
-                        // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
-                        for (ulong i = 0; i < totalCount;)
-                        {
-                            bool found = false;
-                            using (MemoryStream mOut = new MemoryStream())
-                            {
-                                using (BinaryWriter writer = new BinaryWriter(mOut))
-                                {
-                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; j++)
-                                    {
-                                        Block block = Node.blockChain.getBlock(from + i, true, true);
-                                        i++;
-                                        if (block == null)
-                                            break;
-
-                                        long rollback_len = mOut.Length;
-
-                                        found = true;
-                                        BlockHeader header = new BlockHeader(block);
-                                        byte[] headerBytes = header.getBytes();
-                                        writer.Write(headerBytes.Length);
-                                        writer.Write(headerBytes);
-
-                                        if (mOut.Length > CoreConfig.maxMessageSize)
-                                        {
-                                            mOut.SetLength(rollback_len);
-                                            i--;
-                                            break;
-                                        }
-
-                                        broadcastBlockHeaderTransactions(block, endpoint);
-                                    }
-                                }
-                                if (!found)
-                                {
-                                    break;
-                                }
-                                endpoint.sendData(ProtocolMessageCode.blockHeaders, mOut.ToArray());
-                            }
-                        }
-                    }
-                }
-            }
-
             public static void handleGetBlockHeaders2(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))
@@ -255,6 +170,87 @@ namespace DLT
                                     break;
                                 }
                                 endpoint.sendData(ProtocolMessageCode.blockHeaders2, mOut.ToArray());
+                            }
+                        }
+                    }
+                }
+            }
+
+            public static void handleGetBlockHeaders3(byte[] data, RemoteEndpoint endpoint)
+            {
+                using (MemoryStream m = new MemoryStream(data))
+                {
+                    using (BinaryReader reader = new BinaryReader(m))
+                    {
+                        ulong from = reader.ReadIxiVarUInt();
+                        ulong totalCount = reader.ReadIxiVarUInt();
+
+                        if (totalCount < 1)
+                            return;
+
+                        ulong lastBlockNum = Node.blockChain.getLastBlockNum();
+
+                        if (from > lastBlockNum - 1)
+                            return;
+
+                        // Adjust total count if necessary
+                        if (from + totalCount > lastBlockNum)
+                            totalCount = lastBlockNum - from;
+
+                        if (totalCount < 1)
+                            return;
+
+                        // Cap total block headers sent
+                        if (totalCount > (ulong)CoreConfig.maximumBlockHeadersPerChunk)
+                            totalCount = (ulong)CoreConfig.maximumBlockHeadersPerChunk;
+
+                        if (endpoint == null)
+                        {
+                            return;
+                        }
+
+                        if (!endpoint.isConnected())
+                        {
+                            return;
+                        }
+
+                        // TODO TODO TODO block headers should be read from a separate storage and every node should keep a full copy
+                        for (ulong i = 0; i < totalCount;)
+                        {
+                            bool found = false;
+                            using (MemoryStream mOut = new MemoryStream())
+                            {
+                                using (BinaryWriter writer = new BinaryWriter(mOut))
+                                {
+                                    for (int j = 0; j < CoreConfig.maximumBlockHeadersPerChunk && i < totalCount; j++)
+                                    {
+                                        Block block = Node.blockChain.getBlock(from + i, true, true);
+                                        i++;
+                                        if (block == null)
+                                            break;
+
+                                        long rollback_len = mOut.Length;
+
+                                        found = true;
+                                        byte[] headerBytes = block.getBytes(true, true, true, true);
+                                        writer.WriteIxiVarInt(headerBytes.Length);
+                                        writer.Write(headerBytes);
+
+                                        if (mOut.Length > CoreConfig.maxMessageSize)
+                                        {
+                                            mOut.SetLength(rollback_len);
+                                            i--;
+                                            break;
+                                        }
+
+                                        broadcastBlockHeaderTransactions(block, endpoint);
+                                    }
+                                }
+                                if (!found)
+                                {
+                                    break;
+                                }
+                                endpoint.sendData(ProtocolMessageCode.blockHeaders3, mOut.ToArray());
                             }
                         }
                     }

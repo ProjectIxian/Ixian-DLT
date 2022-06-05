@@ -141,10 +141,6 @@ namespace DLT
                             BlockProtocolMessages.handleGetNextSuperBlock(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.getBlockHeaders:
-                            BlockProtocolMessages.handleGetBlockHeaders(data, endpoint);
-                            break;
-
                         case ProtocolMessageCode.getPIT:
                             BlockProtocolMessages.handleGetPIT(data, endpoint);
                             break;
@@ -194,6 +190,10 @@ namespace DLT
 
                         case ProtocolMessageCode.getBlockHeaders2:
                             BlockProtocolMessages.handleGetBlockHeaders2(data, endpoint);
+                            break;
+
+                        case ProtocolMessageCode.getBlockHeaders3:
+                            BlockProtocolMessages.handleGetBlockHeaders3(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.getPIT2:

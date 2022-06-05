@@ -229,7 +229,7 @@ namespace DLTNode
             IxiNumber fee = ConsensusConfig.transactionPrice;
             WalletStorage ws = IxianHandler.getWalletStorage();
             Address from = ws.getPrimaryAddress();
-            byte[] pubKey = ws.getPrimaryPublicKey();
+            Address pubKey = new Address(ws.getPrimaryPublicKey());
 
             for (int thread = 0; thread < threads; thread++)
             {
@@ -243,14 +243,14 @@ namespace DLTNode
                         {
                             // Check if this wallet's public key is already in the WalletState
                             Wallet mywallet = Node.walletState.getWallet(from);
-                            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+                            if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey.pubKey))
                             {
                                 // Walletstate public key matches, we don't need to send the public key in the transaction
                                 pubKey = null;
                             }
                         }
 
-                        Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, new Address(pubKey), Node.blockChain.getLastBlockNum());
+                        Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                         // Console.WriteLine("> sending {0}", transaction.id);
                         TransactionPool.addTransaction(transaction);
 
@@ -299,16 +299,16 @@ namespace DLTNode
                 Address to = ConsensusConfig.foundationAddress;
                 Address from = ws.getPrimaryAddress();
 
-                byte[] pubKey = ws.getPrimaryPublicKey();
+                Address pubKey = new Address(ws.getPrimaryPublicKey());
                 // Check if this wallet's public key is already in the WalletState
                 Wallet mywallet = Node.walletState.getWallet(from);
-                if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey))
+                if (mywallet.publicKey != null && mywallet.publicKey.SequenceEqual(pubKey.pubKey))
                 {
                     // Walletstate public key matches, we don't need to send the public key in the transaction
                     pubKey = null;
                 }
 
-                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, new Address(pubKey), Node.blockChain.getLastBlockNum());
+                Transaction transaction = new Transaction((int)Transaction.Type.Normal, amount, fee, to, from, null, pubKey, Node.blockChain.getLastBlockNum());
                 byte[] bytes = transaction.getBytes(true, true);
                 
                 writer.Write(bytes.Length);
