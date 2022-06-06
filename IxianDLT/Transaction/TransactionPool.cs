@@ -911,7 +911,7 @@ namespace DLT
                     {
                         foreach(var address in extractedWallet.Value)
                         {
-                            activity = new Activity(extractedWallet.Key, Base58Check.Base58CheckEncoding.EncodePlain(address), primary_address.ToString(), transaction.toList, type, transaction.id, transaction.toList[new Address(address)].amount.ToString(), transaction.timeStamp, status, transaction.applied, transaction.getTxIdString());
+                            activity = new Activity(extractedWallet.Key, new Address(address).ToString(), primary_address.ToString(), transaction.toList, type, transaction.id, transaction.toList[new Address(address)].amount.ToString(), transaction.timeStamp, status, transaction.applied, transaction.getTxIdString());
                             ActivityStorage.insertActivity(activity);
                         }
                     }
