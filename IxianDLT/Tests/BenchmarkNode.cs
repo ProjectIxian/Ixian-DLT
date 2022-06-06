@@ -190,7 +190,7 @@ namespace DLTNode
             ProtocolMessage.parseProtocolMessage(code, data, endpoint);
         }
 
-        public override BlockHeader getBlockHeader(ulong blockNum)
+        public override Block getBlockHeader(ulong blockNum)
         {
             return BlockHeaderStorage.getBlockHeader(blockNum);
         }

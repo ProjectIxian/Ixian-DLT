@@ -150,8 +150,8 @@ namespace DLT
                                         long rollback_len = mOut.Length;
 
                                         found = true;
-                                        BlockHeader header = new BlockHeader(block);
-                                        byte[] headerBytes = header.getBytes();
+                                        Block header = new Block(block);
+                                        byte[] headerBytes = header.getBytesLegacyHeader();
                                         writer.WriteIxiVarInt(headerBytes.Length);
                                         writer.Write(headerBytes);
 
