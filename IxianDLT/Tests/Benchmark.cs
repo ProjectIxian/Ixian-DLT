@@ -422,8 +422,8 @@ namespace DLTNode
 
             int maxtx = 1000000; // Number of transactions to generate
 
-            IxiNumber amount = ConsensusConfig.transactionPrice;
-            IxiNumber fee = ConsensusConfig.transactionPrice;
+            IxiNumber amount = ConsensusConfig.transactionDustLimit;
+            IxiNumber fee = ConsensusConfig.forceTransactionPrice;
             Random rnd = new Random();
             byte[] from = new Byte[48];
             byte[] to = new Byte[48];

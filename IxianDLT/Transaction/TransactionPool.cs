@@ -2281,7 +2281,7 @@ namespace DLT
             {
                 expectedFee = ConsensusConfig.transactionPrice;
             }
-            if (tx.fee - expectedFee < (long)0)
+            if (tx.fee < expectedFee)
             {
                 Logging.error("Transaction {{ {0} }} cannot pay minimum fee", tx.getTxIdString());
                 failed_transactions.Add(tx);

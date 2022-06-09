@@ -225,8 +225,8 @@ namespace DLTNode
         {
             Logging.info("Starting tx spam test");
 
-            IxiNumber amount = ConsensusConfig.transactionPrice;
-            IxiNumber fee = ConsensusConfig.transactionPrice;
+            IxiNumber amount = ConsensusConfig.transactionDustLimit;
+            IxiNumber fee = ConsensusConfig.forceTransactionPrice;
             WalletStorage ws = IxianHandler.getWalletStorage();
             Address from = ws.getPrimaryAddress();
             Address pubKey = new Address(ws.getPrimaryPublicKey());
@@ -295,7 +295,7 @@ namespace DLTNode
             for (int i = 0; i < tx_count; i++)
             {
                 IxiNumber amount = new IxiNumber("0.01");
-                IxiNumber fee = ConsensusConfig.transactionPrice;
+                IxiNumber fee = ConsensusConfig.forceTransactionPrice;
                 Address to = ConsensusConfig.foundationAddress;
                 Address from = ws.getPrimaryAddress();
 

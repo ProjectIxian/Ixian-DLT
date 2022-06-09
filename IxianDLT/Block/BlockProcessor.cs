@@ -2790,7 +2790,7 @@ namespace DLT
                         {
                             blockSolutionsDictionary[powBlockNum] = new List<object[]>();
                         }
-                        if (block_version >= 2)
+                        if (block_version >= BlockVer.v2)
                         {
                             byte[] tmp_address = transaction.pubKey.addressNoChecksum;
                             if (!blockSolutionsDictionary[powBlockNum].Exists(x => ((byte[])x[0]).SequenceEqual(tmp_address) && ((byte[])x[1]).SequenceEqual(nonce)))

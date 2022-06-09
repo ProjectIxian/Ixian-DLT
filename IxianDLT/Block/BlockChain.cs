@@ -16,12 +16,9 @@ using IXICore;
 using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
-using IXICore.Utils;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Numerics;
 
 namespace DLT
 {
@@ -35,7 +32,7 @@ namespace DLT
 
         Block lastBlock = null;
         ulong lastBlockNum = 0;
-        int lastBlockVersion = 0;
+        int lastBlockVersion = -1;
 
         Block preLastSuperBlock = null;
         Block lastSuperBlock = null;
@@ -818,7 +815,7 @@ namespace DLT
         {
             lastBlock = null;
             lastBlockNum = 0;
-            lastBlockVersion = 0;
+            lastBlockVersion = -1;
             lock (blocks)
             {
                 lock (blocksDictionary)
