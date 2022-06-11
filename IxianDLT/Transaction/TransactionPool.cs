@@ -934,6 +934,10 @@ namespace DLT
             lock (stateLock)
             {
                 appliedTransactions.Add(txid, null);
+                if (unappliedTransactions.ContainsKey(txid))
+                {
+                    unappliedTransactions.Remove(txid);
+                }
             }
         }
 
@@ -953,7 +957,7 @@ namespace DLT
             lock (stateLock)
             {
                 // Search for duplicates
-                if ((transaction.blockHeight <= Node.blockChain.getLastBlockNum() && appliedTransactions.ContainsKey(transaction.id))
+                if ((transaction.blockHeight <= Node.blockChain.getLastBlockNum() + 1 && appliedTransactions.ContainsKey(transaction.id))
                     || unappliedTransactions.ContainsKey(transaction.id))
                 {
                     // Logging.warn("Duplicate transaction {0}: already exists in the Transaction Pool.", transaction.getTxIdString());

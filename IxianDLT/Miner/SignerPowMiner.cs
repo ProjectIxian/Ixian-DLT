@@ -43,7 +43,6 @@ namespace DLT
         bool blockReadyForMining = false;
 
         [ThreadStatic] private static IxianKeyPair activeKeyPair = null;
-        [ThreadStatic] private static byte[] activePubKeyHash = null;
         [ThreadStatic] private static byte[] activeBlockChallenge = null;
         [ThreadStatic] private static ulong activeBlockChallengeBlockNum = 0;
 
@@ -302,10 +301,18 @@ namespace DLT
 
                 byte[] recipientAddress = IxianHandler.primaryWalletAddress.addressNoChecksum;
                 activeKeyPair = currentKeyPair;
-                activePubKeyHash = CryptoManager.lib.sha3_512sq(currentKeyPair.publicKeyBytes);
+                byte[] activePubKeyHash;
+                if (activeKeyPair.publicKeyBytes.Length > 64)
+                {
+                    activePubKeyHash = CryptoManager.lib.sha3_512sq(activeKeyPair.publicKeyBytes);
+                }
+                else
+                {
+                    activePubKeyHash = activeKeyPair.publicKeyBytes;
+                }
                 activeBlockChallengeBlockNum = currentBlockNum;
-                activeBlockChallenge = new byte[blockNumBytes.Length + blockChecksum.Length + recipientAddress.Length + activePubKeyHash.Length + 64];
 
+                activeBlockChallenge = new byte[blockNumBytes.Length + blockChecksum.Length + recipientAddress.Length + activePubKeyHash.Length + 64];
                 System.Buffer.BlockCopy(blockNumBytes, 0, activeBlockChallenge, 0, blockNumBytes.Length);
                 System.Buffer.BlockCopy(blockChecksum, 0, activeBlockChallenge, blockNumBytes.Length, blockChecksum.Length);
                 System.Buffer.BlockCopy(recipientAddress, 0, activeBlockChallenge, blockNumBytes.Length + blockChecksum.Length, recipientAddress.Length);
