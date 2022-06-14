@@ -1913,7 +1913,10 @@ namespace DLT
                         var sig = targetBlock.getSignature(toEntry.Key);
                         if (sig == null || sig.recipientPubKeyOrAddress.pubKey == null)
                         {
-                            throw new Exception("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                            Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                            targetBlock.signatures.Remove(sig);
+                            failed_transactions.Add(tx);
+                            return true;
                         }
                         // Set the WS public key
                         Node.walletState.setWalletPublicKey(toEntry.Key, sig.recipientPubKeyOrAddress.pubKey);

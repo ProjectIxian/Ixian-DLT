@@ -2119,9 +2119,16 @@ namespace DLT
                                 localNewBlock = null;
                                 forkedFlag = false;
 
-                                if (Config.blockNotifyCommand != "")
+                                try
                                 {
-                                    IxiUtils.executeProcess(Config.blockNotifyCommand, current_block.blockNum.ToString(), false);
+                                    if (Config.blockNotifyCommand != "")
+                                    {
+                                        IxiUtils.executeProcess(Config.blockNotifyCommand, current_block.blockNum.ToString(), false);
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    Logging.error("Exception occurred in BlockProcessor:acceptLocalNewBlock: " + e);
                                 }
 
                                 pendingSuperBlocks.Remove(current_block.blockNum);
