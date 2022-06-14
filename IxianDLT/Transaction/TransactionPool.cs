@@ -1914,7 +1914,10 @@ namespace DLT
                         if (sig == null || sig.recipientPubKeyOrAddress.pubKey == null)
                         {
                             Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
-                            targetBlock.signatures.Remove(sig);
+                            if (sig != null)
+                            {
+                                targetBlock.signatures.Remove(sig);
+                            }
                             failed_transactions.Add(tx);
                             return true;
                         }
