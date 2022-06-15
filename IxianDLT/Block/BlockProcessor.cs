@@ -1474,6 +1474,7 @@ namespace DLT
                     {
                         localNewBlock = b;
                         currentBlockStartTime = DateTime.UtcNow;
+                        lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
                         firstBlockAfterSync = false;
                         acceptLocalNewBlock();
                     }
