@@ -164,7 +164,7 @@ namespace DLT
                         int block_version = Node.blockChain.getLastBlockVersion();
 
                         if (block_version < Config.maxBlockVersionToGenerate
-                            && last_block_num + 1 % ConsensusConfig.superblockInterval == 0)
+                            && (last_block_num + 1) % ConsensusConfig.superblockInterval == 0)
                         {
                             block_version = Config.maxBlockVersionToGenerate;
                         }
@@ -753,7 +753,21 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true, RemoteEndpoint endpoint = null)
         {
-            if(b.version > Block.maxVersion)
+            // TODO omega remove bottom if section after v10 upgrade
+            if (!IxianHandler.isTestNet)
+            {
+                // upgrade to v10 at exactly block 2340000
+                if (b.blockNum < 2340000 && b.version >= BlockVer.v9)
+                {
+                    return BlockVerifyStatus.Invalid;
+                }
+                if (b.blockNum >= 2340000 && b.version < BlockVer.v10)
+                {
+                    return BlockVerifyStatus.Invalid;
+                }
+            }
+
+            if (b.version > Block.maxVersion)
             {
                 Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
                 networkUpgraded = true;
@@ -2983,6 +2997,12 @@ namespace DLT
                         // genesis block
                         localNewBlock.blockNum = 1;
                         localNewBlock.lastBlockChecksum = null;
+                    }
+
+                    // TODO omega remove section after v10 upgrade
+                    if (localNewBlock.blockNum >= 2340000)
+                    {
+                        block_version = BlockVer.v10;
                     }
 
                     localNewBlock.version = block_version;
