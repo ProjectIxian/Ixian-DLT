@@ -757,7 +757,7 @@ namespace DLT
             if (!IxianHandler.isTestNet)
             {
                 // upgrade to v10 at exactly block 2340000
-                if (b.blockNum < 2340000 && b.version >= BlockVer.v9)
+                if (b.blockNum < 2340000 && b.version >= BlockVer.v10)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
