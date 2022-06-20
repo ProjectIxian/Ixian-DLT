@@ -2373,7 +2373,7 @@ namespace DLT
             {
                 ulong blockNum = blockSolutionsDictionary.Keys.ElementAt(i);
 
-                Block block = Node.blockChain.getBlock(blockNum);
+                Block block = Node.blockChain.getBlock(blockNum, true, true);
                 // Check if the block is valid
                 if (block == null)
                 {
@@ -2484,7 +2484,7 @@ namespace DLT
             {
                 ulong powBlockNum = targetBlockSolutionsDictionary.Keys.ElementAt(i);
 
-                Block powBlock = Node.blockChain.getBlock(powBlockNum);
+                Block powBlock = Node.blockChain.getBlock(powBlockNum, true, true);
                 // Check if the block is valid
                 if (powBlock == null)
                 {
@@ -2521,7 +2521,7 @@ namespace DLT
             {
                 ulong blockNum = blockSolutionsDictionary.Keys.ElementAt(i);
 
-                Block block = Node.blockChain.getBlock(blockNum);
+                Block block = Node.blockChain.getBlock(blockNum, true, true);
                 // Check if the block is valid
                 if (block == null)
                 {

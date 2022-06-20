@@ -874,6 +874,11 @@ namespace DLT
         public void updateBlock(Block block, bool update_storage = true)
         {
             // TODO TODO Omega prevent updating block older than sigfreezed block
+            if (block.compacted)
+            {
+                throw new Exception("Can't update a compacted block #" + block.blockNum);
+            }
+
             bool compacted = false;
             bool compacted_sigs = false;
 
