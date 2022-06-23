@@ -1413,10 +1413,10 @@ namespace DLT
                     {
                         Logging.info("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count());
                         List<BlockSignature> added_signatures = localNewBlock.addSignaturesFrom(b, false);
-                        if (added_signatures != null || localNewBlock.getSignatureCount() >= Node.blockChain.getRequiredConsensus())
+                        if (added_signatures != null || localNewBlock.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus())
                         {
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
-                            Logging.info("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount());
+                            Logging.info("Block #{0}: Number of signatures increased, re-transmitting. (total signatures: {1}).", b.blockNum, localNewBlock.getFrozenSignatureCount());
 
                             if (added_signatures != null)
                             {
@@ -1444,14 +1444,14 @@ namespace DLT
                         {
                             if (!Node.isMasterNode())
                                 return;
-                            Logging.info("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getSignatureCount());
+                            Logging.info("Block #{0}: Received block has less signatures, re-transmitting local block. (total signatures: {1}).", b.blockNum, localNewBlock.getFrozenSignatureCount());
                             BlockProtocolMessages.broadcastNewBlock(localNewBlock, null, endpoint);
                         }
                     }
                     else
                     {
-                        int blockSigCount = b.getSignatureCount();
-                        int localBlockSigCount = localNewBlock.getSignatureCount();
+                        int blockSigCount = b.getFrozenSignatureCount();
+                        int localBlockSigCount = localNewBlock.getFrozenSignatureCount();
                         if(b.blockNum == localNewBlock.blockNum)
                         {
                             bool hasNodeSig = hasElectedNodeSignature(b);
@@ -1483,7 +1483,7 @@ namespace DLT
                 {
                     bool hasNodeSig = hasElectedNodeSignature(b);
                     if (hasNodeSig
-                        || b.getSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO Omega think about /2 thing
+                        || b.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO Omega think about /2 thing
                         || firstBlockAfterSync)
                     {
                         localNewBlock = b;
@@ -3893,7 +3893,7 @@ namespace DLT
                     Wallet signerWallet = Node.walletState.getWallet(signerAddress);
                     if (signerWallet.publicKey == null)
                     {
-                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                        Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry for address: " + sig.ToString());
                         sigsToRemove.Add(sig);
                         continue;
                     }

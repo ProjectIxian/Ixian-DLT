@@ -1913,10 +1913,21 @@ namespace DLT
                         var sig = targetBlock.getSignature(toEntry.Key);
                         if (sig == null || sig.recipientPubKeyOrAddress.pubKey == null)
                         {
-                            Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry");
+                            Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry for address: " + sig.ToString());
                             if (sig != null)
                             {
-                                targetBlock.signatures.Remove(sig);
+                                try
+                                {
+                                    targetBlock.signatures.Remove(sig);
+                                    if (targetBlock.frozenSignatures != null)
+                                    {
+                                        targetBlock.frozenSignatures.Remove(sig);
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    Logging.warn("Exception occurred in applyStakingTransaction() " + e);
+                                }
                             }
                             failed_transactions.Add(tx);
                             return true;

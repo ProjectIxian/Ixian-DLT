@@ -719,7 +719,7 @@ namespace DLT
                         }
 
 
-                        if(Clock.getTimestamp() - lastProcessedBlockTime > ConsensusConfig.blockGenerationInterval * 2 || b.getSignatureCount() == 0)
+                        if(Clock.getTimestamp() - lastProcessedBlockTime > ConsensusConfig.blockGenerationInterval * 2 || b.getFrozenSignatureCount() == 0)
                         {
                             Logging.info("Sync: Discarding indeterminate block #{0}, due to timeout or signature count == 0...", b.blockNum);
                             Node.blockProcessor.blacklistBlock(b);
