@@ -1910,30 +1910,30 @@ namespace DLT
                 {
                     if (staking_wallet.publicKey == null)
                     {
-                        var sig = targetBlock.getSignature(toEntry.Key);
-                        if (sig == null || sig.recipientPubKeyOrAddress.pubKey == null)
+                        try
                         {
-                            Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry for address: " + sig.ToString());
-                            if (sig != null)
+                            var sig = targetBlock.getSignature(toEntry.Key);
+                            if (sig == null || sig.recipientPubKeyOrAddress.pubKey == null)
                             {
-                                try
+                                Logging.error("Signer wallet's pubKey entry is null, expecting a non-null entry for address: " + toEntry.Key.ToString());
+                                if (sig != null)
                                 {
                                     targetBlock.signatures.Remove(sig);
-                                    if (targetBlock.frozenSignatures != null)
-                                    {
-                                        targetBlock.frozenSignatures.Remove(sig);
-                                    }
                                 }
-                                catch (Exception e)
-                                {
-                                    Logging.warn("Exception occurred in applyStakingTransaction() " + e);
-                                }
+                                targetBlock.setFrozenSignatures(null);
+                                failed_transactions.Add(tx);
+                                return true;
                             }
+                            // Set the WS public key
+                            Node.walletState.setWalletPublicKey(toEntry.Key, sig.recipientPubKeyOrAddress.pubKey);
+                        }
+                        catch (Exception e)
+                        {
+                            Logging.warn("Exception occurred in applyStakingTransaction() " + e);
+                            targetBlock.setFrozenSignatures(null);
                             failed_transactions.Add(tx);
                             return true;
                         }
-                        // Set the WS public key
-                        Node.walletState.setWalletPublicKey(toEntry.Key, sig.recipientPubKeyOrAddress.pubKey);
                     }
                 }
 
