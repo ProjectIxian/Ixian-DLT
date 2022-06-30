@@ -30,131 +30,6 @@ namespace DLT
         {
             // Handle the getBlockTransactions message
             // This is called from NetworkProtocol
-            public static void handleGetBlockTransactions(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
-            {
-                //Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
-
-                // Get the requested block and corresponding transactions
-                bool applied_block = true;
-                Block b = null;
-                List<byte[]> txIdArr = null;
-
-                bool haveLock = false;
-                if (blockNum == IxianHandler.getLastBlockHeight() + 1)
-                {
-                    try
-                    {
-                        Monitor.TryEnter(Node.blockProcessor.localBlockLock, 1000, ref haveLock);
-                        if (!haveLock)
-                        {
-                            throw new TimeoutException();
-                        }
-
-                        Block tmp = Node.blockProcessor.getLocalBlock();
-                        if (tmp != null && tmp.blockNum == blockNum)
-                        {
-                            applied_block = false;
-                            b = tmp;
-                        }
-                    }
-                    finally
-                    {
-                        if (haveLock)
-                        {
-                            Monitor.Exit(Node.blockProcessor.localBlockLock);
-                        }
-                    }
-                }
-
-                if(b == null)
-                {
-                    b = Node.blockChain.getBlock(blockNum, Config.storeFullHistory);
-                }
-
-                if(b == null)
-                {
-                    Logging.warn("Unable to find block #{0} in the chain when getting block transactions!", blockNum);
-                    return;
-                }
-
-                txIdArr = new List<byte[]>(b.transactions);
-
-                if (txIdArr == null)
-                    return;
-
-                int tx_count = txIdArr.Count();
-
-                if (tx_count == 0)
-                    return;
-
-                // Go through each chunk
-                for (int i = 0; i < tx_count;)
-                {
-                    using (MemoryStream mOut = new MemoryStream(4096))
-                    {
-                        int txs_in_chunk = 0;
-                        using (BinaryWriter writer = new BinaryWriter(mOut))
-                        {
-                            // Generate a chunk of transactions
-                            for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; j++)
-                            {
-                                if (!requestAllTransactions)
-                                {
-                                    if (txIdArr[i][0] == 0) // stk
-                                    {
-                                        i++;
-                                        continue;
-                                    }
-                                }
-                                Transaction tx;
-                                if(applied_block)
-                                {
-                                    tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
-                                }else
-                                {
-                                    tx = TransactionPool.getUnappliedTransaction(txIdArr[i]);
-                                    if (tx == null)
-                                    {
-                                        tx = TransactionPool.getAppliedTransaction(txIdArr[i], blockNum, true);
-                                        if (tx != null)
-                                        {
-                                            applied_block = true;
-                                        }
-                                    }
-                                }
-                                i++;
-                                if (tx != null)
-                                {
-                                    byte[] txBytes = tx.getBytes();
-
-                                    long rollback_len = mOut.Length;
-                                    writer.Write(txBytes.Length);
-                                    writer.Write(txBytes);
-                                    if (mOut.Length > CoreConfig.maxMessageSize)
-                                    {
-                                        mOut.SetLength(rollback_len);
-                                        i--;
-                                        break;
-                                    }
-                                    txs_in_chunk++;
-                                }
-                            }
-
-#if TRACE_MEMSTREAM_SIZES
-                            Logging.info(String.Format("NetworkProtocol::handleGetBlockTransactions: {0}", mOut.Length));
-#endif
-                        }
-                        if (txs_in_chunk > 0)
-                        {
-                            // Send a chunk
-                            endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
-                        }
-                    }
-                }
-            }
-
-            // Handle the getBlockTransactions message
-            // This is called from NetworkProtocol
             public static void handleGetBlockTransactions2(ulong blockNum, bool requestAllTransactions, RemoteEndpoint endpoint)
             {
                 //Logging.info(String.Format("Received request for transactions in block {0}.", blockNum));
@@ -723,13 +598,14 @@ namespace DLT
                             // Generate a chunk of transactions
                             for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; j++)
                             {
-                                byte[] txBytes = txIdArr[i].getBytes();
+                                byte[] txBytes = txIdArr[i].getBytes(true, false);
 
                                 i++;
 
                                 long rollback_len = mOut.Length;
 
-                                writer.Write(txBytes.Length);
+                                byte[] txLen = IxiVarInt.GetIxiVarIntBytes(txBytes.Length);
+                                writer.Write(txLen);
                                 writer.Write(txBytes);
 
                                 if (mOut.Length > CoreConfig.maxMessageSize)
@@ -745,7 +621,7 @@ namespace DLT
                         Logging.info(String.Format("NetworkProtocol::handleGetUnappliedTransactions: {0}", mOut.Length));
 #endif
                         }
-                        endpoint.sendData(ProtocolMessageCode.blockTransactionsChunk, mOut.ToArray());
+                        endpoint.sendData(ProtocolMessageCode.transactionsChunk2, mOut.ToArray());
                     }
                 }
             }

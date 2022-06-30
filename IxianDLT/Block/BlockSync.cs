@@ -28,7 +28,7 @@ namespace DLT
         List<Block> pendingBlocks = new List<Block>();
         List<ulong> missingBlocks = null;
         ulong lastMissingBlock = 0;
-        
+
         public ulong pendingWsBlockNum { get; private set; }
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
         int wsSyncCount = 0;
@@ -96,14 +96,14 @@ namespace DLT
                     continue;
                 }
 
-            //    Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
-              //      pendingBlocks.Count, pendingWsChunks.Count));
+                //    Logging.info(String.Format("BlockSync: {0} blocks received, {1} walletstate chunks pending.",
+                //      pendingBlocks.Count, pendingWsChunks.Count));
                 if (!CoreConfig.preventNetworkOperations && !Config.storeFullHistory && !Config.recoverFromFile && wsSyncConfirmedBlockNum == 0)
                 {
                     Thread.Sleep(1000);
                     continue;
                 }
-                if(CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
+                if (CoreConfig.preventNetworkOperations || Config.storeFullHistory || Config.recoverFromFile || (wsSyncConfirmedBlockNum > 0 && wsSynced))
                 {
                     // Proceed with rolling forward the chain
                     try
@@ -114,7 +114,8 @@ namespace DLT
                         {
                             Thread.Sleep(100);
                         }
-                    }catch(Exception e)
+                    }
+                    catch (Exception e)
                     {
                         Logging.error("Exception caught in rollForwardLoop: " + e);
                         Thread.Sleep(100);
@@ -201,7 +202,7 @@ namespace DLT
                 Dictionary<ulong, long> tmpRequestedBlockTimes = new Dictionary<ulong, long>(requestedBlockTimes);
                 foreach (var entry in tmpRequestedBlockTimes)
                 {
-                    if(!running)
+                    if (!running)
                     {
                         return false;
                     }
@@ -251,8 +252,14 @@ namespace DLT
                     return false;
                 }
 
+                if (pendingBlocks.Count() > maxBlockRequests * 2)
+                {
+                    return false;
+                }
+
                 tmpMissingBlocks = new List<ulong>(missingBlocks.Take(maxBlockRequests * 2));
             }
+
             foreach (ulong blockNum in tmpMissingBlocks)
             {
                 if (!running)
@@ -276,7 +283,7 @@ namespace DLT
                 }
 
                 ulong last_block_height = IxianHandler.getLastBlockHeight();
-                if (blockNum > last_block_height  + (ulong)maxBlockRequests)
+                if (blockNum > last_block_height + (ulong)maxBlockRequests)
                 {
                     if (last_block_height > 0 || (last_block_height == 0 && total_count > 10))
                     {
@@ -300,7 +307,7 @@ namespace DLT
                         if (!lastBlocks.Exists(x => x.blockNum == blockNum))
                         {
                             lastBlocks.Add(new Block(block));
-                            if(lastBlocks.Count > maxBlockRequests * 2)
+                            if (lastBlocks.Count > maxBlockRequests * 2)
                             {
                                 lastBlocks.RemoveAt(0);
                             }
@@ -327,7 +334,10 @@ namespace DLT
                         // Set the block request time
                         lock (requestedBlockTimes)
                         {
-                            requestedBlockTimes.Add(blockNum, currentTime);
+                            if (!requestedBlockTimes.ContainsKey(blockNum))
+                            {
+                                requestedBlockTimes.Add(blockNum, currentTime);
+                            }
                         }
                     }
                 }
@@ -382,7 +392,7 @@ namespace DLT
         {
             ulong lowestBlockNum = 1;
 
-            if(Config.fullStorageDataVerification)
+            if (Config.fullStorageDataVerification)
             {
                 return lowestBlockNum;
             }
@@ -400,7 +410,7 @@ namespace DLT
         {
             lock (pendingBlocks)
             {
-                if(lastProcessedBlockNum == blockNum)
+                if (lastProcessedBlockNum == blockNum)
                 {
                     lastProcessedBlockTime = Clock.getTimestamp();
                 }
@@ -410,12 +420,15 @@ namespace DLT
                     if (!missingBlocks.Contains(blockNum))
                     {
                         Logging.info(String.Format("Requesting missing block #{0} again.", blockNum));
-                        missingBlocks.Add(blockNum);
-                        missingBlocks.Sort();
+                        //missingBlocks.Add(blockNum);
+                        //missingBlocks.Sort();
 
-                        lock(requestedBlockTimes)
+                        lock (requestedBlockTimes)
                         {
-                            requestedBlockTimes.Add(blockNum, Clock.getTimestamp() - 10);
+                            if (!requestedBlockTimes.ContainsKey(blockNum))
+                            {
+                                requestedBlockTimes.Add(blockNum, Clock.getTimestamp() - 10);
+                            }
                         }
                         return true;
                     }
@@ -469,7 +482,7 @@ namespace DLT
 
             foreach (var tx in txs)
             {
-                if(tx.type != (int)Transaction.Type.PoWSolution)
+                if (tx.type != (int)Transaction.Type.PoWSolution)
                 {
                     Logging.error("Sync error, received a non-PoWSolution transaction from storage.");
                     continue;
@@ -548,13 +561,14 @@ namespace DLT
                     }
                 }
                 b = new Block(b);
-                if(Node.blockChain.Count == 0 && b.blockNum > 1)
+                if (Node.blockChain.Count == 0 && b.blockNum > 1)
                 {
                     Block tmp_b = Node.blockChain.getBlock(b.blockNum - 1, true, true);
-                    if(tmp_b != null)
+                    if (tmp_b != null)
                     {
                         Node.blockChain.setLastBlockVersion(tmp_b.version);
-                    }else
+                    }
+                    else
                     {
                         Node.blockChain.setLastBlockVersion(b.version);
                     }
@@ -570,7 +584,8 @@ namespace DLT
                     Node.blockProcessor.networkUpgraded = true;
                     sleep = true;
                     break;
-                }else
+                }
+                else
                 {
                     Node.blockProcessor.networkUpgraded = false;
                 }
@@ -663,7 +678,7 @@ namespace DLT
                             {
                                 foreach (Transaction t2 in txs)
                                 {
-                                    if(txid.SequenceEqual(t2.id))
+                                    if (txid.SequenceEqual(t2.id))
                                     {
                                         t = t2;
                                         found_txs++;
@@ -671,7 +686,7 @@ namespace DLT
                                     }
                                 }
 
-                                if(t == null)
+                                if (t == null)
                                 {
                                     t = Node.storage.getTransaction(txid, b.blockNum);
                                     missed_txs++;
@@ -705,21 +720,22 @@ namespace DLT
                     if (b.blockNum > wsSyncConfirmedBlockNum || b.fromLocalStorage == false || Config.fullStorageDataVerification)
                     {
                         b_status = Node.blockProcessor.verifyBlock(b, ignoreWalletState);
-                    }else
+                    }
+                    else
                     {
                         b_status = Node.blockProcessor.verifyBlockBasic(b, false);
                     }
 
                     if (b_status == BlockVerifyStatus.Indeterminate)
                     {
-                        if(lastProcessedBlockNum < b.blockNum)
+                        if (lastProcessedBlockNum < b.blockNum)
                         {
                             lastProcessedBlockNum = b.blockNum;
                             lastProcessedBlockTime = Clock.getTimestamp();
                         }
 
 
-                        if(Clock.getTimestamp() - lastProcessedBlockTime > ConsensusConfig.blockGenerationInterval * 2 || b.getFrozenSignatureCount() == 0)
+                        if (Clock.getTimestamp() - lastProcessedBlockTime > ConsensusConfig.blockGenerationInterval * 2 || b.getFrozenSignatureCount() == 0)
                         {
                             Logging.info("Sync: Discarding indeterminate block #{0}, due to timeout or signature count == 0...", b.blockNum);
                             Node.blockProcessor.blacklistBlock(b);
@@ -776,11 +792,12 @@ namespace DLT
                             {
                                 applied = Node.blockProcessor.applyAcceptedBlock(b);
 
-                                if(applied)
+                                if (applied)
                                 {
                                     Node.walletState.commitTransaction(b.blockNum);
                                 }
-                            }catch(Exception e)
+                            }
+                            catch (Exception e)
                             {
                                 Logging.error("Error occurred during block sync, while applying/commiting transactions: " + e);
                             }
@@ -878,10 +895,10 @@ namespace DLT
                     }
                     else if (Node.blockChain.Count > 5 && !sigFreezeCheck)
                     {
-                        if(CoreConfig.preventNetworkOperations || Config.recoverFromFile)
+                        if (CoreConfig.preventNetworkOperations || Config.recoverFromFile)
                         {
                             var last_block = lastBlocks.Find(x => x.blockNum == b.blockNum - 5);
-                            if(last_block != null)
+                            if (last_block != null)
                             {
                                 lock (pendingBlocks)
                                 {
@@ -904,9 +921,9 @@ namespace DLT
                 {
                     Logging.error("Exception occurred while syncing block #{0}: {1}", b.blockNum, e);
                 }
-                if(Config.enableChainReorgTest)
+                if (Config.enableChainReorgTest)
                 {
-                    if(!Node.blockProcessor.chainReorgTest(b.blockNum))
+                    if (!Node.blockProcessor.chainReorgTest(b.blockNum))
                     {
                         lock (pendingBlocks)
                         {
@@ -926,7 +943,7 @@ namespace DLT
 
             if (!sleep && Node.blockChain.getLastBlockNum() + 1 >= syncToBlock)
             {
-                if(verifyLastBlock())
+                if (verifyLastBlock())
                 {
                     sleep = false;
                 }
@@ -935,8 +952,8 @@ namespace DLT
                     sleep = true;
                 }
             }
-            
-            if(sleep)
+
+            if (sleep)
             {
                 Thread.Sleep(500);
             }
@@ -953,7 +970,7 @@ namespace DLT
 
             Random r = new Random();
             syncNeighbor = all_neighbors.ElementAt(r.Next(all_neighbors.Count));
-            Logging.info(String.Format("Starting wallet state synchronization from {0}", syncNeighbor));       
+            Logging.info(String.Format("Starting wallet state synchronization from {0}", syncNeighbor));
             WalletStateProtocolMessages.syncWalletStateNeighbor(syncNeighbor);
         }
 
@@ -983,7 +1000,7 @@ namespace DLT
         private void stopSyncStartBlockProcessing()
         {
 
-            if(CoreConfig.preventNetworkOperations)
+            if (CoreConfig.preventNetworkOperations)
             {
                 Logging.info("Data verification successfully completed.");
 
@@ -1039,13 +1056,13 @@ namespace DLT
         // Request missing walletstate chunks from network
         private void requestWalletChunks()
         {
-            lock(missingWsChunks)
+            lock (missingWsChunks)
             {
                 int count = 0;
-                foreach(int c in missingWsChunks)
+                foreach (int c in missingWsChunks)
                 {
                     bool request_sent = WalletStateProtocolMessages.getWalletStateChunkNeighbor(syncNeighbor, c);
-                    if(request_sent == false)
+                    if (request_sent == false)
                     {
                         Logging.warn(String.Format("Failed to request wallet chunk from {0}. Restarting WalletState synchronization.", syncNeighbor));
                         startWalletStateSync();
@@ -1136,14 +1153,14 @@ namespace DLT
 
         public void onWalletChunkReceived(WsChunk chunk)
         {
-            if(synchronizing == false)
+            if (synchronizing == false)
             {
                 Logging.warn("Received WalletState chunk, but we are not synchronizing!");
                 return;
             }
-            lock(missingWsChunks)
+            lock (missingWsChunks)
             {
-                if(missingWsChunks.Contains(chunk.chunkNum))
+                if (missingWsChunks.Contains(chunk.chunkNum))
                 {
                     pendingWsChunks.Add(chunk);
                     missingWsChunks.Remove(chunk.chunkNum);
@@ -1190,7 +1207,7 @@ namespace DLT
                 }
             }
         }
-        
+
         public void startSync()
         {
             // clear out current state
@@ -1208,17 +1225,17 @@ namespace DLT
 
         public void onWalletStateHeader(ulong ws_block, long ws_count)
         {
-            if(synchronizing == true && wsSyncConfirmedBlockNum == 0)
+            if (synchronizing == true && wsSyncConfirmedBlockNum == 0)
             {
                 // If we reach this point, it means it started synchronization from network
                 noNetworkSynchronization = false;
 
                 long chunks = ws_count / CoreConfig.walletStateChunkSplit;
-                if(ws_count % CoreConfig.walletStateChunkSplit > 0)
+                if (ws_count % CoreConfig.walletStateChunkSplit > 0)
                 {
                     chunks += 1;
                 }
-                Logging.info(String.Format("WalletState Starting block: #{0}. Wallets: {1} ({2} chunks)", 
+                Logging.info(String.Format("WalletState Starting block: #{0}. Wallets: {1} ({2} chunks)",
                     ws_block, ws_count, chunks));
                 wsSyncConfirmedBlockNum = ws_block;
                 lock (missingWsChunks)
@@ -1241,7 +1258,7 @@ namespace DLT
             Logging.info("\t|- Block Height:\t\t#{0}", block_height);
             Logging.info("\t|- Block Checksum:\t\t{0}", Crypto.hashToString(block_checksum));
 
-            if(block_height < 2)
+            if (block_height < 2)
             {
                 block_height = 2;
             }
@@ -1249,7 +1266,7 @@ namespace DLT
             if (synchronizing)
             {
                 Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
-                if(Node.blockProcessor.highestNetworkBlockNum > 0)
+                if (Node.blockProcessor.highestNetworkBlockNum > 0)
                 {
                     block_height = Node.blockProcessor.highestNetworkBlockNum;
                 }
@@ -1286,7 +1303,8 @@ namespace DLT
                     noNetworkSynchronization = false;
                     determineSyncTargetBlockNum();
                 }
-            } else
+            }
+            else
             {
                 if (Node.blockProcessor.operating == false && syncDone == false)
                 {
@@ -1317,7 +1335,7 @@ namespace DLT
                     }
                     else if (Config.storeFullHistory)
                     {
-                        if(!from_network)
+                        if (!from_network)
                         {
                             Block b = Node.blockChain.getBlock(block_height, true, true);
                             if (b != null)
@@ -1343,11 +1361,13 @@ namespace DLT
                     if (Config.recoverFromFile || Config.noNetworkSync || CoreConfig.preventNetworkOperations)
                     {
                         noNetworkSynchronization = false;
-                    }else
+                    }
+                    else
                     {
                         noNetworkSynchronization = true;
                     }
-                }else
+                }
+                else
                 {
                     Node.blockProcessor.highestNetworkBlockNum = Node.blockProcessor.determineHighestNetworkBlockNum();
                 }
