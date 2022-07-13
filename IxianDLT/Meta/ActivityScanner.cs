@@ -69,8 +69,13 @@ namespace DLTNode.Meta
                 {
                     // Go through each block in storage
                     IEnumerable<Transaction> txs = Node.storage.getTransactionsInBlock(lastBlockNum);
+                    Block b = IxianHandler.getBlockHeader(lastBlockNum);
                     foreach (Transaction tx in txs)
                     {
+                        if (tx.timeStamp == 0)
+                        {
+                            tx.timeStamp = b.timestamp;
+                        }
                         TransactionPool.addTransactionToActivityStorage(tx);
                     }
 

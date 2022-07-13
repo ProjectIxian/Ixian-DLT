@@ -656,7 +656,7 @@ namespace DLT
             return true;
         }
 
-        public static bool setAppliedFlag(byte[] txid, ulong blockNum, bool add_to_storage = true)
+        public static bool setAppliedFlag(byte[] txid, ulong blockNum, long blockTimestamp, bool add_to_storage = true)
         {
             lock (stateLock)
             {
@@ -678,7 +678,12 @@ namespace DLT
                     {
                         if (IxianHandler.isMyAddress(t.pubKey) || IxianHandler.extractMyAddressesFromAddressList(t.toList) != null)
                         {
-                            ActivityStorage.updateStatus(t.id, ActivityStatus.Final, t.applied);
+                            long txTimestamp = 0;
+                            if (blockTimestamp < t.timeStamp || t.timeStamp == 0)
+                            {
+                                txTimestamp = blockTimestamp;
+                            }
+                            ActivityStorage.updateStatus(t.id, ActivityStatus.Final, t.applied, txTimestamp);
                         }
                     }
 
@@ -966,6 +971,10 @@ namespace DLT
                 unappliedTransactions.Add(transaction.id, transaction);
                 if (!transaction.fromLocalStorage)
                 {
+                    if (transaction.timeStamp == 0)
+                    {
+                        transaction.timeStamp = Clock.getTimestamp();
+                    }
                     addTransactionToActivityStorage(transaction);
                 }
             }
@@ -1324,7 +1333,7 @@ namespace DLT
                         return false;
                     }
                     applyPowTransaction(tx, b, blockSolutionsDictionary, null);
-                    setAppliedFlag(txid, b.blockNum, !tx.fromLocalStorage);
+                    setAppliedFlag(txid, b.blockNum, b.timestamp, !tx.fromLocalStorage);
                 }
                 // set PoW fields
                 for (int i = 0; i < blockSolutionsDictionary.Count; i++)
@@ -1673,7 +1682,7 @@ namespace DLT
                             Logging.error(string.Format("Block #{0} has unapplied transactions, rejecting the block.", block.blockNum));
                             return false;
                         }
-                        setAppliedFlag(tx.id, block.blockNum);
+                        setAppliedFlag(tx.id, block.blockNum, block.timestamp);
                     }
                 }
 
