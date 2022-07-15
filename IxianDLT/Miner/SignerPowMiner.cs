@@ -67,6 +67,10 @@ namespace DLT
 
             // Calculate the allowed number of threads based on logical processor count
             uint miningThreads = calculateMiningThreadsCount();
+            if (IxianHandler.isTestNet)
+            {
+                miningThreads = 1;
+            }
             Logging.info("Starting Presence List miner with {0} threads on {1} logical processors.", miningThreads, Environment.ProcessorCount);
 
             shouldStop = false;

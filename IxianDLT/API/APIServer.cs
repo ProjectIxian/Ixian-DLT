@@ -1012,6 +1012,10 @@ namespace DLTNode
             {
                 searchMode = BlockSearchMode.random;
             }
+            else if (algo == (int)BlockSearchMode.reset)
+            {
+                searchMode = BlockSearchMode.reset;
+            }
             else
             {
                 return new JsonResponse { result = null, error = new JsonError() { code = (int)RPCErrorCode.RPC_INVALID_PARAMS, message = "Invalid algorithm was specified" } };

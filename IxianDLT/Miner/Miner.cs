@@ -26,6 +26,7 @@ namespace DLT
 {
     public enum BlockSearchMode
     {
+        reset = -1,
         lowestDifficulty,
         randomLowestDifficulty,
         latestBlock,
@@ -274,9 +275,22 @@ namespace DLT
 
             lock (activePoolBlockLock)
             {
+                if (searchMode == BlockSearchMode.reset)
+                {
+                    activePoolBlock = null;
+                    return null;
+                }
+
                 if (activePoolBlock != null)
                 {
-                    return activePoolBlock;
+                    if (searchMode == BlockSearchMode.latestBlock
+                        && activePoolBlock.blockNum < IxianHandler.getLastBlockHeight())
+                    {
+                        activePoolBlock = null;
+                    } else
+                    {
+                        return activePoolBlock;
+                    }
                 }
             }
 
@@ -316,6 +330,11 @@ namespace DLT
             // Go through each block in the list
             foreach (Block block in blockList)
             {
+                if (block.difficulty == ulong.MaxValue)
+                {
+                    continue;
+                }
+
                 if (block.powField == null)
                 {
                     ulong solved = 0;
