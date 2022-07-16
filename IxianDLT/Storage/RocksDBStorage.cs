@@ -89,7 +89,7 @@ namespace DLT
                     else
                     {
                         indexMap.Add(key, new List<byte[]>());
-                        indexMap[key].Add(new byte[] { 1 }); // diry marker
+                        indexMap[key].Add(new byte[] { 1 }); // dirty marker
                     }
                 }
 
@@ -918,7 +918,6 @@ namespace DLT
             private readonly Dictionary<ulong, RocksDBInternal> openDatabases = new Dictionary<ulong, RocksDBInternal>();
             public uint closeAfterSeconds = 60;
             public uint oldDBCleanupPeriod = 600;
-            public ulong maxBlocksPerDB = 10000;
 
             // Runtime stuff
             private ulong writeBufferSize = 0;
@@ -929,8 +928,8 @@ namespace DLT
 
             private RocksDBInternal getDatabase(ulong blockNum, bool onlyExisting = false)
             {
-                // open or create the db which should contain blockNum
-                ulong baseBlockNum = blockNum / maxBlocksPerDB;
+                // Open or create the db which should contain blockNum
+                ulong baseBlockNum = blockNum / Config.maxBlocksPerDatabase;
                 //Logging.info("RocksDB: Getting database for block {0} (Database: {1}).", blockNum, baseBlockNum);
                 RocksDBInternal db = null;
                 lock (openDatabases)
@@ -951,8 +950,8 @@ namespace DLT
                                 return null;
                             }
                         }
-                        //
-                        Logging.info("RocksDB: Opening a database for blocks {0} - {1}.", baseBlockNum * maxBlocksPerDB, (baseBlockNum * maxBlocksPerDB) + maxBlocksPerDB - 1);
+                        
+                        Logging.info("RocksDB: Opening a database for blocks {0} - {1}.", baseBlockNum * Config.maxBlocksPerDatabase, (baseBlockNum * Config.maxBlocksPerDatabase) + Config.maxBlocksPerDatabase - 1);
                         db = new RocksDBInternal(db_path, commonBlockCache, commonCompressedBlockCache, writeBufferSize);
                         openDatabases.Add(baseBlockNum, db);
                     }
@@ -965,32 +964,11 @@ namespace DLT
                 return db;
             }
 
-            private ulong getPhysicalMemorySizeMB()
-            {
-                ulong totalMemoryKB = 0;
-                try
-                {
-                    System.Management.ObjectQuery csQuery = new System.Management.ObjectQuery("SELECT * FROM CIM_OperatingSystem");
-                    System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(csQuery);
-
-                    foreach (var obj in searcher.Get())
-                    {
-                        totalMemoryKB = Convert.ToUInt64(obj["TotalVisibleMemorySize"]);
-                        break;
-                    }
-                }
-                catch (Exception)
-                {
-                    // ignore
-                }
-                return totalMemoryKB / 1024;
-            }
-
             private ulong estimateDBWriteBufferSize()
             {
-                const ulong MB = 1024 * 1024;
-                const ulong GB = 1024 * MB;
-                ulong memMB = getPhysicalMemorySizeMB();
+                const long MB = 1024 * 1024;
+                const long GB = 1024 * MB;
+                long memMB = Platform.getAvailableRAM() / MB;
                 if (memMB < 4096) // 4GB or below or indeterminate
                 {
                     return 128 * MB;
@@ -1007,9 +985,9 @@ namespace DLT
 
             private ulong estimateDBBlockCacheSize()
             {
-                const ulong MB = 1024 * 1024;
-                const ulong GB = 1024 * MB;
-                ulong memMB = getPhysicalMemorySizeMB();
+                const long MB = 1024 * 1024;
+                const long GB = 1024 * MB;
+                long memMB = Platform.getAvailableRAM() / MB;
                 if (memMB < 4096) // 4GB or below or indeterminate
                 {
                     return 512 * MB;
@@ -1024,17 +1002,6 @@ namespace DLT
                 }
             }
 
-            private long GetTotalFreeSpace(string driveName)
-            {
-                foreach (DriveInfo drive in DriveInfo.GetDrives())
-                {
-                    if (drive.IsReady && drive.Name == driveName)
-                    {
-                        return drive.TotalFreeSpace;
-                    }
-                }
-                return -1;
-            }
 
             protected override bool prepareStorageInternal()
             {
@@ -1055,12 +1022,12 @@ namespace DLT
                         return false;
                     }
                 }
-                // preare cache
+                // Prepare cache
                 writeBufferSize = estimateDBWriteBufferSize();
                 ulong blockCacheSize = estimateDBBlockCacheSize();
                 commonBlockCache = Cache.CreateLru(blockCacheSize / 2);
                 commonCompressedBlockCache = Cache.CreateLru(blockCacheSize / 2);
-                // pre-start DB optimization
+                // DB optimization
                 if (Config.optimizeDBStorage)
                 {
                     Logging.info("RocksDB: Performing pre-start DB compaction and optimization.");
@@ -1148,7 +1115,7 @@ namespace DLT
                     // check disk status and close databases if we're running low
                     try
                     {
-                        long diskFreeBytes = GetTotalFreeSpace(Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()));
+                        long diskFreeBytes = Platform.getAvailableDiskSpace();
                         Logging.info("RocksDB: Disk has {0} bytes free.", diskFreeBytes);
                         if (diskFreeBytes < 10L * 1024L * 1024L * 1024L && openDatabases.Where(x => x.Value.isOpen).Count() > 0)
                         {
@@ -1160,8 +1127,7 @@ namespace DLT
                             oldest_db.Value.closeDatabase();
                             openDatabases.Remove(oldest_db.Key);
                             reopenCleanupList.Enqueue(oldest_db.Value);
-                            long diskFreeBytesAfter = GetTotalFreeSpace(Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()));
-                            Logging.info("RocksDB: After close, disk has {0} bytes free.", diskFreeBytesAfter);
+                            Logging.info("RocksDB: After close, disk has {0} bytes free.", Platform.getAvailableDiskSpace());
                         }
                     }
                     catch (Exception e)
@@ -1230,9 +1196,9 @@ namespace DLT
                 }
                 lock (openDatabases)
                 {
-                    for(ulong i = latest_db; i >= 0; i--)
+                    for(ulong i = latest_db; i > 0; i--)
                     {
-                        var db = getDatabase(i * maxBlocksPerDB, true);
+                        var db = getDatabase(i * Config.maxBlocksPerDatabase, true);
                         if (db != null && db.maxBlockNumber > 0)
                         {
                             return db.maxBlockNumber;
@@ -1365,35 +1331,58 @@ namespace DLT
                     {
                         var db = getDatabase(block_num);
                         return db.getTransaction(txid);
-                    } else
+                    } 
+                    else
                     {
-                        // TODO implement this
-                        /*ulong db_blocknum = getHighestBlockInStorage();
-                        if (block_num > db_blocknum)
+                        bool found = false;
+                        ulong db_blocknum = IxiVarInt.GetIxiVarUInt(txid, 1).num;
+
+                        if (db_blocknum == 0)
                         {
+                            Logging.error("Invalid txid {0} - generated at block height 0.", Transaction.getTxIdString(txid));
                             return null;
                         }
 
-                        ulong min_bh = 0;
-                        int txid_sep_pos = txid.IndexOf("-");
-                        if (txid_sep_pos > 0)
+                        ulong highest_blocknum = getHighestBlockInStorage();
+                        if (db_blocknum > highest_blocknum)
                         {
-                            min_bh = UInt64.Parse(txid.Substring(0, txid_sep_pos));
-                        }*/
-
-                        // TODO this is incorrect
-                        foreach (var db in openDatabases.Values)
-                        {
-                            if(!db.isOpen)
-                            {
-                                db.openDatabase();
-                            }
-                            Transaction t = db.getTransaction(txid);
-                            if (t != null)
-                            {
-                                return t;
-                            }
+                            Logging.error("Tried to get transaction generated on block {0} but the highest block in storage is {1}", db_blocknum, highest_blocknum);
+                            return null;
                         }
+
+                        if (highest_blocknum > db_blocknum + ConsensusConfig.getRedactedWindowSize(2))
+                        {
+                            highest_blocknum = db_blocknum + ConsensusConfig.getRedactedWindowSize(2);
+                        }
+
+                        while (!found)
+                        {
+                            var db = getDatabase(db_blocknum);
+                            if (db == null)
+                            {
+                                Logging.error("Cannot access database for block {0}", db_blocknum);
+                                return null;
+                            }
+
+                            Transaction tx = db.getTransaction(txid);
+                            if (tx != null)
+                            {
+                                return tx;
+                            }
+                            else
+                            {
+                                if (db_blocknum + Config.maxBlocksPerDatabase <= highest_blocknum)
+                                {
+                                    db_blocknum += Config.maxBlocksPerDatabase;
+                                }
+                                else
+                                {
+                                    // Transaction not found in any database
+                                    return null;
+                                }
+                            }                           
+                        }
+
                     }
                     return null;
                 }
