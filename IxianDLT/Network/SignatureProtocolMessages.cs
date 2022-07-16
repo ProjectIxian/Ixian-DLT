@@ -726,6 +726,8 @@ namespace DLT
                         }
                         else
                         {
+                            int sig_error_count = 0;
+
                             for (int i = 0; i < sig_count; i++)
                             {
                                 if (m.Position == m.Length)
@@ -753,11 +755,16 @@ namespace DLT
                                     {
                                         broadcastBlockSignature(blockSig, block_num, checksum, endpoint);
                                     }
-                                }else
+                                }
+                                else
                                 {
-                                    Logging.info("SignaturesChunk2 error adding sig");
+                                    sig_error_count++;
                                 }
                             }
+
+                            if(sig_error_count > 0)
+                                Logging.info("Cannot add {0} of {1} signatures to block #{2}", sig_error_count, sig_count, block_num);
+
                         }
                         Node.blockProcessor.acceptLocalNewBlock();
                     }
