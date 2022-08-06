@@ -2699,7 +2699,7 @@ namespace DLT
             IxiNumber total_amount = 0;
 
             List<Transaction> unapplied_transactions = TransactionPool.getUnappliedTransactions().ToList<Transaction>();
-            unapplied_transactions.Sort((x, y) => x.blockHeight.CompareTo(y.blockHeight)); // TODO add fee/weight
+            unapplied_transactions = unapplied_transactions.OrderBy(x => x.id, new ByteArrayComparer()).ToList(); // TODO add fee/weight
 
             // TODO TODO optimize this
             List<Transaction> pool_transactions = new List<Transaction>();
