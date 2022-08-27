@@ -389,7 +389,7 @@ namespace DLT
             List<Block> blockList = null;
 
             int block_offset = 1;
-            if(Node.blockChain.Count > (long)ConsensusConfig.getRedactedWindowSize())
+            if (Node.blockChain.Count >= (long)ConsensusConfig.getRedactedWindowSize())
             {
                 block_offset = 1000;
             }
@@ -529,83 +529,6 @@ namespace DLT
 
             return dummyExpandedNonce;
         }
-
-        private void calculatePow_v1(byte[] hash_ceil)
-        {
-            // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
-            byte[] nonce = ASCIIEncoding.ASCII.GetBytes(ASCIIEncoding.ASCII.GetString(randomNonce(64)));
-            byte[] hash = Argon2id.getHash(activeBlockChallenge, nonce, 1, 1024, 2);
-
-            if (hash.Length < 1)
-            {
-                Logging.error("Stopping miner due to invalid hash.");
-                stop();
-                return;
-            }
-
-            hashesPerSecond++;
-
-            // We have a valid hash, update the corresponding block
-            if (validateHashInternal_v1(hash, hash_ceil) == true)
-            {
-                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
-
-                // Broadcast the nonce to the network
-                sendSolution(nonce);
-
-                // Add this block number to the list of solved blocks
-                lock (solvedBlocks)
-                {
-                    solvedBlocks.Add(activeBlock.blockNum);
-                    solvedBlockCount++;
-                }
-
-                lastSolvedBlockNum = activeBlock.blockNum;
-                lastSolvedTime = DateTime.UtcNow;
-
-                // Reset the block found flag so we can search for another block
-                blockFound = false;
-            }
-        }
-
-        private void calculatePow_v2(byte[] hash_ceil)
-        {
-            // PoW = Argon2id( BlockChecksum + SolverAddress, Nonce)
-            byte[] nonce = randomNonce(64);
-            byte[] hash = Argon2id.getHash(activeBlockChallenge, nonce, 1, 1024, 2);
-
-            if (hash.Length < 1)
-            {
-                Logging.error("Stopping miner due to invalid hash.");
-                stop();
-                return;
-            }
-
-            hashesPerSecond++;
-
-            // We have a valid hash, update the corresponding block
-            if (validateHashInternal_v2(hash, hash_ceil) == true)
-            {
-                Logging.info(String.Format("SOLUTION FOUND FOR BLOCK #{0}", activeBlock.blockNum));
-
-                // Broadcast the nonce to the network
-                sendSolution(nonce);
-
-                // Add this block number to the list of solved blocks
-                lock (solvedBlocks)
-                {
-                    solvedBlocks.Add(activeBlock.blockNum);
-                    solvedBlockCount++;
-                }
-
-                lastSolvedBlockNum = activeBlock.blockNum;
-                lastSolvedTime = DateTime.UtcNow;
-
-                // Reset the block found flag so we can search for another block
-                blockFound = false;
-            }
-        }
-
 
         private void calculatePow_v3(byte[] hash_ceil)
         {
