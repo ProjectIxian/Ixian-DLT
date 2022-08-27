@@ -23,6 +23,7 @@ using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -332,7 +333,7 @@ namespace DLT.Meta
 
             if (IXICore.Platform.onMono() == false && !Config.disableWebStart)
             {
-                System.Diagnostics.Process.Start(Config.apiBinds[0]);
+                Process.Start(new ProcessStartInfo(Config.apiBinds[0]) { UseShellExecute = true });
             }
 
             miner = new Miner();
