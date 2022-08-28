@@ -98,7 +98,10 @@ namespace DLT
 
                 // Abort the thread if it's already created
                 if (block_thread != null)
-                    block_thread.Abort();
+                {
+                    block_thread.Interrupt();
+                    block_thread.Join();
+                }
 
                 TLC = new ThreadLiveCheck();
                 // Start the thread
@@ -132,152 +135,165 @@ namespace DLT
         // Check passed time since last block generation and if needed generate a new block
         public void onUpdate()
         {
-            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-
-            while (operating)
+            try
             {
-                TLC.Report();
-                bool sleep = false;
-                try
+                lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+
+                while (operating)
                 {
-
-                    lock (localBlockLock)
+                    TLC.Report();
+                    bool sleep = false;
+                    try
                     {
-                        // check if it is time to generate a new block
-                        TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
 
-                        if (timeSinceLastBlock.TotalSeconds < 0)
+                        lock (localBlockLock)
                         {
-                            // edge case, system time apparently changed
-                            lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                            timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
-                            lock (blockBlacklist)
+                            // check if it is time to generate a new block
+                            TimeSpan timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+
+                            if (timeSinceLastBlock.TotalSeconds < 0)
                             {
-                                blockBlacklist.Clear();
-                            }
-                            // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
-                        }
-
-                        bool generateNextBlock = Node.forceNextBlock;
-
-                        ulong last_block_num = Node.blockChain.getLastBlockNum();
-                        int block_version = Node.blockChain.getLastBlockVersion();
-
-                        if (block_version < Config.maxBlockVersionToGenerate
-                            && (last_block_num + 1) % ConsensusConfig.superblockInterval == 0)
-                        {
-                            block_version = Config.maxBlockVersionToGenerate;
-                        }
-
-                        if (generateNextBlock)
-                        {
-                            localNewBlock = null;
-                        }
-                        else
-                        {
-                            // First 7 blocks should be generated only by genesis node
-                            if (localNewBlock == null)
-                            {
-                                if(last_block_num > 7 || Node.genesisNode)
-                                {
-                                    if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + randomInt / 100) // no block for 4 block times + random seconds, we don't want all nodes sending at once
-                                    {
-                                        generateNextBlock = true;
-                                        block_version = Node.blockChain.getLastBlockVersion();
-                                    }
-                                    else
-                                    {
-                                        Block last_block = Node.blockChain.getLastBlock();
-                                        if (last_block == null || Clock.getNetworkTimestamp() - last_block.timestamp >= blockGenerationInterval)
-                                        {
-                                            if (last_block_num < 8 || Node.isElectedToGenerateNextBlock())
-                                            {
-                                                generateNextBlock = true;
-                                            }
-                                        }
-                                    }
-                                }else
-                                {
-                                    BlockProtocolMessages.broadcastGetBlock(last_block_num + 1);
-                                }
-                            }
-
-                            // if the node is stuck on the same block for too long, discard the block
-                            if (localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20))
-                            {
-                                blacklistBlock(localNewBlock);
-                                localNewBlock = null;
+                                // edge case, system time apparently changed
                                 lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                                block_version = Node.blockChain.getLastBlockVersion();
-                                sleep = true;
-                                if (forkedFlag)
+                                timeSinceLastBlock = DateTime.UtcNow - lastBlockStartTime;
+                                lock (blockBlacklist)
                                 {
-                                    handleForkedFlag();
+                                    blockBlacklist.Clear();
                                 }
-                                else
-                                {
-                                    generateNextBlock = true;
-                                }
+                                // TODO TODO check if there's anything else that we should clear in such scenario - perhaps add a global handler for this edge case
                             }
-                        }
 
+                            bool generateNextBlock = Node.forceNextBlock;
 
-                        //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
-                        if (generateNextBlock)
-                        {
-                            if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
+                            ulong last_block_num = Node.blockChain.getLastBlockNum();
+                            int block_version = Node.blockChain.getLastBlockVersion();
+
+                            if (block_version < Config.maxBlockVersionToGenerate
+                                && (last_block_num + 1) % ConsensusConfig.superblockInterval == 0)
                             {
-                                block_version = Node.blockChain.getLastBlockVersion();
+                                block_version = Config.maxBlockVersionToGenerate;
+                            }
+
+                            if (generateNextBlock)
+                            {
+                                localNewBlock = null;
                             }
                             else
                             {
-                                lastUpgradeTry = 0;
-                            }
-
-                            if (Node.forceNextBlock)
-                            {
-                                Logging.info("Forcing new block generation");
-                                Node.forceNextBlock = false;
-                            }
-
-                            generateNewBlock(block_version);
-                        }
-                        else
-                        {
-                            if (localNewBlock != null)
-                            {
-                                if (Node.isMasterNode())
+                                // First 7 blocks should be generated only by genesis node
+                                if (localNewBlock == null)
                                 {
-                                    if ((DateTime.UtcNow - currentBlockStartTime).TotalSeconds > (ConsensusConfig.blockGenerationInterval / 2) && localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                                    if (last_block_num > 7 || Node.genesisNode)
                                     {
-                                        if(last_block_num < 10)
+                                        if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + randomInt / 100) // no block for 4 block times + random seconds, we don't want all nodes sending at once
                                         {
-                                            BlockProtocolMessages.broadcastNewBlock(localNewBlock);
+                                            generateNextBlock = true;
+                                            block_version = Node.blockChain.getLastBlockVersion();
                                         }
-                                        Logging.info("Waiting for local block #{0} to reach consensus {1}/{2}.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus());
-                                        sleep = true;
+                                        else
+                                        {
+                                            Block last_block = Node.blockChain.getLastBlock();
+                                            if (last_block == null || Clock.getNetworkTimestamp() - last_block.timestamp >= blockGenerationInterval)
+                                            {
+                                                if (last_block_num < 8 || Node.isElectedToGenerateNextBlock())
+                                                {
+                                                    generateNextBlock = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        BlockProtocolMessages.broadcastGetBlock(last_block_num + 1);
                                     }
                                 }
-                                if (localNewBlock.version > Node.blockChain.getLastBlockVersion())
+
+                                // if the node is stuck on the same block for too long, discard the block
+                                if (localNewBlock != null && timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 20))
                                 {
-                                    lastUpgradeTry = Clock.getTimestamp();
+                                    blacklistBlock(localNewBlock);
+                                    localNewBlock = null;
+                                    lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
+                                    block_version = Node.blockChain.getLastBlockVersion();
+                                    sleep = true;
+                                    if (forkedFlag)
+                                    {
+                                        handleForkedFlag();
+                                    }
+                                    else
+                                    {
+                                        generateNextBlock = true;
+                                    }
+                                }
+                            }
+
+
+                            //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
+                            if (generateNextBlock)
+                            {
+                                if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
+                                {
+                                    block_version = Node.blockChain.getLastBlockVersion();
+                                }
+                                else
+                                {
+                                    lastUpgradeTry = 0;
+                                }
+
+                                if (Node.forceNextBlock)
+                                {
+                                    Logging.info("Forcing new block generation");
+                                    Node.forceNextBlock = false;
+                                }
+
+                                generateNewBlock(block_version);
+                            }
+                            else
+                            {
+                                if (localNewBlock != null)
+                                {
+                                    if (Node.isMasterNode())
+                                    {
+                                        if ((DateTime.UtcNow - currentBlockStartTime).TotalSeconds > (ConsensusConfig.blockGenerationInterval / 2) && localNewBlock.signatures.Count() < Node.blockChain.getRequiredConsensus())
+                                        {
+                                            if (last_block_num < 10)
+                                            {
+                                                BlockProtocolMessages.broadcastNewBlock(localNewBlock);
+                                            }
+                                            Logging.info("Waiting for local block #{0} to reach consensus {1}/{2}.", localNewBlock.blockNum, localNewBlock.signatures.Count, Node.blockChain.getRequiredConsensus());
+                                            sleep = true;
+                                        }
+                                    }
+                                    if (localNewBlock.version > Node.blockChain.getLastBlockVersion())
+                                    {
+                                        lastUpgradeTry = Clock.getTimestamp();
+                                    }
                                 }
                             }
                         }
                     }
-                }catch(Exception e)
-                {
-                    Logging.error("Exception occurred in blockProcessor onUpdate() {0}", e);
+                    catch (Exception e)
+                    {
+                        Logging.error("Exception occurred in blockProcessor onUpdate() {0}", e);
+                    }
+                    // Sleep until next iteration
+                    if (sleep)
+                    {
+                        Thread.Sleep(10000 + randomInt);
+                    }
+                    else
+                    {
+                        Thread.Sleep(1000 + randomInt);
+                    }
                 }
-                // Sleep until next iteration
-                if (sleep)
-                {
-                    Thread.Sleep(10000 + randomInt);
-                }
-                else
-                {
-                    Thread.Sleep(1000 + randomInt);
-                }
+            }
+            catch (ThreadInterruptedException)
+            {
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("OnUpdate exception: {0}", e);
             }
             return;
         }

@@ -578,7 +578,8 @@ namespace DLT.Meta
 
             if (maintenanceThread != null)
             {
-                maintenanceThread.Abort();
+                maintenanceThread.Interrupt();
+                maintenanceThread.Join();
                 maintenanceThread = null;
             }
 
@@ -775,47 +776,58 @@ namespace DLT.Meta
         // Perform periodic cleanup tasks
         private static void performMaintenance()
         {
-            while (running)
+            try
             {
-                TLC.Report();
-                // Sleep a while to prevent cpu usage
-                Thread.Sleep(10000);
-
-                try
+                while (running)
                 {
-                    TransactionPool.processPendingTransactions();
+                    TLC.Report();
+                    // Sleep a while to prevent cpu usage
+                    Thread.Sleep(10000);
 
-                    // Cleanup the presence list
-                    PresenceList.performCleanup();
-
-                    inventoryCache.processCache();
-
-                    if (update() == false)
+                    try
                     {
-                        IxianHandler.forceShutdown = true;
+                        TransactionPool.processPendingTransactions();
+
+                        // Cleanup the presence list
+                        PresenceList.performCleanup();
+
+                        inventoryCache.processCache();
+
+                        if (update() == false)
+                        {
+                            IxianHandler.forceShutdown = true;
+                        }
+
+                        // Remove expired peers from blacklist
+                        PeerStorage.updateBlacklist();
+
+                        if (blockSync.synchronizing)
+                        {
+                            int storageQueueCount = storage.getQueuedQueryCount();
+                            int activityQueueCount = ActivityStorage.getQueuedQueryCount();
+                            if (storageQueueCount > 2000 || activityQueueCount > 2000)
+                            {
+                                blockSync.paused = true;
+                            }
+                            else if (storageQueueCount < 1000 && activityQueueCount < 1000)
+                            {
+                                blockSync.paused = false;
+                            }
+                        }
                     }
-
-                    // Remove expired peers from blacklist
-                    PeerStorage.updateBlacklist();
-
-                    if(blockSync.synchronizing)
+                    catch (Exception e)
                     {
-                        int storageQueueCount = storage.getQueuedQueryCount();
-                        int activityQueueCount = ActivityStorage.getQueuedQueryCount();
-                        if (storageQueueCount > 2000 || activityQueueCount > 2000)
-                        {
-                            blockSync.paused = true;
-                        }
-                        else if (storageQueueCount < 1000 && activityQueueCount < 1000)
-                        {
-                            blockSync.paused = false;
-                        }
+                        Logging.error("Exception occurred in Node.performMaintenance: " + e);
                     }
                 }
-                catch (Exception e)
-                {
-                    Logging.error("Exception occurred in Node.performMaintenance: " + e);
-                }
+            }
+            catch (ThreadInterruptedException)
+            {
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("PerformMaintenance exception: {0}", e);
             }
         }
 

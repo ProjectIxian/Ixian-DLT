@@ -511,8 +511,6 @@ namespace DLT
 
             ulong lowestBlockNum = getLowestBlockNum();
 
-            ulong syncToBlock = syncTargetBlockNum;
-
             if (Node.blockChain.Count > 5)
             {
                 lock (pendingBlocks)
@@ -530,7 +528,7 @@ namespace DLT
                     next_to_apply = Node.blockChain.getLastBlockNum() + 1;
                 }
 
-                if (next_to_apply >= syncToBlock)
+                if (next_to_apply >= syncTargetBlockNum)
                 {
                     // we have everything, clear pending blocks and break
                     lock (pendingBlocks)
@@ -629,7 +627,7 @@ namespace DLT
                 {
 
                     Logging.info("Sync: Applying block #{0}/{1}.",
-                        b.blockNum, syncToBlock);
+                        b.blockNum, syncTargetBlockNum);
 
                     b.powField = null;
 
@@ -849,7 +847,7 @@ namespace DLT
                     }
                     else
                     {
-                        if (syncToBlock == b.blockNum)
+                        if (syncTargetBlockNum == b.blockNum)
                         {
                             if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                             {
@@ -941,7 +939,7 @@ namespace DLT
                 Node.blockProcessor.cleanupBlockBlacklist();
             } while (pendingBlocks.Count > 0 && running);
 
-            if (!sleep && Node.blockChain.getLastBlockNum() + 1 >= syncToBlock)
+            if (!sleep && Node.blockChain.getLastBlockNum() + 1 >= syncTargetBlockNum)
             {
                 if (verifyLastBlock())
                 {

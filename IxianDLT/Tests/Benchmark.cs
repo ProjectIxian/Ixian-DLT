@@ -42,6 +42,7 @@ namespace DLTNode
 
         public static void start(string mode)
         {
+#pragma warning disable CA1416 // Validate platform compatibility
             cpuCounter = new PerformanceCounter("Processor", "% Processor Time","_Total", true);
             if (IXICore.Platform.onMono() == false)
             {
@@ -103,7 +104,7 @@ namespace DLTNode
             {
                 Thread.Sleep(100);
             }
-
+#pragma warning restore CA1416 // Validate platform compatibility
         }
 
         public static void printSystemStatus()
@@ -115,8 +116,10 @@ namespace DLTNode
             Process currentProcess = System.Diagnostics.Process.GetCurrentProcess();
             Logging.info("DLT Memory Usage:\t {0} bytes", currentProcess.WorkingSet64.ToString("N0"));
 
+#pragma warning disable CA1416 // Validate platform compatibility
             Logging.info("Available Memory:\t {0} bytes", Convert.ToInt64(ramCounter.NextValue()).ToString("N0"));
             Logging.info("CPU Usage: {0}%", Convert.ToInt32(cpuCounter.NextValue()).ToString());
+#pragma warning restore CA1416 // Validate platform compatibility
         }
 
         // Benchmark for argon2id hashing

@@ -84,6 +84,7 @@ namespace DLTNode
         }
         static void checkVCRedist()
         {
+#pragma warning disable CA1416 // Validate platform compatibility
             object installed_vc_redist = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64", "Installed", 0);
             object installed_vc_redist_debug = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\debug\\x64", "Installed", 0);
             bool success = false;
@@ -170,6 +171,7 @@ namespace DLTNode
                 Console.ReadLine();
                 Environment.Exit(-1);
             }
+#pragma warning restore CA1416 // Validate platform compatibility
         }
 
         static void Main(string[] args)
@@ -326,7 +328,8 @@ namespace DLTNode
 
             if(mainLoopThread != null)
             {
-                mainLoopThread.Abort();
+                mainLoopThread.Interrupt();
+                mainLoopThread.Join();
                 mainLoopThread = null;
             }
 
@@ -343,66 +346,78 @@ namespace DLTNode
 
         static void mainLoop()
         {
-            while (running)
+            try
             {
-                try
+                while (running)
                 {
-                    if (Console.KeyAvailable)
+                    try
                     {
-                        ConsoleKeyInfo key = Console.ReadKey();
-                        if (key.Key == ConsoleKey.W)
+                        if (Console.KeyAvailable)
                         {
-                            string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
-                            Logging.info(String.Format("WalletState checksum: ({0} wallets, inTransaction: {1}) : {2}",
-                                Node.walletState.numWallets, Node.walletState.inTransaction, ws_checksum));
-                        }
-                        else if (key.Key == ConsoleKey.V)
-                        {
-                            ConsoleHelpers.verboseConsoleOutput = !ConsoleHelpers.verboseConsoleOutput;
-                            Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
-                            Console.CursorVisible = ConsoleHelpers.verboseConsoleOutput;
-                            if (ConsoleHelpers.verboseConsoleOutput == false)
-                                Node.statsConsoleScreen.clearScreen();
-                        }
-                        else if (key.Key == ConsoleKey.Escape)
-                        {
-                            ConsoleHelpers.verboseConsoleOutput = true;
-                            Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
-                            IxianHandler.forceShutdown = true;
-                        }
-                        else if (key.Key == ConsoleKey.M)
-                        {
-                            if (Node.miner != null)
-                                Node.miner.pause = !Node.miner.pause;
-
-                            if (ConsoleHelpers.verboseConsoleOutput == false)
-                                Node.statsConsoleScreen.clearScreen();
-                        }
-                        else if (key.Key == ConsoleKey.B)
-                        {
-                            if (Node.miner != null)
+                            ConsoleKeyInfo key = Console.ReadKey();
+                            if (key.Key == ConsoleKey.W)
                             {
-                                // Adjust the search mode
-                                if (Node.miner.searchMode + 1 > BlockSearchMode.random)
-                                {
-                                    Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
-                                }else
-                                {
-                                    Node.miner.searchMode++;
-                                }
-
-                                // Force a new block search using the newly chosen method
-                                Node.miner.forceSearchForBlock();
+                                string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
+                                Logging.info(String.Format("WalletState checksum: ({0} wallets, inTransaction: {1}) : {2}",
+                                    Node.walletState.numWallets, Node.walletState.inTransaction, ws_checksum));
                             }
-                        }
+                            else if (key.Key == ConsoleKey.V)
+                            {
+                                ConsoleHelpers.verboseConsoleOutput = !ConsoleHelpers.verboseConsoleOutput;
+                                Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
+                                Console.CursorVisible = ConsoleHelpers.verboseConsoleOutput;
+                                if (ConsoleHelpers.verboseConsoleOutput == false)
+                                    Node.statsConsoleScreen.clearScreen();
+                            }
+                            else if (key.Key == ConsoleKey.Escape)
+                            {
+                                ConsoleHelpers.verboseConsoleOutput = true;
+                                Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;
+                                IxianHandler.forceShutdown = true;
+                            }
+                            else if (key.Key == ConsoleKey.M)
+                            {
+                                if (Node.miner != null)
+                                    Node.miner.pause = !Node.miner.pause;
 
+                                if (ConsoleHelpers.verboseConsoleOutput == false)
+                                    Node.statsConsoleScreen.clearScreen();
+                            }
+                            else if (key.Key == ConsoleKey.B)
+                            {
+                                if (Node.miner != null)
+                                {
+                                    // Adjust the search mode
+                                    if (Node.miner.searchMode + 1 > BlockSearchMode.random)
+                                    {
+                                        Node.miner.searchMode = BlockSearchMode.lowestDifficulty;
+                                    }
+                                    else
+                                    {
+                                        Node.miner.searchMode++;
+                                    }
+
+                                    // Force a new block search using the newly chosen method
+                                    Node.miner.forceSearchForBlock();
+                                }
+                            }
+
+                        }
                     }
+                    catch (Exception e)
+                    {
+                        Logging.error("Exception occurred in mainLoop: " + e);
+                    }
+                    Thread.Sleep(1000);
                 }
-                catch(Exception e)
-                {
-                    Logging.error("Exception occurred in mainLoop: " + e);
-                }
-                Thread.Sleep(1000);
+            }
+            catch (ThreadInterruptedException)
+            {
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("MainLoop exception: {0}", e);
             }
         }
 
