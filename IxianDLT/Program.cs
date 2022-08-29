@@ -292,16 +292,13 @@ namespace DLTNode
             Logging.info("Starting IXIAN DLT {0} ({1})", Config.version, CoreConfig.version);
             Logging.flush();
 
+            Logging.info("Operating System is {0}", Platform.getOSNameAndVersion());
+
             // Check for the right vc++ redist for the argon miner
             // Ignore if we're on Mono
-            if (IXICore.Platform.onMono() == false)
+            if (Platform.onWindows())
             {
-                Logging.info("Runtime environment is .NET");
                 checkVCRedist();
-            }
-            else
-            {
-                Logging.info("Runtime environment is Mono");
             }
 
             // Log the parameters to notice any changes
