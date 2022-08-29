@@ -5,13 +5,6 @@ VisualStudioVersion = 17.3.32819.101
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DLTNode", "IxianDLT\DLTNode.csproj", "{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4C02EBEA-117F-47BC-ABD6-375DD2985E9C}"
-	ProjectSection(SolutionItems) = preProject
-		Rebracer.xml = Rebracer.xml
-	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Argon2_C", "Argon2_C\Argon2_C.vcxproj", "{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ixian-UnitTests", "UnitTests\Ixian-UnitTests.csproj", "{EC13DE4C-1D76-46CD-A551-35F795757E42}"
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "IXICore", "..\Ixian-Core\IXICore.shproj", "{80487C64-619A-4B60-97BD-ED7670BF45B3}"
@@ -38,16 +31,6 @@ Global
 		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Release|x64.Build.0 = Release|Any CPU
 		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Release|x86.ActiveCfg = Release|Any CPU
 		{8C63D6B0-5544-4F24-B3B7-818E3A5D896F}.Release|x86.Build.0 = Release|Any CPU
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|Any CPU.Build.0 = Debug|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|x64.ActiveCfg = Debug|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|x64.Build.0 = Debug|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Debug|x86.ActiveCfg = Debug|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|Any CPU.ActiveCfg = Release|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|Any CPU.Build.0 = Release|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|x64.ActiveCfg = Release|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|x64.Build.0 = Release|x64
-		{63ECF92B-FDC5-432F-826C-F50FA6A3A7D6}.Release|x86.ActiveCfg = Release|x64
 		{EC13DE4C-1D76-46CD-A551-35F795757E42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EC13DE4C-1D76-46CD-A551-35F795757E42}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EC13DE4C-1D76-46CD-A551-35F795757E42}.Debug|x64.ActiveCfg = Debug|Any CPU
