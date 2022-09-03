@@ -187,7 +187,9 @@ namespace DLTNode
             blockData.Add("Hashrate", (MiningUtils.getTargetHashcountPerBlock(block.difficulty) / 60).ToString());
             blockData.Add("Compacted Sigs", block.compactedSigs.ToString());
             blockData.Add("Signature count", block.signatures.Count.ToString());
+            blockData.Add("Required Signature count", Node.blockChain.getRequiredConsensusFromStorage(block.blockNum).ToString());
             blockData.Add("Total Signer Difficulty", block.getTotalSignerDifficulty().ToString());
+            blockData.Add("Required Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true).ToString());
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
             blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
@@ -198,6 +200,7 @@ namespace DLTNode
             }
             blockData.Add("Sig Checksum", Crypto.hashToString(block.calculateSignatureChecksum()));
             blockData.Add("Signer Bits", Crypto.hashToString(BitConverter.GetBytes(block.signerBits)));
+
             List<string> txids = new List<string>();
             foreach(byte[] tx in block.transactions)
             {

@@ -468,7 +468,60 @@ namespace DLT
                     }
                 }
 
+                if (consensus < 2)
+                {
+                    consensus = 2;
+                }
 
+                return consensus;
+            }
+        }
+
+        // Fetch blocks from storage to calculate minimum consensus requirement for blocks outside the redacted window
+        // TODO unify with getRequiredConsensus
+        public int getRequiredConsensusFromStorage(ulong block_num, bool adjusted_to_ratio = true)
+        {
+            // TODO TODO TODO TODO TODO there is an issue with calculating required consensus after blocks are compacted, for now this is resolved by increasing the compacting window
+            int block_offset = 7;
+            if (block_num < (ulong)block_offset + 1) return 1; // special case for first X blocks - since sigFreeze happens n-5 blocks
+            lock (blocks)
+            {
+                int total_consensus = 0;
+                int block_count = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    ulong consensus_block_num = block_num - (ulong)i - (ulong)block_offset;
+                    Block b = getBlock(consensus_block_num, true);
+                    if (b == null)
+                    {
+                        break;
+                    }
+                    total_consensus += b.getFrozenSignatureCount();
+                    block_count++;
+                }
+
+                if (block_count == 0)
+                {
+                    return ConsensusConfig.maximumBlockSigners;
+                }
+
+                int consensus = (int)Math.Ceiling((double)total_consensus / block_count);
+
+                if (consensus > ConsensusConfig.maximumBlockSigners)
+                {
+                    consensus = ConsensusConfig.maximumBlockSigners;
+                    if (adjusted_to_ratio)
+                    {
+                        consensus = (int)Math.Floor(consensus * ConsensusConfig.networkConsensusRatio);
+                    }
+                }
+                else
+                {
+                    if (adjusted_to_ratio)
+                    {
+                        consensus = (int)Math.Floor(total_consensus / block_count * ConsensusConfig.networkConsensusRatio);
+                    }
+                }
 
                 if (consensus < 2)
                 {
@@ -478,6 +531,7 @@ namespace DLT
                 return consensus;
             }
         }
+
 
         public IxiNumber getRequiredSignerDifficulty(bool adjustToRatio)
         {
