@@ -993,7 +993,7 @@ namespace DLT
             {
                 if(force_broadcast)
                 {
-                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData, transaction.getBytes(), null, endpoint);
+                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData2, transaction.getBytes(true, true), null, endpoint);
                 }else
                 {
                     CoreProtocolMessage.addToInventory(new char[] { 'M', 'H' }, new InventoryItem(InventoryItemTypes.transaction, transaction.id), endpoint);
@@ -1017,15 +1017,15 @@ namespace DLT
             }
 
             // Send transaction FROM event
-            byte[] from_addr = transaction.pubKey.addressWithChecksum;
-            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.getTxIdString()));
+            byte[] from_addr = transaction.pubKey.addressNoChecksum;
+            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionFrom, from_addr, ProtocolMessageCode.transactionData2, transaction.getBytes(true, true), Encoding.UTF8.GetBytes(transaction.getTxIdString()));
 
             // Send transaction TO event
             foreach (var entry in transaction.toList)
             {
-                byte[] addr = new byte[entry.Key.addressWithChecksum.Length];
-                Array.Copy(entry.Key.addressWithChecksum, addr, addr.Length);
-                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.transactionData, transaction.getBytes(true), Encoding.UTF8.GetBytes(transaction.getTxIdString()));
+                byte[] addr = new byte[entry.Key.addressNoChecksum.Length];
+                Array.Copy(entry.Key.addressNoChecksum, addr, addr.Length);
+                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.transactionTo, addr, ProtocolMessageCode.transactionData2, transaction.getBytes(true, true), Encoding.UTF8.GetBytes(transaction.getTxIdString()));
             }
         }
 
@@ -1501,7 +1501,7 @@ namespace DLT
                 if (failed_staking_transactions.Count > 0)
                 {
                     failed_staking_transactions.Clear();
-                    Logging.error(string.Format("Block #{0} has failed staking transactions, rejecting the block.", block.blockNum));
+                    Logging.error("Block #{0} has failed staking transactions, rejecting the block.", block.blockNum);
                     return false;
                 }
 
@@ -1515,7 +1515,7 @@ namespace DLT
                         {
                             if (getUnappliedTransaction(txid) == null)
                             {
-                                Logging.info(string.Format("Missing staking transaction during sync: {0}", txid));
+                                Logging.info("Missing staking transaction during sync: {0}", txid);
                             }
                         }
                         continue;
@@ -1559,8 +1559,25 @@ namespace DLT
                                     Logging.info("Applying block #{0} -> transaction {1}: Originator Wallet ({{ {2} }}) does not have pubkey yet, setting.", block.blockNum, tx.getTxIdString(),
                                         tmp_address.ToString());
                                 }
-                                // There is no supplied public key, extract it from transaction
-                                pubkey = tx.pubKey.pubKey;
+                                if (tx.pubKey.pubKey == null)
+                                {
+                                    if (block.version < BlockVer.v10)
+                                    {
+                                        // There is no supplied public key, use address instead; legacy bug
+                                        pubkey = tx.pubKey.addressWithChecksum;
+                                    }else
+                                    {
+                                        Logging.warn("Transaction #{0} doesn't have a pubkey.", tx.getTxIdString());
+                                        failed_transactions.Add(tx);
+                                        continue;
+                                    }
+                                }
+                                else
+                                {
+                                    // There is no supplied public key, extract it from transaction
+                                    pubkey = tx.pubKey.pubKey;
+                                }
+
                                 if (pubkey != null)
                                 {
                                     // Update the walletstate public key
@@ -1584,6 +1601,7 @@ namespace DLT
                         && tx.type != (int)Transaction.Type.MultisigAddTxSignature
                         )
                     {
+                        Logging.warn("Transaction #{0}'s amount is 0.", tx.getTxIdString());
                         failed_transactions.Add(tx);
                         continue;
                     }
@@ -1612,7 +1630,7 @@ namespace DLT
                         List<byte[]> related_tx_ids = applyMultisigTransaction(tx, block, failed_transactions);
                         if(related_tx_ids == null)
                         {
-                            Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
+                            Logging.error("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum);
                             if(generating_new)
                             {
                                 continue;
@@ -1630,7 +1648,7 @@ namespace DLT
                         List<byte[]> related_tx_ids = applyMultisigChangeTransaction(tx, block, failed_transactions);
                         if (related_tx_ids == null)
                         {
-                            Logging.error(string.Format("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum));
+                            Logging.error("Block #{0} has failed multisig transactions, rejecting the block.", block.blockNum);
                             if (generating_new)
                             {
                                 continue;
@@ -1679,7 +1697,7 @@ namespace DLT
                         Transaction tx = getUnappliedTransaction(txid);
                         if (tx == null || tx.readyToApply != block.blockNum)
                         {
-                            Logging.error(string.Format("Block #{0} has unapplied transactions, rejecting the block.", block.blockNum));
+                            Logging.error("Block #{0} has unapplied transactions, rejecting the block.", block.blockNum);
                             return false;
                         }
                         setAppliedFlag(tx.id, block.blockNum, block.timestamp);
@@ -1689,7 +1707,7 @@ namespace DLT
                 // Remove all failed transactions from the TxPool and block
                 foreach (Transaction tx in failed_transactions)
                 {
-                    Logging.warn(String.Format("Removing failed transaction #{0} from pool.", tx.getTxIdString()));
+                    Logging.warn("Removing failed transaction #{0} from pool.", tx.getTxIdString());
                     // Remove from TxPool
                     if (tx.applied == 0)
                     {
@@ -1706,13 +1724,13 @@ namespace DLT
                 if (failed_transactions.Count > 0)
                 {
                     failed_transactions.Clear();
-                    Logging.error(string.Format("Block #{0} has failed transactions, rejecting the block.", block.blockNum));
+                    Logging.error("Block #{0} has failed transactions, rejecting the block.", block.blockNum);
                     return false;
                 }
             }
             catch (Exception e)
             {
-                Logging.error(string.Format("Error applying transactions from block #{0}. Message: {1}", block.blockNum, e));
+                Logging.error("Error applying transactions from block #{0}. Message: {1}", block.blockNum, e);
                 return false;
             }
             
@@ -2690,7 +2708,7 @@ namespace DLT
 
                         if (cur_time - tx_time > 40) // if the transaction is pending for over 40 seconds, resend
                         {
-                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData, t.getBytes(), null);
+                            CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.transactionData2, t.getBytes(true, true), null);
                             entry.addedTimestamp = cur_time;
                             entry.confirmedNodeList.Clear();
                         }

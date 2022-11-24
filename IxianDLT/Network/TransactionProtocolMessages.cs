@@ -258,8 +258,7 @@ namespace DLT
                                 i++;
                                 if (tx != null)
                                 {
-                                    // TODO Omega - force v7 structure and send as transactionsChunk3
-                                    byte[] txBytes = tx.getBytes(true, false);
+                                    byte[] txBytes = tx.getBytes(true, true);
 
                                     long rollback_len = mOut.Length;
                                     writer.WriteIxiVarInt(txBytes.Length);
@@ -281,7 +280,7 @@ namespace DLT
                         if (txs_in_chunk > 0)
                         {
                             // Send a chunk
-                            endpoint.sendData(ProtocolMessageCode.transactionsChunk2, mOut.ToArray(), null, 0, MessagePriority.high);
+                            endpoint.sendData(ProtocolMessageCode.transactionsChunk3, mOut.ToArray(), null, 0, MessagePriority.high);
                         }
                     }
                 }
@@ -394,8 +393,7 @@ namespace DLT
                                             }
                                         }
 
-                                        // TODO Omega - force v7 structure and send as transactionsChunk3
-                                        byte[] tx_bytes = tx.getBytes(true, false);
+                                        byte[] tx_bytes = tx.getBytes(true, true);
                                         byte[] tx_len = IxiVarInt.GetIxiVarIntBytes(tx_bytes.Length);
                                         writer.Write(tx_len);
                                         writer.Write(tx_bytes);
@@ -409,7 +407,7 @@ namespace DLT
                                         }
                                     }
                                 }
-                                endpoint.sendData(ProtocolMessageCode.transactionsChunk2, mOut.ToArray(), null, 0, MessagePriority.high);
+                                endpoint.sendData(ProtocolMessageCode.transactionsChunk3, mOut.ToArray(), null, 0, MessagePriority.high);
                             }
                         }
                     }
@@ -598,7 +596,7 @@ namespace DLT
                             // Generate a chunk of transactions
                             for (int j = 0; j < CoreConfig.maximumTransactionsPerChunk && i < tx_count; j++)
                             {
-                                byte[] txBytes = txIdArr[i].getBytes(true, false);
+                                byte[] txBytes = txIdArr[i].getBytes(true, true);
 
                                 i++;
 
@@ -621,7 +619,7 @@ namespace DLT
                         Logging.info(String.Format("NetworkProtocol::handleGetUnappliedTransactions: {0}", mOut.Length));
 #endif
                         }
-                        endpoint.sendData(ProtocolMessageCode.transactionsChunk2, mOut.ToArray());
+                        endpoint.sendData(ProtocolMessageCode.transactionsChunk3, mOut.ToArray());
                     }
                 }
             }
@@ -660,9 +658,7 @@ namespace DLT
                         }
 
                         Logging.info("Sending transaction {0} - {1} - {2}.", transaction.getTxIdString(), Crypto.hashToString(transaction.checksum), transaction.amount);
-                        // TODO Omega replace the uncommented line with commented out line after upgrade
-                        //endpoint.sendData(ProtocolMessageCode.transactionData2, transaction.getBytes(true, true));
-                        endpoint.sendData(ProtocolMessageCode.transactionData, transaction.getBytes(true, false));
+                        endpoint.sendData(ProtocolMessageCode.transactionData2, transaction.getBytes(true, true));
                     }
                 }
             }

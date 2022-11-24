@@ -506,10 +506,18 @@ namespace DLT.Meta
             doPostSyncOperations();
 
             TimeSpan last_isolate_time_diff = DateTime.UtcNow - lastIsolateTime;
-            if (Node.blockChain.getTimeSinceLastBlock() > 900 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 900 seconds with cooldown of 1800 seconds
+            if (blockChain.getTimeSinceLastBlock() > 900 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 900 seconds with cooldown of 1800 seconds
             {
                 CoreNetworkUtils.isolate();
                 lastIsolateTime = DateTime.UtcNow;
+            }
+
+            if (IxianHandler.status != NodeStatus.warmUp)
+            {
+                if (blockChain.getTimeSinceLastBlock() > 1800)
+                {
+                    IxianHandler.status = NodeStatus.stalled;
+                }
             }
 
             // TODO TODO TODO TODO this is a global flood control and should be also done per node to detect attacks

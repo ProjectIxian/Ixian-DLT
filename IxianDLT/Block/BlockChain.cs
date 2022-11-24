@@ -577,13 +577,13 @@ namespace DLT
             return lastSuperBlock.signerBits;
         }
 
-        public ulong calculateRequiredSignerBits(bool adjustToRatio)
+        public ulong calculateRequiredSignerBits(bool adjustToRatio, int blockVersion)
         {
             // TODO TODO TODO cache
-            return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio));
+            return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio, blockVersion));
         }
 
-        public IxiNumber calculateRequiredSignerDifficulty(bool adjustToRatio)
+        public IxiNumber calculateRequiredSignerDifficulty(bool adjustToRatio, int blockVersion)
         {
             // TODO TODO TODO TODO TODO there is an issue with calculating required consensus after blocks are compacted, for now this is resolved by increasing the compacting window
             ulong blockNum = getLastBlockNum() + 1;
@@ -605,7 +605,14 @@ namespace DLT
                     {
                         break;
                     }
-                    totalDifficulty += b.getTotalSignerDifficulty();
+
+                    // Fixes v10 regression bug which calculated an average from last 30 blocks.
+                    if (blockVersion >= BlockVer.v11
+                        || i + blockOffset <= 30)
+                    {
+                        totalDifficulty += b.getTotalSignerDifficulty();
+                    }
+
                     blockCount++;
                 }
 

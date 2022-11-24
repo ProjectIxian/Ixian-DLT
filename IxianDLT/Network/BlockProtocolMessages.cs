@@ -70,7 +70,7 @@ namespace DLT
 
                         if (block != null)
                         {
-                            endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, true, true), BitConverter.GetBytes(block.blockNum));
+                            endpoint.sendData(ProtocolMessageCode.blockData2, block.getBytes(full_header, true, true), BitConverter.GetBytes(block.blockNum));
 
                             if (include_segments > 0)
                             {
@@ -84,7 +84,7 @@ namespace DLT
 
                                     Block segment_block = Node.blockChain.getBlock(segment.blockNum, true);
 
-                                    endpoint.sendData(ProtocolMessageCode.blockData, segment_block.getBytes(true, true, true), BitConverter.GetBytes(segment.blockNum));
+                                    endpoint.sendData(ProtocolMessageCode.blockData2, segment_block.getBytes(true, true, true), BitConverter.GetBytes(segment.blockNum));
                                 }
                             }
                         }
@@ -402,7 +402,7 @@ namespace DLT
 
                     if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionFrom, t.pubKey.addressNoChecksum))
                     {
-                        endpoint.sendData(ProtocolMessageCode.transactionData, t.getBytes(true), null);
+                        endpoint.sendData(ProtocolMessageCode.transactionData2, t.getBytes(true, true), null);
                     }
                     else
                     {
@@ -410,7 +410,7 @@ namespace DLT
                         {
                             if (endpoint.isSubscribedToAddress(NetworkEvents.Type.transactionTo, entry.Key.addressNoChecksum))
                             {
-                                endpoint.sendData(ProtocolMessageCode.transactionData, t.getBytes(true), null);
+                                endpoint.sendData(ProtocolMessageCode.transactionData2, t.getBytes(true, true), null);
                             }
                         }
                     }
@@ -494,7 +494,7 @@ namespace DLT
                 {
                     if (endpoint.isConnected())
                     {
-                        endpoint.sendData(ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum));
+                        endpoint.sendData(ProtocolMessageCode.blockData2, b.getBytes(false, true, true), BitConverter.GetBytes(b.blockNum));
                         return true;
                     }
                     return false;
@@ -503,7 +503,7 @@ namespace DLT
                 {
                     if (force_broadcast)
                     {
-                        return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockData, b.getBytes(false), BitConverter.GetBytes(b.blockNum), skipEndpoint);
+                        return CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H' }, ProtocolMessageCode.blockData2, b.getBytes(false, true, true), BitConverter.GetBytes(b.blockNum), skipEndpoint);
                     }
                     else
                     {
@@ -690,7 +690,7 @@ namespace DLT
                             frozen_sigs_only = false;
                         }
 
-                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only), BitConverter.GetBytes(block.blockNum));
+                        endpoint.sendData(ProtocolMessageCode.blockData2, block.getBytes(full_header, frozen_sigs_only, true), BitConverter.GetBytes(block.blockNum));
                     }
                 }
             }
@@ -798,8 +798,8 @@ namespace DLT
                         {
                             frozen_sigs_only = false;
                         }
-                        // TODO TODO Omega Change this to blockData2 and return v10 block byte structure after upgrade
-                        endpoint.sendData(ProtocolMessageCode.blockData, block.getBytes(full_header, frozen_sigs_only, false), BitConverter.GetBytes(block.blockNum), 0, MessagePriority.high);
+
+                        endpoint.sendData(ProtocolMessageCode.blockData2, block.getBytes(full_header, frozen_sigs_only, true), BitConverter.GetBytes(block.blockNum), 0, MessagePriority.high);
                     }
                 }
             }

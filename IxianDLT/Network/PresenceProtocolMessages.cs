@@ -198,7 +198,7 @@ namespace DLT
                                 CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint);
 
                                 // Send this keepalive message to all subscribed clients
-                                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address.addressWithChecksum, ProtocolMessageCode.keepAlivePresence, ka_bytes, address.addressWithChecksum, endpoint);
+                                CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address.addressNoChecksum, ProtocolMessageCode.keepAlivePresence, ka_bytes, address.addressNoChecksum, endpoint);
                             }
                         }
                     }
@@ -281,7 +281,7 @@ namespace DLT
                     CoreProtocolMessage.addToInventory(new char[] { 'M', 'H', 'W' }, new InventoryItemKeepAlive(hash, last_seen, address, device_id), endpoint);
 
                     // Send this keepalive message to all subscribed clients
-                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address.addressWithChecksum, ProtocolMessageCode.keepAlivePresence, data, address.addressWithChecksum, endpoint);
+                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, address.addressNoChecksum, ProtocolMessageCode.keepAlivePresence, data, address.addressNoChecksum, endpoint);
                 }
             }
 
