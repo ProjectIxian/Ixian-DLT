@@ -29,6 +29,8 @@ namespace DLT
         List<ulong> missingBlocks = null;
         ulong lastMissingBlock = 0;
 
+        SortedDictionary<ulong, List<Transaction>> pendingTransactions = new();
+
         public ulong pendingWsBlockNum { get; private set; }
         readonly List<WsChunk> pendingWsChunks = new List<WsChunk>();
         int wsSyncCount = 0;
@@ -541,6 +543,9 @@ namespace DLT
                     }
                     break;
                 }
+
+                processPendingTransactions();
+
                 Block b;
                 lock (pendingBlocks)
                 {
@@ -1006,6 +1011,12 @@ namespace DLT
 
                 syncDone = true;
                 synchronizing = false;
+
+                lock(pendingTransactions)
+                {
+                    pendingTransactions.Clear();
+                }
+
                 return;
             }
 
@@ -1022,6 +1033,11 @@ namespace DLT
             syncDone = true;
 
             synchronizing = false;
+
+            lock (pendingTransactions)
+            {
+                pendingTransactions.Clear();
+            }
 
             Node.blockProcessor.firstBlockAfterSync = true;
             Node.blockProcessor.resumeOperation();
@@ -1166,6 +1182,93 @@ namespace DLT
             }
         }
 
+        public void onTransactionReceived(Transaction tx, RemoteEndpoint endpoint)
+        {
+            if (synchronizing == false) return;
+
+            //var lastBlockNum = Node.storage.getHighestBlockInStorage();
+            var lastBlockNum = Node.blockChain.getLastBlockNum();
+
+            if (tx.blockHeight > lastBlockNum + (ulong)maxBlockRequests + 1)
+            {
+                return;
+            }
+
+            if (lastBlockNum > 0 && 
+                (tx.blockHeight > lastBlockNum || (tx.type == (int)Transaction.Type.StakingReward && tx.blockHeight > lastBlockNum + 1)))
+            {
+                lock (pendingTransactions)
+                {
+                    int idx = -1;
+                    ulong txBlockHeight = tx.blockHeight;
+                    if (tx.type == (int)Transaction.Type.StakingReward)
+                    {
+                        txBlockHeight -= 1;
+                    }
+
+                    if (pendingTransactions.ContainsKey(txBlockHeight))
+                    {
+                        idx = pendingTransactions[txBlockHeight].FindIndex(x => x.id.SequenceEqual(tx.id));
+                    }
+                    else
+                    {
+                        pendingTransactions.Add(txBlockHeight, new());
+                    }
+
+                    if (idx > -1)
+                    {
+                        // pendingTransactions[idx] = tx;
+                    }
+                    else
+                    {
+                        pendingTransactions[txBlockHeight].Add(tx);
+                    }
+                }
+            } else
+            {
+                if (!TransactionPool.addTransaction(tx, true, endpoint))
+                {
+                    Logging.error("Couldn't add transaction " + tx.getTxIdString());
+                }
+            }
+        }
+
+        private void processPendingTransactions()
+        {
+            lock (pendingTransactions)
+            {
+                List<ulong> txSectionsToRemove = new();
+                foreach (var txs in pendingTransactions)
+                {
+                    //var lastBlockNum = Node.storage.getHighestBlockInStorage();
+                    var lastBlockNum = Node.blockChain.getLastBlockNum();
+                    if (txs.Key > lastBlockNum)
+                    {
+                        break;
+                    }
+
+                    foreach (var tx in txs.Value)
+                    {
+                        try
+                        {
+                            if (!TransactionPool.addTransaction(tx, true, null))
+                            {
+                                Logging.error("Couldn't add transaction " + tx.getTxIdString());
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Logging.error("Error occurred in processPendingTransactions: " + e);
+                        }
+                    }
+                    txSectionsToRemove.Add(txs.Key);
+                }
+                foreach(var txs in txSectionsToRemove)
+                {
+                    pendingTransactions.Remove(txs);
+                }
+            }
+        }
         public void onBlockReceived(Block b, RemoteEndpoint endpoint)
         {
             if (synchronizing == false) return;

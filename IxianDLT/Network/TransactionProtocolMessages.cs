@@ -506,7 +506,13 @@ namespace DLT
                             {
                                 continue;
                             }
-                            if (TransactionPool.addTransaction(tx, false, endpoint))
+                            
+                            if (Node.blockSync.synchronizing)
+                            {
+                                Node.blockSync.onTransactionReceived(tx, endpoint);
+                                processedTxCount++;
+                            }
+                            else if (TransactionPool.addTransaction(tx, false, endpoint))
                             {
                                 processedTxCount++;
                             }
@@ -564,7 +570,13 @@ namespace DLT
                             {
                                 continue;
                             }
-                            if (TransactionPool.addTransaction(tx, false, endpoint))
+
+                            if (Node.blockSync.synchronizing)
+                            {
+                                Node.blockSync.onTransactionReceived(tx, endpoint);
+                                processedTxCount++;
+                            }
+                            else if (TransactionPool.addTransaction(tx, false, endpoint))
                             {
                                 processedTxCount++;
                             }
