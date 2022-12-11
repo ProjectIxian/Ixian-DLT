@@ -19,7 +19,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace DLT
 {
@@ -67,7 +66,7 @@ namespace DLT
 
             class _storage_Index
             {
-                private Dictionary<byte[], List<byte[]>> indexMap = new Dictionary<byte[], List<byte[]>>();
+                private Dictionary<byte[], List<byte[]>> indexMap = new Dictionary<byte[], List<byte[]>>(new ByteArrayComparer());
                 public ColumnFamilyHandle rocksIndexHandle;
 
                 public _storage_Index(string cf_name, RocksDb db)
@@ -90,6 +89,7 @@ namespace DLT
                     {
                         indexMap.Add(key, new List<byte[]>());
                         indexMap[key].Add(new byte[] { 1 }); // dirty marker
+                        indexMap[key].Add(e);
                     }
                 }
 
@@ -147,7 +147,7 @@ namespace DLT
 
                 public void loadDBIndex(RocksDb db)
                 {
-                    indexMap = new Dictionary<byte[], List<byte[]>>();
+                    indexMap = new Dictionary<byte[], List<byte[]>>(new ByteArrayComparer());
                     var iter = db.NewIterator(rocksIndexHandle);
                     iter.SeekToFirst();
                     while (iter.Valid())
@@ -226,11 +226,9 @@ namespace DLT
             private _storage_Index idxBlocksChecksum;
             private _storage_Index idxBlocksLastSBChecksum;
             // transaction
-            private _storage_Index idxTXType;
+            private _storage_Index idxTXAppliedType;
             private _storage_Index idxTXFrom;
             private _storage_Index idxTXTo;
-            private _storage_Index idxTXBlockHeight;
-            private _storage_Index idxTXTimestamp;
             private _storage_Index idxTXApplied;
             private readonly object rockLock = new object();
 
@@ -283,11 +281,11 @@ namespace DLT
                         rocksOptions.SetDbWriteBufferSize(writeBufferSize);
                     }
                     BlockBasedTableOptions bbto = new BlockBasedTableOptions();
-                    if(blockCache != null)
+                    if (blockCache != null)
                     {
                         bbto.SetBlockCache(blockCache.Handle);
                     }
-                    if(compressedBlockCache != null)
+                    if (compressedBlockCache != null)
                     {
                         bbto.SetBlockCacheCompressed(compressedBlockCache.Handle);
                     }
@@ -302,11 +300,9 @@ namespace DLT
                     // index column families
                     columnFamilies.Add("index_block_checksum", cfo);
                     columnFamilies.Add("index_block_last_sb_checksum", cfo);
-                    columnFamilies.Add("index_tx_type", cfo);
+                    columnFamilies.Add("index_tx_applied_type", cfo);
                     columnFamilies.Add("index_tx_from", cfo);
                     columnFamilies.Add("index_tx_to", cfo);
-                    columnFamilies.Add("index_tx_block_height", cfo);
-                    columnFamilies.Add("index_tx_timestamp", cfo);
                     columnFamilies.Add("index_tx_applied", cfo);
                     //
                     database = RocksDb.Open(rocksOptions, dbPath, columnFamilies);
@@ -317,11 +313,9 @@ namespace DLT
                     // initialize indexes - this also loads them in memory
                     idxBlocksChecksum = new _storage_Index("index_block_checksum", database);
                     idxBlocksLastSBChecksum = new _storage_Index("index_block_last_sb_checksum", database);
-                    idxTXType = new _storage_Index("index_tx_type", database);
+                    idxTXAppliedType = new _storage_Index("index_tx_applied_type", database);
                     idxTXFrom = new _storage_Index("index_tx_from", database);
                     idxTXTo = new _storage_Index("index_tx_to", database);
-                    idxTXBlockHeight = new _storage_Index("index_tx_block_height", database);
-                    idxTXTimestamp = new _storage_Index("index_tx_timestamp", database);
                     idxTXApplied = new _storage_Index("index_tx_applied", database);
 
                     // read initial meta values
@@ -382,9 +376,9 @@ namespace DLT
 
             public void maintenance()
             {
-                if(database != null)
+                if (database != null)
                 {
-                    if((DateTime.Now - lastMaintenance).TotalSeconds > maintenanceInterval)
+                    if ((DateTime.Now - lastMaintenance).TotalSeconds > maintenanceInterval)
                     {
                         Logging.info("RocksDB: Performing regular maintenance (compaction) on database '{0}'.", dbPath);
                         try
@@ -423,12 +417,12 @@ namespace DLT
                                 database.CompactRange(first_key, last_key, idxBlocksLastSBChecksum.rocksIndexHandle);
                                 i.Dispose();
                                 //
-                                i = database.NewIterator(idxTXType.rocksIndexHandle);
+                                i = database.NewIterator(idxTXAppliedType.rocksIndexHandle);
                                 i = i.SeekToFirst();
                                 first_key = i.Key();
                                 i = i.SeekToLast();
                                 last_key = i.Key();
-                                database.CompactRange(first_key, last_key, idxTXType.rocksIndexHandle);
+                                database.CompactRange(first_key, last_key, idxTXAppliedType.rocksIndexHandle);
                                 i.Dispose();
                                 //
                                 i = database.NewIterator(idxTXFrom.rocksIndexHandle);
@@ -447,22 +441,6 @@ namespace DLT
                                 database.CompactRange(first_key, last_key, idxTXTo.rocksIndexHandle);
                                 i.Dispose();
                                 //
-                                i = database.NewIterator(idxTXBlockHeight.rocksIndexHandle);
-                                i = i.SeekToFirst();
-                                first_key = i.Key();
-                                i = i.SeekToLast();
-                                last_key = i.Key();
-                                database.CompactRange(first_key, last_key, idxTXBlockHeight.rocksIndexHandle);
-                                i.Dispose();
-                                //
-                                i = database.NewIterator(idxTXTimestamp.rocksIndexHandle);
-                                i = i.SeekToFirst();
-                                first_key = i.Key();
-                                i = i.SeekToLast();
-                                last_key = i.Key();
-                                database.CompactRange(first_key, last_key, idxTXTimestamp.rocksIndexHandle);
-                                i.Dispose();
-                                //
                                 i = database.NewIterator(idxTXApplied.rocksIndexHandle);
                                 i = i.SeekToFirst();
                                 first_key = i.Key();
@@ -472,7 +450,7 @@ namespace DLT
                                 i.Dispose();
                             }
                         }
-                        catch(Exception e)
+                        catch (Exception e)
                         {
                             Logging.warn("RocksDB: Error while performing regular maintenance on '{0}': {1}", dbPath, e.Message);
                         }
@@ -496,11 +474,9 @@ namespace DLT
                     // free all indexes
                     idxBlocksChecksum = null;
                     idxBlocksLastSBChecksum = null;
-                    idxTXType = null;
+                    idxTXAppliedType = null;
                     idxTXFrom = null;
                     idxTXTo = null;
-                    idxTXBlockHeight = null;
-                    idxTXTimestamp = null;
                     idxTXApplied = null;
                     //
                     rocksOptions = null;
@@ -522,12 +498,20 @@ namespace DLT
                 lastUsedTime = DateTime.Now;
             }
 
+            private byte[] appliedAndTypeToBytes(ulong bh, int type)
+            {
+                byte[] bhBytes = BitConverter.GetBytes(bh);
+                byte[] typeBytes = BitConverter.GetBytes(type);
+                byte[] bhTypeBytes = new byte[bhBytes.Length + typeBytes.Length + 1];
+                Array.Copy(bhBytes, bhTypeBytes, bhBytes.Length);
+                bhTypeBytes[bhBytes.Length] = 0;
+                Array.Copy(typeBytes, 0, bhTypeBytes, bhBytes.Length + 1, typeBytes.Length);
+                return bhTypeBytes;
+            }
+
             private void updateTXIndexes(Transaction st)
             {
                 byte[] tx_id_bytes = st.id;
-
-                idxTXType.addIndexEntry(BitConverter.GetBytes(st.type), tx_id_bytes);
-                idxTXType.updateDBIndex(database);
 
                 foreach (var from in st.fromList)
                 {
@@ -541,11 +525,11 @@ namespace DLT
                 }
                 idxTXTo.updateDBIndex(database);
 
-                idxTXBlockHeight.addIndexEntry(BitConverter.GetBytes(st.blockHeight), tx_id_bytes);
-                idxTXBlockHeight.updateDBIndex(database);
+                idxTXApplied.addIndexEntry(BitConverter.GetBytes(st.applied), tx_id_bytes);
+                idxTXApplied.updateDBIndex(database);
 
-                idxTXTimestamp.addIndexEntry(BitConverter.GetBytes(st.timeStamp), tx_id_bytes);
-                idxTXTimestamp.updateDBIndex(database);
+                idxTXAppliedType.addIndexEntry(appliedAndTypeToBytes(st.applied, st.type), tx_id_bytes);
+                idxTXAppliedType.updateDBIndex(database);
 
                 lastUsedTime = DateTime.Now;
             }
@@ -595,20 +579,6 @@ namespace DLT
                 }
                 lastUsedTime = DateTime.Now;
                 return true;
-            }
-
-            public bool insertTXApplied(Transaction transaction)
-            {
-                lock(rockLock)
-                {
-                    if (database == null)
-                    {
-                        return false;
-                    }
-                    idxTXApplied.addIndexEntry(BitConverter.GetBytes(transaction.applied), new _applied_tx_idx_entry(transaction.blockHeight, transaction.id).asBytes());
-                    idxTXApplied.updateDBIndex(database);
-                    return true;
-                }
             }
 
             private Block getBlockInternal(byte[] block_num_bytes)
@@ -727,24 +697,6 @@ namespace DLT
                 }
             }
 
-            public IEnumerable<Transaction> getTransactionsByType(Transaction.Type type)
-            {
-                lock (rockLock)
-                {
-                    List<Transaction> txs = new List<Transaction>();
-                    if (database == null)
-                    {
-                        return null;
-                    }
-                    lastUsedTime = DateTime.Now;
-                    foreach (var i in idxTXType.getEntriesForKey(BitConverter.GetBytes((int)type)))
-                    {
-                        txs.Add(getTransactionInternal(i));
-                    }
-                    return txs;
-                }
-            }
-
             public IEnumerable<Transaction> getTransactionsFromAddress(byte[] from_addr)
             {
                 lock (rockLock)
@@ -781,7 +733,6 @@ namespace DLT
                 }
             }
 
-            // TODO implement tx_type
             public IEnumerable<Transaction> getTransactionsInBlock(ulong block_num, int tx_type = -1)
             {
                 lock (rockLock)
@@ -792,34 +743,20 @@ namespace DLT
                         return null;
                     }
                     lastUsedTime = DateTime.Now;
-                    foreach (var i in idxTXFrom.getEntriesForKey(BitConverter.GetBytes(block_num)))
+                    IEnumerable<byte[]> entries;
+                    if (tx_type == -1)
                     {
-                        txs.Add(getTransactionInternal(i));
+                        entries = idxTXApplied.getEntriesForKey(BitConverter.GetBytes(block_num));
                     }
-                    return txs;
-                }
-            }
+                    else
+                    {
+                        entries = idxTXAppliedType.getEntriesForKey(appliedAndTypeToBytes(block_num, tx_type));
+                    }
 
-            public IEnumerable<Transaction> getTransactionsByTime(long time_from, long time_to)
-            {
-                lock (rockLock)
-                {
-                    List<Transaction> txs = new List<Transaction>();
-                    if (database == null)
+                    foreach (var txid in entries)
                     {
-                        return null;
-                    }
-                    lastUsedTime = DateTime.Now;
-                    foreach (var ts_bytes in idxTXTimestamp.getAllKeys())
-                    {
-                        long timestamp = BitConverter.ToInt64(ts_bytes, 0);
-                        if (timestamp >= time_from && timestamp <= time_to)
-                        {
-                            foreach (var i in idxTXTimestamp.getEntriesForKey(ts_bytes))
-                            {
-                                txs.Add(getTransactionInternal(i));
-                            }
-                        }
+                        var tx = getTransactionInternal(txid);
+                        txs.Add(tx);
                     }
                     return txs;
                 }
@@ -852,10 +789,10 @@ namespace DLT
 
             public bool removeBlock(ulong blockNum, bool removeTransactions)
             {
-                lock(rockLock)
+                lock (rockLock)
                 {
                     Block b = getBlock(blockNum);
-                    if(b != null)
+                    if (b != null)
                     {
                         var block_num_bytes = BitConverter.GetBytes(blockNum);
                         database.Remove(block_num_bytes, rocksCFBlocks);
@@ -863,9 +800,9 @@ namespace DLT
                         idxBlocksChecksum.delIndexEntry(b.blockChecksum, block_num_bytes);
                         idxBlocksLastSBChecksum.delIndexEntry(b.lastSuperBlockChecksum, block_num_bytes);
                         //
-                        if(removeTransactions)
+                        if (removeTransactions)
                         {
-                            foreach(var tx_id_bytes in idxTXBlockHeight.getEntriesForKey(block_num_bytes))
+                            foreach (var tx_id_bytes in idxTXApplied.getEntriesForKey(block_num_bytes))
                             {
                                 removeTransactionInternal(tx_id_bytes);
                             }
@@ -878,25 +815,23 @@ namespace DLT
 
             private bool removeTransactionInternal(byte[] tx_id_bytes)
             {
-                lock(rockLock)
+                lock (rockLock)
                 {
                     Transaction tx = getTransactionInternal(tx_id_bytes);
-                    if(tx != null)
+                    if (tx != null)
                     {
                         database.Remove(tx_id_bytes, rocksCFTransactions);
                         // remove it from indexes
                         idxTXApplied.delIndexEntry(BitConverter.GetBytes(tx.applied), tx_id_bytes);
-                        idxTXBlockHeight.delIndexEntry(BitConverter.GetBytes(tx.blockHeight), tx_id_bytes);
-                        foreach(var f in tx.fromList.Keys)
+                        foreach (var f in tx.fromList.Keys)
                         {
                             idxTXFrom.delIndexEntry(f, tx_id_bytes);
                         }
-                        foreach(var t in tx.toList.Keys)
+                        foreach (var t in tx.toList.Keys)
                         {
                             idxTXTo.delIndexEntry(t.addressNoChecksum, tx_id_bytes);
                         }
-                        idxTXTimestamp.delIndexEntry(BitConverter.GetBytes(tx.timeStamp), tx_id_bytes);
-                        idxTXType.delIndexEntry(BitConverter.GetBytes(tx.type), tx_id_bytes);
+                        idxTXAppliedType.delIndexEntry(appliedAndTypeToBytes(tx.applied, tx.type), tx_id_bytes);
                         return true;
                     }
                     return false;
@@ -905,7 +840,7 @@ namespace DLT
 
             public bool removeTransaction(byte[] txid)
             {
-                lock(rockLock)
+                lock (rockLock)
                 {
                     var tx_id_bytes = txid;
                     return removeTransactionInternal(tx_id_bytes);
@@ -950,7 +885,7 @@ namespace DLT
                                 return null;
                             }
                         }
-                        
+
                         Logging.info("RocksDB: Opening a database for blocks {0} - {1}.", baseBlockNum * Config.maxBlocksPerDatabase, (baseBlockNum * Config.maxBlocksPerDatabase) + Config.maxBlocksPerDatabase - 1);
                         db = new RocksDBInternal(db_path, commonBlockCache, commonCompressedBlockCache, writeBufferSize);
                         openDatabases.Add(baseBlockNum, db);
@@ -993,7 +928,7 @@ namespace DLT
                     return 512 * MB;
                 }
                 else if (memMB < 8192) // between 4GB and 8GB
-                { 
+                {
                     return 1 * GB;
                 }
                 else // above 8GB
@@ -1011,12 +946,13 @@ namespace DLT
                 // <startOffset> is aligned to `maxBlocksPerDB` blocks
 
                 // check that the base path exists, or create it
-                if(!Directory.Exists(pathBase))
+                if (!Directory.Exists(pathBase))
                 {
                     try
                     {
                         Directory.CreateDirectory(pathBase);
-                    } catch(Exception e)
+                    }
+                    catch (Exception e)
                     {
                         Logging.error(String.Format("Unable to prepare block database path '{0}': {1}", pathBase, e.Message));
                         return false;
@@ -1031,14 +967,16 @@ namespace DLT
                 if (Config.optimizeDBStorage)
                 {
                     Logging.info("RocksDB: Performing pre-start DB compaction and optimization.");
-                    foreach (string db in Directory.GetDirectories(pathBase)) {
+                    foreach (string db in Directory.GetDirectories(pathBase))
+                    {
                         Logging.info("RocksDB: Optimizing [{0}].", db);
                         RocksDBInternal temp_db = new RocksDBInternal(db);
                         try
                         {
                             temp_db.openDatabase();
                             temp_db.closeDatabase();
-                        } catch(Exception e)
+                        }
+                        catch (Exception e)
                         {
                             Logging.warn("RocksDB: Error while opening database {0}: {1}", db, e.Message);
                         }
@@ -1086,7 +1024,7 @@ namespace DLT
                         while (num < 2 && reopenCleanupList.Count > 0)
                         {
                             var db = reopenCleanupList.Dequeue();
-                            if(openDatabases.Values.Any(x => x.dbPath == db.dbPath))
+                            if (openDatabases.Values.Any(x => x.dbPath == db.dbPath))
                             {
                                 Logging.info("RocksDB: Database [{0}] was still in use, skipping until it is closed.", db.dbPath);
                                 continue;
@@ -1097,7 +1035,8 @@ namespace DLT
                                 db.openDatabase();
                                 db.closeDatabase();
                                 Logging.info("RocksDB: Reopen succeeded");
-                            } catch(Exception)
+                            }
+                            catch (Exception)
                             {
                                 // these were attempted too quickly and RocksDB internal still has some pointers open
                                 problemDBs.Add(db);
@@ -1105,7 +1044,7 @@ namespace DLT
                             }
                             num += 1;
                         }
-                        foreach(var db in problemDBs)
+                        foreach (var db in problemDBs)
                         {
                             reopenCleanupList.Enqueue(db);
                         }
@@ -1163,9 +1102,9 @@ namespace DLT
 
             protected override void shutdown()
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
-                    foreach(var db in openDatabases.Values)
+                    foreach (var db in openDatabases.Values)
                     {
                         Logging.info(String.Format("RocksDB: Shutdown, closing '{0}'", db.dbPath));
                         db.closeDatabase();
@@ -1178,13 +1117,13 @@ namespace DLT
                 // TODO Cache
                 // find our absolute highest block db
                 ulong latest_db = 0;
-                foreach(var d in Directory.EnumerateDirectories(pathBase))
+                foreach (var d in Directory.EnumerateDirectories(pathBase))
                 {
                     string[] dir_parts = d.Split(Path.DirectorySeparatorChar);
                     string final_dir = dir_parts[dir_parts.Length - 1];
-                    if(ulong.TryParse(final_dir, out ulong db_base))
+                    if (ulong.TryParse(final_dir, out ulong db_base))
                     {
-                        if(db_base > latest_db)
+                        if (db_base > latest_db)
                         {
                             latest_db = db_base;
                         }
@@ -1196,7 +1135,7 @@ namespace DLT
                 }
                 lock (openDatabases)
                 {
-                    for(ulong i = latest_db; i > 0; i--)
+                    for (ulong i = latest_db; i > 0; i--)
                     {
                         var db = getDatabase(i * Config.maxBlocksPerDatabase, true);
                         if (db != null && db.maxBlockNumber > 0)
@@ -1255,7 +1194,7 @@ namespace DLT
 
             public override Block getBlock(ulong blocknum)
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
                     var db = getDatabase(blocknum);
                     return db.getBlock(blocknum);
@@ -1264,7 +1203,7 @@ namespace DLT
 
             public override Block getBlockByHash(byte[] checksum)
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
                     foreach (var db in openDatabases.Values)
                     {
@@ -1307,13 +1246,13 @@ namespace DLT
             public override IEnumerable<Block> getBlocksByRange(ulong from, ulong to)
             {
                 IEnumerable<Block> combined = Enumerable.Empty<Block>();
-                if(to < from || (to+from == 0))
+                if (to < from || (to + from == 0))
                 {
                     return combined;
                 }
-                lock(openDatabases)
+                lock (openDatabases)
                 {
-                    for(ulong i = from; i <= to; i++)
+                    for (ulong i = from; i <= to; i++)
                     {
                         var db = getDatabase(i);
                         var matching_blocks = db.getBlocksByRange(from, to);
@@ -1325,13 +1264,13 @@ namespace DLT
 
             public override Transaction getTransaction(byte[] txid, ulong block_num = 0)
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
-                    if(block_num != 0)
+                    if (block_num != 0)
                     {
                         var db = getDatabase(block_num);
                         return db.getTransaction(txid);
-                    } 
+                    }
                     else
                     {
                         bool found = false;
@@ -1350,9 +1289,9 @@ namespace DLT
                             return null;
                         }
 
-                        if (highest_blocknum > db_blocknum + ConsensusConfig.getRedactedWindowSize(2))
+                        if (highest_blocknum > db_blocknum + ConsensusConfig.getRedactedWindowSize(Block.maxVersion))
                         {
-                            highest_blocknum = db_blocknum + ConsensusConfig.getRedactedWindowSize(2);
+                            highest_blocknum = db_blocknum + ConsensusConfig.getRedactedWindowSize(Block.maxVersion);
                         }
 
                         while (!found)
@@ -1380,7 +1319,7 @@ namespace DLT
                                     // Transaction not found in any database
                                     return null;
                                 }
-                            }                           
+                            }
                         }
 
                     }
@@ -1390,22 +1329,25 @@ namespace DLT
 
             public override IEnumerable<Transaction> getTransactionsByType(Transaction.Type type, ulong block_from = 0, ulong block_to = 0)
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
                     IEnumerable<Transaction> combined = Enumerable.Empty<Transaction>();
                     IEnumerable<RocksDBInternal> dbs_to_search = openDatabases.Values.Where(x => true); // all databases
-                    if(block_from + block_to > 0)
+                    if (block_from + block_to > 0)
                     {
                         dbs_to_search = openDatabases.Where(kvp => kvp.Key >= block_from && kvp.Key <= block_to).Select(kvp => kvp.Value);
                     }
-                    foreach(var db in dbs_to_search)
+                    foreach (var db in dbs_to_search)
                     {
-                        if(!db.isOpen)
+                        if (!db.isOpen)
                         {
                             db.openDatabase();
                         }
-                        var matching_txs = db.getTransactionsByType(type);
-                        combined = Enumerable.Concat(combined, matching_txs);
+                        for (ulong i = db.minBlockNumber; i < db.maxBlockNumber; i++)
+                        {
+                            var matching_txs = db.getTransactionsInBlock(i, (int)type);
+                            combined = Enumerable.Concat(combined, matching_txs);
+                        }
                     }
                     return combined;
                 }
@@ -1459,45 +1401,23 @@ namespace DLT
 
             public override IEnumerable<Transaction> getTransactionsInBlock(ulong block_num, int tx_type = -1)
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
                     var db = getDatabase(block_num);
                     return db.getTransactionsInBlock(block_num, tx_type);
                 }
             }
 
-            public override IEnumerable<Transaction> getTransactionsByTime(long time_from, long time_to)
-            {
-                IEnumerable<Transaction> combined = Enumerable.Empty<Transaction>();
-                if(time_to < time_from || (time_to == 0 && time_from == 0))
-                {
-                    return combined;
-                }
-                lock(openDatabases)
-                {
-                    foreach(var db in openDatabases.Values)
-                    {
-                        if(!db.isOpen)
-                        {
-                            db.openDatabase();
-                        }
-                        var matching_txs = db.getTransactionsByTime(time_from, time_to);
-                        combined = Enumerable.Concat(combined, matching_txs);
-                    }
-                    return combined;
-                }
-            }
-
             public override IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to)
             {
                 List<Transaction> combined = new List<Transaction>();
-                if(block_to < block_from || (block_from+block_to == 0))
+                if (block_to < block_from || (block_from + block_to == 0))
                 {
                     return combined;
                 }
-                lock(openDatabases)
+                lock (openDatabases)
                 {
-                    for(ulong i = block_from; i <= block_to; i++)
+                    for (ulong i = block_from; i <= block_to; i++)
                     {
                         var db = getDatabase(i);
                         foreach (var appidx in db.getTransactionsApplied(block_from, block_to))
@@ -1515,7 +1435,7 @@ namespace DLT
 
             public override bool removeBlock(ulong block_num, bool remove_transactions)
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
                     var db = getDatabase(block_num);
                     return db.removeBlock(block_num, remove_transactions);
@@ -1524,17 +1444,18 @@ namespace DLT
 
             public override bool removeTransaction(byte[] txid, ulong block_num = 0)
             {
-                lock(openDatabases)
+                lock (openDatabases)
                 {
-                    if(block_num > 0)
+                    if (block_num > 0)
                     {
                         var db = getDatabase(block_num);
                         return db.removeTransaction(txid);
-                    } else
+                    }
+                    else
                     {
-                        foreach(var db in openDatabases.Values)
+                        foreach (var db in openDatabases.Values)
                         {
-                            if(!db.isOpen)
+                            if (!db.isOpen)
                             {
                                 db.openDatabase();
                             }

@@ -691,7 +691,7 @@ namespace DLT
 
                                 if (t == null)
                                 {
-                                    t = Node.storage.getTransaction(txid, b.blockNum);
+                                    //t = Node.storage.getTransaction(txid, b.blockNum);
                                     missed_txs++;
                                 }
 

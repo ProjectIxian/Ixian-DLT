@@ -336,15 +336,6 @@ namespace DLT
             /// <returns>Collection with matching Transactions.</returns>
             public abstract IEnumerable<Transaction> getTransactionsInBlock(ulong block_num, int tx_type = -1);
             /// <summary>
-            /// Retrieve all Transactions between the given timestamps (inclusive).
-            /// Note: If `time_from` is larger than `time_to`, or both parameters are 0, an empty collection will be returned.
-            /// The timestamp is in the format returned by `Core.getCurrentTimestamp()`.
-            /// </summary>
-            /// <param name="time_from">Starting timestamp for the search.</param>
-            /// <param name="time_to">Ending timestamp for the search.</param>
-            /// <returns>Collection of all Transactions between the specified timestamps.</returns>
-            public abstract IEnumerable<Transaction> getTransactionsByTime(long time_from, long time_to);
-            /// <summary>
             /// Retrieve all Transactions which were applied in the specified block range (inclusive).
             /// Note: if `block_from` is larger than `block_to`, or both parameters are 0, an empty collection will be returned.
             /// </summary>

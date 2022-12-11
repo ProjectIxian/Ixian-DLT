@@ -1573,11 +1573,6 @@ namespace DLT
                 return transactions;
             }
 
-            public override IEnumerable<Transaction> getTransactionsByTime(long time_from, long time_to)
-            {
-                throw new NotImplementedException();
-            }
-
             public override IEnumerable<Transaction> getTransactionsApplied(ulong block_from, ulong block_to)
             {
                 throw new NotImplementedException();
