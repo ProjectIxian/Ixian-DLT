@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace DLT
 {
@@ -66,151 +67,56 @@ namespace DLT
 
             class _storage_Index
             {
-                private Dictionary<byte[], List<byte[]>> indexMap = new Dictionary<byte[], List<byte[]>>(new ByteArrayComparer());
                 public ColumnFamilyHandle rocksIndexHandle;
-
+                private RocksDb db;
                 public _storage_Index(string cf_name, RocksDb db)
                 {
+                    this.db = db;
                     rocksIndexHandle = db.GetColumnFamily(cf_name);
-                    loadDBIndex(db);
                 }
 
                 public void addIndexEntry(byte[] key, byte[] e)
                 {
-                    if (indexMap.ContainsKey(key))
-                    {
-                        if (!indexMap[key].Exists(x => x.SequenceEqual(e)))
-                        {
-                            indexMap[key].Add(e);
-                            indexMap[key][0][0] = (byte)1;
-                        }
-                    }
-                    else
-                    {
-                        indexMap.Add(key, new List<byte[]>());
-                        indexMap[key].Add(new byte[] { 1 }); // dirty marker
-                        indexMap[key].Add(e);
-                    }
+                    byte[] keyWithSuffix = new byte[key.Length + e.Length];
+                    Array.Copy(key, keyWithSuffix, key.Length);
+                    Array.Copy(e, 0, keyWithSuffix, key.Length, e.Length);
+
+                    db.Put(keyWithSuffix, e, rocksIndexHandle);
                 }
 
                 public void delIndexEntry(byte[] key, byte[] e)
                 {
-                    if (indexMap.ContainsKey(key))
-                    {
-                        var i = indexMap[key].FindIndex(x => x.SequenceEqual(e));
-                        if (i > -1)
-                        {
-                            indexMap[key].RemoveAt(i);
-                            indexMap[key][0][0] = (byte)1;
-                        }
-                    }
+                    byte[] keyWithSuffix = new byte[key.Length + e.Length];
+                    Array.Copy(key, keyWithSuffix, key.Length);
+                    Array.Copy(e, 0, keyWithSuffix, key.Length, e.Length);
+
+                    db.Remove(keyWithSuffix, rocksIndexHandle);
                 }
 
                 public IEnumerable<byte[]> getEntriesForKey(byte[] key)
                 {
-                    if (indexMap.ContainsKey(key))
+                    List<byte[]> entries = new();
+                    var iter = db.NewIterator(rocksIndexHandle);
+                    for (iter.Seek(key); iter.Valid() && iter.Key().Take(key.Length).SequenceEqual(key); iter.Next())
                     {
-                        return indexMap[key].Skip(1);
+                        entries.Add(iter.Value());
                     }
-                    return Enumerable.Empty<byte[]>();
+                    iter.Dispose();
+                    return entries;
                 }
 
                 public IEnumerable<byte[]> getAllKeys()
                 {
-                    return indexMap.Keys;
-                }
-
-                public void updateDBIndex(RocksDb db)
-                {
-                    List<byte[]> to_del = new List<byte[]>();
-                    foreach (var kv in indexMap)
-                    {
-                        if (kv.Value[0][0] == 1)
-                        {
-                            if (kv.Value.Count == 1)
-                            {
-                                db.Remove(kv.Key, rocksIndexHandle);
-                                to_del.Add(kv.Key);
-                            }
-                            else
-                            {
-                                db.Put(kv.Key, asBytes(kv.Key));
-                                kv.Value[0][0] = (byte)0;
-                            }
-                        }
-                    }
-                    foreach (var d in to_del)
-                    {
-                        indexMap.Remove(d);
-                    }
-                }
-
-                public void loadDBIndex(RocksDb db)
-                {
-                    indexMap = new Dictionary<byte[], List<byte[]>>(new ByteArrayComparer());
+                    List<byte[]> entries = new();
                     var iter = db.NewIterator(rocksIndexHandle);
                     iter.SeekToFirst();
                     while (iter.Valid())
                     {
-                        fromBytes(iter.Key(), iter.Value());
+                        entries.Add(iter.Key());
                         iter.Next();
                     }
                     iter.Dispose();
-                }
-
-                private byte[] asBytes(byte[] key)
-                {
-                    using (MemoryStream ms = new MemoryStream())
-                    {
-                        using (BinaryWriter bw = new BinaryWriter(ms))
-                        {
-                            bw.Write(indexMap[key].Count);
-                            foreach (var e in indexMap[key])
-                            {
-                                if (e != null)
-                                {
-                                    bw.Write(e.Length);
-                                    bw.Write(e);
-                                }
-                                else
-                                {
-                                    bw.Write(0);
-                                }
-                            }
-                        }
-                        return ms.ToArray();
-                    }
-                }
-
-                private void fromBytes(byte[] key, byte[] bytes)
-                {
-                    using (MemoryStream ms = new MemoryStream(bytes))
-                    {
-                        using (BinaryReader br = new BinaryReader(ms))
-                        {
-                            int count = br.ReadInt32();
-                            if (count > 0)
-                            {
-                                if (!indexMap.ContainsKey(key))
-                                {
-                                    indexMap.Add(key, new List<byte[]>());
-                                }
-                                else
-                                {
-                                    indexMap[key] = new List<byte[]>();
-                                }
-                                indexMap[key].Add(new byte[] { 0 });
-                                for (int i = 0; i < count; i++)
-                                {
-                                    int len = br.ReadInt32();
-                                    if (len > 0)
-                                    {
-                                        indexMap[key].Add(br.ReadBytes(len));
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    return entries;
                 }
             }
 
@@ -289,9 +195,13 @@ namespace DLT
                     {
                         bbto.SetBlockCacheCompressed(compressedBlockCache.Handle);
                     }
+                    //bbto.SetFilterPolicy(BloomFilterPolicy.Create(256, false));
+                    //bbto.SetWholeKeyFiltering(true);
                     ColumnFamilyOptions cfo = new ColumnFamilyOptions();
                     cfo.SetBlockBasedTableFactory(bbto);
                     cfo.SetCompression(Compression.Snappy);
+                    //cfo.SetPrefixExtractor(SliceTransform.CreateFixedPrefix(64));
+                    //cfo.SetMemtableHugePageSize(2 * 1024 * 1024);
                     var columnFamilies = new ColumnFamilies(cfo);
                     // default column families
                     columnFamilies.Add("blocks", cfo);
@@ -489,11 +399,9 @@ namespace DLT
             {
                 byte[] block_num_bytes = BitConverter.GetBytes(sb.blockNum);
                 idxBlocksChecksum.addIndexEntry(sb.blockChecksum, block_num_bytes);
-                idxBlocksChecksum.updateDBIndex(database);
                 if (sb.lastSuperBlockChecksum != null)
                 {
                     idxBlocksLastSBChecksum.addIndexEntry(sb.lastSuperBlockChecksum, block_num_bytes);
-                    idxBlocksLastSBChecksum.updateDBIndex(database);
                 }
                 lastUsedTime = DateTime.Now;
             }
@@ -517,19 +425,15 @@ namespace DLT
                 {
                     idxTXFrom.addIndexEntry(new Address(st.pubKey.addressNoChecksum, from.Key).addressNoChecksum, tx_id_bytes);
                 }
-                idxTXFrom.updateDBIndex(database);
 
                 foreach (var to in st.toList)
                 {
                     idxTXTo.addIndexEntry(to.Key.addressNoChecksum, tx_id_bytes);
                 }
-                idxTXTo.updateDBIndex(database);
 
                 idxTXApplied.addIndexEntry(BitConverter.GetBytes(st.applied), tx_id_bytes);
-                idxTXApplied.updateDBIndex(database);
 
                 idxTXAppliedType.addIndexEntry(appliedAndTypeToBytes(st.applied, st.type), tx_id_bytes);
-                idxTXAppliedType.updateDBIndex(database);
 
                 lastUsedTime = DateTime.Now;
             }
@@ -876,7 +780,7 @@ namespace DLT
                     }
                     else
                     {
-                        string db_path = pathBase + Path.DirectorySeparatorChar + baseBlockNum.ToString();
+                        string db_path = Path.Combine(pathBase, "0000" , baseBlockNum.ToString());
                         if (onlyExisting)
                         {
                             if (!Directory.Exists(db_path))
@@ -951,6 +855,7 @@ namespace DLT
                     try
                     {
                         Directory.CreateDirectory(pathBase);
+                        Directory.CreateDirectory(Path.Combine(pathBase, "0000"));
                     }
                     catch (Exception e)
                     {
@@ -967,7 +872,7 @@ namespace DLT
                 if (Config.optimizeDBStorage)
                 {
                     Logging.info("RocksDB: Performing pre-start DB compaction and optimization.");
-                    foreach (string db in Directory.GetDirectories(pathBase))
+                    foreach (string db in Directory.GetDirectories(Path.Combine(pathBase, "0000")))
                     {
                         Logging.info("RocksDB: Optimizing [{0}].", db);
                         RocksDBInternal temp_db = new RocksDBInternal(db);
@@ -1078,26 +983,7 @@ namespace DLT
 
             public override void deleteData()
             {
-                lock (openDatabases)
-                {
-                    while (openDatabases.Count > 0)
-                    {
-                        ulong d = openDatabases.Keys.First();
-                        var db = openDatabases[d];
-                        db.closeDatabase();
-                        string path = db.dbPath;
-                        Logging.info(String.Format("RocksDB: Deleting '{0}'", path));
-                        openDatabases.Remove(d);
-                        try
-                        {
-                            Directory.Delete(path);
-                        }
-                        catch (Exception e)
-                        {
-                            Logging.warn(String.Format("RocksDB: Delete data - failed removing directory '{0}': {1}", path, e));
-                        }
-                    }
-                }
+                Directory.Delete(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks", true);
             }
 
             protected override void shutdown()
@@ -1117,7 +1003,7 @@ namespace DLT
                 // TODO Cache
                 // find our absolute highest block db
                 ulong latest_db = 0;
-                foreach (var d in Directory.EnumerateDirectories(pathBase))
+                foreach (var d in Directory.EnumerateDirectories(Path.Combine(pathBase, "0000")))
                 {
                     string[] dir_parts = d.Split(Path.DirectorySeparatorChar);
                     string final_dir = dir_parts[dir_parts.Length - 1];
@@ -1129,18 +1015,17 @@ namespace DLT
                         }
                     }
                 }
-                if (latest_db == 0)
-                {
-                    return 0; // empty db
-                }
                 lock (openDatabases)
                 {
-                    for (ulong i = latest_db; i > 0; i--)
+                    for (ulong i = latest_db; i >= 0; i--)
                     {
                         var db = getDatabase(i * Config.maxBlocksPerDatabase, true);
                         if (db != null && db.maxBlockNumber > 0)
                         {
                             return db.maxBlockNumber;
+                        }else if(i == 0)
+                        {
+                            return 0;
                         }
                     }
                     return 0;
@@ -1152,7 +1037,7 @@ namespace DLT
                 // TODO Cache
                 // find our absolute highest block db
                 ulong oldest_db = 0;
-                foreach (var d in Directory.EnumerateDirectories(pathBase))
+                foreach (var d in Directory.EnumerateDirectories(Path.Combine(pathBase, "0000")))
                 {
                     string final_dir = Path.GetDirectoryName(d);
                     if (ulong.TryParse(final_dir, out ulong db_base))
