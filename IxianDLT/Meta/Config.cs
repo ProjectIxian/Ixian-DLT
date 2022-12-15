@@ -101,14 +101,14 @@ namespace DLT
             public static ulong forceSyncToBlock = 0;
 
             // Read-only values
-            public static readonly string version = "xdc-0.9.1-dev"; // DLT Node version
+            public static readonly string version = "xdc-0.9.1"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 2772000 + (ulong)(new Random()).Next(50); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 3240000 + (ulong)(new Random()).Next(50); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
 
@@ -282,10 +282,10 @@ namespace DLT
                     switch (key)
                     {
                         case "dltPort":
-                            Config.defaultServerPort = int.Parse(value);
+                            defaultServerPort = int.Parse(value);
                             break;
                         case "testnetDltPort":
-                            Config.defaultTestnetServerPort = int.Parse(value);
+                            defaultTestnetServerPort = int.Parse(value);
                             break;
                         case "apiPort":
                             apiPort = int.Parse(value);
@@ -334,7 +334,7 @@ namespace DLT
                             CoreConfig.walletNotifyCommand = value;
                             break;
                         case "blockNotify":
-                            Config.blockNotifyCommand = value;
+                            blockNotifyCommand = value;
                             break;
                         case "logVerbosity":
                             logVerbosity = int.Parse(value);
@@ -426,6 +426,9 @@ namespace DLT
                 // testnet
                 cmd_parser.Setup<bool>('t', "testnet").Callback(value => networkType = NetworkType.test).Required();
 
+                // Toggle worker-only mode
+                cmd_parser.Setup<bool>("worker").Callback(value => workerOnly = true).Required();
+
                 cmd_parser.Parse(args);
 
                 if (networkType == NetworkType.test)
@@ -440,7 +443,10 @@ namespace DLT
                     serverPort = defaultServerPort;
                 }
 
-
+                if (workerOnly)
+                {
+                    maxOutgoingConnections = maxOutgoingConnections / 2;
+                }
 
                 string seedNode = "";
 
@@ -452,9 +458,6 @@ namespace DLT
 
                 // Toggle between full history node and no history
                 cmd_parser.Setup<bool>('s', "save-history").Callback(value => storeFullHistory = value).Required();
-
-                // Toggle worker-only mode
-                cmd_parser.Setup<bool>("worker").Callback(value => workerOnly = true).Required();
 
                 // Check for password change
                 cmd_parser.Setup<bool>('x', "changepass").Callback(value => changePass = value).Required();
