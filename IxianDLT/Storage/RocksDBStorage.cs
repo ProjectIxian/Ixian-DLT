@@ -19,7 +19,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 
 namespace DLT
 {
@@ -410,10 +409,9 @@ namespace DLT
             {
                 byte[] bhBytes = BitConverter.GetBytes(bh);
                 byte[] typeBytes = BitConverter.GetBytes(type);
-                byte[] bhTypeBytes = new byte[bhBytes.Length + typeBytes.Length + 1];
+                byte[] bhTypeBytes = new byte[bhBytes.Length + typeBytes.Length];
                 Array.Copy(bhBytes, bhTypeBytes, bhBytes.Length);
-                bhTypeBytes[bhBytes.Length] = 0;
-                Array.Copy(typeBytes, 0, bhTypeBytes, bhBytes.Length + 1, typeBytes.Length);
+                Array.Copy(typeBytes, 0, bhTypeBytes, bhBytes.Length, typeBytes.Length);
                 return bhTypeBytes;
             }
 
@@ -1072,7 +1070,7 @@ namespace DLT
             {
                 lock (openDatabases)
                 {
-                    var db = getDatabase(transaction.blockHeight);
+                    var db = getDatabase(transaction.applied);
                     return db.insertTransaction(transaction);
                 }
             }

@@ -1242,7 +1242,7 @@ namespace DLT
                 {
                     //var lastBlockNum = Node.storage.getHighestBlockInStorage();
                     var lastBlockNum = Node.blockChain.getLastBlockNum();
-                    if (txs.Key > lastBlockNum)
+                    if (txs.Key > lastBlockNum + 1)
                     {
                         break;
                     }

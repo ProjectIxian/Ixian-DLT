@@ -220,6 +220,11 @@ namespace DLT
 
             public virtual void insertBlock(Block block)
             {
+                if (this is RocksDBStorage)
+                {
+                    insertBlockInternal(block);
+                    return;
+                }
                 // Make a copy of the block for the queue storage message processing
                 QueueStorageMessage message = new QueueStorageMessage
                 {
@@ -237,6 +242,11 @@ namespace DLT
 
             public virtual void insertTransaction(Transaction transaction)
             {
+                if (this is RocksDBStorage)
+                {
+                    insertTransactionInternal(transaction);
+                    return;
+                }
                 // Make a copy of the transaction for the queue storage message processing
                 QueueStorageMessage message = new QueueStorageMessage
                 {
