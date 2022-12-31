@@ -324,13 +324,13 @@ namespace DLT
                 Presence updated_presence = PresenceList.updateFromBytes(data, Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1));
 
                 // If a presence entry was updated, broadcast this message again
-                /*if (updated_presence != null)
+                if (updated_presence != null)
                 {
-                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
+                    CoreProtocolMessage.broadcastProtocolMessage(new char[] { 'M', 'H', 'W' }, ProtocolMessageCode.updatePresence, data, updated_presence.wallet.addressNoChecksum, endpoint);
 
                     // Send this keepalive message to all subscribed clients
-                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, updated_presence.wallet, ProtocolMessageCode.updatePresence, data, updated_presence.wallet, endpoint);
-                }*/
+                    CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.keepAlive, updated_presence.wallet.addressNoChecksum, ProtocolMessageCode.updatePresence, data, updated_presence.wallet.addressNoChecksum, endpoint);
+                }
             }
         }
     }
