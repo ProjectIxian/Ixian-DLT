@@ -19,6 +19,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DLT.Journal;
+using IXICore.Journal;
 
 namespace DLT
 {
@@ -29,19 +31,11 @@ namespace DLT
         public Wallet[] wallets;
     }
 
-    public class WalletState
+    public class WalletState : GenericJournal
     {
-        private readonly object stateLock = new object();
         private readonly Dictionary<byte[], Wallet> walletState = new Dictionary<byte[], Wallet>(new ByteArrayComparer()); // The entire wallet list
         private byte[] cachedChecksum = null;
         private int cachedBlockVersion = 0;
-
-        private WSJTransaction wsjTransaction = null;
-        private List<WSJTransaction> processedWsjTransactions = new List<WSJTransaction>(); // keep last 6 WSJ states for block reorg purposes
-        public bool inTransaction
-        {
-            get; private set;
-        }
 
         private IxiNumber cachedTotalSupply = new IxiNumber(0);
         public int numWallets { get => walletState.Count; }
@@ -60,6 +54,23 @@ namespace DLT
             }
         }
 
+        public new bool beginTransaction(ulong blockNum, bool inTransaction = true)
+        {
+            lock (stateLock)
+            {
+                if (currentTransaction != null)
+                {
+                    // Transaction is already open
+                    return false;
+                }
+                var tx = new WSJTransaction(this, blockNum);
+                currentTransaction = tx;
+                this.inTransaction = inTransaction;
+                return true;
+            }
+        }
+
+
         public void clear()
         {
             Logging.info("Clearing wallet state!!");
@@ -68,113 +79,35 @@ namespace DLT
                 walletState.Clear();
                 cachedChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
-                wsjTransaction = null;
+                currentTransaction = null;
                 inTransaction = false;
-                processedWsjTransactions.Clear();
+                processedJournalTransactions.Clear();
             }
         }
 
-        // WSJ Stuff
-        public bool beginTransaction(ulong block_num, bool in_transaction = true)
+        public override bool revertTransaction(ulong transaction_id)
         {
-            lock(stateLock)
-            {
-                if(wsjTransaction != null)
-                {
-                    // Transaction is already open
-                    return false;
-                }
-                var tx = new WSJTransaction(block_num);
-                wsjTransaction = tx;
-                inTransaction = in_transaction;
-                return true;
-            }
-        }
-
-        public void commitTransaction(ulong transaction_id)
-        {
-            if(transaction_id == 0)
-            {
-                return;
-            }
-            // data has already been changed in the WalletState directly
             lock (stateLock)
             {
-                processedWsjTransactions.Add(wsjTransaction);
-                if(processedWsjTransactions.Count > 10)
+                if (base.revertTransaction(transaction_id))
                 {
-                    processedWsjTransactions.RemoveAt(0);
-                }
-                wsjTransaction = null;
-                inTransaction = false;
-            }
-        }
-
-        public bool canRevertTransaction(ulong transaction_id)
-        {
-            if (transaction_id == 0)
-            {
-                return false;
-            }
-            lock (stateLock)
-            {
-                if (wsjTransaction != null && wsjTransaction.wsjTxNumber == transaction_id)
-                {
-                    return true;
-                }
-                else
-                {
-                    WSJTransaction wsjt = processedWsjTransactions.Find(x => x.wsjTxNumber == transaction_id);
-                    if (wsjt == null)
-                    {
-                        return false;
-                    }
+                    cachedTotalSupply = new IxiNumber(0);
                     return true;
                 }
             }
-        }
-
-        public bool revertTransaction(ulong transaction_id)
-        {
-            if(transaction_id == 0)
-            {
-                return false;
-            }
-            lock(stateLock)
-            {
-                bool result = false;
-                if(wsjTransaction != null && wsjTransaction.wsjTxNumber == transaction_id)
-                {
-                    WSJTransaction wsjt = wsjTransaction;
-                    result = wsjt.revert();
-                    wsjTransaction = null;
-                    inTransaction = false;
-                }
-                else
-                {
-                    WSJTransaction wsjt = processedWsjTransactions.Find(x => x.wsjTxNumber == transaction_id);
-                    if(wsjt == null)
-                    {
-                        return false;
-                    }
-                    result = wsjt.revert();
-                    processedWsjTransactions.Remove(wsjt);
-                }
-                cachedTotalSupply = new IxiNumber(0);
-                return result;
-            }
+            return false;
         }
 
         private IEnumerable<Wallet> getAlteredWalletsSinceWSJTX(ulong transaction_id, int block_version)
         {
-            if (wsjTransaction != null && wsjTransaction.wsjTxNumber == transaction_id)
+            if (currentTransaction != null && currentTransaction.journalTxNumber == transaction_id)
             {
-                WSJTransaction wsjt = wsjTransaction;
+                WSJTransaction wsjt = (WSJTransaction) currentTransaction;
                 return wsjt.getAffectedWallets(block_version);
             }
             else
             {
-                WSJTransaction wsjt = processedWsjTransactions.Find(x => x.wsjTxNumber == transaction_id);
+                WSJTransaction wsjt = (WSJTransaction) processedJournalTransactions.Find(x => x.journalTxNumber == transaction_id);
                 if (wsjt == null)
                 {
                     return null;
@@ -188,15 +121,15 @@ namespace DLT
             return getWallet(id).balance;
         }
 
-        public Wallet getWallet(Address id, bool return_null_on_missing = false)
+        public Wallet getWallet(byte[] id, bool return_null_on_missing = false)
         {
             lock (stateLock)
             {
-                Wallet candidateWallet = new Wallet(id, (ulong)0);
-                if (walletState.ContainsKey(id.addressNoChecksum))
+                Wallet candidateWallet = new Wallet(new Address(id), (ulong)0);
+                if (walletState.ContainsKey(id))
                 {
                     // copy
-                    candidateWallet = new Wallet(walletState[id.addressNoChecksum]);
+                    candidateWallet = new Wallet(walletState[id]);
                 }else if(return_null_on_missing)
                 {
                     return null;
@@ -204,6 +137,11 @@ namespace DLT
                 
                 return candidateWallet;
             }
+        }
+
+        public Wallet getWallet(Address id, bool return_null_on_missing = false)
+        {
+            return getWallet(id.addressNoChecksum, return_null_on_missing);
         }
 
         #region Wallet Manipulation Methods - public use
@@ -219,9 +157,9 @@ namespace DLT
                 }
                 var change = new WSJE_Balance(wallet.id, wallet.balance, new_balance);
                 change.apply();
-                if (wsjTransaction != null)
+                if (currentTransaction != null)
                 {
-                    wsjTransaction.addChange(change);
+                    currentTransaction.addChange(change);
                 }
             }
         }
@@ -248,9 +186,9 @@ namespace DLT
                 }
                 var change = new WSJE_Pubkey(id, public_key);
                 change.apply();
-                if (wsjTransaction != null)
+                if (currentTransaction != null)
                 {
-                    wsjTransaction.addChange(change);
+                    currentTransaction.addChange(change);
                 }
             }
         }
@@ -272,9 +210,9 @@ namespace DLT
                 }
                 var change = new WSJE_AllowedSigner(id, true, signer);
                 change.apply();
-                if (wsjTransaction != null)
+                if (currentTransaction != null)
                 {
-                    wsjTransaction.addChange(change);
+                    currentTransaction.addChange(change);
                 }
             }
         }
@@ -290,9 +228,9 @@ namespace DLT
                 }
                 var change = new WSJE_AllowedSigner(id, false, signer, adjust_req_signers);
                 change.apply();
-                if (wsjTransaction != null)
+                if (currentTransaction != null)
                 {
-                    wsjTransaction.addChange(change);
+                    currentTransaction.addChange(change);
                 }
             }
         }
@@ -307,9 +245,9 @@ namespace DLT
             }
             var change = new WSJE_Signers(id, w.requiredSigs, req_sigs);
             change.apply();
-            if (wsjTransaction != null)
+            if (currentTransaction != null)
             {
-                wsjTransaction.addChange(change);
+                currentTransaction.addChange(change);
             }
         }
 
@@ -318,9 +256,9 @@ namespace DLT
             Wallet w = getWallet(id);
             var change = new WSJE_Data(id, w.data, new_data);
             change.apply();
-            if (wsjTransaction != null)
+            if (currentTransaction != null)
             {
-                wsjTransaction.addChange(change);
+                currentTransaction.addChange(change);
             }
         }
 
@@ -334,14 +272,14 @@ namespace DLT
             }
             var change = new WSJE_Create(id);
             change.apply();
-            if (wsjTransaction != null)
+            if (currentTransaction != null)
             {
-                wsjTransaction.addChange(change);
+                currentTransaction.addChange(change);
             }
             return new Wallet(id, 0);
         }
 
-        public void removeWallet(Address id)
+        public void removeWallet(byte[] id)
         {
             Wallet w = getWallet(id, true);
             if (w == null)
@@ -351,23 +289,23 @@ namespace DLT
             }
             var change = new WSJE_Destroy(id, w);
             change.apply();
-            if (wsjTransaction != null)
+            if (currentTransaction != null)
             {
-                wsjTransaction.addChange(change);
+                currentTransaction.addChange(change);
             }
         }
         #endregion
 
         #region Internal (WSJ) Wallet manipulation methods
         // this is called only by WSJ
-        public bool setWalletBalanceInternal(Address id, IxiNumber balance, bool is_reverting = false)
+        public bool setWalletBalanceInternal(byte[] id, IxiNumber balance, bool is_reverting = false)
         {
             lock (stateLock)
             {
                 Wallet w = getWallet(id);
                 if (balance < 0)
                 {
-                    Logging.error("WSJE_Balance application would result in a negative value! Wallet: {0}, current balance: {1}, new balance: {2}", id.ToString(), w.balance, balance);
+                    Logging.error("WSJE_Balance application would result in a negative value! Wallet: {0}, current balance: {1}, new balance: {2}", Crypto.hashToString(id), w.balance, balance);
                     return false;
                 }
                 w.balance = balance;
@@ -381,8 +319,8 @@ namespace DLT
                         using (BinaryWriter writerw = new BinaryWriter(mw))
                         {
                             // Send the address
-                            writerw.Write(id.addressNoChecksum.Length);
-                            writerw.Write(id.addressNoChecksum);
+                            writerw.Write(id.Length);
+                            writerw.Write(id);
                             // Send the balance
                             writerw.Write(balance.ToString());
 
@@ -407,7 +345,7 @@ namespace DLT
 #endif
 
                             // Send balance message to all subscribed clients
-                            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.balance, id.addressNoChecksum, ProtocolMessageCode.balance, mw.ToArray(), id.addressNoChecksum, null);
+                            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.balance, id, ProtocolMessageCode.balance, mw.ToArray(), id, null);
                         }
                     }
                 }
@@ -415,11 +353,11 @@ namespace DLT
                 if (w.isEmptyWallet() && !is_reverting
                     && ((!inTransaction && cachedBlockVersion >= BlockVer.v5) || cachedBlockVersion >= BlockVer.v8))
                 {
-                    Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", id.ToString());
+                    Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Crypto.hashToString(id));
                     removeWallet(id);
                 }else
                 {
-                    walletState.AddOrReplace(id.addressNoChecksum, w);
+                    walletState.AddOrReplace(id, w);
                 }
                 cachedChecksum = null;
                 cachedTotalSupply = new IxiNumber(0);
@@ -427,7 +365,7 @@ namespace DLT
             }
         }
 
-        public bool setWalletPublicKeyInternal(Address id, byte[] public_key, bool is_reverting = false)
+        public bool setWalletPublicKeyInternal(byte[] id, byte[] public_key, bool is_reverting = false)
         {
             lock (stateLock)
             {
@@ -440,7 +378,7 @@ namespace DLT
                     // Note: getWallet() will return an empty wallet if the id does not exist in its dictionary
                     if ((!inTransaction && !is_reverting && cachedBlockVersion >= BlockVer.v5) || cachedBlockVersion >= BlockVer.v8)
                     {
-                        Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", id.ToString());
+                        Logging.info("Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Crypto.hashToString(id));
                         removeWallet(id);
                     }
                     cachedChecksum = null;
@@ -448,68 +386,68 @@ namespace DLT
                 }
                 if(w.publicKey != null && public_key != null)
                 {
-                    Logging.error("WSJE_PublicKey attempted to set public key on wallet {0} which already has a public key.", id.ToString());
+                    Logging.error("WSJE_PublicKey attempted to set public key on wallet {0} which already has a public key.", Crypto.hashToString(id));
                 } else if(w.publicKey == null && public_key == null)
                 {
-                    Logging.error("WSJE_PublicKey attempted to clear public key on wallet {0} which doesn't have a public key.", id.ToString());
+                    Logging.error("WSJE_PublicKey attempted to clear public key on wallet {0} which doesn't have a public key.", Crypto.hashToString(id));
                     return false;
                 }
                 if((public_key != null && public_key.Length < 50) || DLT.Meta.Config.fullBlockLogging)
                 {
-                    Logging.info("WSJE_PublicKey: Setting public key ({0}) for wallet {1}. (Transaction: {2})", public_key != null?public_key.Length+"B":"null", id.ToString(), inTransaction);
+                    Logging.info("WSJE_PublicKey: Setting public key ({0}) for wallet {1}. (Transaction: {2})", public_key != null?public_key.Length+"B":"null", Crypto.hashToString(id), inTransaction);
                 }
                 w.publicKey = public_key;
 
-                walletState.AddOrReplace(id.addressNoChecksum, w);
+                walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
                 return true;
             }
         }
 
-        public bool addWalletAllowedSignerInternal(Address id, Address signer, bool adjust_req_signers)
+        public bool addWalletAllowedSignerInternal(byte[] id, Address signer, bool adjust_req_signers)
         {
             lock(stateLock)
             {
                 Wallet w = getWallet(id);
                 if (w.isValidSigner(signer))
                 {
-                    Logging.error("WSJE_AllowedSigner cannot add duplicate signer! Wallet: {0}, signer: {1}", id.ToString(), signer);
+                    Logging.error("WSJE_AllowedSigner cannot add duplicate signer! Wallet: {0}, signer: {1}", Crypto.hashToString(id), signer);
                     return false;
                 }
                 w.addValidSigner(signer);
                 if(adjust_req_signers)
                 {
                     Logging.info("WSJE_AllowedSigner: adjusting required signatures {0} -> {1} as part of reverting a delete signer operation on wallet {2}",
-                        w.requiredSigs, w.requiredSigs + 1, id.ToString());
+                        w.requiredSigs, w.requiredSigs + 1, Crypto.hashToString(id));
                     w.requiredSigs += 1;
                 }
                 w.type = WalletType.Multisig;
-                walletState.AddOrReplace(id.addressNoChecksum, w);
+                walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
                 return true;
             }
         }
 
-        public bool delWalletAllowedSignerInternal(Address id, Address signer, bool adjust_req_signers, bool is_reverting = false)
+        public bool delWalletAllowedSignerInternal(byte[] id, Address signer, bool adjust_req_signers, bool is_reverting = false)
         {
             lock(stateLock)
             {
                 Wallet w = getWallet(id);
                 if (!w.isValidSigner(signer))
                 {
-                    Logging.error("WSJE_AllowedSigner cannot remove nonexistant signer! Wallet: {0}, signer: {1}", id.ToString(), signer);
+                    Logging.error("WSJE_AllowedSigner cannot remove nonexistant signer! Wallet: {0}, signer: {1}", Crypto.hashToString(id), signer);
                     return false;
                 }
                 if (adjust_req_signers)
                 {
                     Logging.info("WSJE_AllowedSigner: adjusting required signatures {0} -> {1} as part of a delete signer operation on wallet {2}",
-                        w.requiredSigs, w.requiredSigs - 1, id.ToString());
+                        w.requiredSigs, w.requiredSigs - 1, Crypto.hashToString(id));
                     w.requiredSigs -= 1;
                 }
                 else if(w.countAllowedSigners < w.requiredSigs) // at this point the sig adjustment has alredy been applied
                 {
                     Logging.error("WSJE_AllowedSigner removing signer would make the wallet inoperable. Wallet: {0}, Allowed signers(before): {1}, Required Signatures: {2}",
-                        id.ToString(), w.countAllowedSigners, w.requiredSigs);
+                        Crypto.hashToString(id), w.countAllowedSigners, w.requiredSigs);
                     return false;
                 }
                 w.delValidSigner(signer);
@@ -522,76 +460,76 @@ namespace DLT
                 if (w.isEmptyWallet() && !is_reverting
                     && ((!inTransaction && cachedBlockVersion >= BlockVer.v5) || cachedBlockVersion >= BlockVer.v8))
                 {
-                    Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", id.ToString());
+                    Logging.info("MS->Normal Wallet {0} reaches balance zero and is removed. (Not in WSJ transaction.)", Crypto.hashToString(id));
                     removeWallet(id);
                 }else
                 {
-                    walletState.AddOrReplace(id.addressNoChecksum, w);
+                    walletState.AddOrReplace(id, w);
                 }
                 cachedChecksum = null;
                 return true;
             }
         }
 
-        public bool setWalletRequiredSignaturesInternal(Address id, int new_sigs)
+        public bool setWalletRequiredSignaturesInternal(byte[] id, int new_sigs)
         {
             lock(stateLock)
             {
                 Wallet w = getWallet(id);
                 if(w.type != WalletType.Multisig)
                 {
-                    Logging.error("WSJE_Signers attempted apply on a non-multisig wallet {0}.", id.ToString());
+                    Logging.error("WSJE_Signers attempted apply on a non-multisig wallet {0}.", Crypto.hashToString(id));
                 }
                 if (new_sigs > w.countAllowedSigners + 1)
                 {
                     Logging.error("WSJE_Signers application would result in an invalid wallet! Wallet: {0}, validSigners: {1}, reqSigs: {2}, new sigs: {3}", 
-                        id.ToString(), 
+                        Crypto.hashToString(id), 
                         w.countAllowedSigners, 
                         w.requiredSigs, 
                         new_sigs);
                     return false;
                 }
                 w.requiredSigs = (byte)new_sigs;
-                walletState.AddOrReplace(id.addressNoChecksum, w);
+                walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
                 return true;
             }
         }
-        public bool setWalletUserDataInternal(Address id, byte[] new_data, byte[] old_data)
+        public bool setWalletUserDataInternal(byte[] id, byte[] new_data, byte[] old_data)
         {
             lock(stateLock)
             {
                 Wallet w = getWallet(id);
                 if (!w.data.SequenceEqual(old_data))
                 {
-                    Logging.error("WSJE_Data unable to apply - old data does not match! Wallet: {0}", id.ToString());
+                    Logging.error("WSJE_Data unable to apply - old data does not match! Wallet: {0}", Crypto.hashToString(id));
                     return false;
                 }
                 w.data = new_data;
-                walletState.AddOrReplace(id.addressNoChecksum, w);
+                walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
                 return true;
             }
         }
-        public bool removeWalletInternal(Address id)
+        public bool removeWalletInternal(byte[] id)
         {
             lock (stateLock)
             {
                 Wallet w = getWallet(id, true);
                 if (w != null)
                 {
-                    walletState.Remove(id.addressNoChecksum);
+                    walletState.Remove(id);
                 }
                 cachedChecksum = null;
                 cachedTotalSupply = 0;
                 return true;
             }
         }
-        public bool setWalletInternal(Address id, Wallet w)
+        public bool setWalletInternal(byte[] id, Wallet w)
         {
             lock (stateLock)
             {
-                walletState.AddOrReplace(id.addressNoChecksum, w);
+                walletState.AddOrReplace(id, w);
                 cachedChecksum = null;
                 cachedTotalSupply = 0;
                 return true;
@@ -782,6 +720,5 @@ namespace DLT
                 return walletState.Take(50).Select(x => x.Value).ToArray();
             }
         }
-
     }
 }

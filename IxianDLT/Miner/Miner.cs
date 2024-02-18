@@ -673,8 +673,7 @@ namespace DLT
             if (block == null)
                 return false;
 
-            // TODO checksum the solver_address just in case it's not valid
-            // also protect against spamming with invalid nonce/block_num
+            // TODO protect against spamming with invalid nonce/block_num
             Byte[] p1 = new Byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
@@ -703,8 +702,7 @@ namespace DLT
             if (block == null)
                 return false;
 
-            // TODO checksum the solver_address just in case it's not valid
-            // also protect against spamming with invalid nonce/block_num
+            // TODO protect against spamming with invalid nonce/block_num
             byte[] p1 = new byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);
@@ -733,8 +731,7 @@ namespace DLT
             if (block == null)
                 return false;
 
-            // TODO checksum the solver_address just in case it's not valid
-            // also protect against spamming with invalid nonce/block_num
+            // TODO protect against spamming with invalid nonce/block_num
             byte[] p1 = new byte[block.blockChecksum.Length + solver_address.Length];
             System.Buffer.BlockCopy(block.blockChecksum, 0, p1, 0, block.blockChecksum.Length);
             System.Buffer.BlockCopy(solver_address, 0, p1, block.blockChecksum.Length, solver_address.Length);

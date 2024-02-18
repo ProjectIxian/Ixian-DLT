@@ -53,7 +53,8 @@ namespace DLTNode.Inventory
         {
             InventoryItemBlock iib = (InventoryItemBlock)item;
             ulong last_block_height = IxianHandler.getLastBlockHeight();
-            if (iib.blockNum > last_block_height)
+            if (!Node.blockSync.synchronizing
+                && iib.blockNum > last_block_height)
             {
                 byte include_tx = 2;
                 if(Node.isMasterNode())

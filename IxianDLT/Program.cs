@@ -257,7 +257,7 @@ namespace DLTNode
             if(Config.generateWalletOnly)
             {
                 noStart = true;
-                if (Config.networkType == NetworkType.test)
+                if (Config.networkType != NetworkType.main)
                 {
                     if (File.Exists(Config.walletFile))
                     {
@@ -290,12 +290,11 @@ namespace DLTNode
 
 
             Logging.info("Starting IXIAN DLT {0} ({1})", Config.version, CoreConfig.version);
+            Logging.info("Operating System is {0}", Platform.getOSNameAndVersion());
             Logging.flush();
 
-            Logging.info("Operating System is {0}", Platform.getOSNameAndVersion());
-
             // Check for the right vc++ redist for the argon miner
-            // Ignore if we're on Mono
+            // Ignore if we're not on Windows
             if (Platform.onWindows())
             {
                 checkVCRedist();

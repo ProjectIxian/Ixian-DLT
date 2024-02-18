@@ -468,11 +468,11 @@ namespace DLT
                         {
                             if (endpoint.isConnected())
                             {
-                                endpoint.sendData(ProtocolMessageCode.getBlock3, mw.ToArray());
+                                endpoint.sendData(ProtocolMessageCode.getBlock3, mw.ToArray(), BitConverter.GetBytes(block_num), (long)block_num);
                                 return true;
                             }
                         }
-                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock3, mw.ToArray(), block_num, skipEndpoint);
+                        return CoreProtocolMessage.broadcastProtocolMessageToSingleRandomNode(new char[] { 'M', 'H' }, ProtocolMessageCode.getBlock3, mw.ToArray(), block_num, skipEndpoint, BitConverter.GetBytes(block_num), (long)block_num);
                     }
                 }
             }

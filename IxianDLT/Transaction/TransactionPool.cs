@@ -15,6 +15,7 @@ using IXICore;
 using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
+using IXICore.RegNames;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
@@ -237,6 +238,12 @@ namespace DLT
 
         public static bool verifyTransaction(Transaction transaction, RemoteEndpoint endpoint, bool full_check = true)
         {
+            if (transaction.type < 0 || transaction.type > (int)Transaction.Type.RegName)
+            {
+                Logging.warn("Unknown transaction type, txid: {0}", transaction.getTxIdString());
+                return false;
+            }
+
             ulong blocknum = Node.blockChain.getLastBlockNum();
             if (blocknum < 1)
             {
@@ -325,6 +332,11 @@ namespace DLT
                 if (transaction.version < 6 || transaction.version > 7)
                 {
                     Logging.warn("Transaction version {0} is incorrect, expecting v6 or v7. TXid: {1}.", transaction.version, transaction.getTxIdString());
+                    return false;
+                }
+                if (transaction.type == (int)Transaction.Type.RegName)
+                {
+                    Logging.warn("RegName transaction is not supported on Block v10. TXid: {0}", transaction.getTxIdString());
                     return false;
                 }
             }
@@ -483,6 +495,18 @@ namespace DLT
                 return false;
             }
 
+            if (IxianHandler.getLastBlockVersion() >= BlockVer.v10)
+            {
+                if (transaction.type == (int)Transaction.Type.RegName)
+                {
+                    if (!Node.regNameState.verifyTransaction(transaction))
+                    {
+                        Logging.warn("Verification failed for name transaction txid {0}.", transaction.getTxIdString());
+                        return false;
+                    }
+                }
+            }
+
             totalAmount = new IxiNumber(0);
             foreach (var entry in transaction.toList)
             {
@@ -499,7 +523,8 @@ namespace DLT
                 if (IxianHandler.getLastBlockVersion() >= BlockVer.v10)
                 {
                     if (transaction.type != (int)Transaction.Type.PoWSolution
-                        && transaction.type != (int)Transaction.Type.StakingReward)
+                        && transaction.type != (int)Transaction.Type.StakingReward
+                        && transaction.type != (int)Transaction.Type.RegName)
                     {
                         if (entry.Value.amount < ConsensusConfig.transactionDustLimit)
                         {
@@ -633,6 +658,7 @@ namespace DLT
                 Logging.warn("Cannot spend so much premine yet, txid: {0}", transaction.getTxIdString());
                 return false;
             }
+
             /*sw.Stop();
             TimeSpan elapsed = sw.Elapsed;
             Logging.info(string.Format("VerifySignature duration: {0}ms", elapsed.TotalMilliseconds));*/
@@ -1157,57 +1183,6 @@ namespace DLT
             }
         }
 
-        // This updates a pre-existing transaction
-        // Returns true if the transaction has been updated, false otherwise
-        // TODO TODO TODO we'll run into problems with this because of the new txid, needs to be done differently, commenting this function out for now
-        /*
-        public static bool updateTransaction(Transaction transaction)
-        {
-            Logging.info(String.Format("Received transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
-
-            if (!verifyTransaction(transaction))
-            {
-                return false;
-            }
-
-            // Run through existing transactions in the pool and verify for double-spending / invalid states
-            // Note that we lock the transaction for the entire duration of the checks, which might pose performance issues
-            // Todo: find a better way to handle this without running into threading bugs
-            lock (transactions)
-            {
-                foreach (Transaction tx in transactions)
-                {
-                    if (tx.id.Equals(transaction.id, StringComparison.Ordinal) == true)
-                    {
-                        if (tx.applied == 0)
-                        {
-                            tx.amount = transaction.amount;
-                            tx.data = transaction.data;
-                            tx.nonce = transaction.nonce
-                            tx.checksum = transaction.checksum;
-
-                            // Broadcast this transaction update to the network
-                            //ProtocolMessage.broadcastProtocolMessage(ProtocolMessageCode.updateTransaction, transaction.getBytes());
-
-                            // Also update the transaction to storage
-                            Meta.Storage.insertTransaction(transaction);
-
-                            Logging.info(String.Format("Updated transaction {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
-
-                            return true;
-                        }
-                        else
-                        {
-                            Logging.info(String.Format("Transaction was already applied, not updating {0} - {1} - {2}.", transaction.id, transaction.checksum, transaction.amount));
-                        }
-                    }
-                }
-
-            }
-
-            return false;
-        }*/
-
         // Verify if a PoW transaction is valid
         public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, out byte[] nonce_bytes, int block_version = -1, bool verify_pow = true)
         {
@@ -1366,7 +1341,7 @@ namespace DLT
                 {
                     return true;
                 }
-                stakingRewardBlockNum = block.blockNum -ConsensusConfig.rewardMaturity;
+                stakingRewardBlockNum = block.blockNum - ConsensusConfig.rewardMaturity;
                 if (Node.blockChain.getBlock(stakingRewardBlockNum - 1).version < BlockVer.v10)
                 {
                     return true;
@@ -1505,6 +1480,11 @@ namespace DLT
                     return false;
                 }
 
+                IxiNumber totalFeeAmount = 0;
+                IxiNumber nameRewardAmount = BlockProcessor.calculateNameReward(block.blockNum);
+
+                ulong highestExpirationBlockHeight = 0;
+
                 if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> applying other transactions ({1} transactions)!", block.blockNum, block.transactions.Count); }
                 foreach (byte[] txid in block.transactions)
                 {
@@ -1529,6 +1509,8 @@ namespace DLT
                             block.blockNum, Crypto.hashToString(block.blockChecksum), Transaction.getTxIdString(txid));
                         return false;
                     }
+
+                    totalFeeAmount += tx.fee;
 
                     if (tx.type == (int)Transaction.Type.StakingReward)
                     {
@@ -1599,6 +1581,7 @@ namespace DLT
                     if (tx.amount == (long)0
                         && tx.type != (int)Transaction.Type.ChangeMultisigWallet
                         && tx.type != (int)Transaction.Type.MultisigAddTxSignature
+                        && tx.type != (int)Transaction.Type.RegName
                         )
                     {
                         Logging.warn("Transaction #{0}'s amount is 0.", tx.getTxIdString());
@@ -1664,12 +1647,49 @@ namespace DLT
                     {
                         // continue as this is processed by applyMultisigRelatedTransactions
                         continue;
+                    }else if(tx.type == (int)Transaction.Type.RegName)
+                    {
+                        ulong tmpExpirationBlockHeight = 0;
+                        if (!applyNameTransaction(tx, block, out tmpExpirationBlockHeight))
+                        {
+                            Logging.error("Block #{0} has failed name transactions, rejecting the block.", block.blockNum);
+                            failed_transactions.Add(tx);
+                            if (generating_new)
+                            {
+                                continue;
+                            }
+                            return false;
+                        }
+                        if (tmpExpirationBlockHeight > highestExpirationBlockHeight)
+                        {
+                            highestExpirationBlockHeight = tmpExpirationBlockHeight;
+                        }
+                        continue;
                     }
 
                     // If we reached this point, it means this is a normal transaction
                     if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as normal", block.blockNum, tx.getTxIdString()); }
-                    applyNormalTransaction(tx, block, failed_transactions);
+                    if (!applyNormalTransaction(tx, block))
+                    {
+                        failed_transactions.Add(tx);
+                    }
+                }
 
+                if (block.version >= BlockVer.v11)
+                {
+                    if (highestExpirationBlockHeight > Node.regNameState.getHighestExpirationBlockHeight())
+                    {
+                        Node.regNameState.setHighestExpirationBlockHeight(highestExpirationBlockHeight, Node.regNameState.getHighestExpirationBlockHeight());
+                    }
+                    totalFeeAmount += nameRewardAmount;
+                    if (block.totalFee != totalFeeAmount)
+                    {
+                        Logging.error("Total fee specified in block #{0} is different than calculated fee amount {1} != {2}.", block.blockNum, block.totalFee, totalFeeAmount);
+                        return false;
+                    }
+                } else if (block.totalFee == 0)
+                {
+                    block.totalFee = totalFeeAmount;
                 }
 
                 // Finally, Check if we have any miners to reward
@@ -1859,13 +1879,15 @@ namespace DLT
             // TODO: refactor this and make it more efficient
             ulong blocknum;
 
+            byte[] txOutData = tx.toList.First().Value.data;
+
             if (block.version >= BlockVer.v10)
             {
-                blocknum = tx.toList.First().Value.data.GetIxiVarUInt(0).num;
+                blocknum = txOutData.GetIxiVarUInt(0).num;
             }
             else
             {
-                blocknum = BitConverter.ToUInt64(tx.toList.First().Value.data, 0);
+                blocknum = BitConverter.ToUInt64(txOutData, 0);
             }
 
             // Verify the staking transaction is accurate
@@ -2061,10 +2083,11 @@ namespace DLT
                     return null;
                 }
                 // it processes as normal
-                if(applyNormalTransaction(tx, block, failed_transactions))
+                if(!applyNormalTransaction(tx, block))
                 {
-                    return related_tx_ids;
+                    failed_transactions.Add(tx);
                 }
+                return related_tx_ids;
             }
             return null;
         }
@@ -2296,9 +2319,42 @@ namespace DLT
             return null;
         }
 
+        public static bool applyNameTransaction(Transaction tx, Block block, out ulong expirationBlockHeight)
+        {
+            expirationBlockHeight = 0;
+
+            if (block.version < BlockVer.v11)
+            {
+                return false;
+            }
+
+            if (Config.fullBlockLogging) { Logging.info("Applying block #{0} -> transaction {1}: attempting as name transaction", block.blockNum, tx.getTxIdString()); }
+            try
+            {
+                var status = Node.regNameState.applyTransaction(tx, block.blockNum, out expirationBlockHeight);
+
+                // if apply fails and it's not updateRecord transaction, then fail completely
+                // if apply fails and it's an updateRecord transaction, then we want to spend the fees associated with it, due to processing effort (DDoS mitigation)
+                if (status.instruction != RegNameInstruction.updateRecord && !status.isApplySuccess)
+                {
+                    return false;
+                }
+            } catch (Exception e)
+            {
+                Logging.error("Error applying name transaction {0}: {1}", tx.getTxIdString(), e);
+                return false;
+            }
+
+            if (!applyNormalTransaction(tx, block))
+            {
+                return false;
+            }
+
+            return true;
+        }
 
         // Applies a normal transaction
-        public static bool applyNormalTransaction(Transaction tx, Block block, List<Transaction> failed_transactions)
+        public static bool applyNormalTransaction(Transaction tx, Block block)
         {
             // TODO: WSJ is withdrawing and depositing same addresses allowed in a single transaction?
             ulong minBh = 0;
@@ -2310,14 +2366,12 @@ namespace DLT
             if (minBh > tx.blockHeight || tx.blockHeight > block.blockNum)
             {
                 Logging.warn("Incorrect block height for transaction {0}. Tx block height is {1}, expecting at least {2} and at most {3}", tx.getTxIdString(), tx.blockHeight, minBh, block.blockNum + 5);
-                failed_transactions.Add(tx);
                 return false;
             }
 
             if(!verifyPremineTransaction(tx))
             {
                 Logging.warn("Tried to spent too much premine, too early - transaction {0}.", tx.getTxIdString());
-                failed_transactions.Add(tx);
                 return false;
             }
 
@@ -2332,7 +2386,6 @@ namespace DLT
             if (tx.fee < expectedFee)
             {
                 Logging.error("Transaction {{ {0} }} cannot pay minimum fee", tx.getTxIdString());
-                failed_transactions.Add(tx);
                 return false;
             }
 
@@ -2349,7 +2402,6 @@ namespace DLT
                 {
                     Logging.warn("Transaction {{ {0} }} in block #{1} ({2}) would take wallet {3} below zero.",
                         tx.getTxIdString(), block.blockNum, Crypto.hashToString(block.lastBlockChecksum), tmp_address.ToString());
-                    failed_transactions.Add(tx);
                     return false;
                 }
 
@@ -2360,13 +2412,18 @@ namespace DLT
             if (tx.amount + tx.fee != total_amount)
             {
                 Logging.error("Transaction {{ {0} }}'s input values are different than the total amount + fee", tx.getTxIdString());
-                failed_transactions.Add(tx);
                 return false;
             }
 
             total_amount = 0;
             foreach (var entry in tx.toList)
             {
+                total_amount += entry.Value.amount;
+                if (tx.type == (int)Transaction.Type.RegName && entry.Key.SequenceEqual(ConsensusConfig.ixianInfiniMineAddress))
+                {
+                    continue;
+                }
+
                 Wallet dest_wallet = Node.walletState.getWallet(entry.Key);
                 IxiNumber dest_balance_before = dest_wallet.balance;
 
@@ -2385,13 +2442,11 @@ namespace DLT
                         tx.getTxIdString());
                 }
                 Node.walletState.setWalletBalance(entry.Key, dest_balance_after);
-                total_amount += entry.Value.amount;
             }
 
             if (tx.amount != total_amount)
             {
                 Logging.error("Transaction {{ {0} }}'s output values are different than the total amount", tx.getTxIdString());
-                failed_transactions.Add(tx);
                 return false;
             }
 

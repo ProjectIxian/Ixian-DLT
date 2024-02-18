@@ -15,9 +15,10 @@ using DLT.Network;
 using IXICore;
 using IXICore.Meta;
 using IXICore.Network;
+using IXICore.RegNames;
 using IXICore.Utils;
 using System;
-using System.Numerics;
+using System.Collections.Generic;
 
 namespace DLTNode
 {
@@ -198,6 +199,16 @@ namespace DLTNode
         public override IxiNumber getMinSignerPowDifficulty(ulong blockNum)
         {
             return 1;
+        }
+
+        public override byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] name, List<RegisteredNameDataRecord> dataRecords, Address nextPkHash)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override byte[] calculateRegNameChecksumForRecovery(byte[] name, Address recoveryHash, Address nextPkHash)
+        {
+            throw new NotImplementedException();
         }
     }
 }

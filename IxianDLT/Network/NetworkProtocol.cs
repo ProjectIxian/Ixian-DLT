@@ -15,6 +15,7 @@ using IXICore;
 using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
+using IXICore.RegNames;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
@@ -233,7 +234,12 @@ namespace DLT
                             SignatureProtocolMessages.handleBlockSignature2(data, endpoint);
                             break;
 
+                        case ProtocolMessageCode.getNameRecord:
+                            handleGetNameRecord(data, endpoint);
+                            break;
+
                         default:
+                            Logging.warn("Unknown protocol message: {0}", code);
                             break;
                     }
 
@@ -242,6 +248,16 @@ namespace DLT
                 {
                     Logging.error("Error parsing network message. Details: {0}", e.ToString());
                 }
+            }
+
+            public static void handleGetNameRecord(byte[] data, RemoteEndpoint endpoint)
+            {
+                int offset = 0;
+                var name = data.ReadIxiBytes(offset);
+                offset += name.bytesRead;
+
+                List<RegisteredNameDataRecord> nameData = Node.regNameState.getNameData(name.bytes);
+                CoreProtocolMessage.sendRegisteredNameRecord(endpoint, nameData);
             }
 
             public static void handleHello(byte[] data, RemoteEndpoint endpoint)
@@ -297,7 +313,7 @@ namespace DLT
                         }
 
                         // Process the hello data
-                        Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, null, 0, 0, true);
+                        Node.blockSync.onHelloDataReceived(last_block_num, block_checksum, block_version, null, null, 0, 0, true);
                         endpoint.helloReceived = true;
                         NetworkClientManager.recalculateLocalTimeDifference();
                     }

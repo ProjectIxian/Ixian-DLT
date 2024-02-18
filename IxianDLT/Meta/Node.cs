@@ -11,6 +11,7 @@
 // MIT License for more details.
 
 using DLT.Network;
+using DLT.RegNames;
 using DLT.Storage;
 using DLTNode;
 using DLTNode.Inventory;
@@ -19,6 +20,7 @@ using IXICore;
 using IXICore.Inventory;
 using IXICore.Meta;
 using IXICore.Network;
+using IXICore.RegNames;
 using IXICore.Utils;
 using Newtonsoft.Json;
 using System;
@@ -26,7 +28,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Threading;
 
 namespace DLT.Meta
@@ -40,6 +41,8 @@ namespace DLT.Meta
         public static Miner miner = null;
         public static SignerPowMiner signerPowMiner = null;
         public static WalletState walletState = null;
+        public static RegNamesMemoryStorage regNamesMemoryStorage = null;
+        public static RegisteredNames regNameState = null;
         public static IStorage storage = null;
         public static InventoryCacheDLT inventoryCache = null;
 
@@ -103,6 +106,8 @@ namespace DLT.Meta
 
             PeerStorage.init("");
 
+            regNamesMemoryStorage = new RegNamesMemoryStorage(Path.Combine(Config.dataFolderPath, "names"), Config.saveWalletStateEveryBlock);
+
             if (Config.cleanFlag)
             {
                 cleanCacheAndLogs();
@@ -144,6 +149,7 @@ namespace DLT.Meta
 
             // Initialize the wallet state
             walletState = new WalletState();
+            regNameState = new RegisteredNames(regNamesMemoryStorage);
 
             inventoryCache = new InventoryCacheDLT();
         }
@@ -331,7 +337,7 @@ namespace DLT.Meta
             // Start the HTTP JSON API server
             apiServer = new APIServer(Config.apiBinds, Config.apiUsers, Config.apiAllowedIps);
 
-            if (IXICore.Platform.onMono() == false && !Config.disableWebStart)
+            if (IXICore.Platform.onWindows() && !Config.disableWebStart)
             {
                 Process.Start(new ProcessStartInfo(Config.apiBinds[0]) { UseShellExecute = true });
             }
@@ -412,24 +418,27 @@ namespace DLT.Meta
                 ulong blockNum = WalletStateStorage.restoreWalletState(requestedWsBlockNum);
                 if(blockNum > 0)
                 {
+                    regNamesMemoryStorage.loadFromDisk(blockNum);
                     Block b = blockChain.getBlock(blockNum, true);
                     if (b != null)
                     {
-                        blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getFrozenSignatureCount(), lastLocalBlockNum);
+                        blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.regNameStateChecksum, b.getFrozenSignatureCount(), lastLocalBlockNum);
                     }else
                     {
                         walletState.clear();
+                        regNameState.clear();
                     }
                 }else
                 {
                     blockSync.lastBlockToReadFromStorage = lastLocalBlockNum;
 
                     walletState.clear();
+                    regNameState.clear();
 
                     if (CoreConfig.preventNetworkOperations)
                     {
                         Block b = storage.getBlock(lastLocalBlockNum);
-                        blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.getFrozenSignatureCount(), lastLocalBlockNum);
+                        blockSync.onHelloDataReceived(b.blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.regNameStateChecksum, b.getFrozenSignatureCount(), lastLocalBlockNum);
                     }
                 }
 
@@ -771,6 +780,7 @@ namespace DLT.Meta
             storage.deleteData();
 
             WalletStateStorage.deleteCache();
+            regNamesMemoryStorage.deleteCache();
 
             PeerStorage.deletePeersFile();
 
@@ -935,6 +945,16 @@ namespace DLT.Meta
             if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000"))
             {
                 Directory.CreateDirectory(Config.dataFolderPath + Path.DirectorySeparatorChar + "blocks" + Path.DirectorySeparatorChar + "0000");
+            }
+
+            if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "names"))
+            {
+                Directory.CreateDirectory(Config.dataFolderPath + Path.DirectorySeparatorChar + "names");
+            }
+
+            if (!Directory.Exists(Config.dataFolderPath + Path.DirectorySeparatorChar + "names" + Path.DirectorySeparatorChar + "0000"))
+            {
+                Directory.CreateDirectory(Config.dataFolderPath + Path.DirectorySeparatorChar + "names" + Path.DirectorySeparatorChar + "0000");
             }
         }
 
@@ -1146,6 +1166,16 @@ namespace DLT.Meta
         public override IxiNumber getMinSignerPowDifficulty(ulong blockNum)
         {
             return blockChain.getMinSignerPowDifficulty(blockNum);
+        }
+
+        public override byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] name, List<RegisteredNameDataRecord> dataRecords, Address nextPkHash)
+        {
+            return regNameState.calculateRegNameChecksumFromUpdatedDataRecords(name, dataRecords, nextPkHash);
+        }
+
+        public override byte[] calculateRegNameChecksumForRecovery(byte[] name, Address recoveryHash, Address nextPkHash)
+        {
+            return regNameState.calculateRegNameChecksumForRecovery(name, recoveryHash, nextPkHash);
         }
     }
 

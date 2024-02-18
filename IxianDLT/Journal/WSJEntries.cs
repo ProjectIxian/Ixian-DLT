@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2017-2020 Ixian OU
+﻿// Copyright (C) 2017-2024 Ixian OU
 // This file is part of Ixian DLT - www.github.com/ProjectIxian/Ixian-DLT
 //
 // Ixian DLT is free software: you can redistribute it and/or modify
@@ -12,14 +12,14 @@
 
 using DLT.Meta;
 using IXICore;
+using IXICore.Journal;
 using IXICore.Meta;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
-namespace DLT
+namespace DLT.Journal
 {
     public enum WSJEntryType : int
     {
@@ -32,43 +32,14 @@ namespace DLT
         Destroy = 7
     }
 
-    public abstract class WSJEntry
-    {
-        public Address targetWallet { get; protected set; }
-
-        public virtual byte[] checksum()
-        {
-            return Crypto.sha512sqTrunc(getBytes());
-        }
-
-        public virtual byte[] getBytes()
-        {
-            using (MemoryStream m = new MemoryStream(64))
-            {
-                using (BinaryWriter w = new BinaryWriter(m))
-                {
-                    writeBytes(w);
-                    return m.ToArray();
-                }
-            }
-        }
-        public abstract void writeBytes(BinaryWriter w);
-        public abstract bool apply();
-        public abstract bool revert();
-        public virtual string toString()
-        {
-            return targetWallet.ToString() + ": " + this.GetType().Name;
-        }
-    }
-
-    public class WSJE_Balance : WSJEntry
+    public class WSJE_Balance : JournalEntry
     {
         private IxiNumber old_value;
         private IxiNumber new_value;
 
         public WSJE_Balance(Address address, IxiNumber old_balance, IxiNumber new_balance)
         {
-            targetWallet = address;
+            targetWallet = address.addressNoChecksum;
             old_value = old_balance;
             new_value = new_balance;
         }
@@ -83,7 +54,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = new Address(r.ReadBytes(target_wallet_len));
+                targetWallet = r.ReadBytes(target_wallet_len);
             }
             string old_str = r.ReadString();
             string new_str = r.ReadString();
@@ -96,8 +67,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Balance);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.addressNoChecksum.Length);
-                w.Write(targetWallet.addressNoChecksum);
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
             }
             else
             {
@@ -133,7 +104,7 @@ namespace DLT
         }
     }
 
-    public class WSJE_AllowedSigner : WSJEntry
+    public class WSJE_AllowedSigner : JournalEntry
     {
         private Address signer;
         private bool adding;
@@ -141,7 +112,7 @@ namespace DLT
 
         public WSJE_AllowedSigner(Address address, bool adding_signer, Address signer_address, bool adjust_signers = false)
         {
-            targetWallet = address;
+            targetWallet = address.addressNoChecksum;
             adding = adding_signer;
             signer = signer_address;
             if (!adding)
@@ -165,7 +136,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = new Address(r.ReadBytes(target_wallet_len));
+                targetWallet = r.ReadBytes(target_wallet_len);
             }
             int target_signer_len = r.ReadInt32();
             if (target_signer_len > 0)
@@ -188,8 +159,8 @@ namespace DLT
             w.Write((int)WSJEntryType.MS_AllowedSigner);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.addressNoChecksum.Length);
-                w.Write(targetWallet.addressNoChecksum);
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
             }
             else
             {
@@ -246,14 +217,14 @@ namespace DLT
         }
     }
 
-    public class WSJE_Signers : WSJEntry
+    public class WSJE_Signers : JournalEntry
     {
         private byte old_sigs;
         private byte new_sigs;
 
         public WSJE_Signers(Address address, byte old_req_sigs, byte new_req_sigs)
         {
-            targetWallet = address;
+            targetWallet = address.addressNoChecksum;
             old_sigs = old_req_sigs;
             new_sigs = new_req_sigs;
         }
@@ -268,7 +239,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = new Address(r.ReadBytes(target_wallet_len));
+                targetWallet = r.ReadBytes(target_wallet_len);
             }
             old_sigs = r.ReadByte();
             new_sigs = r.ReadByte();
@@ -279,8 +250,8 @@ namespace DLT
             w.Write((int)WSJEntryType.MS_RequiredSignatures);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.addressNoChecksum.Length);
-                w.Write(targetWallet.addressNoChecksum);
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
             }
             else
             {
@@ -311,13 +282,13 @@ namespace DLT
         }
     }
 
-    public class WSJE_Pubkey : WSJEntry
+    public class WSJE_Pubkey : JournalEntry
     {
         private byte[] pubkey;
 
         public WSJE_Pubkey(Address address, byte[] adding_pubkey)
         {
-            targetWallet = address;
+            targetWallet = address.addressNoChecksum;
             pubkey = adding_pubkey;
         }
 
@@ -331,7 +302,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = new Address(r.ReadBytes(target_wallet_len));
+                targetWallet = r.ReadBytes(target_wallet_len);
             }
             int target_pubkey_len = r.ReadInt32();
             if (target_pubkey_len > 0)
@@ -345,8 +316,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Pubkey);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.addressNoChecksum.Length);
-                w.Write(targetWallet.addressNoChecksum);
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
             }
             else
             {
@@ -389,14 +360,14 @@ namespace DLT
         }
     }
 
-    public class WSJE_Data : WSJEntry
+    public class WSJE_Data : JournalEntry
     {
         private byte[] new_data;
         private byte[] old_data;
 
         public WSJE_Data(Address address, byte[] old_wallet_data, byte[] new_wallet_data)
         {
-            targetWallet = address;
+            targetWallet = address.addressNoChecksum;
             old_data = old_wallet_data;
             new_data = new_wallet_data;
         }
@@ -411,7 +382,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = new Address(r.ReadBytes(target_wallet_len));
+                targetWallet = r.ReadBytes(target_wallet_len);
             }
             int new_data_len = r.ReadInt32();
             if (new_data_len > 0)
@@ -430,8 +401,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Data);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.addressNoChecksum.Length);
-                w.Write(targetWallet.addressNoChecksum);
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
             }
             else
             {
@@ -478,11 +449,11 @@ namespace DLT
         }
     }
 
-    public class WSJE_Create : WSJEntry
+    public class WSJE_Create : JournalEntry
     {
         public WSJE_Create(Address address)
         {
-            targetWallet = address;
+            targetWallet = address.addressNoChecksum;
         }
 
         public WSJE_Create(BinaryReader r)
@@ -495,7 +466,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = new Address(r.ReadBytes(target_wallet_len));
+                targetWallet = r.ReadBytes(target_wallet_len);
             }
         }
 
@@ -504,8 +475,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Create);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.addressNoChecksum.Length);
-                w.Write(targetWallet.addressNoChecksum);
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
             }
             else
             {
@@ -534,11 +505,11 @@ namespace DLT
         }
     }
 
-    public class WSJE_Destroy : WSJEntry
+    public class WSJE_Destroy : JournalEntry
     {
         private Wallet wallet;
 
-        public WSJE_Destroy(Address address, Wallet old_wallet)
+        public WSJE_Destroy(byte[] address, Wallet old_wallet)
         {
             targetWallet = address;
             wallet = old_wallet;
@@ -554,7 +525,7 @@ namespace DLT
             int target_wallet_len = r.ReadInt32();
             if (target_wallet_len > 0)
             {
-                targetWallet = new Address(r.ReadBytes(target_wallet_len));
+                targetWallet = r.ReadBytes(target_wallet_len);
             }
             int wallet_len = r.ReadInt32();
             if (wallet_len > 0)
@@ -568,8 +539,8 @@ namespace DLT
             w.Write((int)WSJEntryType.Destroy);
             if (targetWallet != null)
             {
-                w.Write(targetWallet.addressNoChecksum.Length);
-                w.Write(targetWallet.addressNoChecksum);
+                w.Write(targetWallet.Length);
+                w.Write(targetWallet);
             }
             else
             {
@@ -608,15 +579,12 @@ namespace DLT
         }
     }
 
-    public class WSJTransaction
+    public class WSJTransaction : JournalTransaction
     {
-        private readonly List<WSJEntry> entries = new List<WSJEntry>();
-
-        public ulong wsjTxNumber { get; private set; }
-
-        public WSJTransaction(ulong number)
+        private WalletState walletState = null;
+        public WSJTransaction(WalletState walletState, ulong number) : base(number)
         {
-            wsjTxNumber = number;
+            this.walletState = walletState;
         }
 
         public WSJTransaction(byte[] bytes)
@@ -625,15 +593,15 @@ namespace DLT
             {
                 using (BinaryReader r = new BinaryReader(m))
                 {
-                    wsjTxNumber = r.ReadUInt64();
+                    journalTxNumber = r.ReadUInt64();
                     int count_entries = r.ReadInt32();
-                    lock(entries)
+                    lock (entries)
                     {
-                        for(int i=0;i<count_entries;i++)
+                        for (int i = 0; i < count_entries; i++)
                         {
                             int type = r.ReadInt32();
                             r.BaseStream.Seek(-4, SeekOrigin.Current);
-                            switch(type)
+                            switch (type)
                             {
                                 case (int)WSJEntryType.Balance: entries.Add(new WSJE_Balance(r)); break;
                                 case (int)WSJEntryType.MS_AllowedSigner: entries.Add(new WSJE_AllowedSigner(r)); break;
@@ -651,94 +619,35 @@ namespace DLT
             }
         }
 
-        public bool apply()
-        {
-            lock (entries)
-            {
-                foreach (var e in entries)
-                {
-                    if (e.apply() == false)
-                    {
-                        Logging.error("Error while applying WSJ transaction.");
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
-        public bool revert()
-        {
-            lock (entries)
-            {
-                foreach (var e in entries.AsEnumerable().Reverse())
-                {
-                    if (e.revert() == false)
-                    {
-                        Logging.error("Error while reverting WSJ transaction.");
-                    }
-                }
-            }
-            return true;
-        }
-
-        public void addChange(WSJEntry entry)
-        {
-            entries.Add(entry);
-        }
-
         public IEnumerable<Wallet> getAffectedWallets(int blockVer)
         {
-            if(blockVer < BlockVer.v10)
+            if (blockVer < BlockVer.v10)
             {
                 // TODO TODO TODO Block v8 SortedSet can be replaced with something faster (i.e. List) and should exclude duplicate entries as the order
                 // of the entries is determined by order of transactions on the block
                 SortedSet<Wallet> sortedWallets = new SortedSet<Wallet>(new LambdaComparer<Wallet>((a, b) => _ByteArrayComparer.Compare(a.id.addressNoChecksum, b.id.addressNoChecksum)));
                 foreach (var entry in entries)
                 {
-                    sortedWallets.Add(Node.walletState.getWallet(entry.targetWallet));
+                    sortedWallets.Add(walletState.getWallet(entry.targetWallet));
                 }
                 return sortedWallets;
-            }else
+            }
+            else
             {
                 List<Wallet> wallets = new List<Wallet>();
                 Dictionary<byte[], bool> addresses = new Dictionary<byte[], bool>(new ByteArrayComparer());
                 foreach (var entry in entries)
                 {
-                    if(addresses.ContainsKey(entry.targetWallet.addressNoChecksum))
+                    if (addresses.ContainsKey(entry.targetWallet))
                     {
                         continue;
                     }
-                    wallets.Add(Node.walletState.getWallet(entry.targetWallet));
-                    addresses.Add(entry.targetWallet.addressNoChecksum, true);
+                    wallets.Add(walletState.getWallet(entry.targetWallet));
+                    addresses.Add(entry.targetWallet, true);
                 }
                 return wallets;
             }
 
-        }
-
-        public byte[] getBytes()
-        {
-            lock (entries)
-            {
-                // 144 = guid + before checksum + after checksum
-                // entries are 64 bytes on average
-                using (MemoryStream m = new MemoryStream(144 + 80 * entries.Count))
-                {
-                    using (BinaryWriter w = new BinaryWriter(m))
-                    {
-                        w.Write(wsjTxNumber);
-
-                        w.Write(entries.Count);
-                        foreach(var e in entries)
-                        {
-                            e.writeBytes(w);
-                        }
-
-                        return m.ToArray();
-                    }
-                }
-            }
         }
     }
 }

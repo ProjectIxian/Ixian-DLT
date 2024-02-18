@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2017-2020 Ixian OU
+﻿// Copyright (C) 2017-2024 Ixian OU
 // This file is part of Ixian DLT - www.github.com/ProjectIxian/Ixian-DLT
 //
 // Ixian DLT is free software: you can redistribute it and/or modify
@@ -769,15 +769,15 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true, RemoteEndpoint endpoint = null)
         {
-            // TODO omega remove bottom if section after v10 upgrade
+            // TODO omega remove bottom if section after v11 upgrade
             if (!IxianHandler.isTestNet)
             {
-                // upgrade to v10 at exactly block 2340000
-                if (b.blockNum < 2340000 && b.version >= BlockVer.v10)
+                // upgrade to v11 at exactly block 4100000
+                if (b.blockNum < 4100000 && b.version >= BlockVer.v11)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
-                if (b.blockNum >= 2340000 && b.version < BlockVer.v10)
+                if (b.blockNum >= 4100000 && b.version < BlockVer.v11)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
@@ -788,6 +788,10 @@ namespace DLT
                 Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
                 networkUpgraded = true;
                 return BlockVerifyStatus.IndeterminateVersionUpgradeBlock;
+            } else if (b.version < 0)
+            {
+                Logging.error("Received block {0} with an invalid version {1}, discarding the block.", b.blockNum, b.version);
+                return BlockVerifyStatus.Invalid;
             }
 
             // first check if lastBlockChecksum and previous block's checksum match, so we can quickly discard an invalid block (possibly from a fork)
@@ -1180,6 +1184,7 @@ namespace DLT
             // Pass #2 verifications for multisigs after all transactions have been received
             if(hasAllTransactions)
             {
+                IxiNumber tFeeAmount = 0;
                 foreach (byte[] txid in b.transactions)
                 {
                     Transaction t = TransactionPool.getUnappliedTransaction(txid);
@@ -1187,6 +1192,9 @@ namespace DLT
                     {
                         continue;
                     }
+
+                    tFeeAmount += t.fee;
+
                     if(b.blockNum >= ConsensusConfig.miningExpirationBlockHeight && t.type == (int)Transaction.Type.PoWSolution)
                     {
                         Logging.error("Block #{0} includes a PoW transaction {1}. Mining has stopped after block #{2}.", b.blockNum, t.getTxIdString(), ConsensusConfig.miningExpirationBlockHeight);
@@ -1338,6 +1346,7 @@ namespace DLT
             // from neighbors are OK.  However, BlockSync applies blocks before the current WS, so sometimes it doesn't
             // want to check WS checksums
             byte[] ws_checksum = null;
+            byte[] rn_checksum = null;
             if (ignore_walletstate == false)
             {
 
@@ -1347,13 +1356,15 @@ namespace DLT
                     // ignore wallet state check if it isn't the current block
                     if (b.blockNum <= last_block_num)
                     {
-                        Logging.info(String.Format("Not verifying wallet state for old block {0}", b.blockNum));
+                        Logging.info("Not verifying wallet state for old block {0}", b.blockNum);
                     }
                     else if(b.blockNum == last_block_num + 1)
                     {
                         Node.walletState.setCachedBlockVersion(b.version);
+                        Node.regNameState.setCachedBlockVersion(b.version);
                         IxiNumber totalSupplyBefore = Node.walletState.calculateTotalSupply();
                         Node.walletState.beginTransaction(b.blockNum);
+                        Node.regNameState.beginTransaction(b.blockNum);
                         if (Config.fullBlockLogging) { Logging.info("Starting WSJ transaction for block verification: {0}", b.blockNum); }
                         if (applyAcceptedBlock(b))
                         {
@@ -1365,29 +1376,48 @@ namespace DLT
                             {
                                 ws_checksum = Node.walletState.calculateWalletStateDeltaChecksum(b.blockNum, b.version);
                             }
+
+                            if (b.version >= BlockVer.v11)
+                            {
+                                rn_checksum = Node.regNameState.calculateRegNameStateChecksum();
+                            }
                         } else
                         {
-                            Logging.error(String.Format("Block #{0} failed applying!", b.blockNum));
+                            Logging.error("Block #{0} failed applying!", b.blockNum);
                         }
                         if (Config.fullBlockLogging) { Logging.info("Reverting WSJ transaction for block verification: {0}", b.blockNum); }
                         Node.walletState.revertTransaction(b.blockNum);
+                        Node.regNameState.revertTransaction(b.blockNum);
                         IxiNumber totalSupplyAfter = Node.walletState.calculateTotalSupply();
                         if(totalSupplyBefore != totalSupplyAfter)
                         {
-                            Logging.error(String.Format("Block #{0} did not cleanly revert!", b.blockNum));
+                            Logging.error("Block #{0} did not cleanly revert!", b.blockNum);
                             return BlockVerifyStatus.Invalid;
                         }
+
                         if (ws_checksum == null || !ws_checksum.SequenceEqual(b.walletStateChecksum))
                         {
                             string block_proposer = "";
-                            if(b.blockProposer != null)
+                            if (b.blockProposer != null)
                             {
                                 block_proposer = Base58Check.Base58CheckEncoding.EncodePlain(b.blockProposer);
                             }
                             Logging.error("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}, block proposer: {3}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum), block_proposer);
                             return BlockVerifyStatus.Invalid;
                         }
-                    }else
+                        
+                        if (b.version >= BlockVer.v11 && (rn_checksum == null || !rn_checksum.SequenceEqual(b.regNameStateChecksum)))
+                        {
+                            string block_proposer = "";
+                            if (b.blockProposer != null)
+                            {
+                                block_proposer = Base58Check.Base58CheckEncoding.EncodePlain(b.blockProposer);
+                            }
+                            Logging.error("Block #{0} failed while verifying transactions: Invalid name state checksum! Block's RN checksum: {1}, actual RN checksum: {2}, block proposer: {3}", b.blockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rn_checksum), block_proposer);
+                            return BlockVerifyStatus.Invalid;
+                        }
+                    }
+                    else
                     {
                         // this should never happen
                         Logging.error("Block #{0} failed while verifying transactions, this is a future block", b.blockNum);
@@ -1722,7 +1752,7 @@ namespace DLT
                 }
                 if (block.version >= BlockVer.v10 && IxianHandler.getBlockHeader(block.blockNum - 1).version >= BlockVer.v10)
                 {
-                    IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
+                    IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block, true);
                     IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
                     if (frozen_sig_difficulty < required_signer_difficulty)
                     {
@@ -1753,7 +1783,7 @@ namespace DLT
 
                 if (block.version >= BlockVer.v10 && IxianHandler.getBlockHeader(block.blockNum - 1).version >= BlockVer.v10)
                 {
-                    IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true);
+                    IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block, true);
 
                     // verify sig difficulty
                     if (frozen_sig_difficulty < required_signer_difficulty)
@@ -1884,7 +1914,7 @@ namespace DLT
         public bool freezeSignatures(Block target_block)
         {
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
-            IxiNumber required_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(target_block.blockNum, true);
+            IxiNumber required_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(target_block, true);
 
             List<BlockSignature> frozen_block_sigs = null;
             if (highestNetworkBlockNum > target_block.blockNum + 10
@@ -2105,6 +2135,7 @@ namespace DLT
                         }
 
                         Node.walletState.beginTransaction(localNewBlock.blockNum, false);
+                        Node.regNameState.beginTransaction(localNewBlock.blockNum, false);
                         // accept this block, apply its transactions, recalc consensus, etc
                         if (applyAcceptedBlock(localNewBlock) == true)
                         {
@@ -2123,6 +2154,22 @@ namespace DLT
                                     ws_checksum_ok = true;
                                 }
                             }
+
+                            bool rn_checksum_ok = false;
+                            byte[] rn_checksum = null;
+                            if (localNewBlock.version < BlockVer.v11)
+                            {
+                                rn_checksum_ok = true;
+                            }
+                            else
+                            {
+                                rn_checksum = Node.regNameState.calculateRegNameStateChecksum();
+                                if (rn_checksum.SequenceEqual(localNewBlock.regNameStateChecksum))
+                                {
+                                    rn_checksum_ok = true;
+                                }
+                            }
+
                             if (!ws_checksum_ok)
                             {
                                 Logging.error("After applying block #{0} v{1}, walletStateChecksum is incorrect, shutting down!. Block's WS: {2}, actual WS: {3}", localNewBlock.blockNum,
@@ -2131,14 +2178,19 @@ namespace DLT
                                 operating = false;
                                 Node.stop();
                                 return false;
-                                /*localNewBlock.logBlockDetails();
-                                requestBlockNum = localNewBlock.blockNum;
-                                localNewBlock = null;
-                                requestBlockAgain = true;*/
+                            } else if (!rn_checksum_ok)
+                            {
+                                Logging.error("After applying block #{0} v{1}, RegNameStateChecksum is incorrect, shutting down!. Block's RN: {2}, actual RN: {3}", localNewBlock.blockNum,
+                                    localNewBlock.version, Crypto.hashToString(localNewBlock.regNameStateChecksum), Crypto.hashToString(rn_checksum));
+                                // TODO TODO perhaps try reverting the block
+                                operating = false;
+                                Node.stop();
+                                return false;
                             }
                             else
                             {
                                 Node.walletState.commitTransaction(localNewBlock.blockNum);
+                                Node.regNameState.commitTransaction(localNewBlock.blockNum);
                                 // append current block
                                 Node.blockChain.appendBlock(localNewBlock);
 
@@ -2236,6 +2288,10 @@ namespace DLT
                                 cleanupBlockBlacklist();
                                 if (last_block_num % Config.saveWalletStateEveryBlock == 0)
                                 {
+                                    if (last_block.version >= BlockVer.v11)
+                                    {
+                                        Node.regNamesMemoryStorage.saveToDisk(last_block_num);
+                                    }
                                     WalletStateStorage.saveWalletState(last_block_num);
                                 }
 
@@ -2251,6 +2307,7 @@ namespace DLT
                             localNewBlock.logBlockDetails();
                             requestBlockNum = localNewBlock.blockNum;
                             Node.walletState.revertTransaction(localNewBlock.blockNum);
+                            Node.regNameState.revertTransaction(localNewBlock.blockNum);
                             Node.blockChain.revertBlockTransactions(localNewBlock);
                             localNewBlock = null;
                             requestBlockAgain = true;
@@ -2383,6 +2440,15 @@ namespace DLT
                     return false;
                 }
 
+                // Remove Expired Names
+                if (b.version >= BlockVer.v11)
+                {
+                    if (b.blockNum > ConsensusConfig.rnGracePeriodInBlocks)
+                    {
+                        Node.regNameState.removeExpiredNames(b.blockNum - ConsensusConfig.rnGracePeriodInBlocks);
+                    }
+                }
+                
                 // Apply transactions from block
                 if (!TransactionPool.applyTransactionsFromBlock(b, generating_new))
                 {
@@ -2400,6 +2466,15 @@ namespace DLT
                         updateWalletStatePublicKeys(b.blockNum);
                     }
                 }
+                else if (b.version >= BlockVer.v11)
+                {
+                    IxiNumber nameRewardAmount = calculateNameReward(b.blockNum);
+                    if (!Node.regNameState.decreaseRewardPool(nameRewardAmount))
+                    {
+                        Logging.error("Error while decreasing reward pool.");
+                        return false;
+                    }
+                }
 
                 return true;
             }catch(Exception e)
@@ -2407,6 +2482,17 @@ namespace DLT
                 Logging.error("Exception occurred in applyAcceptedBlock(): " + e);
             }
             return false;
+        }
+
+        public static IxiNumber calculateNameReward(ulong blockHeight)
+        {
+            ulong highestExpirationBlockHeight = Node.regNameState.getHighestExpirationBlockHeight();
+            if (highestExpirationBlockHeight <= blockHeight)
+            {
+                return Node.regNameState.getRewardPool();
+            }
+            IxiNumber nameRewardAmount = Node.regNameState.getRewardPool() / (highestExpirationBlockHeight - blockHeight);
+            return nameRewardAmount;
         }
 
         public IxiNumber calculateTotalTransactionFeeReward(Block targetBlock)
@@ -2498,41 +2584,18 @@ namespace DLT
             }
 
             // Calculate the total transactions amount and number of transactions in the target block
-            IxiNumber tAmount = 0;
-            IxiNumber tFeeAmount = 0;
-
-            ulong txcount = 0;
-            foreach(byte[] txid in targetBlock.transactions)
+            IxiNumber totalFeeAmount = targetBlock.totalFee;
+            if (totalFeeAmount == 0)
             {
-                Transaction tx = TransactionPool.getAppliedTransaction(txid, b.blockNum);               
-                if (tx != null)
+                totalFeeAmount = calculateTotalTransactionFeeReward(targetBlock);
+                targetBlock.totalFee = totalFeeAmount;
+                if (targetBlock.totalFee != 0)
                 {
-                    if (tx.type == (int)Transaction.Type.Normal)
-                    {
-                        tAmount += tx.amount;
-                        tFeeAmount += tx.fee;
-                        txcount++;
-                    } else if (tx.type == (int)Transaction.Type.MultisigTX)
-                    {
-                        Transaction.MultisigTxData ms_data = (Transaction.MultisigTxData)tx.GetMultisigData();
-                        if (ms_data.origTXId == null)
-                        {
-                            tAmount += tx.amount;
-                        }
-                        tFeeAmount += tx.fee;
-                        txcount++;
-                    }
-                    else if (tx.type == (int)Transaction.Type.ChangeMultisigWallet || tx.type == (int)Transaction.Type.MultisigAddTxSignature)
-                    {
-                        tFeeAmount += tx.fee;
-                        txcount++;
-                    }
-                }else
-                {
-                    Logging.error("Error applying transaction fee reward, transaction {0} is missing", txid);
-                    return;
+                    Logging.warn("Total fee amount for block #{0} was 0, recalculated.", targetBlock.blockNum);
                 }
             }
+
+            ulong txcount = targetBlock.getTransactionsCount();
 
             // Check if there are any transactions processed in the target block
             if(txcount < 1)
@@ -2541,7 +2604,7 @@ namespace DLT
             }
 
             // Check the amount
-            if(tFeeAmount == (long) 0)
+            if(totalFeeAmount == (long) 0)
             {
                 return;
             }
@@ -2551,7 +2614,7 @@ namespace DLT
             if (b.version < BlockVer.v8)
             {
                 // Calculate the total fee amount
-                foundationAward = tFeeAmount * ConsensusConfig.foundationFeePercent / 100;
+                foundationAward = totalFeeAmount * ConsensusConfig.foundationFeePercent / 100;
 
                 // Award foundation fee
                 Wallet foundation_wallet = Node.walletState.getWallet(ConsensusConfig.foundationAddress);
@@ -2561,7 +2624,7 @@ namespace DLT
                 //Logging.info(string.Format("Awarded {0} IXI to foundation", foundationAward.ToString()));
 
                 // Subtract the foundation award from total fee amount
-                tFeeAmount = tFeeAmount - foundationAward;
+                totalFeeAmount = totalFeeAmount - foundationAward;
             }
 
             List<BlockSignature> target_block_sigs = null;
@@ -2584,7 +2647,7 @@ namespace DLT
             // Calculate the award per signer
             IxiNumber sigs = new IxiNumber(numSigs);
 
-            IxiNumber tAward = IxiNumber.divRem(tFeeAmount, sigs, out IxiNumber remainder);
+            IxiNumber tAward = IxiNumber.divRem(totalFeeAmount, sigs, out IxiNumber remainder);
 
             if (b.version < BlockVer.v8)
             {
@@ -2631,12 +2694,7 @@ namespace DLT
                     }
                 }
                 //Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
-            }
-
-            // Output stats for this block's fee distribution
-            Logging.info("Total block TX amount: {0} Total TXs: {1} Reward per Signer: {2} Foundation Reward: {3}", tAmount.ToString(), txcount, 
-                tAward.ToString(), foundationAward.ToString());
-          
+            }          
         }
 
         // returns false if this is a multisig transaction and not enough signatures - in this case, it should not be added to the block
@@ -2709,7 +2767,7 @@ namespace DLT
             return true;
         }
 
-        private void generateNewBlockTransactions(ulong block_num, int block_version)
+        private IxiNumber generateNewBlockTransactions(ulong block_num, int block_version)
         {
             ulong total_transactions = 1;
             IxiNumber total_amount = 0;
@@ -2733,6 +2791,8 @@ namespace DLT
 
             Dictionary<ulong, List<object[]>> blockSolutionsDictionary = new Dictionary<ulong, List<object[]>>();
 
+            IxiNumber total_fee = 0;
+
             foreach (var transaction in pool_transactions)
             {
                 // Check if we reached the transaction limit for this block
@@ -2740,36 +2800,6 @@ namespace DLT
                 {
                     // Limit all other transactions
                     break;
-                }
-
-                // lock transaction v3 with block v6; TODO can be removed after upgrade to v8
-                if (block_version == BlockVer.v6 && (transaction.version < 3 || transaction.version > 4))
-                {
-                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v6 && transaction.version < 3)
-                    {
-                        TransactionPool.removeUnappliedTransaction(transaction.id);
-                    }
-                    continue;
-                }
-
-                // lock transaction v4 with block v7; TODO can be removed after upgrade to v8
-                if (block_version == BlockVer.v7 && (transaction.version < 4 || transaction.version > 5))
-                {
-                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v7 && transaction.version < 4)
-                    {
-                        TransactionPool.removeUnappliedTransaction(transaction.id);
-                    }
-                    continue;
-                }
-
-                // lock transaction v5 with block v8 and v9
-                if ((block_version == BlockVer.v8 || block_version == BlockVer.v9) && (transaction.version < 5 || transaction.version > 6))
-                {
-                    if (Node.blockChain.getLastBlockVersion() >= BlockVer.v8 && transaction.version < 5)
-                    {
-                        TransactionPool.removeUnappliedTransaction(transaction.id);
-                    }
-                    continue;
                 }
 
                 // lock transaction v6 with block v10
@@ -2851,6 +2881,7 @@ namespace DLT
                 }
 
                 IxiNumber total_tx_amount = transaction.amount + transaction.fee;
+                total_fee += transaction.fee;
 
                 if (transaction.type == (int)Transaction.Type.MultisigTX || transaction.type == (int)Transaction.Type.ChangeMultisigWallet)
                 {
@@ -2877,7 +2908,9 @@ namespace DLT
             }
 
 
-            Logging.info(String.Format("\t\t|- Transactions: {0} \t\t Amount: {1}", total_transactions, total_amount));
+            Logging.info("\t\t|- Transactions: {0} \t\t Amount: {1} \t\t Fee: {2}", total_transactions, total_amount, total_fee);
+
+            return total_fee;
         }
 
         public bool generateSuperBlockSegments(Block super_block, bool new_block, RemoteEndpoint endpoint = null)
@@ -3015,15 +3048,10 @@ namespace DLT
                         localNewBlock.lastBlockChecksum = null;
                     }
 
-                    // TODO omega remove section after v10 upgrade
-                    if (localNewBlock.blockNum >= 2340000)
-                    {
-                        block_version = BlockVer.v10;
-                    }
-
                     localNewBlock.version = block_version;
 
                     Node.walletState.setCachedBlockVersion(block_version);
+                    Node.regNameState.setCachedBlockVersion(block_version);
 
                     Logging.info("\t\t|- Block Number: {0}", localNewBlock.blockNum);
 
@@ -3075,13 +3103,18 @@ namespace DLT
                     }
                     else
                     {
-                        generateNewBlockTransactions(localNewBlock.blockNum, block_version);
+                        localNewBlock.totalFee = generateNewBlockTransactions(localNewBlock.blockNum, block_version);
+                        if (localNewBlock.blockNum == 1)
+                        {
+                            // Calculate signer difficulty
+                            localNewBlock.signerBits = Node.blockChain.calculateRequiredSignerBits(false, localNewBlock.version);
+                        }
                     }
 
-                    if (localNewBlock.blockNum == 1)
+                    if (localNewBlock.version >= BlockVer.v11)
                     {
-                        // Calculate signer difficulty
-                        localNewBlock.signerBits = Node.blockChain.calculateRequiredSignerBits(false, localNewBlock.version);
+                        IxiNumber nameRewardAmount = calculateNameReward(localNewBlock.blockNum);
+                        localNewBlock.totalFee += nameRewardAmount;
                     }
 
                     // Calculate mining difficulty
@@ -3089,13 +3122,16 @@ namespace DLT
 
                     // Simulate applying a block to see what the walletstate would look like
                     Node.walletState.beginTransaction(localNewBlock.blockNum);
+                    Node.regNameState.beginTransaction(localNewBlock.blockNum);
                     if (!applyAcceptedBlock(localNewBlock, true))
                     {
                         Logging.error("Unable to apply a snapshot of a newly generated block {0}.", localNewBlock.blockNum);
                         Node.walletState.revertTransaction(localNewBlock.blockNum);
+                        Node.regNameState.revertTransaction(localNewBlock.blockNum);
                         localNewBlock = null;
                         return;
                     }
+                    
                     if (localNewBlock.lastSuperBlockChecksum == null)
                     {
                         localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum(localNewBlock.blockNum, localNewBlock.version));
@@ -3104,9 +3140,20 @@ namespace DLT
                     {
                         localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateChecksum());
                     }
-                    Logging.info("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum));
+
+                    if (localNewBlock.version >= BlockVer.v11)
+                    {
+                        localNewBlock.setRegNameStateChecksum(Node.regNameState.calculateRegNameStateChecksum());
+                    }
+                    
                     Logging.info("While generating new block: Node's blockversion: {0}", IxianHandler.getLastBlockVersion());
+                    Logging.info("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum));
+                    if (localNewBlock.regNameStateChecksum != null)
+                    {
+                        Logging.info("While generating new block: RN Checksum: {0}", Crypto.hashToString(localNewBlock.regNameStateChecksum));
+                    }
                     Node.walletState.revertTransaction(localNewBlock.blockNum);
+                    Node.regNameState.revertTransaction(localNewBlock.blockNum);
 
                     localNewBlock.blockChecksum = localNewBlock.calculateChecksum();
 
@@ -3626,8 +3673,18 @@ namespace DLT
             IxiNumber newIxis = ConsensusConfig.calculateSigningRewardForBlock(targetBlockNum, totalIxis);
             if(block_version >= BlockVer.v10)
             {
-                newIxis += calculateTotalTransactionFeeReward(targetBlock);
+                if (targetBlock.totalFee == 0)
+                {
+                    targetBlock.totalFee = calculateTotalTransactionFeeReward(targetBlock);
+                    if (targetBlock.totalFee != 0)
+                    {
+                        Logging.warn("Total fee amount for block #{0} while generating staking transactions was 0, recalculated.", targetBlock.blockNum);
+                        Node.blockChain.updateBlock(targetBlock);
+                    }
+                }
+                newIxis += targetBlock.totalFee;
             }
+
             //Console.ForegroundColor = ConsoleColor.Magenta;
             //Console.WriteLine("----STAKING REWARDS for #{0} TOTAL {1} IXIs----", targetBlock.blockNum, newIxis.ToString());
 
@@ -3765,14 +3822,17 @@ namespace DLT
                 }
                 if(to_list.Count > 0)
                 {
+                    byte[] data = null;
                     if (block_version >= BlockVer.v10)
                     {
-                        to_list.First().Value.data = targetBlock.blockNum.GetIxiVarIntBytes();
+                        data = targetBlock.blockNum.GetIxiVarIntBytes();
                     }
                     else
                     {
-                        to_list.First().Value.data = BitConverter.GetBytes(targetBlock.blockNum);
+                        data = BitConverter.GetBytes(targetBlock.blockNum);
                     }
+
+                    to_list.First().Value.data = data;
                 }
                 Transaction tx = new Transaction((int)Transaction.Type.StakingReward, new IxiNumber(0), to_list, ConsensusConfig.ixianInfiniMineAddress, null, Node.blockChain.getLastBlockNum(), 0, block_timestamp);
 

@@ -35,6 +35,7 @@ namespace UnitTests
                 blockNum = blockNum,
                 version = Block.maxVersion,
                 walletStateChecksum = new byte[64],
+                regNameStateChecksum = new byte[64],
                 timestamp = Clock.getNetworkTimestamp()
             };
             block.blockChecksum = block.calculateChecksum();

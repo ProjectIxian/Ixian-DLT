@@ -16,6 +16,7 @@ using DLTNode.Meta;
 using IXICore;
 using IXICore.Meta;
 using IXICore.Network;
+using IXICore.RegNames;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -156,6 +157,11 @@ namespace DLTNode
                 response = onRescanBlockchain(parameters);
             }
 
+            if (methodName.Equals("regnamelist", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onRegNameList();
+            }
+
             if (response == null)
             {
                 return false;
@@ -180,6 +186,10 @@ namespace DLTNode
             blockData.Add("Block Checksum", Crypto.hashToString(block.blockChecksum));
             blockData.Add("Last Block Checksum", Crypto.hashToString(block.lastBlockChecksum));
             blockData.Add("Wallet State Checksum", Crypto.hashToString(block.walletStateChecksum));
+            if (block.regNameStateChecksum != null)
+            {
+                blockData.Add("RegName State Checksum", Crypto.hashToString(block.regNameStateChecksum));
+            }
             blockData.Add("Sig freeze Checksum", Crypto.hashToString(block.signatureFreezeChecksum));
             blockData.Add("PoW field", Crypto.hashToString(block.powField));
             blockData.Add("Timestamp", block.timestamp.ToString());
@@ -189,9 +199,10 @@ namespace DLTNode
             blockData.Add("Signature count", block.signatures.Count.ToString());
             blockData.Add("Required Signature count", Node.blockChain.getRequiredConsensusFromStorage(block.blockNum).ToString());
             blockData.Add("Total Signer Difficulty", block.getTotalSignerDifficulty().ToString());
-            blockData.Add("Required Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(block.blockNum, true).ToString());
+            blockData.Add("Required Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(block, true).ToString());
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
+            blockData.Add("Total fees", block.totalFee.ToString());
             blockData.Add("Signatures", JsonConvert.SerializeObject(block.signatures));
             if(block.frozenSignatures != null)
             {
@@ -499,6 +510,105 @@ namespace DLTNode
             return new JsonResponse { result = walletStates, error = error };
         }
 
+        public JsonResponse onRegNameList()
+        {
+            JsonError error = null;
+
+            // Show a list of reg names - capped to 50
+            RegisteredNameRecord[] names = Node.regNameState.debugGetRegisteredNames();
+            List<Dictionary<string, object>> nameStates = new List<Dictionary<string, object>>();
+            foreach (RegisteredNameRecord rn in names)
+            {
+                Dictionary<string, object> nameData = new Dictionary<string, object>();
+                nameData.Add("name", Crypto.hashToString(rn.name));
+                nameData.Add("capacity", rn.capacity.ToString());
+                nameData.Add("expirationBlockHeight", rn.expirationBlockHeight.ToString());
+                nameData.Add("updatedBlockHeight", rn.updatedBlockHeight.ToString());
+                nameData.Add("allowSubnames", rn.allowSubnames.ToString());
+                nameData.Add("subnamePrice", rn.subnamePrice.ToString());
+
+                if (rn.subnameFeeRecipient != null)
+                {
+                    nameData.Add("subnameFeeRecipient", Crypto.hashToString(rn.subnameFeeRecipient.addressNoChecksum));
+                }
+                else
+                {
+                    nameData.Add("subnameFeeRecipient", "null");
+                }
+
+                if (rn.dataRecords != null)
+                {
+                    Dictionary<string, string> dataRecords = new Dictionary<string, string>();
+                    foreach (var dataRecord in rn.dataRecords)
+                    {
+                        var recordNameString = Crypto.hashToString(dataRecord.name);
+                        if (dataRecords.ContainsKey(recordNameString))
+                        {
+                            dataRecords[recordNameString] += "; " + dataRecord.ttl + ", " + Crypto.hashToString(dataRecord.data) + ", " + Crypto.hashToString(dataRecord.checksum);
+                        }
+                        else
+                        {
+                            dataRecords.Add(recordNameString, dataRecord.ttl + ", " + Crypto.hashToString(dataRecord.data) + ", " + Crypto.hashToString(dataRecord.checksum));
+                        }
+                    }
+                    nameData.Add("dataRecords", dataRecords);
+                }
+                else
+                {
+                    nameData.Add("dataRecords", "null");
+                }
+
+                if (rn.dataMerkleRoot != null)
+                {
+                    nameData.Add("dataMerkleRoot", Crypto.hashToString(rn.dataMerkleRoot));
+                }
+                else
+                {
+                    nameData.Add("dataMerkleRoot", "null");
+                }
+
+                if (rn.recoveryHash != null)
+                {
+                    nameData.Add("recoveryHash", Crypto.hashToString(rn.recoveryHash.addressNoChecksum));
+                }
+                else
+                {
+                    nameData.Add("recoveryHash", "null");
+                }
+
+                if (rn.nextPkHash != null)
+                {
+                    nameData.Add("nextPkHash", Crypto.hashToString(rn.nextPkHash.addressNoChecksum));
+                }
+                else
+                {
+                    nameData.Add("nextPkHash", "null");
+                }
+
+                if (rn.signaturePk != null)
+                {
+                    nameData.Add("signaturePk", Crypto.hashToString(rn.signaturePk));
+                }
+                else
+                {
+                    nameData.Add("signaturePk", "null");
+                }
+
+                if (rn.signature != null)
+                {
+                    nameData.Add("signature", Crypto.hashToString(rn.signature));
+                }
+                else
+                {
+                    nameData.Add("signature", "null");
+                }
+
+                nameStates.Add(nameData);
+            }
+
+            return new JsonResponse { result = nameStates, error = error };
+        }
+
         public JsonResponse onPl()
         {
             JsonError error = null;
@@ -677,7 +787,7 @@ namespace DLTNode
             if (parameters.ContainsKey("vv") || parameters.ContainsKey("verbose"))
             {
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(false).ToString());
+                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(Node.blockChain.getLastBlock(), false).ToString());
                 networkArray.Add("Signer Bits", Crypto.hashToString(BitConverter.GetBytes(Node.blockChain.getRequiredSignerBits())));
                 networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
 
@@ -711,6 +821,9 @@ namespace DLTNode
                 networkArray.Add("Applied TX Count", TransactionPool.getAppliedTransactionCount());
                 networkArray.Add("Unapplied TX Count", TransactionPool.getUnappliedTransactionCount());
 
+                networkArray.Add("Names", Node.regNameState.count());
+                networkArray.Add("Names Reward Pool", Node.regNameState.getRewardPool().ToString());
+
                 networkArray.Add("Masters", PresenceList.countPresences('M'));
                 networkArray.Add("Relays", PresenceList.countPresences('R'));
                 networkArray.Add("Clients", PresenceList.countPresences('C'));
@@ -734,6 +847,7 @@ namespace DLTNode
                 networkArray.Add("Queues", queues);
 
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
+                networkArray.Add("RN Checksum", Crypto.hashToString(Node.regNameState.calculateRegNameStateChecksum()));
             }
 
             networkArray.Add("Blockchain Scanning Active", ActivityScanner.isActive());
@@ -751,7 +865,6 @@ namespace DLTNode
 
             Dictionary<string, Object> minerArray = new Dictionary<string, Object>();
 
-            // TODO TODO use Node.blockchain.getSolvedBlocksCount instead
             List<int> blocksCount = Node.miner.getBlocksCount();
 
             // Last hashrate

@@ -101,16 +101,16 @@ namespace DLT
             public static ulong forceSyncToBlock = 0;
 
             // Read-only values
-            public static readonly string version = "xdc-0.9.1b"; // DLT Node version
+            public static readonly string version = "xdc-0.9.2-dev-p"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
 
-            public static readonly ulong nodeDeprecationBlock = 4000000 + (ulong)(new Random()).Next(50); // block height on which this version of Ixian DLT stops working on
+            public static readonly ulong nodeDeprecationBlock = 4500000 + (ulong)(new Random()).Next(50); // block height on which this version of Ixian DLT stops working on
 
-            public static readonly ulong saveWalletStateEveryBlock = 1000; // Saves wallet state every 1000 blocks
+            public static readonly ulong saveWalletStateEveryBlock = ConsensusConfig.superblockInterval; // Saves wallet state every 1000 blocks
 
             public static readonly int floodMaxQueuedMessages = 20000; // Max queued messages in NetworkQueue before isolating the node for flood prevention
             public static readonly int floodDisableMaxQueuedMessages = 5000; // Max queued messages in NetworkQueue before disabling flood prevention
@@ -131,7 +131,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = BlockVer.v10;
+            public static int maxBlockVersionToGenerate = Block.maxVersion;
 
             /// <summary>
             /// Command to execute when a new block is accepted.
@@ -438,6 +438,13 @@ namespace DLT
                     dataFolderPath = "data-testnet";
                     genesisFile = "testnet-genesis.dat";
                 }
+                else if (networkType == NetworkType.reg)
+                {
+                    serverPort = defaultTestnetServerPort;
+                    apiPort = testnetApiPort;
+                    dataFolderPath = "data-regnet";
+                    genesisFile = "regnet-genesis.dat";
+                }
                 else
                 {
                     serverPort = defaultServerPort;
@@ -544,19 +551,22 @@ namespace DLT
 
                 if (seedNode != "")
                 {
-                    if (networkType == NetworkType.test)
+                    switch (networkType)
                     {
-                        CoreNetworkUtils.seedTestNetNodes = new List<string[]>
-                        {
-                            new string[2] { seedNode, null }
-                        };
-                    }
-                    else
-                    {
-                        CoreNetworkUtils.seedNodes = new List<string[]>
-                        {
-                            new string[2] { seedNode, null }
-                        };
+                        case NetworkType.main:
+                            CoreNetworkUtils.seedNodes = new List<string[]>
+                            {
+                                new string[2] { seedNode, null }
+                            };
+                            break;
+
+                        case NetworkType.test:
+                        case NetworkType.reg:
+                            CoreNetworkUtils.seedTestNetNodes = new List<string[]>
+                            {
+                                new string[2] { seedNode, null }
+                            };
+                            break;
                     }
                 }
             }

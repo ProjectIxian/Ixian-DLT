@@ -45,13 +45,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(ProjectDir)include;$(IncludePath)</IncludePath>
     <TargetExt>.dll</TargetExt>
-    <OutDir>$(SolutionDir)IxianDLT\bin\Debug\</OutDir>
+    <OutDir>$(SolutionDir)..\IxianDLT\bin\Debug\</OutDir>
     <TargetName>libargon2</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetExt>.dll</TargetExt>
     <IncludePath>$(ProjectDir)include;$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)IxianDLT\bin\Release\</OutDir>
+    <OutDir>$(SolutionDir)..\IxianDLT\bin\Release\</OutDir>
     <TargetName>libargon2</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
