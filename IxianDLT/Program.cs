@@ -336,7 +336,7 @@ namespace DLTNode
             mainLoopThread.Start();
 
             if (ConsoleHelpers.verboseConsoleOutput)
-                Console.WriteLine("-----------\nPress Ctrl-C or use the /shutdown API to stop the DLT process at any time.\n");
+                Console.WriteLine("-----------\nPress ESC key or use the /shutdown API to stop the DLT process at any time.\n");
 
         }
 
@@ -351,13 +351,7 @@ namespace DLTNode
                         if (Console.KeyAvailable)
                         {
                             ConsoleKeyInfo key = Console.ReadKey();
-                            if (key.Key == ConsoleKey.W)
-                            {
-                                string ws_checksum = Crypto.hashToString(Node.walletState.calculateWalletStateChecksum());
-                                Logging.info(String.Format("WalletState checksum: ({0} wallets, inTransaction: {1}) : {2}",
-                                    Node.walletState.numWallets, Node.walletState.inTransaction, ws_checksum));
-                            }
-                            else if (key.Key == ConsoleKey.V)
+                            if (key.Key == ConsoleKey.V)
                             {
                                 ConsoleHelpers.verboseConsoleOutput = !ConsoleHelpers.verboseConsoleOutput;
                                 Logging.consoleOutput = ConsoleHelpers.verboseConsoleOutput;

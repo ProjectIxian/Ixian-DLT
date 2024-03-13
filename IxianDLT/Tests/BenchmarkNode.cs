@@ -201,12 +201,12 @@ namespace DLTNode
             return 1;
         }
 
-        public override byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] name, List<RegisteredNameDataRecord> dataRecords, Address nextPkHash)
+        public override byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] name, List<RegisteredNameDataRecord> dataRecords, ulong sequence, Address nextPkHash)
         {
             throw new NotImplementedException();
         }
 
-        public override byte[] calculateRegNameChecksumForRecovery(byte[] name, Address recoveryHash, Address nextPkHash)
+        public override byte[] calculateRegNameChecksumForRecovery(byte[] name, Address recoveryHash, ulong sequence, Address nextPkHash)
         {
             throw new NotImplementedException();
         }

@@ -847,7 +847,7 @@ namespace DLTNode
                 networkArray.Add("Queues", queues);
 
                 networkArray.Add("WS Checksum", Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
-                networkArray.Add("RN Checksum", Crypto.hashToString(Node.regNameState.calculateRegNameStateChecksum()));
+                networkArray.Add("RN Checksum", Crypto.hashToString(Node.regNameState.calculateRegNameStateChecksum(0)));
             }
 
             networkArray.Add("Blockchain Scanning Active", ActivityScanner.isActive());

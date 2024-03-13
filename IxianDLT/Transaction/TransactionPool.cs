@@ -2416,12 +2416,21 @@ namespace DLT
             }
 
             total_amount = 0;
+            int i = 0;
             foreach (var entry in tx.toList)
             {
+                i++;
                 total_amount += entry.Value.amount;
-                if (tx.type == (int)Transaction.Type.RegName && entry.Key.SequenceEqual(ConsensusConfig.ixianInfiniMineAddress))
+                if (i == 1
+                    && tx.type == (int)Transaction.Type.RegName
+                    && entry.Key.SequenceEqual(ConsensusConfig.rnRewardPoolAddress))
                 {
                     continue;
+                }
+                
+                if (entry.Key.SequenceEqual(ConsensusConfig.rnRewardPoolAddress))
+                {
+                    return false;
                 }
 
                 Wallet dest_wallet = Node.walletState.getWallet(entry.Key);

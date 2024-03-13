@@ -40,6 +40,7 @@ namespace DLT.RegNames
         public class RNE_Register : JournalEntry
         {
             private uint capacity;
+            private ulong registrationBlockHeight;
             private ulong expirationBlockHeight;
             private Address nextPkHash;
             private Address recoveryHash;
@@ -47,9 +48,10 @@ namespace DLT.RegNames
 
             private List<RegisteredNameRecord> topLevelNames;
 
-            public RNE_Register(byte[] address, uint capacity, ulong expirationBlockHeight, Address nextPkHash, Address recoveryHash, IxiNumber regFee, List<RegisteredNameRecord> topLevelNames)
+            public RNE_Register(byte[] address, ulong registrationBlockHeight, uint capacity, ulong expirationBlockHeight, Address nextPkHash, Address recoveryHash, IxiNumber regFee, List<RegisteredNameRecord> topLevelNames)
             {
                 targetWallet = address;
+                this.registrationBlockHeight = registrationBlockHeight;
                 this.capacity = capacity;
                 this.expirationBlockHeight = expirationBlockHeight;
                 this.nextPkHash = nextPkHash;
@@ -75,7 +77,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                RegisteredNameRecord rnr = new RegisteredNameRecord(targetWallet, capacity, expirationBlockHeight, nextPkHash, recoveryHash);
+                RegisteredNameRecord rnr = new RegisteredNameRecord(targetWallet, registrationBlockHeight, capacity, expirationBlockHeight, nextPkHash, recoveryHash);
                 return rnInstance.registerNameInternal(rnr, regFee);
             }
 
@@ -474,35 +476,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.setNameRecordsInternal(targetWallet, oldRecords, oldPkHash, oldSigPubKey, oldSig);
-            }
-        }
-
-        public class RNJTransaction : JournalTransaction
-        {
-            public RNJTransaction(ulong number) : base(number)
-            {
-            }
-
-            public RNJTransaction(byte[] bytes)
-            {
-                throw new NotImplementedException();
-            }
-
-            public IEnumerable<RegisteredNameRecord> getAffectedRegNames(int blockVer)
-            {
-                List<RegisteredNameRecord> regNames = new List<RegisteredNameRecord>();
-                Dictionary<byte[], bool> addresses = new Dictionary<byte[], bool>(new ByteArrayComparer());
-                foreach (var entry in entries)
-                {
-                    if (addresses.ContainsKey(entry.targetWallet))
-                    {
-                        continue;
-                    }
-                    regNames.Add(rnInstance.getName(entry.targetWallet));
-                    addresses.Add(entry.targetWallet, true);
-                }
-                return regNames;
+                return rnInstance.setNameRecordsInternal(targetWallet, oldRecords, oldPkHash, oldSigPubKey, oldSig, true);
             }
         }
 
@@ -517,8 +491,6 @@ namespace DLT.RegNames
             private Address newPkHash;
             private byte[] newSigPk;
             private byte[] newSig;
-
-            private IxiNumber fee;
 
             public RNE_ToggleAllowSubname(
                 RegisteredNameRecord nameRecord,
@@ -568,6 +540,34 @@ namespace DLT.RegNames
                     return false;
                 }
                 return rnInstance.setNameInternal(nameRecord);
+            }
+        }
+
+        public class RNJTransaction : JournalTransaction
+        {
+            public RNJTransaction(ulong number) : base(number)
+            {
+            }
+
+            public RNJTransaction(byte[] bytes)
+            {
+                throw new NotImplementedException();
+            }
+
+            public IEnumerable<RegisteredNameRecord> getAffectedRegNames()
+            {
+                List<RegisteredNameRecord> regNames = new List<RegisteredNameRecord>();
+                Dictionary<byte[], bool> addresses = new Dictionary<byte[], bool>(new ByteArrayComparer());
+                foreach (var entry in entries)
+                {
+                    if (addresses.ContainsKey(entry.targetWallet))
+                    {
+                        continue;
+                    }
+                    regNames.Add(rnInstance.getName(entry.targetWallet));
+                    addresses.Add(entry.targetWallet, true);
+                }
+                return regNames;
             }
         }
     }

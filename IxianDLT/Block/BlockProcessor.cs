@@ -972,6 +972,7 @@ namespace DLT
                         ulong expectedSignerBits = Node.blockChain.calculateRequiredSignerBits(false, b.version);
                         if (b.signerBits != expectedSignerBits)
                         {
+                            Node.blockChain.clearCachedRequiredSignerDifficulty();
                             Logging.warn("Received block #{0} ({1}) which had a signer difficulty {2}, expected signer difficulty: {3}", b.blockNum, Crypto.hashToString(b.blockChecksum), b.signerBits, expectedSignerBits);
                             return BlockVerifyStatus.Invalid;
                         }
@@ -1379,7 +1380,7 @@ namespace DLT
 
                             if (b.version >= BlockVer.v11)
                             {
-                                rn_checksum = Node.regNameState.calculateRegNameStateChecksum();
+                                rn_checksum = Node.regNameState.calculateRegNameStateChecksum(b.blockNum);
                             }
                         } else
                         {
@@ -2157,13 +2158,14 @@ namespace DLT
 
                             bool rn_checksum_ok = false;
                             byte[] rn_checksum = null;
-                            if (localNewBlock.version < BlockVer.v11)
+                            if (localNewBlock.version < BlockVer.v11 || localNewBlock.lastSuperBlockChecksum == null)
                             {
+                                // no need to re-verify as verifyBlock already does this
                                 rn_checksum_ok = true;
                             }
                             else
                             {
-                                rn_checksum = Node.regNameState.calculateRegNameStateChecksum();
+                                rn_checksum = Node.regNameState.calculateRegNameStateChecksum(localNewBlock.blockNum);
                                 if (rn_checksum.SequenceEqual(localNewBlock.regNameStateChecksum))
                                 {
                                     rn_checksum_ok = true;
@@ -3143,7 +3145,7 @@ namespace DLT
 
                     if (localNewBlock.version >= BlockVer.v11)
                     {
-                        localNewBlock.setRegNameStateChecksum(Node.regNameState.calculateRegNameStateChecksum());
+                        localNewBlock.setRegNameStateChecksum(Node.regNameState.calculateRegNameStateChecksum(localNewBlock.blockNum));
                     }
                     
                     Logging.info("While generating new block: Node's blockversion: {0}", IxianHandler.getLastBlockVersion());

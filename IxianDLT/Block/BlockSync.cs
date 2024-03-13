@@ -870,20 +870,23 @@ namespace DLT
 
                                 if (b.version >= BlockVer.v11)
                                 {
-                                    byte[] rnChecksum = Node.regNameState.calculateRegNameStateChecksum();
-                                    if (rnChecksum == null || !rnChecksum.SequenceEqual(b.regNameStateChecksum))
+                                    if (b.lastSuperBlockChecksum != null)
                                     {
-                                        Logging.error("After applying block #{0}, regNameStateChecksum is incorrect!. Block's RN: {1}, actual RN: {2}", b.blockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rnChecksum));
-                                        Node.walletState.revertTransaction(b.blockNum);
-                                        Node.regNameState.revertTransaction(b.blockNum);
-                                        Node.blockChain.revertBlockTransactions(b);
-                                        Node.blockProcessor.blacklistBlock(b);
-                                        lock (pendingBlocks)
+                                        byte[] rnChecksum = Node.regNameState.calculateRegNameStateChecksum(b.blockNum);
+                                        if (rnChecksum == null || !rnChecksum.SequenceEqual(b.regNameStateChecksum))
                                         {
-                                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                            requestBlockAgain(b.blockNum);
+                                            Logging.error("After applying block #{0}, regNameStateChecksum is incorrect!. Block's RN: {1}, actual RN: {2}", b.blockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rnChecksum));
+                                            Node.walletState.revertTransaction(b.blockNum);
+                                            Node.regNameState.revertTransaction(b.blockNum);
+                                            Node.blockChain.revertBlockTransactions(b);
+                                            Node.blockProcessor.blacklistBlock(b);
+                                            lock (pendingBlocks)
+                                            {
+                                                pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                                requestBlockAgain(b.blockNum);
+                                            }
+                                            return;
                                         }
-                                        return;
                                     }
                                 }
 
@@ -924,20 +927,20 @@ namespace DLT
 
                             if (b.version >= BlockVer.v11)
                             {
-                                byte[] rnChecksum = Node.regNameState.calculateRegNameStateChecksum();
-                                if (rnChecksum == null || !rnChecksum.SequenceEqual(b.regNameStateChecksum))
+                                if (b.lastSuperBlockChecksum != null)
                                 {
-                                    Logging.error("After applying block #{0}, regNameStateChecksum is incorrect!. Block's RN: {1}, actual RN: {2}", b.blockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rnChecksum));
-                                    Node.walletState.revertTransaction(b.blockNum);
-                                    Node.regNameState.revertTransaction(b.blockNum);
-                                    Node.blockChain.revertBlockTransactions(b);
-                                    Node.blockProcessor.blacklistBlock(b);
-                                    lock (pendingBlocks)
+                                    byte[] rnChecksum = Node.regNameState.calculateRegNameStateChecksum(b.blockNum);
+                                    if (rnChecksum == null || !rnChecksum.SequenceEqual(b.regNameStateChecksum))
                                     {
-                                        pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
-                                        requestBlockAgain(b.blockNum);
+                                        Logging.warn("Block #{0} is last and has an invalid RNChecksum. Discarding and requesting a new one.", b.blockNum);
+                                        Node.blockProcessor.blacklistBlock(b);
+                                        lock (pendingBlocks)
+                                        {
+                                            pendingBlocks.RemoveAll(x => x.blockNum == b.blockNum);
+                                            requestBlockAgain(b.blockNum);
+                                        }
+                                        return;
                                     }
-                                    return;
                                 }
                             }
                         }
@@ -1048,28 +1051,37 @@ namespace DLT
         private bool verifyLastBlock()
         {
             Block b = Node.blockChain.getBlock(Node.blockChain.getLastBlockNum());
-            if (b != null && b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
+            if (b == null)
+            {
+                throw new Exception("Cannot find block #" + Node.blockChain.getLastBlockNum());
+            }
+
+            if (b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
             {
                 // skip WS checksum check
             }
             else
             {
-                if (!b.walletStateChecksum.SequenceEqual(Node.walletState.calculateWalletStateChecksum()))
+                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                if (!b.walletStateChecksum.SequenceEqual(wsChecksum))
                 {
                     // TODO TODO TODO resync?
-                    Logging.error("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()));
+                    Logging.error("Wallet state synchronization failed, last block's WS checksum does not match actual WS Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's WS: {2}, actual WS: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum));
                     return false;
                 }
             }
 
             if (b.version >= BlockVer.v11)
             {
-                byte[] rnChecksum = Node.regNameState.calculateRegNameStateChecksum();
-                if (rnChecksum == null || !rnChecksum.SequenceEqual(b.regNameStateChecksum))
+                if (b.lastSuperBlockChecksum != null)
                 {
-                    // TODO TODO TODO resync?
-                    Logging.error("RegName state synchronization failed, last block's RN checksum does not match actual RN Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's RN: {2}, actual RN: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rnChecksum));
-                    return false;
+                    byte[] rnChecksum = Node.regNameState.calculateRegNameStateChecksum(b.blockNum);
+                    if (rnChecksum == null || !rnChecksum.SequenceEqual(b.regNameStateChecksum))
+                    {
+                        // TODO TODO TODO resync?
+                        Logging.error("RegName state synchronization failed, last block's RN checksum does not match actual RN Checksum, last block #{0}, wsSyncStartBlock: #{1}, block's RN: {2}, actual RN: {3}", Node.blockChain.getLastBlockNum(), wsSyncConfirmedBlockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rnChecksum));
+                        return false;
+                    }
                 }
             }
 
@@ -1532,7 +1544,7 @@ namespace DLT
                                 Node.regNameState.setCachedBlockVersion(block_version);
                                 if ((b.version >= BlockVer.v5 && b.lastSuperBlockChecksum == null)
                                     || (Node.walletState.calculateWalletStateChecksum().SequenceEqual(walletstate_checksum)
-                                        && (b. version < BlockVer.v11 || Node.regNameState.calculateRegNameStateChecksum().SequenceEqual(regnamestate_checksum))))
+                                        && (b.version < BlockVer.v11 || Node.regNameState.calculateRegNameStateChecksum(b.blockNum).SequenceEqual(regnamestate_checksum))))
                                 {
                                     wsSyncConfirmedBlockNum = block_height;
                                     wsSynced = true;

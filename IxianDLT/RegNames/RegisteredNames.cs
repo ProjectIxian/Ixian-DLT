@@ -14,6 +14,7 @@ using IXICore;
 using IXICore.Journal;
 using IXICore.Meta;
 using IXICore.RegNames;
+using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -316,7 +317,7 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setCapacity(newCapacity, nextPkHash, sigPubKey, sig);
+                rnr.setCapacity(newCapacity, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
                 var rnrChecksum = rnr.calculateChecksum();
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
@@ -356,7 +357,7 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setCapacity(newCapacity, nextPkHash, sigPubKey, sig);
+                rnr.setCapacity(newCapacity, rnr.sequence - 1, nextPkHash, sigPubKey, sig);
                 var rnrChecksum = rnr.calculateChecksum();
 
                 if ((sigPubKey != null && sig != null) && !CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
@@ -402,7 +403,7 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecords(curRecords, nextPkHash, sigPubKey, sig);
+                rnr.setRecords(curRecords, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
                 var rnrChecksum = rnr.calculateChecksum();
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
@@ -410,9 +411,6 @@ namespace DLT.RegNames
                     Logging.error("Invalid signature received when updating records for name {0}.", Crypto.hashToString(id));
                     return false;
                 }
-                rnr.nextPkHash = nextPkHash;
-                rnr.signaturePk = sigPubKey;
-                rnr.signature = sig;
                 storage.updateRegName(rnr);
                 cachedChecksum = null;
                 return true;
@@ -441,6 +439,13 @@ namespace DLT.RegNames
                         // checksum received was for a previous record, so recalculate
                         var newRecord = new RegisteredNameDataRecord(record);
                         newRecord.recalculateChecksum();
+
+                        if (curRecords.FindIndex(x => x.checksum.SequenceEqual(newRecord.checksum)) > -1)
+                        {
+                            Logging.error("Cannot update record, record with checksum {0} already exists for registered name {1}.", Crypto.hashToString(newRecord.checksum), Crypto.hashToString(id));
+                            return null;
+                        }
+
                         curRecords[index] = newRecord;
                     }
                 }
@@ -461,13 +466,20 @@ namespace DLT.RegNames
                     }
 
                     newRecord.recalculateChecksum();
+
+                    if (curRecords.FindIndex(x => x.checksum.SequenceEqual(newRecord.checksum)) > -1)
+                    {
+                        Logging.error("Cannot Add record, record with checksum {0} already exists for registered name {1}.", Crypto.hashToString(newRecord.checksum), Crypto.hashToString(id));
+                        return null;
+                    }
+
                     curRecords.Add(newRecord);
                 }
             }
             return curRecords;
         }
 
-        private bool setNameRecordsInternal(byte[] id, List<RegisteredNameDataRecord> records, Address nextPkHash, byte[] sigPubKey, byte[] sig)
+        private bool setNameRecordsInternal(byte[] id, List<RegisteredNameDataRecord> records, Address nextPkHash, byte[] sigPubKey, byte[] sig, bool reverting)
         {
             lock (stateLock)
             {
@@ -477,7 +489,24 @@ namespace DLT.RegNames
                     Logging.error("Registered name {0} does not exist.", Crypto.hashToString(id));
                     return false;
                 }
-                rnr.setRecords(records, nextPkHash, sigPubKey, sig);
+
+                ulong nextSequence;
+                if (reverting)
+                {
+                    nextSequence = rnr.sequence - 1;
+                } else
+                {
+                    nextSequence = rnr.sequence + 1;
+                }
+
+                rnr.setRecords(records, nextSequence, nextPkHash, sigPubKey, sig);
+                var rnrChecksum = rnr.calculateChecksum();
+
+                if ((sigPubKey != null && sig != null) && !CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
+                {
+                    Logging.error("Invalid signature received when updating capacity for name {0}.", Crypto.hashToString(id));
+                    return false;
+                }
                 storage.updateRegName(rnr);
                 cachedChecksum = null;
                 return true;
@@ -501,7 +530,7 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecoveryHash(newRecoveryHash, nextPkHash, sigPubKey, sig);
+                rnr.setRecoveryHash(newRecoveryHash, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
                 byte[] rnrChecksum = rnr.calculateChecksum();
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
@@ -510,7 +539,6 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecoveryHash(newRecoveryHash, nextPkHash, sigPubKey, sig);
                 storage.updateRegName(rnr);
                 cachedChecksum = null;
                 return true;
@@ -534,7 +562,7 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecoveryHash(newRecoveryHash, nextPkHash, sigPubKey, sig);
+                rnr.setRecoveryHash(newRecoveryHash, rnr.sequence - 1, nextPkHash, sigPubKey, sig);
                 byte[] rnrChecksum = rnr.calculateChecksum();
 
                 if ((sigPubKey != null && sig != null) && !CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
@@ -543,7 +571,6 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecoveryHash(newRecoveryHash, nextPkHash, sigPubKey, sig);
                 storage.updateRegName(rnr);
                 cachedChecksum = null;
                 return true;
@@ -567,7 +594,7 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setAllowSubnames(allowSubnames, subnameFee, subnameFeeRecipientAddress, nextPkHash, sigPubKey, sig);
+                rnr.setAllowSubnames(allowSubnames, subnameFee, subnameFeeRecipientAddress, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
                 byte[] rnrChecksum = rnr.calculateChecksum();
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
@@ -652,10 +679,10 @@ namespace DLT.RegNames
         public bool registerName(RegNameRegister rnr, ulong curBlockHeight, IxiNumber regFee, out ulong expirationBlockHeight)
         {
             expirationBlockHeight = rnr.registrationTimeInBlocks + curBlockHeight;
-            return registerName(rnr.name, rnr.capacity, expirationBlockHeight, rnr.nextPkHash, rnr.recoveryHash, regFee);
+            return registerName(rnr.name, curBlockHeight, rnr.capacity, expirationBlockHeight, rnr.nextPkHash, rnr.recoveryHash, regFee);
         }
 
-        public bool registerName(byte[] id, uint initialCapacity, ulong expirationBlockHeight, Address nextPkHash, Address recoveryHash, IxiNumber regFee)
+        public bool registerName(byte[] id, ulong registrationBlockHeight, uint initialCapacity, ulong expirationBlockHeight, Address nextPkHash, Address recoveryHash, IxiNumber regFee)
         {
             RegisteredNameRecord rnr = getName(id);
             if (rnr != null)
@@ -665,7 +692,7 @@ namespace DLT.RegNames
             }
 
             var topLevelNames = getTopLevelNames(id);
-            var change = new RNE_Register(id, initialCapacity, expirationBlockHeight, nextPkHash, recoveryHash, regFee, topLevelNames);
+            var change = new RNE_Register(id, registrationBlockHeight, initialCapacity, expirationBlockHeight, nextPkHash, recoveryHash, regFee, topLevelNames);
             if (!change.apply())
             {
                 return false;
@@ -876,7 +903,7 @@ namespace DLT.RegNames
             return storage.debugGetRegisteredNames();
         }
 
-        public byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] id, List<RegisteredNameDataRecord> dataRecords, Address nextPkHash)
+        public byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] id, List<RegisteredNameDataRecord> dataRecords, ulong sequence, Address nextPkHash)
         {
             var rnr = getName(id);
             if (rnr == null)
@@ -890,11 +917,11 @@ namespace DLT.RegNames
                 return null;
             }
 
-            rnr.setRecords(mergedRecords, nextPkHash, null, null); ;
+            rnr.setRecords(mergedRecords, sequence, nextPkHash, null, null); ;
             return rnr.calculateChecksum();
         }
 
-        public byte[] calculateRegNameChecksumForRecovery(byte[] id, Address recoveryHash, Address nextPkHash)
+        public byte[] calculateRegNameChecksumForRecovery(byte[] id, Address recoveryHash, ulong sequence, Address nextPkHash)
         {
             var rnr = getName(id);
             if (rnr == null)
@@ -902,8 +929,7 @@ namespace DLT.RegNames
                 return null;
             }
 
-            rnr.recoveryHash = recoveryHash;
-            rnr.nextPkHash = nextPkHash;
+            rnr.setRecoveryHash(recoveryHash, sequence, nextPkHash, null, null);
             return rnr.calculateChecksum();
         }
 
@@ -977,9 +1003,8 @@ namespace DLT.RegNames
                     }
                     break;
                 case RegNameInstruction.updateRecord:
-                    if (txOut.amount != 0)
+                    if (!verifyUpdateRecordTransaction(tx))
                     {
-                        Logging.error("RN Transaction {0} update record amount is higher than zero.", tx.getTxIdString());
                         return false;
                     }
                     break;
@@ -1144,6 +1169,12 @@ namespace DLT.RegNames
                 return false;
             }
 
+            if (rnCap.sequence != rnr.sequence + 1)
+            {
+                Logging.error("RN Transaction {0} tried to update name {1} but invalid sequence number was used: {2}, expected {3}.", tx.getTxIdString(), Crypto.hashToString(rnCap.name), rnCap.sequence, (rnr.sequence + 1));
+                return false;
+            }
+
             if (rnr.allowSubnames)
             {
                 Logging.error("RN Transaction {0} tried to change capacity for name {1} but name allows subnames.", tx.getTxIdString(), Crypto.hashToString(rnCap.name));
@@ -1197,7 +1228,7 @@ namespace DLT.RegNames
                 return false;
             }
 
-            rnr.setCapacity(rnCap.newCapacity, rnCap.nextPkHash, rnCap.signaturePk, rnCap.signature);
+            rnr.setCapacity(rnCap.newCapacity, rnCap.sequence, rnCap.nextPkHash, rnCap.signaturePk, rnCap.signature);
             var rnrChecksum = rnr.calculateChecksum();
 
             if (!CryptoManager.lib.verifySignature(rnrChecksum, rnCap.signaturePk, rnCap.signature))
@@ -1221,6 +1252,12 @@ namespace DLT.RegNames
                 return false;
             }
 
+            if (rnSub.sequence != rnr.sequence + 1)
+            {
+                Logging.error("RN Transaction {0} tried to update name {1} but invalid sequence number was used: {2}, expected {3}.", tx.getTxIdString(), Crypto.hashToString(rnSub.name), rnSub.sequence, (rnr.sequence + 1));
+                return false;
+            }
+
             if (rnr.allowSubnames && !rnSub.allowSubnames)
             {
                 Logging.error("RN Transaction {0} tried to toggle subnames for name {1} but name can't be reverted to allow subnames yet.", tx.getTxIdString(), Crypto.hashToString(rnSub.name));
@@ -1233,12 +1270,39 @@ namespace DLT.RegNames
                 return false;
             }
 
-            rnr.setAllowSubnames(rnSub.allowSubnames, rnSub.fee, rnSub.feeRecipientAddress, rnSub.nextPkHash, rnSub.signaturePk, rnSub.signature);
+            rnr.setAllowSubnames(rnSub.allowSubnames, rnSub.fee, rnSub.feeRecipientAddress, rnSub.sequence, rnSub.nextPkHash, rnSub.signaturePk, rnSub.signature);
             var rnrChecksum = rnr.calculateChecksum();
 
             if (!CryptoManager.lib.verifySignature(rnrChecksum, rnSub.signaturePk, rnSub.signature))
             {
                 Logging.error("RN Transaction {0} tried to toggle subnames for name {1} but used an invalid signature.", tx.getTxIdString(), Crypto.hashToString(rnSub.name));
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool verifyUpdateRecordTransaction(Transaction tx)
+        {
+            ToEntry txOut = tx.toList.First().Value;
+            byte[] txOutData = txOut.data;
+            RegNameUpdateRecord rnUpd = new RegNameUpdateRecord(txOutData);
+            RegisteredNameRecord rnr = getName(rnUpd.name);
+            if (rnr == null)
+            {
+                Logging.error("RN Transaction {0} tried to update name {1} but name doesn't exist.", tx.getTxIdString(), Crypto.hashToString(rnUpd.name));
+                return false;
+            }
+
+            if (rnUpd.sequence != rnr.sequence + 1)
+            {
+                Logging.error("RN Transaction {0} tried to update name {1} but invalid sequence number was used: {2}, expected {3}.", tx.getTxIdString(), Crypto.hashToString(rnUpd.name), rnUpd.sequence, (rnr.sequence + 1));
+                return false;
+            }
+
+            if (txOut.amount != 0)
+            {
+                Logging.error("RN Transaction {0} update record amount is higher than zero.", tx.getTxIdString());
                 return false;
             }
 
@@ -1257,6 +1321,12 @@ namespace DLT.RegNames
                 return false;
             }
 
+            if (rnRec.sequence != rnr.sequence + 1)
+            {
+                Logging.error("RN Transaction {0} tried to update name {1} but invalid sequence number was used: {2}, expected {3}.", tx.getTxIdString(), Crypto.hashToString(rnRec.name), rnRec.sequence, (rnr.sequence + 1));
+                return false;
+            }
+
             if (txOut.amount != 0)
             {
                 Logging.error("RN Transaction {0} tried to recover name {1} but amount is higher than zero.", tx.getTxIdString(), Crypto.hashToString(rnRec.name));
@@ -1269,7 +1339,7 @@ namespace DLT.RegNames
                 return false;
             }
 
-            rnr.setRecoveryHash(rnRec.newRecoveryHash, rnRec.nextPkHash, rnRec.signaturePk, rnRec.signature);
+            rnr.setRecoveryHash(rnRec.newRecoveryHash, rnRec.sequence, rnRec.nextPkHash, rnRec.signaturePk, rnRec.signature);
             var rnrChecksum = rnr.calculateChecksum();
 
             if (!CryptoManager.lib.verifySignature(rnrChecksum, rnRec.signaturePk, rnRec.signature))
@@ -1290,9 +1360,60 @@ namespace DLT.RegNames
             return (extensionTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * capacity * subnamePrice;
         }
 
-        public byte[] calculateRegNameStateChecksum()
+        private IEnumerable<RegisteredNameRecord> getAlteredRegNamesSinceRNJTX(ulong transactionId)
         {
-            return storage.calculateRegNameStateChecksum();
+            if (currentTransaction != null && currentTransaction.journalTxNumber == transactionId)
+            {
+                RNJTransaction rnjt = (RNJTransaction)currentTransaction;
+                return rnjt.getAffectedRegNames();
+            }
+            else
+            {
+                RNJTransaction rnjt = (RNJTransaction)processedJournalTransactions.Find(x => x.journalTxNumber == transactionId);
+                if (rnjt == null)
+                {
+                    return null;
+                }
+                return rnjt.getAffectedRegNames();
+            }
+        }
+
+
+        public byte[] calculateRegNameStateDeltaChecksum(ulong transactionId)
+        {
+            lock (stateLock)
+            {
+                var alteredNames = getAlteredRegNamesSinceRNJTX(transactionId);
+                if (alteredNames == null)
+                {
+                    Logging.error("Attempted to calculate RN Delta checksum since RNJ transaction {0}, but no such transaction is open.", transactionId);
+                    return null;
+                }
+
+                List<byte[]> hashes = new();
+                foreach (var name in alteredNames)
+                {
+                    hashes.Add(name.calculateChecksum());
+                }
+                var merkleRoot = IxiUtils.calculateMerkleRoot(hashes);
+                if (merkleRoot == null)
+                {
+                    merkleRoot = new byte[64];
+                }
+                return merkleRoot;
+
+            }
+        }
+
+        public byte[] calculateRegNameStateChecksum(ulong blockNum)
+        {
+            if (blockNum % ConsensusConfig.superblockInterval == 0)
+            {
+                // Superblock, full state checksum
+                return storage.calculateRegNameStateChecksum();
+            }
+
+            return calculateRegNameStateDeltaChecksum(blockNum);
         }
 
         public (bool isApplySuccess, RegNameInstruction instruction) applyTransaction(Transaction tx, ulong curBlockHeight, out ulong expirationBlockHeight)

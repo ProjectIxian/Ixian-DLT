@@ -48,6 +48,9 @@ namespace DLT
 
         private int blockCount = 0;
 
+        private ulong cachedRequiredSignerDifficultyBlockNum = 0;
+        private IxiNumber cachedRequiredSignerDifficulty = 0;
+
         public long Count
         {
             get
@@ -622,6 +625,18 @@ namespace DLT
             return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio, blockVersion));
         }
 
+        public void clearCachedRequiredSignerDifficulty()
+        {
+            lock (blocks)
+            {
+                lock (blocksDictionary)
+                {
+                    cachedRequiredSignerDifficultyBlockNum = 0;
+                    cachedRequiredSignerDifficulty = 0;
+                }
+            }
+        }
+
         public IxiNumber calculateRequiredSignerDifficulty(bool adjustToRatio, int blockVersion)
         {
             ulong blockNum = getLastBlockNum() + 1;
@@ -631,8 +646,19 @@ namespace DLT
             {
                 lock (blocksDictionary)
                 {
+                    if (cachedRequiredSignerDifficultyBlockNum == blockNum
+                        && cachedRequiredSignerDifficulty != 0)
+                    {
+                        if (adjustToRatio)
+                        {
+                            return adjustSignerDifficultyToRatio(cachedRequiredSignerDifficulty);
+                        }
+
+                        return cachedRequiredSignerDifficulty;
+                    }
+
                     IxiNumber totalDifficulty = 0;
-                    int blockCount = 0;
+                    ulong blockCount = 0;
                     ulong blocksToUseForDifficultyCalculation = ConsensusConfig.superblockInterval;
                     if (blockVersion >= BlockVer.v11)
                     {
@@ -662,17 +688,25 @@ namespace DLT
 
                     Logging.info("Samples used: " + blockCount);
 
+                    if (blockVersion >= BlockVer.v11 && blockCount != blocksToUseForDifficultyCalculation)
+                    {
+                        if (blockNum > blocksToUseForDifficultyCalculation
+                            || (blockNum - blockOffset != blockCount))
+                        {
+                            throw new Exception(String.Format("An error occured while calculating required signer difficulty for block #{0}. Actual block samples different than expected: {1} != {2}", blockNum, blockCount, blocksToUseForDifficultyCalculation));
+                        }
+                    }
+
                     if (blockCount == 0)
                     {
                         return ConsensusConfig.minBlockSignerPowDifficulty;
                     }
-                    IxiNumber newDifficulty = totalDifficulty / blockCount;
 
-                    if (adjustToRatio)
+                    if (blockNum < blocksToUseForDifficultyCalculation)
                     {
-                        // Adjust to ratio
-                        newDifficulty = adjustSignerDifficultyToRatio(newDifficulty);
+                        blockCount = blocksToUseForDifficultyCalculation;
                     }
+                    IxiNumber newDifficulty = totalDifficulty / blockCount;
 
                     // Limit to max *2, /2
                     if (lastSuperBlock != null && lastSuperBlock.signerBits > 0)
@@ -695,6 +729,14 @@ namespace DLT
                     if (newDifficulty < ConsensusConfig.minBlockSignerPowDifficulty)
                     {
                         newDifficulty = ConsensusConfig.minBlockSignerPowDifficulty;
+                    }
+
+                    cachedRequiredSignerDifficultyBlockNum = blockNum;
+                    cachedRequiredSignerDifficulty = newDifficulty;
+
+                    if (adjustToRatio)
+                    {
+                        newDifficulty = adjustSignerDifficultyToRatio(newDifficulty);
                     }
 
                     return newDifficulty;
@@ -1124,9 +1166,10 @@ namespace DLT
             {
                 if (lastBlock.version >= BlockVer.v8)
                 {
-                    if (!Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum, lastBlock.version).SequenceEqual(lastBlock.walletStateChecksum))
+                    byte[] wsDeltaChecksum = Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum, lastBlock.version);
+                    if (!wsDeltaChecksum.SequenceEqual(lastBlock.walletStateChecksum))
                     {
-                        Logging.error("Fatal error occurred: Delta Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateDeltaChecksum(lastBlock.blockNum, lastBlock.version)), Node.walletState.numWallets);
+                        Logging.error("Fatal error occurred: Delta Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(wsDeltaChecksum), Node.walletState.numWallets);
                         Node.stop();
                         return false;
                     }
@@ -1138,9 +1181,10 @@ namespace DLT
             }
             else
             {
-                if (!Node.walletState.calculateWalletStateChecksum().SequenceEqual(lastBlock.walletStateChecksum))
+                byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
+                if (!wsChecksum.SequenceEqual(lastBlock.walletStateChecksum))
                 {
-                    Logging.error("Fatal error occurred: Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(Node.walletState.calculateWalletStateChecksum()), Node.walletState.numWallets);
+                    Logging.error("Fatal error occurred: Wallet state is incorrect after reverting block #{0} - Block's WS Checksum: {1}, WS Checksum: {2}, Wallets: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.walletStateChecksum), Crypto.hashToString(wsChecksum), Node.walletState.numWallets);
                     Node.stop();
                     return false;
                 }
@@ -1148,7 +1192,7 @@ namespace DLT
 
             if (lastBlock.version >= BlockVer.v11)
             {
-                byte[] curRegNameStateChecksum = Node.regNameState.calculateRegNameStateChecksum();
+                byte[] curRegNameStateChecksum = Node.regNameState.calculateRegNameStateChecksum(lastBlock.blockNum);
                 if (!curRegNameStateChecksum.SequenceEqual(lastBlock.regNameStateChecksum))
                 {
                     Logging.error("Fatal error occurred: RegName state is incorrect after reverting block #{0} - Block's RN Checksum: {1}, RN Checksum: {2}, Names: {3}", block_num_to_revert, Crypto.hashToString(lastBlock.regNameStateChecksum), Crypto.hashToString(curRegNameStateChecksum), Node.regNameState.count());
@@ -1231,7 +1275,7 @@ namespace DLT
             {
                 return SignerPowSolution.bitsToDifficulty(0x00000000000000FF);
             }
-            var difficulty = getRequiredSignerDifficulty(blockNum, true) / ((ulong)tb.getFrozenSignatureCount() * 30);
+            var difficulty = getRequiredSignerDifficulty(blockNum, true) / ((ulong)tb.getFrozenSignatureCount() * 15);
             if (difficulty < ConsensusConfig.minBlockSignerPowDifficulty)
             {
                 difficulty = ConsensusConfig.minBlockSignerPowDifficulty;
