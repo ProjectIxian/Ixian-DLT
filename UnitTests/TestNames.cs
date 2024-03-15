@@ -100,7 +100,7 @@ namespace UnitTests
         public void RegisterName_AlreadyRegistered()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -151,7 +151,7 @@ namespace UnitTests
 
             regNames.beginTransaction(1);
 
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
 
             var toEntry = RegisteredNamesTransactions.createRegisterToEntry(nameBytes, registrationTimeInBlocks, capacity, nextPkHash, recoveryHash, regFee);
             Transaction tx = createDummyTransaction(toEntry);
@@ -180,7 +180,7 @@ namespace UnitTests
 
             regNames.beginTransaction(1);
 
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
 
             var toEntry = RegisteredNamesTransactions.createRegisterToEntry(nameBytes, registrationTimeInBlocks, capacity, nextPkHash, recoveryHash, regFee);
             Transaction tx = createDummyTransaction(toEntry);
@@ -209,7 +209,7 @@ namespace UnitTests
 
             regNames.beginTransaction(1);
 
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
 
             var toEntry = RegisteredNamesTransactions.createRegisterToEntry(nameBytes, registrationTimeInBlocks, capacity, nextPkHash, recoveryHash, regFee);
             Transaction tx = createDummyTransaction(toEntry);
@@ -228,7 +228,7 @@ namespace UnitTests
 
         private bool registerName(string name, uint registrationTimeInBlocks, uint capacity, IxiNumber regFee, Address nextPkHash, Address recoveryHash, IxiNumber expectedRewardPool = null)
         {
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             return registerName(nameBytes, registrationTimeInBlocks, capacity, regFee, nextPkHash, recoveryHash, expectedRewardPool);
         }
 
@@ -264,7 +264,7 @@ namespace UnitTests
         public void ExtendName()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -311,7 +311,7 @@ namespace UnitTests
         public void ExtendName_FeeTooLow()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -358,7 +358,7 @@ namespace UnitTests
         public void ExtendName_NameDoesntExist()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -376,7 +376,7 @@ namespace UnitTests
 
             ulong lastExpirationTime = rnRecord.expirationBlockHeight;
 
-            var nonExistentNameBytes = IxiNameUtils.encodeIxiName("nonExistentName");
+            var nonExistentNameBytes = IxiNameUtils.encodeAndHashIxiName("nonExistentName");
             var toEntry = RegisteredNamesTransactions.createExtendToEntry(nonExistentNameBytes, registrationTimeInBlocks, regFee);
             Transaction tx = createDummyTransaction(toEntry);
             Assert.IsFalse(regNames.verifyTransaction(tx));
@@ -424,7 +424,7 @@ namespace UnitTests
         public void UpdateRecord()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -483,7 +483,7 @@ namespace UnitTests
         public void UpdateRecord_InvalidSequence()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -528,7 +528,7 @@ namespace UnitTests
         public void UpdateRecord_DuplicateRecord1()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -583,7 +583,7 @@ namespace UnitTests
         public void UpdateRecord_DuplicateRecord2()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -664,7 +664,7 @@ namespace UnitTests
         public void UpdateRecord_ReplaceRecord()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -748,7 +748,7 @@ namespace UnitTests
         public void UpdateRecord_DeleteRecord()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -831,7 +831,7 @@ namespace UnitTests
         public void UpdateRecord_TooLarge()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -885,7 +885,7 @@ namespace UnitTests
         public void UpdateRecord_IncorrectKey()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -938,7 +938,7 @@ namespace UnitTests
         public void UpdateRecord_IncorrectSig()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -991,7 +991,7 @@ namespace UnitTests
         public void IncreaseCapacity()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
@@ -1048,7 +1048,7 @@ namespace UnitTests
         public void IncreaseCapacity_IncorrectKey()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
@@ -1098,7 +1098,7 @@ namespace UnitTests
         public void IncreaseCapacity_IncorrectSig()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
@@ -1148,7 +1148,7 @@ namespace UnitTests
         public void IncreaseCapacity_FeeTooLow()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
@@ -1205,7 +1205,7 @@ namespace UnitTests
         public void DecreaseCapacity()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity * 2;
             uint newCapacity = ConsensusConfig.rnMinCapacity;
@@ -1262,7 +1262,7 @@ namespace UnitTests
         public void DecreaseCapacity_RecordsTooLarge()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity * 2;
             uint newCapacity = ConsensusConfig.rnMinCapacity;
@@ -1336,7 +1336,7 @@ namespace UnitTests
         public void RecoverName()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1388,7 +1388,7 @@ namespace UnitTests
         public void RecoverName_IncorrectKey()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1434,7 +1434,7 @@ namespace UnitTests
         public void RecoverName_IncorrectSig()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1491,7 +1491,7 @@ namespace UnitTests
         public void Subname_Top_Enable()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1523,7 +1523,7 @@ namespace UnitTests
         public void Subname_Top_AddRecord()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1585,7 +1585,7 @@ namespace UnitTests
         public void Subname_Top_AddRecord_InvalidKey()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1644,7 +1644,7 @@ namespace UnitTests
         public void Subname_Enable_Top_IncorrectKey()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1691,7 +1691,7 @@ namespace UnitTests
         public void Subname_Enable_Top_IncorrectSig()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1767,7 +1767,7 @@ namespace UnitTests
         public void Subname_Register()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1790,7 +1790,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -1828,7 +1828,7 @@ namespace UnitTests
         public void Subname_Extend()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1850,7 +1850,7 @@ namespace UnitTests
 
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -1916,7 +1916,7 @@ namespace UnitTests
         public void Subname_Extend_SubnameDoesntExist()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -1938,7 +1938,7 @@ namespace UnitTests
 
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -1955,7 +1955,7 @@ namespace UnitTests
 
             regNames.beginTransaction(1);
 
-            var nonExistentNameBytes = IxiNameUtils.encodeIxiName("nonExistentName." + name);
+            var nonExistentNameBytes = IxiNameUtils.encodeAndHashIxiName("nonExistentName." + name);
             toEntry = RegisteredNamesTransactions.createExtendToEntry(nonExistentNameBytes, registrationTimeInBlocks, regFee);
             tx = createDummyTransaction(toEntry);
             tx.toList.Add(subnameFeeRecipient, new ToEntry(Transaction.maxVersion, subnameFee));
@@ -1983,7 +1983,7 @@ namespace UnitTests
         public void Subname_Extend_NoTopTransactionFee()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2005,7 +2005,7 @@ namespace UnitTests
 
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -2071,7 +2071,7 @@ namespace UnitTests
         public void Subname_Extend_TopTransactionFeeTooLow()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2093,7 +2093,7 @@ namespace UnitTests
 
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -2159,7 +2159,7 @@ namespace UnitTests
         public void Subname_IncreaseCapacity()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
@@ -2182,7 +2182,7 @@ namespace UnitTests
 
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -2255,7 +2255,7 @@ namespace UnitTests
         public void Subname_IncreaseCapacity_NoTopTransactionFee()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
@@ -2278,7 +2278,7 @@ namespace UnitTests
 
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -2350,7 +2350,7 @@ namespace UnitTests
         public void Subname_IncreaseCapacity_TopTransactionFeeTooLow()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
@@ -2373,7 +2373,7 @@ namespace UnitTests
 
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -2446,7 +2446,7 @@ namespace UnitTests
         public void Subname_Register_LongerExpirationTime()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2469,7 +2469,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * 2;
 
             ulong curBlockHeight = 1;
@@ -2507,7 +2507,7 @@ namespace UnitTests
         public void Subname_Register_NoTopName()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2530,7 +2530,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name + "1");
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name + "1");
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2560,7 +2560,7 @@ namespace UnitTests
         public void Subname_Register_TopNameDoesntAllowSubnames()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2580,7 +2580,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2610,7 +2610,7 @@ namespace UnitTests
         public void Subname_Register_TransactionHasTooLowTopFee()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2633,7 +2633,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -2669,7 +2669,7 @@ namespace UnitTests
         public void Subname_Register_TransactionHasNoTopFee()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2692,7 +2692,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2726,7 +2726,7 @@ namespace UnitTests
         public void Subname_Register_AlreadyRegistered()
         {
             string name = "test";
-            byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
+            byte[] nameBytes = IxiNameUtils.encodeAndHashIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
             uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
@@ -2749,7 +2749,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Register subname
-            byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
+            byte[] subnameBytes = IxiNameUtils.encodeAndHashIxiName("subNameTest." + name);
             IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
@@ -2804,7 +2804,7 @@ namespace UnitTests
         [TestMethod]
         public void SaveToDisk_Single()
         {
-            byte[] name = IxiNameUtils.encodeIxiName("test");
+            byte[] name = IxiNameUtils.encodeAndHashIxiName("test");
             uint capacity = ConsensusConfig.rnMinCapacity + 1234;
             ulong registeredBlockHeight = 412;
             ulong expirationBlockHeight = 5691;
@@ -2847,7 +2847,7 @@ namespace UnitTests
         [TestMethod]
         public void SaveToDisk_Multiple()
         {
-            byte[] name = IxiNameUtils.encodeIxiName("test");
+            byte[] name = IxiNameUtils.encodeAndHashIxiName("test");
             uint capacity = ConsensusConfig.rnMinCapacity;
             ulong registeredBlockHeight = 421;
             ulong expirationBlockHeight = 5691;
@@ -2875,7 +2875,7 @@ namespace UnitTests
             rnr.dataRecords.Add(rndr);
             regNamesMemoryStorage.updateRegName(rnr, true);
 
-            byte[] name2 = IxiNameUtils.encodeIxiName("test2");
+            byte[] name2 = IxiNameUtils.encodeAndHashIxiName("test2");
             uint capacity2 = 1234;
             ulong registeredBlockHeight2 = 422;
             ulong expirationBlockHeight2 = 5692;
