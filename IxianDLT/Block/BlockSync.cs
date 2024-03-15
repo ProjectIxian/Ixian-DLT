@@ -853,7 +853,7 @@ namespace DLT
                                         byte[] wsChecksum = Node.walletState.calculateWalletStateChecksum();
                                         if (wsChecksum == null || !wsChecksum.SequenceEqual(b.walletStateChecksum))
                                         {
-                                            Logging.error("After applying block #{0}, walletStateChecksum is incorrect!. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum));
+                                            Logging.error("After applying block #{0}, walletStateChecksum is incorrect. Block's WS: {1}, actual WS: {2}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(wsChecksum));
                                             Node.walletState.revertTransaction(b.blockNum);
                                             Node.regNameState.revertTransaction(b.blockNum);
                                             Node.blockChain.revertBlockTransactions(b);
@@ -875,7 +875,7 @@ namespace DLT
                                         byte[] rnChecksum = Node.regNameState.calculateRegNameStateChecksum(b.blockNum);
                                         if (rnChecksum == null || !rnChecksum.SequenceEqual(b.regNameStateChecksum))
                                         {
-                                            Logging.error("After applying block #{0}, regNameStateChecksum is incorrect!. Block's RN: {1}, actual RN: {2}", b.blockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rnChecksum));
+                                            Logging.error("After applying block #{0}, regNameStateChecksum is incorrect. Block's RN: {1}, actual RN: {2}", b.blockNum, Crypto.hashToString(b.regNameStateChecksum), Crypto.hashToString(rnChecksum));
                                             Node.walletState.revertTransaction(b.blockNum);
                                             Node.regNameState.revertTransaction(b.blockNum);
                                             Node.blockChain.revertBlockTransactions(b);

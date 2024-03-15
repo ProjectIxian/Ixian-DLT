@@ -210,5 +210,10 @@ namespace DLTNode
         {
             throw new NotImplementedException();
         }
+
+        public override RegisteredNameRecord getRegName(byte[] name, bool useAbsoluteId)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -291,6 +291,12 @@ namespace DLT.RegNames
         {
             lock (stateLock)
             {
+                if (newCapacity < ConsensusConfig.rnMinCapacity)
+                {
+                    Logging.error("Invalid capacity change requested for registered name {0}.", Crypto.hashToString(id));
+                    return false;
+                }
+
                 RegisteredNameRecord rnr = getName(id);
                 if (rnr == null)
                 {
@@ -354,6 +360,12 @@ namespace DLT.RegNames
                 if ((sigPubKey != null && sig != null) && !rnr.nextPkHash.addressNoChecksum.SequenceEqual(new Address(sigPubKey).addressNoChecksum))
                 {
                     Logging.error("Invalid signature public key received when updating capacity for name {0}.", Crypto.hashToString(id));
+                    return false;
+                }
+
+                if (rnr.sequence < 1)
+                {
+                    Logging.error("Sequence is invalid while reverting capacity for name {0}.", Crypto.hashToString(id));
                     return false;
                 }
 
@@ -493,6 +505,11 @@ namespace DLT.RegNames
                 ulong nextSequence;
                 if (reverting)
                 {
+                    if (rnr.sequence < 1)
+                    {
+                        Logging.error("Sequence is invalid while reverting capacity for name {0}.", Crypto.hashToString(id));
+                        return false;
+                    }
                     nextSequence = rnr.sequence - 1;
                 } else
                 {
@@ -559,6 +576,12 @@ namespace DLT.RegNames
                 if ((sigPubKey != null && sig != null) && !rnr.recoveryHash.addressNoChecksum.SequenceEqual(new Address(sigPubKey).addressNoChecksum))
                 {
                     Logging.error("Invalid signature public key received when recovering name {0}.", Crypto.hashToString(id));
+                    return false;
+                }
+
+                if (rnr.sequence < 1)
+                {
+                    Logging.error("Sequence is invalid while reverting recovery for name {0}.", Crypto.hashToString(id));
                     return false;
                 }
 
@@ -1065,7 +1088,7 @@ namespace DLT.RegNames
                 }
             }
 
-            if (rnReg.capacity < 1)
+            if (rnReg.capacity < ConsensusConfig.rnMinCapacity)
             {
                 Logging.error("RN Transaction {0} tried to register name {1} with invalid capacity.", tx.getTxIdString(), Crypto.hashToString(rnReg.name));
                 return false;
@@ -1181,7 +1204,7 @@ namespace DLT.RegNames
                 return false;
             }
 
-            if (rnCap.newCapacity < 1)
+            if (rnCap.newCapacity < ConsensusConfig.rnMinCapacity)
             {
                 Logging.error("RN Transaction {0} tried to change capacity for name {1} with invalid capacity.", tx.getTxIdString(), Crypto.hashToString(rnCap.name));
                 return false;

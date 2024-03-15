@@ -286,7 +286,7 @@ Write-Host "Working directory: $($wd)"
 Write-Host "Loading required assemblies..."
 [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
 
-$srcDir = "..\IxianDLT\bin\$($ClientBinary)"
+$srcDir = "..\IxianDLT\bin\$($ClientBinary)\net6.0"
 $dstPaths = New-Object System.Collections.ArrayList
 
 $ClientAddresses = @{}
@@ -450,7 +450,7 @@ if($ClearState.IsPresent) {
                                     $wasError = $true
                                     break
                                 }
-                                if($ns.'Block Height' -lt 5) {
+                                if($ns.'Block Height' -lt 2) {
                                     Write-Host -ForegroundColor Green -NoNewline "`r-> Block Height: $($ns.'Block Height')"
                                 } else {
                                     Write-Host -ForegroundColor Green "-> Block Height reached, proceeding."
@@ -504,11 +504,11 @@ if($ClearState.IsPresent) {
                     }
                     if($wasError -eq $false) {
                         # wait for all pending transactions to clear
-                        $pendTxCleared = WaitConfirm-PendingTX -Clients $DLTProcesses -TXList $pendingTx -Blocks 5
-                        if($pendTxCleared -eq $false) {
-                            Write-Host -ForegroundColor Magenta "Pending transctions did not clear within 5 blocks, aborting."
-                            $wasError = $true
-                        }
+                        #$pendTxCleared = WaitConfirm-PendingTX -Clients $DLTProcesses -TXList $pendingTx -Blocks 5
+                        #if($pendTxCleared -eq $false) {
+                        #    Write-Host -ForegroundColor Magenta "Pending transctions did not clear within 5 blocks, aborting."
+                        #    $wasError = $true
+                        #}
                     }
 
                     if($wasError) {

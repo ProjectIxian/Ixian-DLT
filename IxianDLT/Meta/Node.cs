@@ -1177,6 +1177,11 @@ namespace DLT.Meta
         {
             return regNameState.calculateRegNameChecksumForRecovery(name, recoveryHash, sequence, nextPkHash);
         }
+
+        public override RegisteredNameRecord getRegName(byte[] name, bool useAbsoluteId = true)
+        {
+            return regNameState.getName(name, useAbsoluteId);
+        }
     }
 
     class dataPoint

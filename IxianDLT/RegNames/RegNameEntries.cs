@@ -560,7 +560,7 @@ namespace DLT.RegNames
                 Dictionary<byte[], bool> addresses = new Dictionary<byte[], bool>(new ByteArrayComparer());
                 foreach (var entry in entries)
                 {
-                    if (addresses.ContainsKey(entry.targetWallet))
+                    if (entry.targetWallet == null || addresses.ContainsKey(entry.targetWallet))
                     {
                         continue;
                     }

@@ -1,4 +1,16 @@
-﻿using DLT.Meta;
+﻿// Copyright (C) 2017-2024 Ixian OU
+// This file is part of Ixian DLT - www.github.com/ProjectIxian/Ixian-DLT
+//
+// Ixian DLT is free software: you can redistribute it and/or modify
+// it under the terms of the MIT License as published
+// by the Open Source Initiative.
+//
+// Ixian DLT is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MIT License for more details.
+
+using DLT.Meta;
 using DLT.RegNames;
 using IXICore;
 using IXICore.Meta;
@@ -69,8 +81,8 @@ namespace UnitTests
         {
             string name = "test";
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -90,8 +102,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -132,7 +144,7 @@ namespace UnitTests
         {
             string name = "test";
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
+            uint capacity = ConsensusConfig.rnMinCapacity;
             IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) / 2;
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
@@ -161,8 +173,8 @@ namespace UnitTests
         {
             string name = "test";
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks / 2;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -190,8 +202,8 @@ namespace UnitTests
         {
             string name = "test";
             uint registrationTimeInBlocks = ConsensusConfig.rnMaxRegistrationTimeInBlocks + 1;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -254,8 +266,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -301,8 +313,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -327,7 +339,7 @@ namespace UnitTests
             Assert.IsTrue(nameBytes.SequenceEqual(rnRecord.name), "rne.name != rnRecord.name");
             Assert.AreEqual(extensionTimeInBlocks + lastExpirationTime, rnRecord.expirationBlockHeight);
 
-            Assert.AreEqual(750, regNames.getRewardPool());
+            Assert.AreEqual(regFee + (regFee / 2), regNames.getRewardPool());
             Assert.AreEqual(extensionTimeInBlocks + lastExpirationTime, expirationBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
@@ -348,8 +360,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -373,7 +385,7 @@ namespace UnitTests
             rnRecord = regNames.getName(nonExistentNameBytes);
             Assert.IsNull(rnRecord);
 
-            Assert.AreEqual(500, regNames.getRewardPool());
+            Assert.AreEqual(regFee, regNames.getRewardPool());
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -414,8 +426,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -473,8 +485,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -518,8 +530,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash1 = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -573,8 +585,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -654,8 +666,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -738,8 +750,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -821,8 +833,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -875,8 +887,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -928,8 +940,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -981,9 +993,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            uint newCapacity = 2;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1038,9 +1050,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            uint newCapacity = 2;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1088,9 +1100,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            uint newCapacity = 2;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1138,9 +1150,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            uint newCapacity = 2;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1176,7 +1188,7 @@ namespace UnitTests
             Assert.IsTrue(pkSig.pubKey.SequenceEqual(rnRecord.signaturePk), "pkSig != rnRecord.signaturePk");
             Assert.IsTrue(sig.SequenceEqual(rnRecord.signature), "sig != rnRecord.signature");
 
-            Assert.AreEqual(750, regNames.getRewardPool());
+            Assert.AreEqual(regFee + (regFee / 2), regNames.getRewardPool());
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1195,9 +1207,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 2;
-            uint newCapacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * 2;
+            uint capacity = ConsensusConfig.rnMinCapacity * 2;
+            uint newCapacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * 2;
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1252,9 +1264,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 2;
-            uint newCapacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * 2;
+            uint capacity = ConsensusConfig.rnMinCapacity * 2;
+            uint newCapacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * 2;
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1326,8 +1338,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1378,8 +1390,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1424,8 +1436,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
 
@@ -1481,8 +1493,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -1513,8 +1525,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -1575,8 +1587,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -1634,8 +1646,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -1681,8 +1693,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -1757,8 +1769,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -1779,7 +1791,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -1818,8 +1830,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -1839,7 +1851,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -1906,8 +1918,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -1927,7 +1939,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -1973,8 +1985,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -1994,7 +2006,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2061,8 +2073,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -2082,7 +2094,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2149,9 +2161,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            uint newCapacity = 2;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -2171,7 +2183,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2245,9 +2257,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            uint newCapacity = 2;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -2267,7 +2279,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2340,9 +2352,9 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            uint newCapacity = 2;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            uint newCapacity = ConsensusConfig.rnMinCapacity * 2;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -2362,7 +2374,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2436,8 +2448,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -2458,7 +2470,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * 2;
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * 2;
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2497,8 +2509,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -2550,8 +2562,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -2600,8 +2612,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -2622,7 +2634,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2659,8 +2671,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnameFee = 100000;
@@ -2716,8 +2728,8 @@ namespace UnitTests
             string name = "test";
             byte[] nameBytes = IxiNameUtils.encodeIxiName(name);
             uint registrationTimeInBlocks = ConsensusConfig.rnMinRegistrationTimeInBlocks;
-            uint capacity = 1;
-            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            uint capacity = ConsensusConfig.rnMinCapacity;
+            IxiNumber regFee = ConsensusConfig.rnMinPricePerUnit * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
             Address nextPkHash = wallet1.getPrimaryAddress();
             Address recoveryHash = wallet2.getPrimaryAddress();
             IxiNumber subnamePrice = 100000;
@@ -2738,7 +2750,7 @@ namespace UnitTests
 
             // Register subname
             byte[] subnameBytes = IxiNameUtils.encodeIxiName("subNameTest." + name);
-            IxiNumber subnameFee = subnamePrice * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
+            IxiNumber subnameFee = subnamePrice * (ulong)capacity * ((ulong)ConsensusConfig.rnMinRegistrationTimeInBlocks / ConsensusConfig.rnMonthInBlocks);
 
             ulong curBlockHeight = 1;
             ulong expirationBlockHeight;
@@ -2793,7 +2805,7 @@ namespace UnitTests
         public void SaveToDisk_Single()
         {
             byte[] name = IxiNameUtils.encodeIxiName("test");
-            uint capacity = 1234;
+            uint capacity = ConsensusConfig.rnMinCapacity + 1234;
             ulong registeredBlockHeight = 412;
             ulong expirationBlockHeight = 5691;
             byte[] nextPkHashBytes = RandomUtils.GetBytes(33);
@@ -2836,7 +2848,7 @@ namespace UnitTests
         public void SaveToDisk_Multiple()
         {
             byte[] name = IxiNameUtils.encodeIxiName("test");
-            uint capacity = 1;
+            uint capacity = ConsensusConfig.rnMinCapacity;
             ulong registeredBlockHeight = 421;
             ulong expirationBlockHeight = 5691;
             byte[] nextPkHashBytes = RandomUtils.GetBytes(33);

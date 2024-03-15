@@ -2471,7 +2471,7 @@ namespace DLT
                 else if (b.version >= BlockVer.v11)
                 {
                     IxiNumber nameRewardAmount = calculateNameReward(b.blockNum);
-                    if (!Node.regNameState.decreaseRewardPool(nameRewardAmount))
+                    if (nameRewardAmount > 0 && !Node.regNameState.decreaseRewardPool(nameRewardAmount))
                     {
                         Logging.error("Error while decreasing reward pool.");
                         return false;
