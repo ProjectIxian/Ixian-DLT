@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DLT
 {
@@ -81,6 +82,66 @@ namespace DLT
             fetchThread.Name = "Block_Sync_Fetch_Thread";
             fetchThread.Start();
         }
+
+        private WebSocketClientManager webSocketClientManager;
+        public void SetupWebSocketMessageHandling()
+        {
+            this.webSocketClientManager = WebSocketClientManager.Instance; // Store the reference
+            WebSocketClientManager.Instance.OnMessageReceived += HandleWebSocketMessage;
+        }
+
+        private async void HandleWebSocketMessage(string message)
+        {
+            var parsedMessage = webSocketClientManager.ParseMessage(message);
+
+            switch (parsedMessage.command)
+            {
+                case "HandleSync":
+                    await WsHandleSyncAsync(parsedMessage.id, parsedMessage.type, parsedMessage.message);
+                    break;
+
+            }
+        }
+
+        private async Task WsHandleSyncAsync(string id, string type, string message)
+        {
+            try
+            {
+                if (type == "ping")
+                {
+
+                    var syncData = new
+                    {
+                        synchronizing = (bool)synchronizing,
+                        syncDone = (bool)syncDone
+
+                    };
+
+                    var syncResult = new
+                    {
+                        id = (string)null,
+                        result = syncData,
+                        error = (string)null
+                    };
+                    WebSocketClientManager.ParsedMessage pingMessage = new WebSocketClientManager.ParsedMessage
+                    {
+                        command = "HandleSync",
+                        type = "pong",
+                        data = (object)syncResult,
+                        message = (string)"",
+                        id = id
+                    };
+
+                    await webSocketClientManager.SendMessageAsync(pingMessage);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Logging.error($"Failed to handle or send message: {ex.Message}");
+            }
+        }
+
 
         public void rollForwardLoop()
         {
@@ -1090,7 +1151,7 @@ namespace DLT
             return true;
         }
 
-        private void stopSyncStartBlockProcessing()
+        private async void stopSyncStartBlockProcessing()
         {
 
             if (CoreConfig.preventNetworkOperations)
@@ -1102,7 +1163,7 @@ namespace DLT
                 syncDone = true;
                 synchronizing = false;
 
-                lock(pendingTransactions)
+                lock (pendingTransactions)
                 {
                     pendingTransactions.Clear();
                 }
@@ -1123,6 +1184,24 @@ namespace DLT
             syncDone = true;
 
             synchronizing = false;
+
+            var syncResult = new
+            {
+                id = (string)null,
+                result = "active",
+                error = (string)null
+            };
+
+            WebSocketClientManager.ParsedMessage syncMessage = new WebSocketClientManager.ParsedMessage
+            {
+                command = "HandleSync",
+                type = "request",
+                data = (object)syncResult,
+                message = (string)"",
+                id = (string)null
+            };
+
+            await webSocketClientManager.SendMessageAsync(syncMessage);
 
             lock (pendingTransactions)
             {
@@ -1313,7 +1392,8 @@ namespace DLT
                         pendingTransactions[txBlockHeight].Add(tx);
                     }
                 }
-            } else
+            }
+            else
             {
                 if (!TransactionPool.addTransaction(tx, true, endpoint))
                 {
@@ -1360,7 +1440,7 @@ namespace DLT
                     }
                     txSectionsToRemove.Add(txs.Key);
                 }
-                foreach(var txs in txSectionsToRemove)
+                foreach (var txs in txSectionsToRemove)
                 {
                     pendingTransactions.Remove(txs);
                 }
@@ -1407,7 +1487,7 @@ namespace DLT
             }
         }
 
-        public void startSync()
+        public async void startSync()
         {
             // clear out current state
             lock (requestedBlockTimes)
@@ -1420,6 +1500,24 @@ namespace DLT
                 pendingBlocks.Clear();
             }
             synchronizing = true;
+
+            var syncResult = new
+            {
+                id = (string)null,
+                result = "synchronizing",
+                error = (string)null
+            };
+
+            WebSocketClientManager.ParsedMessage syncMessage = new WebSocketClientManager.ParsedMessage
+            {
+                command = "HandleSync",
+                type = "request",
+                data = (object)syncResult,
+                message = (string)"",
+                id = (string)null
+            };
+
+            await webSocketClientManager.SendMessageAsync(syncMessage);
         }
 
         public void onWalletStateHeader(ulong ws_block, long ws_count)
@@ -1502,6 +1600,7 @@ namespace DLT
                     noNetworkSynchronization = false;
                     determineSyncTargetBlockNum();
                 }
+
             }
             else
             {

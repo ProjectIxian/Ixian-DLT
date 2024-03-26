@@ -151,6 +151,11 @@ namespace DLT
 
             public static int maxIncomingClientNodes = 5000;
 
+
+            public static  string websocketUrl = "";
+            public static  string websocketUsername = "";
+            public static  string websocketPassword = "";
+
             private Config()
             {
 
@@ -162,12 +167,12 @@ namespace DLT
 
                 Console.WriteLine("Starts a new instance of Ixian DLT Node");
                 Console.WriteLine("");
-                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234]");
+                Console.WriteLine(" IxianDLT.exe [-h] [-v] [-t] [-s] [-x] [-c] [-p 10234] [-a 8081] [-i ip] [-w ixian.wal] [-n seed1.ixian.io:10234] [-q wss://server.ixiwss.io] [-z <my-websocket-username>] [-d <my-websocket-password]");
                 Console.WriteLine("   [--worker] [--threads 1] [--config ixian.cfg] [--maxLogSize 50] [--maxLogCount 10] [--logVerbosity 14]");
                 Console.WriteLine("   [--lastGoodBlock 110234] [--disableWebStart] [--onlyShowAddresses] [--walletPassword] [--blockStorage SQLite]");
                 Console.WriteLine("   [--maxTxPerBlock 19980] [--disableSetTitle] [--disableFastBlockLoading] [--checksumLock Ixian] [--verboseOutput]");
                 Console.WriteLine("   [--maxOutgoingConnections] [--maxIncomingMasterNodes] [--maxIncomingClientNodes] [--minActivityBlockHeight]");
-                Console.WriteLine("   [--forceSyncToBlock]");
+                Console.WriteLine("   [--forceSyncToBlock] [--webSocketUrl wss://server.ixiwssd.io] [--websocketUsername <my-websocket-username>] [--websocketPassword <my-websocket-password>]");
                 Console.WriteLine("   [--genesis] [--netdump dumpfile] [--benchmark type] [--recover] [--verifyStorage] [--generateWallet]");
                 Console.WriteLine("   [--optimizeDBStorage] [--offline] [--disableChainReorg] [--chainReorgTest]");
                 Console.WriteLine("");
@@ -203,6 +208,10 @@ namespace DLT
                 Console.WriteLine("    --maxIncomingClientNodes\t Max incoming client connections.");
                 Console.WriteLine("    --minActivityBlockHeight\t Prune activity older than specified block height (30000 is default, 0 disables it).");
                 Console.WriteLine("    --forceSyncToBlock\t\t Force sync to specified block height.");
+                Console.WriteLine("    --webSocketUrl\t\t IXIWSS Web-socket url");
+                Console.WriteLine("    --websocketUsername\t\t IXIWSS Web-socket username");
+                Console.WriteLine("    --websocketPassword\t\t IXIWSS Web-socket password");
+
                 Console.WriteLine("");
                 Console.WriteLine("----------- Developer CLI flags -----------");
                 Console.WriteLine("    --genesis\t\t\t Start node in genesis mode (to be used only when setting up your own private network)");
@@ -243,7 +252,9 @@ namespace DLT
                 Console.WriteLine("    blockStorage\t\t Specify storage provider for block and transaction (same as --blockStorage CLI)");
                 Console.WriteLine("    walletNotify\t\t Execute command when a wallet transaction changes");
                 Console.WriteLine("    blockNotify\t\t\t Execute command when the block changes");
-
+                Console.WriteLine("    websocketUrl\t\t\t Connects to the IXIWSS websocket sub-network server");
+                Console.WriteLine("    websocketUsername\t\t\t Username for the websocket connection");
+                Console.WriteLine("    websocketPassword\t\t\t Password for the websocket connection");
                 return "";
             }
 
@@ -338,6 +349,15 @@ namespace DLT
                             break;
                         case "logVerbosity":
                             logVerbosity = int.Parse(value);
+                            break;
+                        case "websocketUrl":
+                            websocketUrl = value;
+                            break;
+                        case "websocketUsername":
+                            websocketUsername = value;
+                            break;
+                        case "websocketPassword":
+                            websocketPassword = value;
                             break;
                         default:
                             // unknown key
@@ -546,6 +566,11 @@ namespace DLT
                 cmd_parser.Setup<int>("minActivityBlockHeight").Callback(value => CoreConfig.minActivityBlockHeight = value);
 
                 cmd_parser.Setup<long>("forceSyncToBlock").Callback(value => forceSyncToBlock = (ulong)value);
+
+                cmd_parser.Setup<string>('q', "websocketUrl").Callback(value => websocketUrl = value).Required();
+                cmd_parser.Setup<string>('z', "websocketUsername").Callback(value => websocketUsername = value).Required();
+                cmd_parser.Setup<string>('d', "websocketPassword").Callback(value => websocketPassword = value).Required();
+
 
                 cmd_parser.Parse(args);
 

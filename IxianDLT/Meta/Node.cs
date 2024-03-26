@@ -29,10 +29,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DLT.Meta
 {
-    class Node: IxianNode
+    class Node : IxianNode
     {
         // Public
         public static BlockChain blockChain = null;
@@ -49,6 +50,36 @@ namespace DLT.Meta
         public static StatsConsoleScreen statsConsoleScreen = null;
 
         public static APIServer apiServer;
+
+        private static WebSocketClientManager webSocketClientManager;
+
+        public static bool IsWebSocketConnected()
+        {
+            return WebSocketClientManager.Instance != null && WebSocketClientManager.Instance.IsConnected;
+        }
+
+        public static int GetWebSocketProcessedRequests()
+        {
+            return WebSocketClientManager.Instance != null ? WebSocketClientManager.Instance.ProcessedRequests : 0;
+        }
+
+        public static bool IsWebSocketReconnecting()
+        {
+            return WebSocketClientManager.Instance?.IsReconnecting ?? false;
+        }
+
+        public static (int ReconnectionAttempts, int MaxReconnectionAttempts) WebSocketReconnectionAttempts()
+        {
+            return (
+                WebSocketClientManager.Instance.ReconnectionAttempts,
+                WebSocketClientManager.Instance.MaxReconnectAttempts
+            );
+        }
+
+        public static DateTime GetLastWebSocketPongTime()
+        {
+            return WebSocketClientManager.Instance?.LastPongTime ?? DateTime.MinValue;
+        }
 
         public static bool genesisNode = false;
         public static bool forceNextBlock = false;
@@ -232,14 +263,14 @@ namespace DLT.Meta
             Console.WriteLine();
             Console.WriteLine("Your IXIAN addresses are: ");
             Console.ForegroundColor = ConsoleColor.Green;
-            foreach(var entry in walletStorage.getMyAddressesBase58())
+            foreach (var entry in walletStorage.getMyAddressesBase58())
             {
                 Console.WriteLine(entry);
             }
             Console.ResetColor();
             Console.WriteLine();
 
-            if(Config.onlyShowAddresses)
+            if (Config.onlyShowAddresses)
             {
                 return false;
             }
@@ -263,7 +294,7 @@ namespace DLT.Meta
             Logging.info("Wallet Version: {0}", walletStorage.walletVersion);
             Logging.info("Public Node Address: {0}", walletStorage.getPrimaryAddress().ToString());
 
-            if(walletStorage.viewingWallet)
+            if (walletStorage.viewingWallet)
             {
                 Logging.error("Viewing-only wallet {0} cannot be used as the primary DLT Node wallet.", walletStorage.getPrimaryAddress().ToString());
                 return false;
@@ -291,6 +322,8 @@ namespace DLT.Meta
                 TransactionPool.addTransaction(txGen2);
             }
         }
+
+
 
         // Start the node
         public void start(bool verboseConsoleOutput)
@@ -359,6 +392,47 @@ namespace DLT.Meta
                 statsConsoleScreen.clearScreen();
             }
 
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(Config.websocketUrl))
+                {
+                    if (!string.IsNullOrWhiteSpace(Config.websocketUsername) && !string.IsNullOrWhiteSpace(Config.websocketPassword))
+                    {
+                        // Using the Singleton instance of WebSocketClientManager
+                        WebSocketClientManager.Instance.Setup(Config.websocketUrl);
+
+                        Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await WebSocketClientManager.Instance.ConnectAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                Logging.error($"Failed to connect WebSocket: {ex.Message}");
+                            }
+                        });
+
+                        // Setup message handling
+                        apiServer.SetupWebSocketMessageHandling();
+                        blockSync.SetupWebSocketMessageHandling();
+                        blockProcessor.SetupWebSocketMessageHandling();
+                    }
+                    else
+                    {
+                        Logging.error("WebSocket URL is provided but username or password is missing.");
+                    }
+                }
+                else
+                {
+                    Logging.error("WebSocket URL is not provided, proceeding without establishing WebSocket connection.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.error($"Error initializing WebSocketClientManager: {ex.Message}");
+            }
+
             // Distribute genesis funds
             IxiNumber genesisFunds = new IxiNumber(Config.genesisFunds);
 
@@ -388,13 +462,13 @@ namespace DLT.Meta
             }
             else
             {
-                if(File.Exists(Config.genesisFile))
+                if (File.Exists(Config.genesisFile))
                 {
                     Block genesis = new Block(Crypto.stringToHash(File.ReadAllText(Config.genesisFile)), false);
                     blockChain.setGenesisBlock(genesis);
                 }
                 ulong lastLocalBlockNum = storage.getHighestBlockInStorage();
-                if(Config.lastGoodBlock > 0 && Config.lastGoodBlock < lastLocalBlockNum)
+                if (Config.lastGoodBlock > 0 && Config.lastGoodBlock < lastLocalBlockNum)
                 {
                     lastLocalBlockNum = Config.lastGoodBlock;
                 }
@@ -408,6 +482,8 @@ namespace DLT.Meta
                     }
                 }
 
+
+
                 ulong requestedWsBlockNum = lastLocalBlockNum;
                 if (requestedWsBlockNum > 15)
                 {
@@ -416,19 +492,21 @@ namespace DLT.Meta
 
                 // Start block sync
                 ulong blockNum = WalletStateStorage.restoreWalletState(requestedWsBlockNum);
-                if(blockNum > 0)
+                if (blockNum > 0)
                 {
                     regNamesMemoryStorage.loadFromDisk(blockNum);
                     Block b = blockChain.getBlock(blockNum, true);
                     if (b != null)
                     {
                         blockSync.onHelloDataReceived(blockNum, b.blockChecksum, b.version, b.walletStateChecksum, b.regNameStateChecksum, b.getFrozenSignatureCount(), lastLocalBlockNum);
-                    }else
+                    }
+                    else
                     {
                         walletState.clear();
                         regNameState.clear();
                     }
-                }else
+                }
+                else
                 {
                     blockSync.lastBlockToReadFromStorage = lastLocalBlockNum;
 
@@ -457,7 +535,8 @@ namespace DLT.Meta
                 if (Config.recoverFromFile)
                 {
                     NetworkClientManager.start(0);
-                }else
+                }
+                else
                 {
                     NetworkClientManager.start(1);
                 }
@@ -470,27 +549,30 @@ namespace DLT.Meta
             maintenanceThread = new Thread(performMaintenance);
             maintenanceThread.Name = "Node_Maintenance_Thread";
             maintenanceThread.Start();
+
+
+
         }
 
         static public bool update()
         {
-            if(serverStarted == false)
+            if (serverStarted == false)
             {
                 /*if(Node.blockProcessor.operating == true)
                 {*/
-                    Logging.info("Starting Network Server now.");
+                Logging.info("Starting Network Server now.");
 
-                    // Start the node server
-                    if (!isMasterNode())
-                    {
-                        Logging.info("Network server is not enabled in modes other than master node.");
-                    }
-                    else
-                    {
-                        NetworkServer.beginNetworkOperations();
-                    }
+                // Start the node server
+                if (!isMasterNode())
+                {
+                    Logging.info("Network server is not enabled in modes other than master node.");
+                }
+                else
+                {
+                    NetworkServer.beginNetworkOperations();
+                }
 
-                    serverStarted = true;
+                serverStarted = true;
                 //}
             }
 
@@ -533,7 +615,7 @@ namespace DLT.Meta
             // I propose getting average traffic from different types of nodes and detect a node that's sending 
             // disproportionally more messages than the other nodes, provided thatthe network queue is over a certain limit
             int total_queued_messages = NetworkQueue.getQueuedMessageCount();
-            if(floodPause == false && total_queued_messages > Config.floodMaxQueuedMessages)
+            if (floodPause == false && total_queued_messages > Config.floodMaxQueuedMessages)
             {
                 Logging.warn("Flooding detected, isolating the node.");
                 NetworkClientManager.stop();
@@ -542,7 +624,8 @@ namespace DLT.Meta
                     NetworkServer.stopNetworkOperations();
                 }
                 floodPause = true;
-            }else if(floodPause == true && total_queued_messages < Config.floodDisableMaxQueuedMessages)
+            }
+            else if (floodPause == true && total_queued_messages < Config.floodDisableMaxQueuedMessages)
             {
                 Logging.warn("Data after flooding processed, reconnecting the node.");
                 if (isMasterNode())
@@ -587,7 +670,7 @@ namespace DLT.Meta
                 miner = null;
             }
 
-            if(signerPowMiner != null)
+            if (signerPowMiner != null)
             {
                 signerPowMiner.stop();
                 signerPowMiner = null;
@@ -614,7 +697,7 @@ namespace DLT.Meta
 
             // Stop all network clients
             NetworkClientManager.stop();
-            
+
             // Stop the network server
             NetworkServer.stopNetworkOperations();
 
@@ -630,7 +713,7 @@ namespace DLT.Meta
         {
             ulong block_limit = Config.nodeDeprecationBlock;
 
-            if(block > block_limit)
+            if (block > block_limit)
             {
                 return false;
             }
@@ -651,7 +734,7 @@ namespace DLT.Meta
                 if (last_block_num > 2)
                 {
                     IxiNumber nodeBalance = walletState.getWalletBalance(IxianHandler.getWalletStorage().getPrimaryAddress());
-                    if(!isMasterNode())
+                    if (!isMasterNode())
                     {
                         if (nodeBalance >= ConsensusConfig.minimumMasterNodeFunds)
                         {
@@ -704,7 +787,7 @@ namespace DLT.Meta
             postSyncOperationsDone = true;
 
             ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
-            if(lastBlockHeight < 17)
+            if (lastBlockHeight < 17)
             {
                 return;
             }
@@ -736,8 +819,8 @@ namespace DLT.Meta
                 ulong blockNum = Node.blockChain.getLastBlockNum() - (ulong)i;
                 Block block = Node.blockChain.getBlock(blockNum);
 
-                if(block != null)
-                    Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlock(blockNum - (ulong)i).getFrozenSignatureCount(), 
+                if (block != null)
+                    Logging.trace(String.Format(" -> block #{0}, signatures: {1}, checksum: {2}, wsChecksum: {3}.", blockNum, Node.blockChain.getBlock(blockNum - (ulong)i).getFrozenSignatureCount(),
                         Crypto.hashToString(block.blockChecksum), Crypto.hashToString(block.walletStateChecksum)));
             }
             Logging.trace(String.Format(" -> Block processor is operating: {0}.", Node.blockProcessor.operating));
@@ -962,7 +1045,7 @@ namespace DLT.Meta
         {
             ulong bh = getLastBlockHeight();
 
-            if(bh < blockProcessor.highestNetworkBlockNum)
+            if (bh < blockProcessor.highestNetworkBlockNum)
             {
                 bh = blockProcessor.highestNetworkBlockNum;
             }
@@ -977,7 +1060,7 @@ namespace DLT.Meta
 
         public override bool isAcceptingConnections()
         {
-            if(Node.blockProcessor.operating)
+            if (Node.blockProcessor.operating)
             {
                 return true;
             }

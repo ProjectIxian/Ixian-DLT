@@ -15,3 +15,5 @@ echo Copying Argon2 library to release directory
 cp libargon2.1.dylib ../IxianDLT/bin/Release/net6.0/libargon2.dylib
 cd ..
 echo Done rebuilding Ixian DLT
+cd IxianDLT/bin/Release/net6.0/
+dotnet IxianDLT.dll --disableWebStart --walletPassword '(*&^Bubba123)' 

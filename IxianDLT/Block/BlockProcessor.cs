@@ -19,10 +19,12 @@ using IXICore.Network;
 using IXICore.Utils;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DLT
 {
@@ -88,6 +90,78 @@ namespace DLT
             randomInt = new Random().Next(999);
         }
 
+        private WebSocketClientManager webSocketClientManager;
+        public void SetupWebSocketMessageHandling()
+        {
+            this.webSocketClientManager = WebSocketClientManager.Instance; // Store the reference
+            WebSocketClientManager.Instance.OnMessageReceived += HandleWebSocketMessage;
+        }
+
+        private async void HandleWebSocketMessage(string message)
+        {
+            var parsedMessage = webSocketClientManager.ParseMessage(message);
+
+            switch (parsedMessage.command)
+            {
+                case "HandleNewBlock":
+                    await WsHandleNewBlockAsync(parsedMessage.id, parsedMessage.type, parsedMessage.message);
+                    break;
+                case "HandleBlockSignatures":
+                    await WsHandleBlockSignaturesAsync(parsedMessage.id, parsedMessage.type, parsedMessage.message);
+                    break;
+
+            }
+        }
+
+        private async Task WsHandleNewBlockAsync(string id, string type, string message)
+        {
+            try
+            {
+                if (type == "ping")
+                {
+                    WebSocketClientManager.ParsedMessage pingMessage = new WebSocketClientManager.ParsedMessage
+                    {
+                        command = "HandleNewBlock",
+                        type = "pong",
+                        data = (object)null,
+                        message = (string)"",
+                        id = id
+                    };
+
+                    await webSocketClientManager.SendMessageAsync(pingMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.error($"Failed to handle or send message: {ex.Message}");
+            }
+        }
+
+        private async Task WsHandleBlockSignaturesAsync(string id, string type, string message)
+        {
+            try
+            {
+                if (type == "ping")
+                {
+                    WebSocketClientManager.ParsedMessage pingMessage = new WebSocketClientManager.ParsedMessage
+                    {
+                        command = "HandleBlockSignatures",
+                        type = "pong",
+                        data = (object)null,
+                        message = (string)"",
+                        id = id
+                    };
+
+                    await webSocketClientManager.SendMessageAsync(pingMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.error($"Failed to handle or send message: {ex.Message}");
+            }
+        }
+
+
         public void resumeOperation()
         {
             Logging.info("BlockProcessor resuming normal operation.");
@@ -121,7 +195,7 @@ namespace DLT
         {
             if (!Config.disableChainReorg)
             {
-                lock(localBlockLock)
+                lock (localBlockLock)
                 {
                     lastBlockStartTime = DateTime.UtcNow;
                     forkedFlag = false;
@@ -302,20 +376,20 @@ namespace DLT
         public int getElectedNodeOffset()
         {
             Block b = Node.blockChain.getLastBlock();
-            if(b == null)
+            if (b == null)
             {
                 return -1;
             }
             long timeSinceLastBlock = Clock.getNetworkTimestamp() - b.timestamp;
-            if(timeSinceLastBlock < 0)
+            if (timeSinceLastBlock < 0)
             {
                 return 0;
             }
-            if(timeSinceLastBlock > blockGenerationInterval * 4) // edge case, if network is stuck for more than 4 block times always return -1 as the node offset.
+            if (timeSinceLastBlock > blockGenerationInterval * 4) // edge case, if network is stuck for more than 4 block times always return -1 as the node offset.
             {
                 return -1;
             }
-            return (int)(timeSinceLastBlock / (blockGenerationInterval*2));
+            return (int)(timeSinceLastBlock / (blockGenerationInterval * 2));
         }
 
         public List<BlockSignature> getSignaturesWithoutPlEntry(Block b)
@@ -363,7 +437,7 @@ namespace DLT
             for (int i = 0; i < sigs.Count; i++)
             {
                 // Don't remove block proposer's signature
-                if(b.blockProposer != null && sigs[i].recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(b.blockProposer))
+                if (b.blockProposer != null && sigs[i].recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(b.blockProposer))
                 {
                     continue;
                 }
@@ -392,12 +466,12 @@ namespace DLT
                     sigFreezeChecksum = sigFreezingBlock.signatureFreezeChecksum;
                     // this block already has a sigfreeze, don't tamper with the signatures
                     Block targetBlock = Node.blockChain.getBlock(b.blockNum);
-                    if(targetBlock == null)
+                    if (targetBlock == null)
                     {
                         Logging.error("Target block #{0} ({1}) is null, cannot handle sig freeze.", b.blockNum, Crypto.hashToString(b.blockChecksum));
                         return false;
                     }
-                    if(b.blockProposer == null && b.version < BlockVer.v10)
+                    if (b.blockProposer == null && b.version < BlockVer.v10)
                     {
                         b.blockProposer = targetBlock.blockProposer;
                     }
@@ -413,7 +487,7 @@ namespace DLT
                         if (verifyBlockSignatures(b, endpoint))
                         {
                             // this is likely the correct block, update and broadcast to others
-                            if(Node.blockChain.refreshSignatures(b, true, endpoint))
+                            if (Node.blockChain.refreshSignatures(b, true, endpoint))
                             {
                                 if (sigFreezingBlock == localNewBlock)
                                 {
@@ -472,7 +546,7 @@ namespace DLT
         public Block getPendingSuperBlock(byte[] block_checksum)
         {
             var sb_list = pendingSuperBlocks.Where(x => x.Value.blockChecksum.SequenceEqual(block_checksum));
-            if(sb_list.Count() == 0)
+            if (sb_list.Count() == 0)
             {
                 return null;
             }
@@ -481,7 +555,7 @@ namespace DLT
 
         private bool onSuperBlockReceived(Block b, RemoteEndpoint endpoint = null)
         {
-            if(b.version < BlockVer.v5) // super blocks were supported with block v5
+            if (b.version < BlockVer.v5) // super blocks were supported with block v5
             {
                 return true;
             }
@@ -499,7 +573,7 @@ namespace DLT
             if (b.lastSuperBlockChecksum == null)
             {
                 // block is not a superblock
-                if(b.blockNum % ConsensusConfig.superblockInterval == 0)
+                if (b.blockNum % ConsensusConfig.superblockInterval == 0)
                 {
                     // block was supposed to be a superblock
                     Logging.warn("Received a normal block {0}, which was supposed to be a super block.", b.blockNum);
@@ -517,13 +591,14 @@ namespace DLT
             }
 
             Block last_super_block = Node.blockChain.getSuperBlock(b.lastSuperBlockNum);
-            if(last_super_block != null)
+            if (last_super_block != null)
             {
                 if (!last_super_block.blockChecksum.SequenceEqual(b.lastSuperBlockChecksum))
                 {
                     Logging.warn("Received a forked super block {0}.", b.blockNum);
                     return false;
-                }else if(last_super_block.lastSuperBlockChecksum == null && last_super_block.blockNum > 1)
+                }
+                else if (last_super_block.lastSuperBlockChecksum == null && last_super_block.blockNum > 1)
                 {
                     Logging.warn("Received a forked superblock that points to a last superblock, which isn't a superblock {0}.", b.blockNum);
                     return false;
@@ -546,18 +621,20 @@ namespace DLT
             {
                 // next block
                 generateSuperBlockSegments(b, false, endpoint);
-            }else if(IxianHandler.getLastBlockHeight() + 1 > b.blockNum)
+            }
+            else if (IxianHandler.getLastBlockHeight() + 1 > b.blockNum)
             {
                 // already processed block
                 Block local_block = Node.blockChain.getBlock(b.blockNum, true, true);
-                if(local_block == null)
+                if (local_block == null)
                 {
                     // this should never happen
                     Logging.error("Received a superblock {0} that we're supposed to have but don't.", b.blockNum);
                 }
 
                 b.superBlockSegments = local_block.superBlockSegments;
-            }else
+            }
+            else
             {
                 // TODO TODO TODO implement for superblock catch-up
                 return false;
@@ -570,7 +647,7 @@ namespace DLT
             if (operating == false) return;
             //Logging.info(String.Format("Received block #{0} {1} ({2} sigs) from the network.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getFrozenSignatureCount()));
 
-            if(isBlockBlacklisted(b))
+            if (isBlockBlacklisted(b))
             {
                 Logging.info("Received block #{0} {1} ({2} sigs) from the network which has been blacklisted.", b.blockNum, Crypto.hashToString(b.blockChecksum), b.getFrozenSignatureCount());
                 return;
@@ -614,7 +691,7 @@ namespace DLT
                                 }
                             }
                         }
-                        else if(!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
+                        else if (!b.blockChecksum.SequenceEqual(localBlock.blockChecksum) && block_status == BlockVerifyStatus.Valid)
                         {
                             Logging.info("Block #{0} ({1}) is forked", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             if (Node.isMasterNode())
@@ -627,19 +704,21 @@ namespace DLT
                                     }
                                     BlockProtocolMessages.broadcastNewBlock(localBlock, null, endpoint);
                                 }
-                            }else
+                            }
+                            else
                             {
                                 handleForkedFlag();
                             }
                             // TODO: Blacklisting point
                         }
-                        else if(block_status == BlockVerifyStatus.Invalid)
+                        else if (block_status == BlockVerifyStatus.Invalid)
                         {
                             Logging.info("Block #{0} ({1}) is invalid", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                        }else if(block_status == BlockVerifyStatus.PotentiallyForkedBlock)
+                        }
+                        else if (block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                         {
                             Logging.info("Block #{0} ({1}) is forked", b.blockNum, Crypto.hashToString(b.blockChecksum));
-                            if(Node.isMasterNode())
+                            if (Node.isMasterNode())
                             {
                                 if (!forkedFlag)
                                 {
@@ -656,10 +735,11 @@ namespace DLT
                             }
                         }
                     }
-                }else // b.blockNum < Node.blockChain.getLastBlockNum() - 5
+                }
+                else // b.blockNum < Node.blockChain.getLastBlockNum() - 5
                 {
                     BlockVerifyStatus past_block_status = verifyBlock(b, true, null);
-                    if(past_block_status == BlockVerifyStatus.AlreadyProcessed || past_block_status == BlockVerifyStatus.Valid)
+                    if (past_block_status == BlockVerifyStatus.AlreadyProcessed || past_block_status == BlockVerifyStatus.Valid)
                     {
                         // likely the node is missing sigs or has his very own custom block, let's send our block and also send the latest block, since he's obviously falling behind
                         Block block = Node.blockChain.getBlock(b.blockNum);
@@ -669,11 +749,12 @@ namespace DLT
                             BlockProtocolMessages.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
                         }
                     }
-                    else if(past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
+                    else if (past_block_status == BlockVerifyStatus.IndeterminatePastBlock)
                     {
                         // the node seems to be way behind, send the current last block
                         BlockProtocolMessages.broadcastNewBlock(Node.blockChain.getBlock(IxianHandler.getLastBlockHeight()), null, endpoint);
-                    }else if(past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
+                    }
+                    else if (past_block_status == BlockVerifyStatus.PotentiallyForkedBlock)
                     {
                         Block localBlock = Node.blockChain.getBlock(b.blockNum);
                         BlockProtocolMessages.broadcastNewBlock(localBlock, null, endpoint);
@@ -698,13 +779,14 @@ namespace DLT
                 if (localNewBlock != null && localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                 {
                     b_status = verifyBlockBasic(b, true, endpoint);
-                }else
+                }
+                else
                 {
                     b_status = verifyBlock(b, false, endpoint);
                 }
             }
 
-            if(b_status == BlockVerifyStatus.Invalid)
+            if (b_status == BlockVerifyStatus.Invalid)
             {
                 // the block is invalid, we should disconnect the node as it is likely on a forked network
                 Logging.info("Block #{0} ({1}) is invalid", b.blockNum, Crypto.hashToString(b.blockChecksum));
@@ -788,7 +870,8 @@ namespace DLT
                 Logging.error("Received block {0} with a version higher than this node can handle, discarding the block.", b.blockNum);
                 networkUpgraded = true;
                 return BlockVerifyStatus.IndeterminateVersionUpgradeBlock;
-            } else if (b.version < 0)
+            }
+            else if (b.version < 0)
             {
                 Logging.error("Received block {0} with an invalid version {1}, discarding the block.", b.blockNum, b.version);
                 return BlockVerifyStatus.Invalid;
@@ -863,11 +946,11 @@ namespace DLT
             if (verify_sig)
             {
                 bool skip_sig_verification = false;
-                if(pendingSuperBlocks.Count() > 0 && pendingSuperBlocks.OrderBy(x=> x.Key).Last().Key > b.blockNum)
+                if (pendingSuperBlocks.Count() > 0 && pendingSuperBlocks.OrderBy(x => x.Key).Last().Key > b.blockNum)
                 {
                     //skip_sig_verification = true; // TODO TODO TODO TODO TODO enable this and add additional hardening by verifying block's checksum against the SB segments when fully activating superblocks
                 }
-                if(b.fromLocalStorage && !Config.fullStorageDataVerification)
+                if (b.fromLocalStorage && !Config.fullStorageDataVerification)
                 {
                     skip_sig_verification = true;
                 }
@@ -876,7 +959,8 @@ namespace DLT
                 if (b.blockNum == lastBlockHeight + 1)
                 {
                     localBlock = localNewBlock;
-                }else if(b.blockNum + 10 > lastBlockHeight && b.blockNum <= lastBlockHeight)
+                }
+                else if (b.blockNum + 10 > lastBlockHeight && b.blockNum <= lastBlockHeight)
                 {
                     localBlock = Node.blockChain.getBlock(b.blockNum, true, true);
                 }
@@ -920,7 +1004,8 @@ namespace DLT
                     }
                     Logging.info("Received an indeterminate future block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminateFutureBlock;
-                }else if(b.blockNum + ConsensusConfig.getRedactedWindowSize() > lastBlockNum)
+                }
+                else if (b.blockNum + ConsensusConfig.getRedactedWindowSize() > lastBlockNum)
                 {
                     Logging.info("Received an indeterminate past block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                     return BlockVerifyStatus.IndeterminatePastBlock;
@@ -967,7 +1052,7 @@ namespace DLT
                     }
 
                     // TODO perhaps move the bottom if section to onSuperBlockReceived
-                    if((b.lastSuperBlockChecksum != null || b.blockNum == 1) && b.version >= BlockVer.v10)
+                    if ((b.lastSuperBlockChecksum != null || b.blockNum == 1) && b.version >= BlockVer.v10)
                     {
                         ulong expectedSignerBits = Node.blockChain.calculateRequiredSignerBits(false, b.version);
                         if (b.signerBits != expectedSignerBits)
@@ -992,7 +1077,8 @@ namespace DLT
                 if (!fetchingTxForBlocks.ContainsKey(blockNum))
                 {
                     fetchingTxForBlocks.Add(blockNum, 0);
-                }else
+                }
+                else
                 {
                     fetchingTxForBlocks[blockNum] = 0;
                 }
@@ -1026,7 +1112,7 @@ namespace DLT
                     if (cur_time - tx_timeout > 10)
                     {
                         fetchingTxForBlocks[b.blockNum] = cur_time;
-                        if(tx_timeout > 0)
+                        if (tx_timeout > 0)
                         {
                             Logging.info("fetchingTxTimeout EXPIRED");
                         }
@@ -1060,7 +1146,7 @@ namespace DLT
                 Transaction t = TransactionPool.getUnappliedTransaction(txid);
                 if (t == null)
                 {
-                    if(TransactionPool.hasAppliedTransaction(txid))
+                    if (TransactionPool.hasAppliedTransaction(txid))
                     {
                         Logging.error("Block #{0} includes a transaction that has already been applied in previous.", b.blockNum);
                         return BlockVerifyStatus.PotentiallyForkedBlock;
@@ -1074,7 +1160,8 @@ namespace DLT
                             pii.lastRequested = Clock.getTimestamp();
                             txs_to_fetch.Add(txid);
                         }
-                    }else
+                    }
+                    else
                     {
                         var pii = Node.inventoryCache.add(new InventoryItem(InventoryItemTypes.transaction, txid), endpoint);
                         if (!pii.processed && Clock.getTimestamp() - pii.lastRequested > 5)
@@ -1177,26 +1264,26 @@ namespace DLT
                 }
             }
 
-            if(fetchTransactions)
+            if (fetchTransactions)
             {
                 TransactionProtocolMessages.broadcastGetTransactions(txs_to_fetch, -(long)b.blockNum, endpoint);
             }
 
             // Pass #2 verifications for multisigs after all transactions have been received
-            if(hasAllTransactions)
+            if (hasAllTransactions)
             {
                 IxiNumber tFeeAmount = 0;
                 foreach (byte[] txid in b.transactions)
                 {
                     Transaction t = TransactionPool.getUnappliedTransaction(txid);
-                    if(t == null)
+                    if (t == null)
                     {
                         continue;
                     }
 
                     tFeeAmount += t.fee;
 
-                    if(b.blockNum >= ConsensusConfig.miningExpirationBlockHeight && t.type == (int)Transaction.Type.PoWSolution)
+                    if (b.blockNum >= ConsensusConfig.miningExpirationBlockHeight && t.type == (int)Transaction.Type.PoWSolution)
                     {
                         Logging.error("Block #{0} includes a PoW transaction {1}. Mining has stopped after block #{2}.", b.blockNum, t.getTxIdString(), ConsensusConfig.miningExpirationBlockHeight);
                         return BlockVerifyStatus.Invalid;
@@ -1249,7 +1336,7 @@ namespace DLT
                         }
                         else
                         {
-                            if(fetchingBulkTxForBlocks.ContainsKey(b.blockNum) && fetchingBulkTxForBlocks[b.blockNum] > cur_time - 10)
+                            if (fetchingBulkTxForBlocks.ContainsKey(b.blockNum) && fetchingBulkTxForBlocks[b.blockNum] > cur_time - 10)
                             {
                                 return BlockVerifyStatus.Indeterminate;
                             }
@@ -1266,7 +1353,7 @@ namespace DLT
                         }
                         Logging.info("Block #{0} is missing {1} transactions, which have been requested from the network.", b.blockNum, missing);
                     }
-                    if(fetchTransactions)
+                    if (fetchTransactions)
                     {
                         BlockProtocolMessages.broadcastGetBlock(b.blockNum, null, endpoint, 0);
                     }
@@ -1286,7 +1373,7 @@ namespace DLT
                 fetchingTxForBlocks.Remove(b.blockNum);
             }
 
-            if(ignore_walletstate == false)
+            if (ignore_walletstate == false)
             {
                 // overspending
                 foreach (byte[] addr in minusBalances.Keys)
@@ -1359,7 +1446,7 @@ namespace DLT
                     {
                         Logging.info("Not verifying wallet state for old block {0}", b.blockNum);
                     }
-                    else if(b.blockNum == last_block_num + 1)
+                    else if (b.blockNum == last_block_num + 1)
                     {
                         Node.walletState.setCachedBlockVersion(b.version);
                         Node.regNameState.setCachedBlockVersion(b.version);
@@ -1382,7 +1469,8 @@ namespace DLT
                             {
                                 rn_checksum = Node.regNameState.calculateRegNameStateChecksum(b.blockNum);
                             }
-                        } else
+                        }
+                        else
                         {
                             Logging.error("Block #{0} failed applying!", b.blockNum);
                         }
@@ -1390,7 +1478,7 @@ namespace DLT
                         Node.walletState.revertTransaction(b.blockNum);
                         Node.regNameState.revertTransaction(b.blockNum);
                         IxiNumber totalSupplyAfter = Node.walletState.calculateTotalSupply();
-                        if(totalSupplyBefore != totalSupplyAfter)
+                        if (totalSupplyBefore != totalSupplyAfter)
                         {
                             Logging.error("Block #{0} did not cleanly revert!", b.blockNum);
                             return BlockVerifyStatus.Invalid;
@@ -1406,7 +1494,7 @@ namespace DLT
                             Logging.error("Block #{0} failed while verifying transactions: Invalid wallet state checksum! Block's WS checksum: {1}, actual WS checksum: {2}, block proposer: {3}", b.blockNum, Crypto.hashToString(b.walletStateChecksum), Crypto.hashToString(ws_checksum), block_proposer);
                             return BlockVerifyStatus.Invalid;
                         }
-                        
+
                         if (b.version >= BlockVer.v11 && (rn_checksum == null || !rn_checksum.SequenceEqual(b.regNameStateChecksum)))
                         {
                             string block_proposer = "";
@@ -1445,7 +1533,7 @@ namespace DLT
                 Logging.warn("Received block #{0}, but next block should be #{1}.", b.blockNum, Node.blockChain.getLastBlockNum() + 1);
                 return;
             }
-            if(b.version < Node.blockChain.getLastBlockVersion())
+            if (b.version < Node.blockChain.getLastBlockVersion())
             {
                 Logging.warn("A current block with a smaller version was received than the last block in the blockchain, rejecting block #{0} with version {1}.", b.blockNum, b.version);
                 // TODO: keep a counter - if this happens too often, disconnect the node
@@ -1456,10 +1544,46 @@ namespace DLT
             {
                 if (localNewBlock != null)
                 {
-                    if(localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
+                    if (localNewBlock.blockChecksum.SequenceEqual(b.blockChecksum))
                     {
                         Logging.info("Block #{0} ({1} sigs) received from the network is the block we are currently working on. Merging signatures  ({2} sigs).", b.blockNum, b.signatures.Count(), localNewBlock.signatures.Count());
                         List<BlockSignature> added_signatures = localNewBlock.addSignaturesFrom(b, false);
+
+                        try
+                        {
+
+                            var blockData = new
+                            {
+                                block = (int)b.blockNum,
+                                signatures = (int)b.signatures.Count() + localNewBlock.signatures.Count(),
+                                timestamp = (long)b.timestamp
+                            };
+
+                            var blockResult = new
+                            {
+                                id = (string)null,
+                                result = blockData,
+                                error = (string)null
+                            };
+
+
+                            WebSocketClientManager.ParsedMessage blockSignaturesMessage = new WebSocketClientManager.ParsedMessage
+                            {
+                                command = "HandleBlockSignatures",
+                                type = "response",
+                                data = (object)blockResult,
+                                message = (string)"",
+                                id = (string)null
+                            };
+
+                            webSocketClientManager.SendMessageAsync(blockSignaturesMessage);
+                        }
+                        catch (Exception e)
+                        {
+                            Logging.error("Exception caught in HandleBlockSignatures Websocket: " + e);
+
+                        }
+
                         if (added_signatures != null || localNewBlock.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus())
                         {
                             // if addSignaturesFrom returns true, that means signatures were increased, so we re-transmit
@@ -1477,7 +1601,8 @@ namespace DLT
                                         SignatureProtocolMessages.broadcastBlockSignature(sig, b.blockNum, b.blockChecksum, endpoint, null);
                                     }
                                 }
-                            }else if(localNewBlock.signatures.Count != b.signatures.Count)
+                            }
+                            else if (localNewBlock.signatures.Count != b.signatures.Count)
                             {
                                 if (Node.isMasterNode())
                                 {
@@ -1487,7 +1612,7 @@ namespace DLT
 
                             acceptLocalNewBlock();
                         }
-                        else if(localNewBlock.signatures.Count != b.signatures.Count)
+                        else if (localNewBlock.signatures.Count != b.signatures.Count)
                         {
                             if (!Node.isMasterNode())
                                 return;
@@ -1499,7 +1624,7 @@ namespace DLT
                     {
                         int blockSigCount = b.getFrozenSignatureCount();
                         int localBlockSigCount = localNewBlock.getFrozenSignatureCount();
-                        if(b.blockNum == localNewBlock.blockNum)
+                        if (b.blockNum == localNewBlock.blockNum)
                         {
                             bool hasNodeSig = hasElectedNodeSignature(b);
                             if (hasNodeSig)
@@ -1530,7 +1655,7 @@ namespace DLT
                 {
                     bool hasNodeSig = hasElectedNodeSignature(b);
                     if (hasNodeSig
-                        || b.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus()/2 // TODO TODO Omega think about /2 thing
+                        || b.getFrozenSignatureCount() >= Node.blockChain.getRequiredConsensus() / 2 // TODO TODO Omega think about /2 thing
                         || firstBlockAfterSync)
                     {
                         localNewBlock = b;
@@ -1591,7 +1716,7 @@ namespace DLT
         // When expiration_time is set to 0, it will use the default blockGenerationInterval * 10;
         public bool isBlockBlacklisted(Block b, int expiration_time = 0)
         {
-            if(expiration_time == 0)
+            if (expiration_time == 0)
             {
                 expiration_time = blockGenerationInterval * 10;
             }
@@ -1661,7 +1786,7 @@ namespace DLT
         private List<BlockSignature> extractRequiredSignatures(Block block, int max_sig_count)
         {
             Block election_block = Node.blockChain.getBlock(block.blockNum - 6);
-            if(election_block == null)
+            if (election_block == null)
             {
                 Logging.warn("Cannot extract required signatures because election block is null");
                 return null;
@@ -1676,15 +1801,16 @@ namespace DLT
             List<BlockSignature> sorted_sigs = null;
             lock (block.signatures)
             {
-                if(block.frozenSignatures != null)
+                if (block.frozenSignatures != null)
                 {
                     sorted_sigs = new List<BlockSignature>(block.frozenSignatures);
-                }else
+                }
+                else
                 {
                     sorted_sigs = new List<BlockSignature>(block.signatures);
                 }
             }
-            if(block.version < BlockVer.v10)
+            if (block.version < BlockVer.v10)
             {
                 sorted_sigs.Sort((x, y) => _ByteArrayComparer.Compare(x.recipientPubKeyOrAddress.addressNoChecksum, y.recipientPubKeyOrAddress.addressNoChecksum));
 
@@ -1709,7 +1835,7 @@ namespace DLT
             }
 
             var election_block_sigs = election_block.signatures;
-            if(election_block.frozenSignatures != null)
+            if (election_block.frozenSignatures != null)
             {
                 election_block_sigs = election_block.frozenSignatures;
             }
@@ -1795,7 +1921,7 @@ namespace DLT
                 }
 
                 List<BlockSignature> required_sigs = extractRequiredSignatures(block, 0);
-                if(required_sigs == null)
+                if (required_sigs == null)
                 {
                     return false;
                 }
@@ -1819,7 +1945,8 @@ namespace DLT
                     // it already includes the required signatures
 
                     return true;
-                }else if (block.blockNum == last_block_num - 4)
+                }
+                else if (block.blockNum == last_block_num - 4)
                 {
                     // sigfreezed block
 
@@ -1837,7 +1964,7 @@ namespace DLT
 
                     int block_sig_count = frozen_sig_count;
 
-                    if(block_sig_count > ConsensusConfig.maximumBlockSigners)
+                    if (block_sig_count > ConsensusConfig.maximumBlockSigners)
                     {
                         block_sig_count = ConsensusConfig.maximumBlockSigners;
                     }
@@ -1846,7 +1973,7 @@ namespace DLT
 
                     List<BlockSignature> added_signatures = local_block.addSignaturesFrom(block, false);
 
-                    if(added_signatures != null && added_signatures.Count > 0)
+                    if (added_signatures != null && added_signatures.Count > 0)
                     {
                         Node.blockChain.updateBlock(local_block, false);
                         if (Node.isMasterNode() && !Node.blockSync.synchronizing)
@@ -1938,7 +2065,7 @@ namespace DLT
 
             lock (target_block.signatures)
             {
-                if(target_block.version < BlockVer.v10)
+                if (target_block.version < BlockVer.v10)
                 {
                     PresenceOrderedEnumerator poe = PresenceList.getElectedSignerList(target_block.blockChecksum, ConsensusConfig.maximumBlockSigners * 2);
                     foreach (byte[] address in poe)
@@ -1957,12 +2084,12 @@ namespace DLT
                 }
                 else
                 {
-                    foreach(BlockSignature sig in target_block.signatures)
+                    foreach (BlockSignature sig in target_block.signatures)
                     {
                         var address = sig.recipientPubKeyOrAddress;
                         if (frozen_block_sigs.Find(x => x.recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(address.addressNoChecksum)) == null)
                         {
-                            if(PresenceList.getPresenceByAddress(address) == null)
+                            if (PresenceList.getPresenceByAddress(address) == null)
                             {
                                 continue;
                             }
@@ -1982,12 +2109,13 @@ namespace DLT
 
 
                 IxiNumber frozen_block_sigs_difficulty = 0;
-                foreach(var frozen_block_sig in frozen_block_sigs)
+                foreach (var frozen_block_sig in frozen_block_sigs)
                 {
-                    if(frozen_block_sig.powSolution != null)
+                    if (frozen_block_sig.powSolution != null)
                     {
                         frozen_block_sigs_difficulty += frozen_block_sig.powSolution.difficulty;
-                    }else
+                    }
+                    else
                     {
                         frozen_block_sigs_difficulty += 1;
                     }
@@ -2073,7 +2201,8 @@ namespace DLT
                         localNewBlock = null;
                     }
                     return false;
-                }else
+                }
+                else
                 {
                     // Check if the local block has enough signatures for consensus
                     if (hasRequiredSignatureCount(localNewBlock))
@@ -2093,7 +2222,7 @@ namespace DLT
                         if (Node.isMasterNode() && localNewBlock.blockNum > 7)
                         {
                             BlockSignature signature_data = localNewBlock.applySignature(PresenceList.getPowSolution()); // applySignature() will return signature_data, if signature was applied and null, if signature was already present from before
-                            if (signature_data != null) 
+                            if (signature_data != null)
                             {
                                 foreach (var sig in localNewBlock.signatures)
                                 {
@@ -2180,7 +2309,8 @@ namespace DLT
                                 operating = false;
                                 Node.stop();
                                 return false;
-                            } else if (!rn_checksum_ok)
+                            }
+                            else if (!rn_checksum_ok)
                             {
                                 Logging.error("After applying block #{0} v{1}, RegNameStateChecksum is incorrect, shutting down!. Block's RN: {2}, actual RN: {3}", localNewBlock.blockNum,
                                     localNewBlock.version, Crypto.hashToString(localNewBlock.regNameStateChecksum), Crypto.hashToString(rn_checksum));
@@ -2367,7 +2497,7 @@ namespace DLT
 
         public bool verifySignatureFreezeChecksum(Block b, RemoteEndpoint endpoint, bool fetchMissingBlockOnFail = true)
         {
-            if(Node.blockChain.Count <= 5)
+            if (Node.blockChain.Count <= 5)
             {
                 return true;
             }
@@ -2377,7 +2507,7 @@ namespace DLT
             {
                 nextBlock = true;
             }
-            
+
             if (b.signatureFreezeChecksum != null)
             {
                 Block targetBlock = Node.blockChain.getBlock(b.blockNum - 5);
@@ -2385,7 +2515,7 @@ namespace DLT
                 {
                     // this shouldn't be possible
                     Logging.error("Block verification can't be done since we are missing sigfreeze checksum target block {0}.", b.blockNum - 5);
-                    if(nextBlock && fetchMissingBlockOnFail)
+                    if (nextBlock && fetchMissingBlockOnFail)
                     {
                         BlockProtocolMessages.broadcastGetBlock(b.blockNum - 5, null, endpoint);
                     }
@@ -2450,7 +2580,7 @@ namespace DLT
                         Node.regNameState.removeExpiredNames(b.blockNum - ConsensusConfig.rnGracePeriodInBlocks);
                     }
                 }
-                
+
                 // Apply transactions from block
                 if (!TransactionPool.applyTransactionsFromBlock(b, generating_new))
                 {
@@ -2479,7 +2609,8 @@ namespace DLT
                 }
 
                 return true;
-            }catch(Exception e)
+            }
+            catch (Exception e)
             {
                 Logging.error("Exception occurred in applyAcceptedBlock(): " + e);
             }
@@ -2600,13 +2731,13 @@ namespace DLT
             ulong txcount = targetBlock.getTransactionsCount();
 
             // Check if there are any transactions processed in the target block
-            if(txcount < 1)
-            { 
+            if (txcount < 1)
+            {
                 return;
             }
 
             // Check the amount
-            if(totalFeeAmount == (long) 0)
+            if (totalFeeAmount == (long)0)
             {
                 return;
             }
@@ -2630,16 +2761,17 @@ namespace DLT
             }
 
             List<BlockSignature> target_block_sigs = null;
-            if(targetBlock.frozenSignatures != null)
+            if (targetBlock.frozenSignatures != null)
             {
                 target_block_sigs = targetBlock.frozenSignatures;
-            }else
+            }
+            else
             {
                 target_block_sigs = targetBlock.signatures;
             }
 
             ulong numSigs = (ulong)target_block_sigs.Count();
-            if(numSigs < 1)
+            if (numSigs < 1)
             {
                 // Something is not right, there are no signers on this block
                 Logging.error("Transaction fee: no signatures on block!");
@@ -2654,7 +2786,7 @@ namespace DLT
             if (b.version < BlockVer.v8)
             {
                 // Division of fee amount and sigs left a remainder, distribute that to the foundation wallet
-                if (remainder > (long) 0)
+                if (remainder > (long)0)
                 {
                     foundation_balance_after = foundation_balance_after + remainder;
                     Node.walletState.setWalletBalance(ConsensusConfig.foundationAddress, foundation_balance_after);
@@ -2683,7 +2815,7 @@ namespace DLT
                     }
                 }
                 Node.walletState.setWalletBalance(sigAddress, balance_after);
-                if(!Node.walletState.inTransaction)
+                if (!Node.walletState.inTransaction)
                 {
                     WalletStorage ws = IxianHandler.getWalletStorage();
                     if (signer_wallet.id.addressNoChecksum.SequenceEqual(ws.getPrimaryAddress().addressNoChecksum))
@@ -2696,7 +2828,7 @@ namespace DLT
                     }
                 }
                 //Logging.info(string.Format("Awarded {0} IXI to {1}", tAward.ToString(), addr.ToString()));
-            }          
+            }
         }
 
         // returns false if this is a multisig transaction and not enough signatures - in this case, it should not be added to the block
@@ -2719,7 +2851,7 @@ namespace DLT
                 foreach (byte[] txid in related_tx_ids)
                 {
                     Transaction tx = TransactionPool.getUnappliedTransaction(txid);
-                    if(!verifyFromListBalance(tx, minusBalances))
+                    if (!verifyFromListBalance(tx, minusBalances))
                     {
                         minusBalances[address.addressNoChecksum] -= total_amount;
                         return 0;
@@ -2729,7 +2861,8 @@ namespace DLT
                 }
                 // include the multisig transaction
                 return (ulong)related_tx_ids.Count() + 1;
-            } else
+            }
+            else
             {
                 // skip the multisig transaction
                 return 0;
@@ -2837,7 +2970,7 @@ namespace DLT
                     TransactionPool.removeUnappliedTransaction(transaction.id);
                     continue;
                 }
-                if(transaction.blockHeight > localNewBlock.blockNum)
+                if (transaction.blockHeight > localNewBlock.blockNum)
                 {
                     continue;
                 }
@@ -2929,7 +3062,7 @@ namespace DLT
 
                 if (cache_currentSuperBlockSegments != null)
                 {
-                    if(cache_currentSuperBlockSegments.ContainsKey(cur_block_height - 1) 
+                    if (cache_currentSuperBlockSegments.ContainsKey(cur_block_height - 1)
                         && cache_currentSuperBlockSegments[cur_block_height - 1].blockChecksum.SequenceEqual(Node.blockChain.getBlock(cur_block_height - 1).blockChecksum)
                         && cache_currentSuperBlockSegments.ContainsKey(super_block.lastSuperBlockNum + 1))
                     {
@@ -3032,7 +3165,7 @@ namespace DLT
                     // Create a new block and add all the transactions in the pool
                     localNewBlock = new Block();
                     localNewBlock.timestamp = Clock.getNetworkTimestamp();
-                    if(IxianHandler.getLastBlockVersion() < BlockVer.v10)
+                    if (IxianHandler.getLastBlockVersion() < BlockVer.v10)
                     {
                         localNewBlock.blockProposer = IxianHandler.getWalletStorage().getPrimaryAddress().addressWithChecksum;
                     }
@@ -3055,7 +3188,36 @@ namespace DLT
                     Node.walletState.setCachedBlockVersion(block_version);
                     Node.regNameState.setCachedBlockVersion(block_version);
 
+
                     Logging.info("\t\t|- Block Number: {0}", localNewBlock.blockNum);
+
+                    try
+                    {
+
+                        var blockResult = new
+                        {
+                            id = (string)null,
+                            result = localNewBlock.blockNum,
+                            error = (string)null
+                        };
+
+
+                        WebSocketClientManager.ParsedMessage blockMessage = new WebSocketClientManager.ParsedMessage
+                        {
+                            command = "HandleNewBlock",
+                            type = "response",
+                            data = (object)blockResult,
+                            message = (string)"",
+                            id = (string)null
+                        };
+
+                        webSocketClientManager.SendMessageAsync(blockMessage);
+                    }
+                    catch (Exception e)
+                    {
+                        Logging.error("Exception caught in HandleNewBlock Websocket: " + e);
+
+                    }
 
                     ulong stakingRewardBlockNum = 0;
                     if (block_version >= BlockVer.v10)
@@ -3133,7 +3295,7 @@ namespace DLT
                         localNewBlock = null;
                         return;
                     }
-                    
+
                     if (localNewBlock.lastSuperBlockChecksum == null)
                     {
                         localNewBlock.setWalletStateChecksum(Node.walletState.calculateWalletStateDeltaChecksum(localNewBlock.blockNum, localNewBlock.version));
@@ -3147,7 +3309,7 @@ namespace DLT
                     {
                         localNewBlock.setRegNameStateChecksum(Node.regNameState.calculateRegNameStateChecksum(localNewBlock.blockNum));
                     }
-                    
+
                     Logging.info("While generating new block: Node's blockversion: {0}", IxianHandler.getLastBlockVersion());
                     Logging.info("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum));
                     if (localNewBlock.regNameStateChecksum != null)
@@ -3165,7 +3327,8 @@ namespace DLT
                     if (signature_data != null)
                     {
                         Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signature_data.recipientPubKeyOrAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
-                    }else
+                    }
+                    else
                     {
                         Logging.error("Could not apply signature on a newly generated block {0}.", localNewBlock.blockNum);
                         localNewBlock = null;
@@ -3191,7 +3354,9 @@ namespace DLT
                     {
                         acceptLocalNewBlock();
                     }
-                }catch(Exception e)
+
+                }
+                catch (Exception e)
                 {
                     Logging.error("Exception occurred while generating block {0}: {1}", localNewBlock.blockNum, e);
                     localNewBlock = null;
@@ -3208,10 +3373,12 @@ namespace DLT
             else if (version == BlockVer.v1)
             {
                 return calculateDifficulty_v1();
-            }else if(version == BlockVer.v2)
+            }
+            else if (version == BlockVer.v2)
             {
                 return calculateDifficulty_v2();
-            }else if(version < BlockVer.v10)
+            }
+            else if (version < BlockVer.v10)
             {
                 return calculateDifficulty_v3();
             }
@@ -3439,7 +3606,7 @@ namespace DLT
             ulong min_difficulty = 0xA2CB1211629F6141; // starting/min difficulty (requires approx 180 Khashes to find a solution)
             ulong current_difficulty = min_difficulty;
 
-            if(Node.blockChain.getLastBlockNum() <= 10)
+            if (Node.blockChain.getLastBlockNum() <= 10)
             {
                 return current_difficulty;
             }
@@ -3470,7 +3637,8 @@ namespace DLT
             {
                 // if there are less than 25% of solved blocks, set min difficulty
                 next_difficulty = min_difficulty;
-            }else
+            }
+            else
             {
                 if (solved_blocks < window_size * 0.48f)
                 {
@@ -3491,10 +3659,11 @@ namespace DLT
                     long n = (long)solved_blocks - (long)(window_size * 0.50f);
                     long solutions_in_previous_block = countLastBlockPowSolutions();
                     long previous_n = 0;
-                    if(window_size < ConsensusConfig.getRedactedWindowSize())
+                    if (window_size < ConsensusConfig.getRedactedWindowSize())
                     {
                         previous_n = (long)solved_blocks - solutions_in_previous_block - (long)((window_size - 1) * 0.50f);
-                    }else
+                    }
+                    else
                     {
                         previous_n = (long)solved_blocks - solutions_in_previous_block - (long)(window_size * 0.50f);
                     }
@@ -3503,7 +3672,7 @@ namespace DLT
                 }
 
             }
-            
+
             // clamp to minimum
             if (next_difficulty < min_difficulty)
             {
@@ -3555,7 +3724,8 @@ namespace DLT
             {
                 // if there are less than 30% of solved blocks, set min difficulty
                 nextDifficulty = minDifficulty;
-            }else if (solvedBlocksRatio > 700)
+            }
+            else if (solvedBlocksRatio > 700)
             {
                 // if there are less than 70% of solved blocks, set max difficulty
                 nextDifficulty = ulong.MaxValue;
@@ -3579,7 +3749,7 @@ namespace DLT
                     estimatedHashesPerBlock = estimatedHashesPerBlock * (1000 + solvedBlocksRatio) / 1000;
                 }
 
-                if(currentDifficulty != minDifficulty && currentDifficulty != ulong.MaxValue)
+                if (currentDifficulty != minDifficulty && currentDifficulty != ulong.MaxValue)
                 {
                     if (estimatedHashesPerBlock > currentHashesPerBlock * 4)
                     {
@@ -3624,10 +3794,10 @@ namespace DLT
             if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 11)
             {
                 bool froze_signatures = freezeSignatures(target_block);
-                if(!froze_signatures || target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
+                if (!froze_signatures || target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
                 {
                     BlockProtocolMessages.broadcastGetBlock(target_block.blockNum);
-                    if(froze_signatures)
+                    if (froze_signatures)
                         Logging.warn("Freezing the target block #{0} yields less than required signatures {1} < {2}", target_block.blockNum, target_block.getFrozenSignatureCount(), Node.blockChain.getRequiredConsensus(target_block.blockNum));
                     Node.blockChain.setFrozenSignatures(target_block, null);
                     throw new Exception("Freezing the target block yields less than required signatures");
@@ -3673,7 +3843,7 @@ namespace DLT
 
             //Logging.info(String.Format("totalIxis = {0}", totalIxis.ToString()));
             IxiNumber newIxis = ConsensusConfig.calculateSigningRewardForBlock(targetBlockNum, totalIxis);
-            if(block_version >= BlockVer.v10)
+            if (block_version >= BlockVer.v10)
             {
                 if (targetBlock.totalFee == 0)
                 {
@@ -3704,7 +3874,7 @@ namespace DLT
             {
                 Address wallet_addr = wallet_addr_diff.address;
                 IxiNumber difficulty = wallet_addr_diff.difficulty;
-                if(block_version >= BlockVer.v10)
+                if (block_version >= BlockVer.v10)
                 {
                     totalIxisStaked += difficulty;
                     //Logging.info(String.Format("wallet {0} stakes {1} IXI", Base58Check.Base58CheckEncoding.EncodePlain(wallet_addr), wallet.balance.ToString()));
@@ -3712,7 +3882,7 @@ namespace DLT
                     stakeWallets[stakers] = wallet_addr;
                     stakers += 1;
                 }
-                else if(block_version < BlockVer.v5)
+                else if (block_version < BlockVer.v5)
                 {
                     Wallet wallet = Node.walletState.getWallet(wallet_addr);
                     if (wallet.balance.getAmount() > 0)
@@ -3798,7 +3968,8 @@ namespace DLT
                     }
 
                 }
-            }else
+            }
+            else
             {
                 IDictionary<Address, Transaction.ToEntry> to_list;
                 if (block_version >= BlockVer.v10)
@@ -3822,7 +3993,7 @@ namespace DLT
                     }
 
                 }
-                if(to_list.Count > 0)
+                if (to_list.Count > 0)
                 {
                     byte[] data = null;
                     if (block_version >= BlockVer.v10)
@@ -3912,7 +4083,8 @@ namespace DLT
                 if (b != null && b.blockChecksum.SequenceEqual(checksum))
                 {
                     return b.addSignature(blockSig);
-                }else
+                }
+                else
                 {
                     BlockProtocolMessages.broadcastGetBlock(block_num, null, endpoint);
                 }
