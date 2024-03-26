@@ -85,7 +85,7 @@ namespace DLT.Meta
         }
         private async Task StartHeartbeat()
         {
-            while (true) // Consider a condition to exit this loop if the application is shutting down
+            while (true) // TODO a condition to exit this loop if the application is shutting down
             {
                 // Check if the WebSocket is not in an open state
                 if (webSocket.State != WebSocketState.Open)
@@ -109,7 +109,7 @@ namespace DLT.Meta
                             data = (object)null,
                             type = "request",
                             message = "",
-                            id = null // Consider generating a unique ID for tracking
+                            id = null // TODO generating a unique ID for tracking
                         };
                         await SendMessageAsync(pingMessage);
                         awaitingPong = true;
