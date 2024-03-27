@@ -257,6 +257,8 @@ namespace UnitTests
             Assert.AreEqual(expectedRewardPool, regNames.getRewardPool());
             Assert.AreEqual(registrationTimeInBlocks + curBlockHeight, expirationBlockHeight);
 
+            Assert.AreEqual(rnRecord.updatedBlockHeight, curBlockHeight);
+
             return status.isApplySuccess;
         }
 
@@ -1009,7 +1011,7 @@ namespace UnitTests
             nextPkHash = wallet3.getPrimaryAddress();
             Address pkSig = new Address(wallet1.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet1.getPrimaryPrivateKey());
@@ -1019,7 +1021,7 @@ namespace UnitTests
             var toEntry = RegisteredNamesTransactions.createChangeCapacityToEntry(nameBytes, newCapacity, 1, nextPkHash, pkSig, sig, regFee);
             Transaction tx = createDummyTransaction(toEntry);
             Assert.IsTrue(regNames.verifyTransaction(tx));
-            Assert.IsTrue(regNames.applyTransaction(tx, 1, out expirationBlockHeight).isApplySuccess);
+            Assert.IsTrue(regNames.applyTransaction(tx, 234, out expirationBlockHeight).isApplySuccess);
 
             rnRecord = regNames.getName(nameBytes);
             Assert.IsTrue(nameBytes.SequenceEqual(rnRecord.name), "rnc.name != rnRecord.name");
@@ -1032,6 +1034,8 @@ namespace UnitTests
             Assert.IsTrue(sig.SequenceEqual(rnRecord.signature), "sig != rnRecord.signature");
 
             Assert.AreEqual(regFee * 2, regNames.getRewardPool());
+
+            Assert.AreEqual(234uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1066,7 +1070,7 @@ namespace UnitTests
             nextPkHash = wallet3.getPrimaryAddress();
             Address pkSig = new Address(wallet2.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet2.getPrimaryPrivateKey());
@@ -1076,12 +1080,14 @@ namespace UnitTests
             var toEntry = RegisteredNamesTransactions.createChangeCapacityToEntry(nameBytes, newCapacity, 1, nextPkHash, pkSig, sig, regFee);
             Transaction tx = createDummyTransaction(toEntry);
             Assert.IsFalse(regNames.verifyTransaction(tx));
-            Assert.IsFalse(regNames.applyTransaction(tx, 1, out expirationBlockHeight).isApplySuccess);
+            Assert.IsFalse(regNames.applyTransaction(tx, 235, out expirationBlockHeight).isApplySuccess);
 
             rnRecord = regNames.getName(nameBytes);
             Assert.AreEqual(regFee, regNames.getRewardPool());
 
             assertRecords(origRecord, rnRecord);
+
+            Assert.AreEqual(1uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1116,7 +1122,7 @@ namespace UnitTests
             nextPkHash = wallet3.getPrimaryAddress();
             Address pkSig = new Address(wallet1.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet2.getPrimaryPrivateKey());
@@ -1132,6 +1138,8 @@ namespace UnitTests
             Assert.AreEqual(regFee, regNames.getRewardPool());
 
             assertRecords(origRecord, rnRecord);
+
+            Assert.AreEqual(1uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1166,7 +1174,7 @@ namespace UnitTests
             nextPkHash = wallet3.getPrimaryAddress();
             Address pkSig = new Address(wallet1.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet1.getPrimaryPrivateKey());
@@ -1176,7 +1184,7 @@ namespace UnitTests
             var toEntry = RegisteredNamesTransactions.createChangeCapacityToEntry(nameBytes, newCapacity, 1, nextPkHash, pkSig, sig, regFee / 2);
             Transaction tx = createDummyTransaction(toEntry);
             Assert.IsFalse(regNames.verifyTransaction(tx));
-            Assert.IsTrue(regNames.applyTransaction(tx, 1, out expirationBlockHeight).isApplySuccess);
+            Assert.IsTrue(regNames.applyTransaction(tx, 235, out expirationBlockHeight).isApplySuccess);
 
             rnRecord = regNames.getName(nameBytes);
             Assert.IsTrue(nameBytes.SequenceEqual(rnRecord.name), "rnc.name != rnRecord.name");
@@ -1189,6 +1197,8 @@ namespace UnitTests
             Assert.IsTrue(sig.SequenceEqual(rnRecord.signature), "sig != rnRecord.signature");
 
             Assert.AreEqual(regFee + (regFee / 2), regNames.getRewardPool());
+
+            Assert.AreEqual(235uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1223,7 +1233,7 @@ namespace UnitTests
             nextPkHash = wallet3.getPrimaryAddress();
             Address pkSig = new Address(wallet1.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet1.getPrimaryPrivateKey());
@@ -1233,7 +1243,7 @@ namespace UnitTests
             var toEntry = RegisteredNamesTransactions.createChangeCapacityToEntry(nameBytes, newCapacity, 1, nextPkHash, pkSig, sig, 0);
             Transaction tx = createDummyTransaction(toEntry);
             Assert.IsTrue(regNames.verifyTransaction(tx));
-            Assert.IsTrue(regNames.applyTransaction(tx, 1, out expirationBlockHeight).isApplySuccess);
+            Assert.IsTrue(regNames.applyTransaction(tx, 234, out expirationBlockHeight).isApplySuccess);
 
             rnRecord = regNames.getName(nameBytes);
             Assert.IsTrue(nameBytes.SequenceEqual(rnRecord.name), "rnc.name != rnRecord.name");
@@ -1246,6 +1256,8 @@ namespace UnitTests
             Assert.IsTrue(sig.SequenceEqual(rnRecord.signature), "sig != rnRecord.signature");
 
             Assert.AreEqual(regFee, regNames.getRewardPool());
+
+            Assert.AreEqual(234uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1288,7 +1300,7 @@ namespace UnitTests
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet1.getPrimaryPrivateKey());
 
             var rnur = new RegNameUpdateRecord(nameBytes, records, 1, nextPkHash, pkSig, sig);
-            Assert.IsTrue(regNames.updateRecords(rnur));
+            Assert.IsTrue(regNames.updateRecords(rnur, 234));
 
             var rnRecord = regNames.getName(nameBytes);
             var origRecord = new RegisteredNameRecord(rnRecord);
@@ -1296,7 +1308,7 @@ namespace UnitTests
             regNames.beginTransaction(1);
 
             // Set Capacity
-            rnRecord.setCapacity(newCapacity, 2, wallet1.getPrimaryAddress(), new Address(wallet3.getPrimaryPublicKey()).pubKey, sig);
+            rnRecord.setCapacity(newCapacity, 2, wallet1.getPrimaryAddress(), new Address(wallet3.getPrimaryPublicKey()).pubKey, sig, 235);
             var newCapacityChecksum = rnRecord.calculateChecksum();
 
             var capacitySig = CryptoManager.lib.getSignature(newCapacityChecksum, wallet3.getPrimaryPrivateKey());
@@ -1319,6 +1331,8 @@ namespace UnitTests
             Assert.IsTrue(sig.SequenceEqual(rnRecord.signature), "sig != rnRecord.signature");
 
             Assert.AreEqual(regFee, regNames.getRewardPool());
+
+            Assert.AreEqual(234uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1354,7 +1368,7 @@ namespace UnitTests
             Address pkSig = new Address(wallet2.getPrimaryPublicKey());
             Address newRecoveryHash = wallet4.getPrimaryAddress();
 
-            rnRecord.setRecoveryHash(newRecoveryHash, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setRecoveryHash(newRecoveryHash, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet2.getPrimaryPrivateKey());
@@ -1364,7 +1378,7 @@ namespace UnitTests
             var toEntry = RegisteredNamesTransactions.createRecoverToEntry(nameBytes, 1, nextPkHash, newRecoveryHash, pkSig, sig);
             Transaction tx = createDummyTransaction(toEntry);
             Assert.IsTrue(regNames.verifyTransaction(tx));
-            Assert.IsTrue(regNames.applyTransaction(tx, 1, out expirationBlockHeight).isApplySuccess);
+            Assert.IsTrue(regNames.applyTransaction(tx, 234, out expirationBlockHeight).isApplySuccess);
 
             rnRecord = regNames.getName(nameBytes);
             Assert.IsTrue(nameBytes.SequenceEqual(rnRecord.name), "rnRec.name != rnRecord.name");
@@ -1375,6 +1389,8 @@ namespace UnitTests
             Assert.IsTrue(nextPkHash.SequenceEqual(rnRecord.nextPkHash), "nextPkHash != rnRecord.nextPkHash");
             Assert.IsTrue(pkSig.pubKey.SequenceEqual(rnRecord.signaturePk), "pkSig != rnRecord.signaturePk");
             Assert.IsTrue(sig.SequenceEqual(rnRecord.signature), "sig != rnRecord.signature");
+
+            Assert.AreEqual(234uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -1406,7 +1422,7 @@ namespace UnitTests
             Address pkSig = new Address(wallet1.getPrimaryPublicKey());
             Address newRecoveryHash = wallet4.getPrimaryAddress();
 
-            rnRecord.setRecoveryHash(newRecoveryHash, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setRecoveryHash(newRecoveryHash, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet2.getPrimaryPrivateKey());
@@ -1452,7 +1468,7 @@ namespace UnitTests
             Address pkSig = new Address(wallet2.getPrimaryPublicKey());
             Address newRecoveryHash = wallet4.getPrimaryAddress();
 
-            rnRecord.setRecoveryHash(newRecoveryHash, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setRecoveryHash(newRecoveryHash, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet1.getPrimaryPrivateKey());
@@ -1663,7 +1679,7 @@ namespace UnitTests
             nextPkHash = wallet3.getPrimaryAddress();
             Address pkSig = new Address(wallet4.getPrimaryPublicKey());
 
-            rnRecord.setAllowSubnames(true, subnameFee, subnameFeeRecipient, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setAllowSubnames(true, subnameFee, subnameFeeRecipient, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet1.getPrimaryPrivateKey());
@@ -1710,7 +1726,7 @@ namespace UnitTests
             nextPkHash = wallet3.getPrimaryAddress();
             Address pkSig = new Address(wallet1.getPrimaryPublicKey());
 
-            rnRecord.setAllowSubnames(true, subnameFee, subnameFeeRecipient, 1, nextPkHash, pkSig.pubKey, null);
+            rnRecord.setAllowSubnames(true, subnameFee, subnameFeeRecipient, 1, nextPkHash, pkSig.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, wallet4.getPrimaryPrivateKey());
@@ -1738,7 +1754,7 @@ namespace UnitTests
         {
             var pkSig = signingWallet.getPrimaryPublicKey();
             var rnRecord = regNames.getName(nameBytes);
-            rnRecord.setAllowSubnames(allowSubnames, subnameFee, subnameFeeRecipient, sequence, nextPkHash, pkSig, null);
+            rnRecord.setAllowSubnames(allowSubnames, subnameFee, subnameFeeRecipient, sequence, nextPkHash, pkSig, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] sig = CryptoManager.lib.getSignature(newChecksum, signingWallet.getPrimaryPrivateKey());
@@ -1748,7 +1764,7 @@ namespace UnitTests
             var toEntry = RegisteredNamesTransactions.createToggleAllowSubnamesToEntry(nameBytes, allowSubnames, subnameFee, subnameFeeRecipient, sequence, nextPkHash, new Address(pkSig), sig);
             Transaction tx = createDummyTransaction(toEntry);
             Assert.IsTrue(regNames.verifyTransaction(tx));
-            Assert.IsTrue(regNames.applyTransaction(tx, 1, out expirationBlockHeight).isApplySuccess);
+            Assert.IsTrue(regNames.applyTransaction(tx, 234, out expirationBlockHeight).isApplySuccess);
 
             rnRecord = regNames.getName(nameBytes);
             Assert.IsTrue(nameBytes.SequenceEqual(rnRecord.name), "nameBytes != rnRecord.name");
@@ -1761,6 +1777,8 @@ namespace UnitTests
             Assert.IsTrue(nextPkHash.SequenceEqual(rnRecord.nextPkHash), "nextPkHash != rnRecord.nextPkHash");
             Assert.IsTrue(pkSig.SequenceEqual(rnRecord.signaturePk), "pkSig != rnRecord.signaturePk");
             Assert.IsTrue(sig.SequenceEqual(rnRecord.signature), "sig != rnRecord.signature");
+
+            Assert.AreEqual(234uL, rnRecord.updatedBlockHeight);
         }
 
         [TestMethod]
@@ -2202,7 +2220,7 @@ namespace UnitTests
             subnameNextPkHash = wallet1.getPrimaryAddress();
             var subnameSigPk = new Address(wallet4.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, subnameNextPkHash, subnameSigPk.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, subnameNextPkHash, subnameSigPk.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] subnameSig = CryptoManager.lib.getSignature(newChecksum, wallet4.getPrimaryPrivateKey());
@@ -2238,6 +2256,8 @@ namespace UnitTests
             Assert.IsTrue(rnRecord.signaturePk == rnRecord.signaturePk || rnRecord.signaturePk.SequenceEqual(rnRecord.signaturePk));
             Assert.AreEqual(rnRecord.updatedBlockHeight, rnRecord.updatedBlockHeight);
             Assert.IsTrue(rnRecord.calculateChecksum().SequenceEqual(rnRecord.calculateChecksum()));
+
+            Assert.AreEqual(234uL, rnRecord.updatedBlockHeight);
 
             Assert.IsTrue(regNames.revertTransaction(1));
 
@@ -2298,7 +2318,7 @@ namespace UnitTests
             subnameNextPkHash = wallet1.getPrimaryAddress();
             var subnameSigPk = new Address(wallet4.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, subnameNextPkHash, subnameSigPk.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, subnameNextPkHash, subnameSigPk.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] subnameSig = CryptoManager.lib.getSignature(newChecksum, wallet4.getPrimaryPrivateKey());
@@ -2393,7 +2413,7 @@ namespace UnitTests
             subnameNextPkHash = wallet1.getPrimaryAddress();
             var subnameSigPk = new Address(wallet4.getPrimaryPublicKey());
 
-            rnRecord.setCapacity(newCapacity, 1, subnameNextPkHash, subnameSigPk.pubKey, null);
+            rnRecord.setCapacity(newCapacity, 1, subnameNextPkHash, subnameSigPk.pubKey, null, 0);
             var newChecksum = rnRecord.calculateChecksum();
 
             byte[] subnameSig = CryptoManager.lib.getSignature(newChecksum, wallet4.getPrimaryPrivateKey());
@@ -2864,7 +2884,7 @@ namespace UnitTests
             byte[] sigPk = RandomUtils.GetBytes(512);
             byte[] sig = RandomUtils.GetBytes(512);
 
-            rnr.setAllowSubnames(true, 100, subnameFeeRecipient, 55, nextPkHash, sigPk, sig);
+            rnr.setAllowSubnames(true, 100, subnameFeeRecipient, 55, nextPkHash, sigPk, sig, 234);
 
 
             byte[] recordName = RandomUtils.GetBytes(64);
@@ -2922,6 +2942,7 @@ namespace UnitTests
             Assert.IsTrue(subnameFeeRecipientBytes.SequenceEqual(rnrRestored.subnameFeeRecipient.addressNoChecksum));
             Assert.IsTrue(rnrRestored.subnamePrice == 100);
             Assert.IsTrue(rnrRestored.sequence == 55);
+            Assert.AreEqual(234uL, rnrRestored.updatedBlockHeight);
 
             var rndrRestored = rnrRestored.dataRecords.First();
             Assert.IsTrue(recordName.SequenceEqual(rndrRestored.name));
