@@ -36,6 +36,11 @@ namespace UnitTests
             throw new NotImplementedException();
         }
 
+        public override byte[] getBlockHash(ulong blockNum)
+        {
+            throw new NotImplementedException();
+        }
+
         public override Block getBlockHeader(ulong blockNum)
         {
             throw new NotImplementedException();

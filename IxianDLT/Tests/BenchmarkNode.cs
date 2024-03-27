@@ -215,5 +215,10 @@ namespace DLTNode
         {
             throw new NotImplementedException();
         }
+
+        public override byte[] getBlockHash(ulong blockNum)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

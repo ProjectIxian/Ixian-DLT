@@ -27,6 +27,7 @@ namespace DLT
         List<Block> blocks = new List<Block>((int)ConsensusConfig.getRedactedWindowSize());
 
         Dictionary<ulong, Block> blocksDictionary = new Dictionary<ulong, Block>(); // A secondary storage for quick lookups
+        List<(ulong blockNum, byte[] hash, IxiNumber totalSignerDifficulty)?> blockHashCache = new(); // Cache for quick lookups of block hashes and total signer difficulty outside of redacted window
 
         long lastBlockReceivedTime = Clock.getTimestamp();
 
@@ -65,7 +66,6 @@ namespace DLT
 
         public int redactChain()
         {
-
             lock (blocks)
             {
                 // redaction
@@ -74,7 +74,7 @@ namespace DLT
                 {
                     Block block = getBlock(blocks[0].blockNum);
 
-                    if(block == null)
+                    if (block == null)
                     {
                         break;
                     }
@@ -92,10 +92,9 @@ namespace DLT
                         decreaseSolvedBlocksCount();
                     }
 
-                    lock (blocksDictionary)
-                    {
-                        blocksDictionary.Remove(block.blockNum);
-                    }
+                    cacheBlockSignerDifficulty(block.blockNum, block.blockChecksum, block.getTotalSignerDifficulty());
+
+                    blocksDictionary.Remove(block.blockNum);
                     blocks.RemoveAt(0); // Remove from memory
                 }
                 blockCount = blocks.Count;
@@ -104,7 +103,7 @@ namespace DLT
                 {
                     Logging.info("REDACTED {0} blocks to keep the chain length appropriate.", redacted_block_count);
                 }
-                if(redacted_block_count > 1)
+                if (redacted_block_count > 1)
                 {
                     solvedBlocksRedactedWindowSize = 0;
                 }
@@ -135,13 +134,10 @@ namespace DLT
 
                     Block b = getBlock(block_num_to_unredact, true, true);
 
-                    lock (blocksDictionary)
+                    if (blocksDictionary.ContainsKey(block_num_to_unredact))
                     {
-                        if (blocksDictionary.ContainsKey(block_num_to_unredact))
-                        {
-                            Logging.warn("Won't unredact chain, block #{0} is already in memory.", block_num_to_unredact);
-                            return false;
-                        }
+                        Logging.warn("Won't unredact chain, block #{0} is already in memory.", block_num_to_unredact);
+                        return false;
                     }
 
                     if (!TransactionPool.unredactTransactionsForBlock(b))
@@ -151,10 +147,7 @@ namespace DLT
                     }
 
                     blocks.Insert(0, b);
-                    lock (blocksDictionary)
-                    {
-                        blocksDictionary.Add(block_num_to_unredact, b);
-                    }
+                    blocksDictionary.Add(block_num_to_unredact, b);
                     blockCount = blocks.Count;
 
                     if (b.powField != null)
@@ -215,20 +208,14 @@ namespace DLT
                 if (blocks.Count == 0)
                 {
                     blocks.Add(b);
-                    lock (blocksDictionary)
-                    {
-                        blocksDictionary.Add(b.blockNum, b);
-                    }
+                    blocksDictionary.Add(b.blockNum, b);
                     blockCount = blocks.Count;
                     Node.storage.insertBlock(b);
                     return true;
                 }
 
                 blocks.Add(b);
-                lock (blocksDictionary)
-                {
-                    blocksDictionary.Add(b.blockNum, b);
-                }
+                blocksDictionary.Add(b.blockNum, b);
                 blockCount = blocks.Count;
 
                 if (reorgBlockStart <= b.blockNum)
@@ -268,6 +255,112 @@ namespace DLT
             return true;
         }
 
+        public bool isOutsideRedactedWindow(ulong blockNum)
+        {
+            if (getLastBlockNum() >= blockNum
+                && (getLastBlockNum() - blockNum >= ConsensusConfig.getRedactedWindowSize() || Node.blockSync.synchronizing))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public void cacheBlockSignerDifficulty(ulong blockNum, byte[] blockHash, IxiNumber totalSignerDifficulty)
+        {
+            lock (blocks)
+            {
+                var bhIndex = blockHashCache.FindIndex(x => x.Value.blockNum == blockNum);
+                if (bhIndex == -1)
+                {
+                    blockHashCache.Add((blockNum, blockHash, totalSignerDifficulty));
+                    if (blockHashCache.Count > 1000000)
+                    {
+                        blockHashCache.RemoveAt(0);
+                    }
+                }
+                else if (totalSignerDifficulty != null)
+                {
+                    blockHashCache[bhIndex] = (blockNum, blockHash, totalSignerDifficulty);
+                }
+            }
+        }
+
+        public IxiNumber getBlockTotalSignerDifficulty(ulong blockNum)
+        {
+            bool outsideRedactedWindow = isOutsideRedactedWindow(blockNum);
+            lock (blocks)
+            {
+                if (outsideRedactedWindow)
+                {
+                    var bh = blockHashCache.Find(x => x.Value.blockNum == blockNum);
+                    if (bh != null && bh.HasValue && bh.Value.totalSignerDifficulty != null)
+                    {
+                        return bh.Value.totalSignerDifficulty;
+                    }
+                    var hashAndTotalSignerDiff = Node.storage.getBlockTotalSignerDifficulty(blockNum);
+                    if (hashAndTotalSignerDiff.blockChecksum != null && hashAndTotalSignerDiff.totalSignerDifficulty != null)
+                    {
+                        cacheBlockSignerDifficulty(blockNum, hashAndTotalSignerDiff.blockChecksum, new IxiNumber(hashAndTotalSignerDiff.totalSignerDifficulty));
+                        return hashAndTotalSignerDiff.totalSignerDifficulty;
+                    }
+                }
+            }
+            var block = getBlock(blockNum, true, false);
+            if (block == null)
+            {
+                return null;
+            }
+
+            IxiNumber totalSignerDifficulty = block.getTotalSignerDifficulty();
+            if (outsideRedactedWindow)
+            {
+                cacheBlockSignerDifficulty(blockNum, block.blockChecksum, totalSignerDifficulty);
+            }
+            return totalSignerDifficulty;
+        }
+
+        public byte[] getBlockHash(ulong blockNum)
+        {
+            bool outsideRedactedWindow = isOutsideRedactedWindow(blockNum);
+            lock (blocks)
+            {
+                if (outsideRedactedWindow)
+                {
+                    var bh = blockHashCache.Find(x => x.Value.blockNum == blockNum);
+                    if (bh != null && bh.HasValue)
+                    {
+                        return bh.Value.hash;
+                    }
+                    var hashAndTotalSignerDiff = Node.storage.getBlockTotalSignerDifficulty(blockNum);
+                    if (hashAndTotalSignerDiff.blockChecksum != null)
+                    {
+                        IxiNumber totalSignerDifficulty = null;
+                        if (hashAndTotalSignerDiff.totalSignerDifficulty != null && hashAndTotalSignerDiff.totalSignerDifficulty != "")
+                        {
+                            totalSignerDifficulty = new IxiNumber(hashAndTotalSignerDiff.totalSignerDifficulty);
+                        }
+                        cacheBlockSignerDifficulty(blockNum, hashAndTotalSignerDiff.blockChecksum, totalSignerDifficulty);
+                        return hashAndTotalSignerDiff.blockChecksum;
+                    }
+                }
+            }
+            var block = getBlock(blockNum, true, false);
+            if (block != null)
+            {
+                if (outsideRedactedWindow)
+                {
+                    IxiNumber totalSignerDifficulty = null;
+                    if (block.compacted)
+                    {
+                        totalSignerDifficulty = block.getTotalSignerDifficulty();
+                    }
+                    cacheBlockSignerDifficulty(blockNum, block.blockChecksum, totalSignerDifficulty);
+                }
+                return block.blockChecksum;
+            }
+            return null;
+        }
+
         // Attempts to retrieve a block from memory or from storage
         // Returns null if no block is found
         public Block getBlock(ulong blocknum, bool search_in_storage = false, bool return_full_block = true)
@@ -283,24 +376,25 @@ namespace DLT
             IxiNumber total_sig_difficulty = 0;
 
             // Search memory
-            lock (blocksDictionary)
+            lock (blocks)
             {
                 if (blocksDictionary.ContainsKey(blocknum))
                 {
                     block = blocksDictionary[blocknum];
-
-                    if (block.compacted && return_full_block)
-                    {
-                        pow_field = block.powField;
-                        tx_count = block.getTransactionsCount();
-                        total_fee = block.totalFee;
-                        sig_count = block.getFrozenSignatureCount();
-                        total_sig_difficulty = block.getTotalSignerDifficulty();
-
-                        compacted_block = true;
-                        block = null;
-                    }
                 }
+            }
+            if (block != null
+                && block.compacted
+                && return_full_block)
+            {
+                pow_field = block.powField;
+                tx_count = block.getTransactionsCount();
+                total_fee = block.totalFee;
+                sig_count = block.getFrozenSignatureCount();
+                total_sig_difficulty = block.getTotalSignerDifficulty();
+
+                compacted_block = true;
+                block = null;
             }
 
             if (block != null)
@@ -327,15 +421,12 @@ namespace DLT
         {
             lock (blocks)
             {
-                lock(blocksDictionary)
+                if (blocksDictionary.Remove(blockNum))
                 {
-                    if (blocksDictionary.Remove(blockNum))
+                    if (blocks.RemoveAll(x => x.blockNum == blockNum) > 0)
                     {
-                        if (blocks.RemoveAll(x => x.blockNum == blockNum) > 0)
-                        {
-                            blockCount = blocks.Count;
-                            return true;
-                        }
+                        blockCount = blocks.Count;
+                        return true;
                     }
                 }
                 blockCount = blocks.Count;
@@ -548,7 +639,6 @@ namespace DLT
 
         public IxiNumber getRequiredSignerDifficulty(ulong blockNum, bool adjustToRatio)
         {
-            // TODO TODO TODO cache
             if (blockNum > lastBlockNum && blockNum % ConsensusConfig.superblockInterval == 0)
             {
                 return calculateRequiredSignerDifficulty(adjustToRatio, lastBlockVersion);
@@ -566,7 +656,6 @@ namespace DLT
 
         public IxiNumber getRequiredSignerDifficulty(Block block, bool adjustToRatio)
         {
-            // TODO TODO TODO cache
             if (block == null)
             {
                 return ConsensusConfig.minBlockSignerPowDifficulty;
@@ -593,7 +682,6 @@ namespace DLT
 
         public ulong getRequiredSignerBits()
         {
-            // TODO TODO TODO cache
             return getRequiredSignerBits(lastBlockNum + 1);
         }
 
@@ -621,7 +709,6 @@ namespace DLT
 
         public ulong calculateRequiredSignerBits(bool adjustToRatio, int blockVersion)
         {
-            // TODO TODO TODO cache
             return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio, blockVersion));
         }
 
@@ -629,11 +716,8 @@ namespace DLT
         {
             lock (blocks)
             {
-                lock (blocksDictionary)
-                {
-                    cachedRequiredSignerDifficultyBlockNum = 0;
-                    cachedRequiredSignerDifficulty = 0;
-                }
+                cachedRequiredSignerDifficultyBlockNum = 0;
+                cachedRequiredSignerDifficulty = 0;
             }
         }
 
@@ -644,105 +728,98 @@ namespace DLT
             if (blockNum < blockOffset + 1) return ConsensusConfig.minBlockSignerPowDifficulty; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
-                lock (blocksDictionary)
+                if (cachedRequiredSignerDifficultyBlockNum == blockNum
+                    && cachedRequiredSignerDifficulty != 0)
                 {
-                    if (cachedRequiredSignerDifficultyBlockNum == blockNum
-                        && cachedRequiredSignerDifficulty != 0)
-                    {
-                        if (adjustToRatio)
-                        {
-                            return adjustSignerDifficultyToRatio(cachedRequiredSignerDifficulty);
-                        }
-
-                        return cachedRequiredSignerDifficulty;
-                    }
-
-                    IxiNumber totalDifficulty = 0;
-                    ulong blockCount = 0;
-                    ulong blocksToUseForDifficultyCalculation = ConsensusConfig.superblockInterval;
-                    if (blockVersion >= BlockVer.v11)
-                    {
-                        // Increase number of blocks to use for difficulty from superblockInterval (1000) to blocksToUseForAverageDifficultyCalculation (40000)
-                        blocksToUseForDifficultyCalculation = ConsensusConfig.blocksToUseForAverageDifficultyCalculation;
-                    }
-
-                    for (ulong i = 0; i < blocksToUseForDifficultyCalculation; i++)
-                    {
-                        ulong consensusBlockNum = blockNum - i - blockOffset;
-                        Block b = getBlock(consensusBlockNum, true, false);
-                        if (b == null)
-                        {
-                            break;
-                        }
-
-                        // Fixes v10 regression bug which calculated an average from last 30 blocks.
-                        if (blockVersion >= BlockVer.v11
-                            || i + blockOffset <= 30)
-                        {
-                            totalDifficulty += b.getTotalSignerDifficulty();
-                            Logging.info("Total diff: " + b.getTotalSignerDifficulty().ToString());
-                        }
-
-                        blockCount++;
-                    }
-
-                    Logging.info("Samples used: " + blockCount);
-
-                    if (blockVersion >= BlockVer.v11 && blockCount != blocksToUseForDifficultyCalculation)
-                    {
-                        if (blockNum > blocksToUseForDifficultyCalculation
-                            || (blockNum - blockOffset != blockCount))
-                        {
-                            throw new Exception(String.Format("An error occured while calculating required signer difficulty for block #{0}. Actual block samples different than expected: {1} != {2}", blockNum, blockCount, blocksToUseForDifficultyCalculation));
-                        }
-                    }
-
-                    if (blockCount == 0)
-                    {
-                        return ConsensusConfig.minBlockSignerPowDifficulty;
-                    }
-
-                    if (blockNum < blocksToUseForDifficultyCalculation)
-                    {
-                        blockCount = blocksToUseForDifficultyCalculation;
-                    }
-                    IxiNumber newDifficulty = totalDifficulty / blockCount;
-
-                    // Limit to max *2, /2
-                    if (lastSuperBlock != null && lastSuperBlock.signerBits > 0)
-                    {
-                        IxiNumber maxDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) * 2;
-                        if (newDifficulty > maxDifficulty)
-                        {
-                            newDifficulty = maxDifficulty;
-                        }
-                        else
-                        {
-                            IxiNumber minDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) / 2;
-                            if (newDifficulty < minDifficulty)
-                            {
-                                newDifficulty = minDifficulty;
-                            }
-                        }
-                    }
-
-                    if (newDifficulty < ConsensusConfig.minBlockSignerPowDifficulty)
-                    {
-                        newDifficulty = ConsensusConfig.minBlockSignerPowDifficulty;
-                    }
-
-                    cachedRequiredSignerDifficultyBlockNum = blockNum;
-                    cachedRequiredSignerDifficulty = newDifficulty;
-
                     if (adjustToRatio)
                     {
-                        newDifficulty = adjustSignerDifficultyToRatio(newDifficulty);
+                        return adjustSignerDifficultyToRatio(cachedRequiredSignerDifficulty);
                     }
 
-                    return newDifficulty;
+                    return cachedRequiredSignerDifficulty;
                 }
-            }
-            
+
+                IxiNumber totalDifficulty = 0;
+                ulong blockCount = 0;
+                ulong blocksToUseForDifficultyCalculation = ConsensusConfig.superblockInterval;
+                if (blockVersion >= BlockVer.v11)
+                {
+                    // Increase number of blocks to use for difficulty from superblockInterval (1000) to blocksToUseForAverageDifficultyCalculation (40000)
+                    blocksToUseForDifficultyCalculation = ConsensusConfig.blocksToUseForAverageDifficultyCalculation;
+                }
+
+                for (ulong i = 0; i < blocksToUseForDifficultyCalculation; i++)
+                {
+                    ulong consensusBlockNum = blockNum - i - blockOffset;
+                    IxiNumber blockTotalSignerDifficulty = getBlockTotalSignerDifficulty(consensusBlockNum);
+                    if (blockTotalSignerDifficulty == null)
+                    {
+                        break;
+                    }
+
+                    // Fixes v10 regression bug which calculated an average from last 30 blocks.
+                    if (blockVersion >= BlockVer.v11
+                        || i + blockOffset <= 30)
+                    {
+                        totalDifficulty += blockTotalSignerDifficulty;
+                    }
+
+                    blockCount++;
+                }
+
+                if (blockVersion >= BlockVer.v11 && blockCount != blocksToUseForDifficultyCalculation)
+                {
+                    if (blockNum > blocksToUseForDifficultyCalculation
+                        || (blockNum - blockOffset != blockCount))
+                    {
+                        throw new Exception(String.Format("An error occured while calculating required signer difficulty for block #{0}. Actual block samples different than expected: {1} != {2}", blockNum, blockCount, blocksToUseForDifficultyCalculation));
+                    }
+                }
+
+                if (blockCount == 0)
+                {
+                    return ConsensusConfig.minBlockSignerPowDifficulty;
+                }
+
+                if (blockNum < blocksToUseForDifficultyCalculation)
+                {
+                    blockCount = blocksToUseForDifficultyCalculation;
+                }
+                IxiNumber newDifficulty = totalDifficulty / blockCount;
+
+                // Limit to max *2, /2
+                if (lastSuperBlock != null && lastSuperBlock.signerBits > 0)
+                {
+                    IxiNumber maxDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) * 2;
+                    if (newDifficulty > maxDifficulty)
+                    {
+                        newDifficulty = maxDifficulty;
+                    }
+                    else
+                    {
+                        IxiNumber minDifficulty = SignerPowSolution.bitsToDifficulty(lastSuperBlock.signerBits) / 2;
+                        if (newDifficulty < minDifficulty)
+                        {
+                            newDifficulty = minDifficulty;
+                        }
+                    }
+                }
+
+                if (newDifficulty < ConsensusConfig.minBlockSignerPowDifficulty)
+                {
+                    newDifficulty = ConsensusConfig.minBlockSignerPowDifficulty;
+                }
+
+                cachedRequiredSignerDifficultyBlockNum = blockNum;
+                cachedRequiredSignerDifficulty = newDifficulty;
+
+                if (adjustToRatio)
+                {
+                    newDifficulty = adjustSignerDifficultyToRatio(newDifficulty);
+                }
+
+                return newDifficulty;
+            }            
         }
 
         public byte[] getLastBlockChecksum()
@@ -817,7 +894,7 @@ namespace DLT
                             Logging.error("Error verifying block proposer while force refreshing signatures on block {0} ({1})", b.blockNum, Crypto.hashToString(b.blockChecksum));
                             return false;
                         }
-                        Node.blockChain.setFrozenSignatures(blocks[idx], b.signatures);
+                        setFrozenSignatures(blocks[idx], b.signatures);
                         afterSigs = b.signatures.Count;
                     }
                     else
@@ -847,22 +924,20 @@ namespace DLT
 
         public bool setFrozenSignatures(Block b, List<BlockSignature> signatures)
         {
-            lock(Node.blockProcessor.localBlockLock)
+            Block localNewBlock = Node.blockProcessor.localNewBlock;
+            if(localNewBlock != null 
+                && localNewBlock.signatureFreezeChecksum != null
+                && b.frozenSignatures != null
+                && localNewBlock.signatureFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
             {
-                if(Node.blockProcessor.localNewBlock != null 
-                    && Node.blockProcessor.localNewBlock.signatureFreezeChecksum != null
-                    && b.frozenSignatures != null
-                    && Node.blockProcessor.localNewBlock.signatureFreezeChecksum.SequenceEqual(b.calculateSignatureChecksum()))
-                {
-                    return false;
-                }
-                int sig_count = 0;
-                if (signatures != null)
-                    sig_count = signatures.Count;
-                Logging.info("Setting {0} frozen signatures for {1}", sig_count, b.blockNum);
-                b.setFrozenSignatures(signatures);
-                return true;
+                return false;
             }
+            int sig_count = 0;
+            if (signatures != null)
+                sig_count = signatures.Count;
+            Logging.info("Setting {0} frozen signatures for {1}", sig_count, b.blockNum);
+            b.setFrozenSignatures(signatures);
+            return true;
         }
 
         // Gets the elected nodes's pub key from the last sigFreeze; offset defines which entry to pick from the sigs
@@ -899,7 +974,7 @@ namespace DLT
         {
             lock(blocks)
             {
-                if(redacted_window_size != solvedBlocksRedactedWindowSize)
+                if (redacted_window_size != solvedBlocksRedactedWindowSize)
                 {
                     ulong solved_blocks = 0;
 
@@ -969,12 +1044,16 @@ namespace DLT
             lastBlockVersion = -1;
             lock (blocks)
             {
-                lock (blocksDictionary)
-                {
-                    blocksDictionary.Clear();
-                }
+                blocksDictionary.Clear();
+                blockHashCache.Clear();
+                pendingSuperBlocks.Clear();
+                lastSuperBlock = null;
+                lastSuperBlockChecksum = null;
+                lastSuperBlockNum = 0;
+                lastBlockReceivedTime = 0;
                 blocks.Clear();
             }
+            clearCachedRequiredSignerDifficulty();
             blockCount = blocks.Count;
         }
 
@@ -1033,9 +1112,9 @@ namespace DLT
             bool compacted = false;
             bool compacted_sigs = false;
 
-            lock (blocksDictionary)
+            lock (blocks)
             {
-                if(blocksDictionary.ContainsKey(block.blockNum))
+                if (blocksDictionary.ContainsKey(block.blockNum))
                 {
                     Block old_block = blocksDictionary[block.blockNum];
                     if (old_block.compacted)
@@ -1072,10 +1151,7 @@ namespace DLT
                 if (block_idx >= 0)
                 {
                     blocks[block_idx] = new_block;
-                    lock (blocksDictionary)
-                    {
-                        blocksDictionary[new_block.blockNum] = new_block;
-                    }
+                    blocksDictionary[new_block.blockNum] = new_block;
                 }
                 else
                 {

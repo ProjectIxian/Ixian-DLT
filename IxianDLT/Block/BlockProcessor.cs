@@ -2882,6 +2882,12 @@ namespace DLT
                     continue;
                 }
 
+                // do not include in block RN transactions with lower than configured price
+                if (transaction.type == (int)Transaction.Type.RegName && !Node.regNameState.verifyTransaction(transaction, ConsensusConfig.rnPricePerUnit))
+                {
+                    continue;
+                }
+
                 IxiNumber total_tx_amount = transaction.amount + transaction.fee;
                 total_fee += transaction.fee;
 

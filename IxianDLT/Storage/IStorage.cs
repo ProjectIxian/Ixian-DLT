@@ -357,6 +357,8 @@ namespace DLT
             // Remove
             public abstract bool removeBlock(ulong block_num, bool remove_transactions = true);
             public abstract bool removeTransaction(byte[] txid, ulong block_num = 0);
+
+            public abstract (byte[] blockChecksum, string totalSignerDifficulty) getBlockTotalSignerDifficulty(ulong blocknum);
             //
             // Prepare and cleanup
             protected abstract bool prepareStorageInternal();
