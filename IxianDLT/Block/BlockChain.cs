@@ -273,7 +273,7 @@ namespace DLT
                 if (bhIndex == -1)
                 {
                     blockHashCache.Add((blockNum, blockHash, totalSignerDifficulty));
-                    if (blockHashCache.Count > 1000000)
+                    if (blockHashCache.Count > Config.maxCachedBlockHashes)
                     {
                         blockHashCache.RemoveAt(0);
                     }
@@ -288,9 +288,9 @@ namespace DLT
         public IxiNumber getBlockTotalSignerDifficulty(ulong blockNum)
         {
             bool outsideRedactedWindow = isOutsideRedactedWindow(blockNum);
-            lock (blocks)
+            if (outsideRedactedWindow)
             {
-                if (outsideRedactedWindow)
+                lock (blocks)
                 {
                     var bh = blockHashCache.Find(x => x.Value.blockNum == blockNum);
                     if (bh != null && bh.HasValue && bh.Value.totalSignerDifficulty != null)
@@ -322,9 +322,9 @@ namespace DLT
         public byte[] getBlockHash(ulong blockNum)
         {
             bool outsideRedactedWindow = isOutsideRedactedWindow(blockNum);
-            lock (blocks)
+            if (outsideRedactedWindow)
             {
-                if (outsideRedactedWindow)
+                lock (blocks)
                 {
                     var bh = blockHashCache.Find(x => x.Value.blockNum == blockNum);
                     if (bh != null && bh.HasValue)
