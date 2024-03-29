@@ -218,13 +218,18 @@ namespace DLT.RegNames
 
             public ulong expirationBlockHeight { get; private set; } = 0;
 
-            public RNE_Extend(byte[] address, uint extensionTimeInBlocks, IxiNumber fee, List<RegisteredNameRecord> topLevelNames)
+            private ulong oldUpdatedBlockHeight = 0;
+            private ulong newUpdatedBlockHeight = 0;
+
+            public RNE_Extend(byte[] address, uint extensionTimeInBlocks, IxiNumber fee, List<RegisteredNameRecord> topLevelNames, ulong oldUpdatedBlockHeight, ulong newUpdatedBlockHeight)
             {
                 targetWallet = address;
                 this.extensionTimeInBlocks = extensionTimeInBlocks;
                 this.fee = fee;
 
                 this.topLevelNames = topLevelNames;
+                this.oldUpdatedBlockHeight = oldUpdatedBlockHeight;
+                this.newUpdatedBlockHeight = newUpdatedBlockHeight;
             }
 
             public RNE_Extend(BinaryReader r)
@@ -244,7 +249,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                expirationBlockHeight = rnInstance.extendNameInternal(targetWallet, extensionTimeInBlocks, fee);
+                expirationBlockHeight = rnInstance.extendNameInternal(targetWallet, extensionTimeInBlocks, fee, newUpdatedBlockHeight);
                 if (expirationBlockHeight <= 0)
                 {
                     return false;
@@ -259,7 +264,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                var result = rnInstance.extendNameInternal(targetWallet, -extensionTimeInBlocks, 0);
+                var result = rnInstance.extendNameInternal(targetWallet, -extensionTimeInBlocks, 0, oldUpdatedBlockHeight);
                 if (result <= 0)
                 {
                     return false;
@@ -289,16 +294,21 @@ namespace DLT.RegNames
 
             private IxiNumber fee;
 
+            private ulong oldUpdatedBlockHeight;
+            private ulong newUpdatedBlockHeight;
+
             public RNE_UpdateCapacity(
                 byte[] address,
                 uint oldCapacity,
                 Address oldPkHash,
                 byte[] oldSigPk,
                 byte[] oldSig,
+                ulong oldUpdatedBlockHeight,
                 uint newCapacity,
                 Address newPkHash,
                 byte[] newSigPk,
                 byte[] newSig,
+                ulong newUpdatedBlockHeight,
                 IxiNumber fee
                 )
             {
@@ -312,6 +322,9 @@ namespace DLT.RegNames
                 this.oldSig = oldSig;
                 this.newSig = newSig;
                 this.fee = fee;
+
+                this.oldUpdatedBlockHeight = oldUpdatedBlockHeight;
+                this.newUpdatedBlockHeight = newUpdatedBlockHeight;
             }
 
             public RNE_UpdateCapacity(BinaryReader r)
@@ -331,7 +344,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.updateCapacityInternal(targetWallet, newCapacity, newPkHash, newSigPk, newSig, fee);
+                return rnInstance.updateCapacityInternal(targetWallet, newCapacity, newPkHash, newSigPk, newSig, newUpdatedBlockHeight, fee);
             }
 
             public override bool revert()
@@ -341,7 +354,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.revertCapacityInternal(targetWallet, oldCapacity, oldPkHash, oldSigPk, oldSig, fee);
+                return rnInstance.revertCapacityInternal(targetWallet, oldCapacity, oldPkHash, oldSigPk, oldSig, oldUpdatedBlockHeight, fee);
             }
         }
 
@@ -358,16 +371,21 @@ namespace DLT.RegNames
             private byte[] oldSig;
             private byte[] newSig;
 
+            private ulong oldUpdatedBlockHeight;
+            private ulong newUpdatedBlockHeight;
+
             public RNE_Recover(
                 byte[] address,
                 Address oldRecoveryKey,
                 Address oldPkHash,
                 byte[] oldSigPk,
                 byte[] oldSig,
+                ulong oldUpdatedBlockHeight,
                 Address newRecoveryKey,
                 Address newPkHash,
                 byte[] newSigPk,
-                byte[] newSig)
+                byte[] newSig,
+                ulong newUpdatedBlockHeight)
             {
                 targetWallet = address;
                 this.oldRecoveryKey = oldRecoveryKey;
@@ -378,6 +396,9 @@ namespace DLT.RegNames
                 this.newSigPk = newSigPk;
                 this.oldSig = oldSig;
                 this.newSig = newSig;
+
+                this.oldUpdatedBlockHeight = oldUpdatedBlockHeight;
+                this.newUpdatedBlockHeight = newUpdatedBlockHeight;
             }
 
             public RNE_Recover(BinaryReader r)
@@ -397,7 +418,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.recoverNameInternal(targetWallet, newRecoveryKey, newPkHash, newSigPk, newSig);
+                return rnInstance.recoverNameInternal(targetWallet, newRecoveryKey, newPkHash, newSigPk, newSig, newUpdatedBlockHeight);
             }
 
             public override bool revert()
@@ -407,7 +428,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.revertRecoverNameInternal(targetWallet, oldRecoveryKey, oldPkHash, oldSigPk, oldSig);
+                return rnInstance.revertRecoverNameInternal(targetWallet, oldRecoveryKey, oldPkHash, oldSigPk, oldSig, oldUpdatedBlockHeight);
             }
         }
 
@@ -424,16 +445,21 @@ namespace DLT.RegNames
             byte[] newSigPubKey = null;
             byte[] newSig = null;
 
+            ulong oldUpdatedBlockHeight = 0;
+            ulong newUpdatedBlockHeight = 0;
+
             public RNE_UpdateRecord(
                 byte[] address,
                 List<RegisteredNameDataRecord> oldRecords,
                 Address oldPkHash,
                 byte[] oldSigPubKey,
                 byte[] oldSig,
+                ulong oldUpdatedBlockHeight,
                 List<RegisteredNameDataRecord> newRecords,
                 Address nextPkHash,
                 byte[] newSigPubKey,
-                byte[] newSig)
+                byte[] newSig,
+                ulong newUpdatedBlockHeight)
             {
                 targetWallet = address;
                 this.oldRecords = oldRecords;
@@ -447,6 +473,9 @@ namespace DLT.RegNames
 
                 this.newSig = newSig;
                 this.newSigPubKey = newSigPubKey;
+
+                this.oldUpdatedBlockHeight = oldUpdatedBlockHeight;
+                this.newUpdatedBlockHeight = newUpdatedBlockHeight;
             }
 
             public RNE_UpdateRecord(BinaryReader r)
@@ -466,7 +495,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.updateRecordsInternal(targetWallet, newRecords, nextPkHash, newSigPubKey, newSig);
+                return rnInstance.updateRecordsInternal(targetWallet, newRecords, nextPkHash, newSigPubKey, newSig, newUpdatedBlockHeight);
             }
 
             public override bool revert()
@@ -476,7 +505,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.setNameRecordsInternal(targetWallet, oldRecords, oldPkHash, oldSigPubKey, oldSig, true);
+                return rnInstance.setNameRecordsInternal(targetWallet, oldRecords, oldPkHash, oldSigPubKey, oldSig, oldUpdatedBlockHeight, true);
             }
         }
 
@@ -492,6 +521,8 @@ namespace DLT.RegNames
             private byte[] newSigPk;
             private byte[] newSig;
 
+            private ulong updatedBlockHeight;
+
             public RNE_ToggleAllowSubname(
                 RegisteredNameRecord nameRecord,
                 bool allowSubnames,
@@ -499,7 +530,8 @@ namespace DLT.RegNames
                 Address subnameFeeRecipientAddress,
                 Address newPkHash,
                 byte[] newSigPk,
-                byte[] newSig
+                byte[] newSig,
+                ulong updatedBlockHeight
                 )
             {
                 targetWallet = nameRecord.name;
@@ -510,6 +542,8 @@ namespace DLT.RegNames
                 this.newPkHash = newPkHash;
                 this.newSigPk = newSigPk;
                 this.newSig = newSig;
+
+                this.updatedBlockHeight = updatedBlockHeight;
             }
 
             public RNE_ToggleAllowSubname(BinaryReader r)
@@ -529,7 +563,7 @@ namespace DLT.RegNames
                     Logging.error(GetType().Name + " entry is missing target name!");
                     return false;
                 }
-                return rnInstance.toggleAllowSubnameInternal(targetWallet, allowSubnames, subnameFee, subnameFeeRecipientAddress, newPkHash, newSigPk, newSig);
+                return rnInstance.toggleAllowSubnameInternal(targetWallet, allowSubnames, subnameFee, subnameFeeRecipientAddress, newPkHash, newSigPk, newSig, updatedBlockHeight);
             }
 
             public override bool revert()

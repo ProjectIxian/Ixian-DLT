@@ -1098,6 +1098,11 @@ namespace DLT.Meta
             return b;
         }
 
+        public override byte[] getBlockHash(ulong blockNum)
+        {
+            return blockChain.getBlockHash(blockNum);
+        }
+
         /*static void runDiffTests()
         {
             Logging.info("Running difficulty tests");

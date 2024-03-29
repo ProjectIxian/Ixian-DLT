@@ -735,8 +735,16 @@ namespace DLTNode
             blockData.Add("Compacted Sigs", block.compactedSigs.ToString());
             blockData.Add("Signature count", block.signatures.Count.ToString());
             blockData.Add("Required Signature count", Node.blockChain.getRequiredConsensusFromStorage(block.blockNum).ToString());
-            blockData.Add("Total Signer Difficulty", block.getTotalSignerDifficulty().ToString());
-            blockData.Add("Required Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(block, true).ToString());
+            var totalSignerDifficulty = Node.blockChain.getBlockTotalSignerDifficulty(block.blockNum);
+            if (totalSignerDifficulty == null)
+            {
+                totalSignerDifficulty = block.getTotalSignerDifficulty();
+            }
+            blockData.Add("Total Signer Difficulty", totalSignerDifficulty.ToString());
+            if (block.version >= BlockVer.v10)
+            {
+                blockData.Add("Required Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(block, true).ToString());
+            }
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
             blockData.Add("Total fees", block.totalFee.ToString());
@@ -1325,33 +1333,37 @@ namespace DLTNode
             if (parameters.ContainsKey("vv") || parameters.ContainsKey("verbose"))
             {
                 networkArray.Add("Required Consensus", Node.blockChain.getRequiredConsensus());
-                networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(Node.blockChain.getLastBlock(), false).ToString());
-                networkArray.Add("Signer Bits", Crypto.hashToString(BitConverter.GetBytes(Node.blockChain.getRequiredSignerBits())));
-                networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
 
-                var tmpSolution = Node.signerPowMiner.lastSignerPowSolution;
-                Dictionary<string, object> signerPowSolution = new Dictionary<string, object>();
-                if (tmpSolution != null)
+                if (Node.blockChain.getLastBlockVersion() >= BlockVer.v10)
                 {
-                    signerPowSolution.Add("blockNum", tmpSolution.blockNum);
-                    signerPowSolution.Add("solution", tmpSolution.solution);
-                    signerPowSolution.Add("checksum", tmpSolution.checksum);
-                    signerPowSolution.Add("difficulty", tmpSolution.difficulty.ToString());
-                    signerPowSolution.Add("bits", Crypto.hashToString(BitConverter.GetBytes(tmpSolution.bits)));
-                }
-                networkArray.Add("Signer Last PoW Solution", signerPowSolution);
+                    networkArray.Add("Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(Node.blockChain.getLastBlock(), false).ToString());
+                    networkArray.Add("Signer Bits", Crypto.hashToString(BitConverter.GetBytes(Node.blockChain.getRequiredSignerBits())));
+                    networkArray.Add("Signer Hashrate", Node.signerPowMiner.lastHashRate);
 
-                tmpSolution = PresenceList.getPowSolution();
-                signerPowSolution = new Dictionary<string, object>();
-                if (tmpSolution != null)
-                {
-                    signerPowSolution.Add("blockNum", tmpSolution.blockNum);
-                    signerPowSolution.Add("solution", tmpSolution.solution);
-                    signerPowSolution.Add("checksum", tmpSolution.checksum);
-                    signerPowSolution.Add("difficulty", tmpSolution.difficulty.ToString());
-                    signerPowSolution.Add("bits", Crypto.hashToString(BitConverter.GetBytes(tmpSolution.bits)));
+                    var tmpSolution = Node.signerPowMiner.lastSignerPowSolution;
+                    Dictionary<string, object> signerPowSolution = new Dictionary<string, object>();
+                    if (tmpSolution != null)
+                    {
+                        signerPowSolution.Add("blockNum", tmpSolution.blockNum);
+                        signerPowSolution.Add("solution", tmpSolution.solution);
+                        signerPowSolution.Add("checksum", tmpSolution.checksum);
+                        signerPowSolution.Add("difficulty", tmpSolution.difficulty.ToString());
+                        signerPowSolution.Add("bits", Crypto.hashToString(BitConverter.GetBytes(tmpSolution.bits)));
+                    }
+                    networkArray.Add("Signer Last PoW Solution", signerPowSolution);
+
+                    tmpSolution = PresenceList.getPowSolution();
+                    signerPowSolution = new Dictionary<string, object>();
+                    if (tmpSolution != null)
+                    {
+                        signerPowSolution.Add("blockNum", tmpSolution.blockNum);
+                        signerPowSolution.Add("solution", tmpSolution.solution);
+                        signerPowSolution.Add("checksum", tmpSolution.checksum);
+                        signerPowSolution.Add("difficulty", tmpSolution.difficulty.ToString());
+                        signerPowSolution.Add("bits", Crypto.hashToString(BitConverter.GetBytes(tmpSolution.bits)));
+                    }
+                    networkArray.Add("Signer Active PoW Solution", signerPowSolution);
                 }
-                networkArray.Add("Signer Active PoW Solution", signerPowSolution);
 
                 networkArray.Add("Wallets", Node.walletState.numWallets);
                 networkArray.Add("Presences", PresenceList.getTotalPresences());

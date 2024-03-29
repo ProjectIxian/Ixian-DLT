@@ -1351,6 +1351,11 @@ namespace DLT
                     }
                 }
             }
+
+            public override (byte[] blockChecksum, string totalSignerDifficulty) getBlockTotalSignerDifficulty(ulong blocknum)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

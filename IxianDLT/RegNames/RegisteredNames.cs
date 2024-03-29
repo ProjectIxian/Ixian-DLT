@@ -240,7 +240,7 @@ namespace DLT.RegNames
                 storage.createRegName(r);
                 if (rnRecord != null && rnRecord.expirationBlockHeight < r.expirationBlockHeight)
                 {
-                    rnRecord.expirationBlockHeight = r.expirationBlockHeight;
+                    rnRecord.setExpirationBlockHeight(r.expirationBlockHeight, r.registrationBlockHeight);
                     storage.updateRegName(rnRecord);
                 }
                 storage.increaseRewardPool(fee);
@@ -249,7 +249,7 @@ namespace DLT.RegNames
             }
         }
 
-        private ulong extendNameInternal(byte[] id, long extensionTimeInBlocks, IxiNumber fee)
+        private ulong extendNameInternal(byte[] id, long extensionTimeInBlocks, IxiNumber fee, ulong updatedBlockHeight)
         {
             lock (stateLock)
             {
@@ -261,10 +261,10 @@ namespace DLT.RegNames
                 }
                 if (extensionTimeInBlocks > 0)
                 {
-                    rnr.expirationBlockHeight += (ulong)extensionTimeInBlocks;
+                    rnr.setExpirationBlockHeight(rnr.expirationBlockHeight + (ulong)extensionTimeInBlocks, updatedBlockHeight);
                 } else
                 {
-                    rnr.expirationBlockHeight -= (ulong)-extensionTimeInBlocks;
+                    rnr.setExpirationBlockHeight(rnr.expirationBlockHeight - (ulong)-extensionTimeInBlocks, updatedBlockHeight);
                 }
 
                 storage.updateRegName(rnr);
@@ -276,7 +276,7 @@ namespace DLT.RegNames
                     var topLevelName = topLevelNames.First();
                     if (topLevelName.expirationBlockHeight < rnr.expirationBlockHeight)
                     {
-                        topLevelName.expirationBlockHeight = rnr.expirationBlockHeight;
+                        topLevelName.setExpirationBlockHeight(rnr.expirationBlockHeight, updatedBlockHeight);
                         storage.updateRegName(topLevelName);
                     }
                 }
@@ -287,7 +287,7 @@ namespace DLT.RegNames
             }
         }
 
-        private bool updateCapacityInternal(byte[] id, uint newCapacity, Address nextPkHash, byte[] sigPubKey, byte[] sig, IxiNumber fee)
+        private bool updateCapacityInternal(byte[] id, uint newCapacity, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updatedBlockHeight, IxiNumber fee)
         {
             lock (stateLock)
             {
@@ -323,8 +323,8 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setCapacity(newCapacity, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
-                var rnrChecksum = rnr.calculateChecksum();
+                rnr.setCapacity(newCapacity, rnr.sequence + 1, nextPkHash, sigPubKey, sig, updatedBlockHeight);
+                var rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
                 {
@@ -339,7 +339,7 @@ namespace DLT.RegNames
             }
         }
 
-        private bool revertCapacityInternal(byte[] id, uint newCapacity, Address nextPkHash, byte[] sigPubKey, byte[] sig, IxiNumber fee)
+        private bool revertCapacityInternal(byte[] id, uint newCapacity, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updateBlockHeight, IxiNumber fee)
         {
             lock (stateLock)
             {
@@ -369,8 +369,8 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setCapacity(newCapacity, rnr.sequence - 1, nextPkHash, sigPubKey, sig);
-                var rnrChecksum = rnr.calculateChecksum();
+                rnr.setCapacity(newCapacity, rnr.sequence - 1, nextPkHash, sigPubKey, sig, updateBlockHeight);
+                var rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
                 if ((sigPubKey != null && sig != null) && !CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
                 {
@@ -385,7 +385,7 @@ namespace DLT.RegNames
             }
         }
 
-        private bool updateRecordsInternal(byte[] id, List<RegisteredNameDataRecord> updateRecords, Address nextPkHash, byte[] sigPubKey, byte[] sig)
+        private bool updateRecordsInternal(byte[] id, List<RegisteredNameDataRecord> updateRecords, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updateBlockHeight)
         {
             lock (stateLock)
             {
@@ -415,8 +415,8 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecords(curRecords, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
-                var rnrChecksum = rnr.calculateChecksum();
+                rnr.setRecords(curRecords, rnr.sequence + 1, nextPkHash, sigPubKey, sig, updateBlockHeight);
+                var rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
                 {
@@ -491,7 +491,7 @@ namespace DLT.RegNames
             return curRecords;
         }
 
-        private bool setNameRecordsInternal(byte[] id, List<RegisteredNameDataRecord> records, Address nextPkHash, byte[] sigPubKey, byte[] sig, bool reverting)
+        private bool setNameRecordsInternal(byte[] id, List<RegisteredNameDataRecord> records, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updateBlockHeight, bool reverting)
         {
             lock (stateLock)
             {
@@ -516,8 +516,8 @@ namespace DLT.RegNames
                     nextSequence = rnr.sequence + 1;
                 }
 
-                rnr.setRecords(records, nextSequence, nextPkHash, sigPubKey, sig);
-                var rnrChecksum = rnr.calculateChecksum();
+                rnr.setRecords(records, nextSequence, nextPkHash, sigPubKey, sig, updateBlockHeight);
+                var rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
                 if ((sigPubKey != null && sig != null) && !CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
                 {
@@ -530,7 +530,7 @@ namespace DLT.RegNames
             }
         }
 
-        private bool recoverNameInternal(byte[] id, Address newRecoveryHash, Address nextPkHash, byte[] sigPubKey, byte[] sig)
+        private bool recoverNameInternal(byte[] id, Address newRecoveryHash, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updateBlockHeight)
         {
             lock (stateLock)
             {
@@ -547,8 +547,8 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecoveryHash(newRecoveryHash, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
-                byte[] rnrChecksum = rnr.calculateChecksum();
+                rnr.setRecoveryHash(newRecoveryHash, rnr.sequence + 1, nextPkHash, sigPubKey, sig, updateBlockHeight);
+                byte[] rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
                 {
@@ -562,7 +562,7 @@ namespace DLT.RegNames
             }
         }
 
-        private bool revertRecoverNameInternal(byte[] id, Address newRecoveryHash, Address nextPkHash, byte[] sigPubKey, byte[] sig)
+        private bool revertRecoverNameInternal(byte[] id, Address newRecoveryHash, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updateBlockHeight)
         {
             lock (stateLock)
             {
@@ -585,8 +585,8 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setRecoveryHash(newRecoveryHash, rnr.sequence - 1, nextPkHash, sigPubKey, sig);
-                byte[] rnrChecksum = rnr.calculateChecksum();
+                rnr.setRecoveryHash(newRecoveryHash, rnr.sequence - 1, nextPkHash, sigPubKey, sig, updateBlockHeight);
+                byte[] rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
                 if ((sigPubKey != null && sig != null) && !CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
                 {
@@ -600,7 +600,7 @@ namespace DLT.RegNames
             }
         }
 
-        private bool toggleAllowSubnameInternal(byte[] id, bool allowSubnames, IxiNumber subnameFee, Address subnameFeeRecipientAddress, Address nextPkHash, byte[] sigPubKey, byte[] sig)
+        private bool toggleAllowSubnameInternal(byte[] id, bool allowSubnames, IxiNumber subnameFee, Address subnameFeeRecipientAddress, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updateBlockHeight)
         {
             lock (stateLock)
             {
@@ -617,8 +617,8 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                rnr.setAllowSubnames(allowSubnames, subnameFee, subnameFeeRecipientAddress, rnr.sequence + 1, nextPkHash, sigPubKey, sig);
-                byte[] rnrChecksum = rnr.calculateChecksum();
+                rnr.setAllowSubnames(allowSubnames, subnameFee, subnameFeeRecipientAddress, rnr.sequence + 1, nextPkHash, sigPubKey, sig, updateBlockHeight);
+                byte[] rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
                 if (!CryptoManager.lib.verifySignature(rnrChecksum, sigPubKey, sig))
                 {
@@ -755,12 +755,12 @@ namespace DLT.RegNames
             return true;
         }
 
-        public bool updateRecords(RegNameUpdateRecord rnu)
+        public bool updateRecords(RegNameUpdateRecord rnu, ulong curBlockHeight)
         {
-            return updateRecords(rnu.name, rnu.records, rnu.nextPkHash, new Address(rnu.signaturePk), rnu.signature);
+            return updateRecords(rnu.name, rnu.records, rnu.nextPkHash, new Address(rnu.signaturePk), rnu.signature, curBlockHeight);
         }
 
-        public bool updateRecords(byte[] id, List<RegisteredNameDataRecord> newRecords, Address nextPkHash, Address pubKey, byte[] signature)
+        public bool updateRecords(byte[] id, List<RegisteredNameDataRecord> newRecords, Address nextPkHash, Address pubKey, byte[] signature, ulong curBlockHeight)
         {
             RegisteredNameRecord r = getName(id);
             if (r == null)
@@ -769,7 +769,7 @@ namespace DLT.RegNames
                 return false;
             }
 
-            var change = new RNE_UpdateRecord(id, r.getDataRecords(null), r.nextPkHash, r.signaturePk, r.signature, newRecords, nextPkHash, pubKey.pubKey, signature);
+            var change = new RNE_UpdateRecord(id, r.getDataRecords(null), r.nextPkHash, r.signaturePk, r.signature, r.updatedBlockHeight, newRecords, nextPkHash, pubKey.pubKey, signature, curBlockHeight);
             if (!change.apply())
             {
                 return false;
@@ -782,12 +782,12 @@ namespace DLT.RegNames
             return true;
         }
 
-        public bool extendName(RegNameExtend rne, IxiNumber fee, out ulong expirationBlockHeight)
+        public bool extendName(RegNameExtend rne, IxiNumber fee, ulong curBlockHeight, out ulong expirationBlockHeight)
         {
-            return extendName(rne.name, rne.extensionTimeInBlocks, fee, out expirationBlockHeight);
+            return extendName(rne.name, rne.extensionTimeInBlocks, fee, curBlockHeight, out expirationBlockHeight);
         }
 
-        public bool extendName(byte[] id, uint extensionTimeInBlocks, IxiNumber fee, out ulong expirationBlockHeight)
+        public bool extendName(byte[] id, uint extensionTimeInBlocks, IxiNumber fee, ulong curBlockHeight, out ulong expirationBlockHeight)
         {
             expirationBlockHeight = 0;
             RegisteredNameRecord r = getName(id);
@@ -798,7 +798,7 @@ namespace DLT.RegNames
             }
 
             var topLevelNames = getTopLevelNames(id);
-            var change = new RNE_Extend(id, extensionTimeInBlocks, fee, topLevelNames);
+            var change = new RNE_Extend(id, extensionTimeInBlocks, fee, topLevelNames, r.updatedBlockHeight, curBlockHeight);
             if (!change.apply())
             {
                 return false;
@@ -812,12 +812,12 @@ namespace DLT.RegNames
             return true;
         }
 
-        public bool updateCapacity(RegNameChangeCapacity rnCap, IxiNumber fee)
+        public bool updateCapacity(RegNameChangeCapacity rnCap, IxiNumber fee, ulong curBlockHeight)
         {
-            return updateCapacity(rnCap.name, rnCap.newCapacity, rnCap.nextPkHash, rnCap.signaturePk, rnCap.signature, fee);
+            return updateCapacity(rnCap.name, rnCap.newCapacity, rnCap.nextPkHash, rnCap.signaturePk, rnCap.signature, fee, curBlockHeight);
         }
 
-        public bool updateCapacity(byte[] id, uint newCapacity, Address nextPkHash, byte[] sigPubKey, byte[] sig, IxiNumber fee)
+        public bool updateCapacity(byte[] id, uint newCapacity, Address nextPkHash, byte[] sigPubKey, byte[] sig, IxiNumber fee, ulong curBlockHeight)
         {
             RegisteredNameRecord r = getName(id);
             if (r == null)
@@ -825,7 +825,7 @@ namespace DLT.RegNames
                 Logging.warn("Registered name {0} doesn't exist, can't extend it.", Crypto.hashToString(id));
                 return false;
             }
-            var change = new RNE_UpdateCapacity(id, r.capacity, r.nextPkHash, r.signaturePk, r.signature, newCapacity, nextPkHash, sigPubKey, sig, fee);
+            var change = new RNE_UpdateCapacity(id, r.capacity, r.nextPkHash, r.signaturePk, r.signature, r.updatedBlockHeight, newCapacity, nextPkHash, sigPubKey, sig, curBlockHeight, fee);
             if (!change.apply())
             {
                 return false;
@@ -838,12 +838,12 @@ namespace DLT.RegNames
             return true;
         }
 
-        public bool toggleAllowSubname(RegNameToggleAllowSubnames rnSub)
+        public bool toggleAllowSubname(RegNameToggleAllowSubnames rnSub, ulong curBlockHeight)
         {
-            return toggleAllowSubname(rnSub.name, rnSub.allowSubnames, rnSub.fee, rnSub.feeRecipientAddress, rnSub.nextPkHash, rnSub.signaturePk, rnSub.signature);
+            return toggleAllowSubname(rnSub.name, rnSub.allowSubnames, rnSub.fee, rnSub.feeRecipientAddress, rnSub.nextPkHash, rnSub.signaturePk, rnSub.signature, curBlockHeight);
         }
 
-        public bool toggleAllowSubname(byte[] id, bool allowSubnames, IxiNumber subNameFee, Address feeRecipientAddress, Address nextPkHash, byte[] sigPubKey, byte[] sig)
+        public bool toggleAllowSubname(byte[] id, bool allowSubnames, IxiNumber subNameFee, Address feeRecipientAddress, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong curBlockHeight)
         {
             RegisteredNameRecord r = getName(id);
             if (r == null)
@@ -851,7 +851,7 @@ namespace DLT.RegNames
                 Logging.warn("Registered name {0} doesn't exist, can't toggle allow subname.", Crypto.hashToString(id));
                 return false;
             }
-            var change = new RNE_ToggleAllowSubname(r, allowSubnames, subNameFee, feeRecipientAddress, nextPkHash, sigPubKey, sig);
+            var change = new RNE_ToggleAllowSubname(r, allowSubnames, subNameFee, feeRecipientAddress, nextPkHash, sigPubKey, sig, curBlockHeight);
             if (!change.apply())
             {
                 return false;
@@ -864,12 +864,12 @@ namespace DLT.RegNames
             return true;
         }
 
-        public bool recoverName(RegNameRecover rnr)
+        public bool recoverName(RegNameRecover rnr, ulong curBlockHeight)
         {
-            return recoverName(rnr.name, rnr.nextPkHash, rnr.newRecoveryHash, rnr.signaturePk, rnr.signature);
+            return recoverName(rnr.name, rnr.nextPkHash, rnr.newRecoveryHash, rnr.signaturePk, rnr.signature, curBlockHeight);
         }
 
-        public bool recoverName(byte[] id, Address nextPkHash, Address newRecoveryHash, byte[] sigPubKey, byte[] signature)
+        public bool recoverName(byte[] id, Address nextPkHash, Address newRecoveryHash, byte[] sigPubKey, byte[] signature, ulong curBlockHeight)
         {
             RegisteredNameRecord r = getName(id);
             if (r == null)
@@ -877,7 +877,7 @@ namespace DLT.RegNames
                 Logging.warn("Registered name {0} doesn't exist, can't recover it.", Crypto.hashToString(id));
                 return false;
             }
-            var change = new RNE_Recover(id, r.recoveryHash, r.nextPkHash, r.signaturePk, r.signature, newRecoveryHash, nextPkHash, sigPubKey, signature);
+            var change = new RNE_Recover(id, r.recoveryHash, r.nextPkHash, r.signaturePk, r.signature, r.updatedBlockHeight, newRecoveryHash, nextPkHash, sigPubKey, signature, curBlockHeight);
             if (!change.apply())
             {
                 return false;
@@ -940,8 +940,8 @@ namespace DLT.RegNames
                 return null;
             }
 
-            rnr.setRecords(mergedRecords, sequence, nextPkHash, null, null); ;
-            return rnr.calculateChecksum();
+            rnr.setRecords(mergedRecords, sequence, nextPkHash, null, null, 0);
+            return rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
         }
 
         public byte[] calculateRegNameChecksumForRecovery(byte[] id, Address recoveryHash, ulong sequence, Address nextPkHash)
@@ -952,11 +952,11 @@ namespace DLT.RegNames
                 return null;
             }
 
-            rnr.setRecoveryHash(recoveryHash, sequence, nextPkHash, null, null);
-            return rnr.calculateChecksum();
+            rnr.setRecoveryHash(recoveryHash, sequence, nextPkHash, null, null, 0);
+            return rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
         }
 
-        public bool verifyTransaction(Transaction tx)
+        public bool verifyTransaction(Transaction tx, IxiNumber minPricePerUnit = null)
         {
             Logging.trace("Verifying RN Tx: {0}", tx.getTxIdString());
 
@@ -996,13 +996,13 @@ namespace DLT.RegNames
             switch(rni)
             {
                 case RegNameInstruction.register:
-                    if (!verifyRegisterTransaction(tx))
+                    if (!verifyRegisterTransaction(tx, minPricePerUnit))
                     {
                         return false;
                     }
                     break;
                 case RegNameInstruction.extend:
-                    if (!verifyExtendTransaction(tx))
+                    if (!verifyExtendTransaction(tx, minPricePerUnit))
                     {
                         return false;
                     }
@@ -1014,7 +1014,7 @@ namespace DLT.RegNames
                     }
                     break;
                 case RegNameInstruction.changeCapacity:
-                    if (!verifyChangeCapacityTransaction(tx))
+                    if (!verifyChangeCapacityTransaction(tx, minPricePerUnit))
                     {
                         return false;
                     }
@@ -1036,7 +1036,7 @@ namespace DLT.RegNames
             return true;
         }
 
-        private bool verifyRegisterTransaction(Transaction tx)
+        private bool verifyRegisterTransaction(Transaction tx, IxiNumber minPricePerUnit)
         {
             ToEntry txOut = tx.toList.First().Value;
             byte[] txOutData = txOut.data;
@@ -1108,11 +1108,11 @@ namespace DLT.RegNames
 
             if ((rnReg.registrationTimeInBlocks % ConsensusConfig.rnMonthInBlocks) != 0)
             {
-                Logging.error("RN Transaction {0} tried to register name {1} with registration time that's not a factor of 2880.", tx.getTxIdString(), Crypto.hashToString(rnReg.name));
+                Logging.error("RN Transaction {0} tried to register name {1} with registration time that's not a factor of {2}.", tx.getTxIdString(), Crypto.hashToString(rnReg.name), ConsensusConfig.rnMonthInBlocks);
                 return false;
             }
 
-            IxiNumber minExpectedFee = calculateExpectedRegistrationFee(rnReg.registrationTimeInBlocks, rnReg.capacity);
+            IxiNumber minExpectedFee = calculateExpectedRegistrationFee(rnReg.registrationTimeInBlocks, rnReg.capacity, minPricePerUnit);
             if (txOut.amount < minExpectedFee)
             {
                 Logging.error("RN Transaction {0} tried to register name {1} with too low fee {2} < {3}.", tx.getTxIdString(), Crypto.hashToString(rnReg.name), txOut.amount, minExpectedFee);
@@ -1122,7 +1122,7 @@ namespace DLT.RegNames
             return true;
         }
 
-        private bool verifyExtendTransaction(Transaction tx)
+        private bool verifyExtendTransaction(Transaction tx, IxiNumber minPricePerUnit)
         {
             ToEntry txOut = tx.toList.First().Value;
             byte[] txOutData = txOut.data;
@@ -1149,7 +1149,7 @@ namespace DLT.RegNames
 
             if ((rnExt.extensionTimeInBlocks % ConsensusConfig.rnMonthInBlocks) != 0)
             {
-                Logging.error("RN Transaction {0} tried to extend name {1} with registration time that's not a factor of 2880.", tx.getTxIdString(), Crypto.hashToString(rnExt.name));
+                Logging.error("RN Transaction {0} tried to extend name {1} with registration time that's not a factor of {2}.", tx.getTxIdString(), Crypto.hashToString(rnExt.name), ConsensusConfig.rnMonthInBlocks);
                 return false;
             }
 
@@ -1170,7 +1170,7 @@ namespace DLT.RegNames
                 }
             }
 
-            IxiNumber minExpectedFee = calculateExpectedRegistrationFee(rnExt.extensionTimeInBlocks, rnr.capacity);
+            IxiNumber minExpectedFee = calculateExpectedRegistrationFee(rnExt.extensionTimeInBlocks, rnr.capacity, minPricePerUnit);
             if (txOut.amount < minExpectedFee)
             {
                 Logging.error("RN Transaction {0} tried to extend name {1} with too low fee {2} < {3}.", tx.getTxIdString(), Crypto.hashToString(rnExt.name), txOut.amount, minExpectedFee);
@@ -1180,7 +1180,7 @@ namespace DLT.RegNames
             return true;
         }
 
-        private bool verifyChangeCapacityTransaction(Transaction tx)
+        private bool verifyChangeCapacityTransaction(Transaction tx, IxiNumber minPricePerUnit)
         {
             ToEntry txOut = tx.toList.First().Value;
             byte[] txOutData = txOut.data;
@@ -1229,7 +1229,7 @@ namespace DLT.RegNames
                     }
                 }
 
-                IxiNumber minExpectedFee = calculateExpectedRegistrationFee((rnr.expirationBlockHeight - IxianHandler.getLastBlockHeight()), rnCap.newCapacity - rnr.capacity);
+                IxiNumber minExpectedFee = calculateExpectedRegistrationFee((rnr.expirationBlockHeight - IxianHandler.getLastBlockHeight()), rnCap.newCapacity - rnr.capacity, minPricePerUnit);
                 if (txOut.amount < minExpectedFee)
                 {
                     Logging.error("RN Transaction {0} tried to change capacity for name {1} with too low fee {2} < {3}.", tx.getTxIdString(), Crypto.hashToString(rnCap.name), txOut.amount, minExpectedFee);
@@ -1251,8 +1251,8 @@ namespace DLT.RegNames
                 return false;
             }
 
-            rnr.setCapacity(rnCap.newCapacity, rnCap.sequence, rnCap.nextPkHash, rnCap.signaturePk, rnCap.signature);
-            var rnrChecksum = rnr.calculateChecksum();
+            rnr.setCapacity(rnCap.newCapacity, rnCap.sequence, rnCap.nextPkHash, rnCap.signaturePk, rnCap.signature, 0);
+            var rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
             if (!CryptoManager.lib.verifySignature(rnrChecksum, rnCap.signaturePk, rnCap.signature))
             {
@@ -1293,8 +1293,8 @@ namespace DLT.RegNames
                 return false;
             }
 
-            rnr.setAllowSubnames(rnSub.allowSubnames, rnSub.fee, rnSub.feeRecipientAddress, rnSub.sequence, rnSub.nextPkHash, rnSub.signaturePk, rnSub.signature);
-            var rnrChecksum = rnr.calculateChecksum();
+            rnr.setAllowSubnames(rnSub.allowSubnames, rnSub.fee, rnSub.feeRecipientAddress, rnSub.sequence, rnSub.nextPkHash, rnSub.signaturePk, rnSub.signature, 0);
+            var rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
             if (!CryptoManager.lib.verifySignature(rnrChecksum, rnSub.signaturePk, rnSub.signature))
             {
@@ -1362,8 +1362,8 @@ namespace DLT.RegNames
                 return false;
             }
 
-            rnr.setRecoveryHash(rnRec.newRecoveryHash, rnRec.sequence, rnRec.nextPkHash, rnRec.signaturePk, rnRec.signature);
-            var rnrChecksum = rnr.calculateChecksum();
+            rnr.setRecoveryHash(rnRec.newRecoveryHash, rnRec.sequence, rnRec.nextPkHash, rnRec.signaturePk, rnRec.signature, 0);
+            var rnrChecksum = rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
 
             if (!CryptoManager.lib.verifySignature(rnrChecksum, rnRec.signaturePk, rnRec.signature))
             {
@@ -1374,13 +1374,13 @@ namespace DLT.RegNames
             return true;
         }
 
-        private IxiNumber calculateExpectedRegistrationFee(ulong extensionTimeInBlocks, uint capacity, IxiNumber subnamePrice = null)
+        public IxiNumber calculateExpectedRegistrationFee(ulong extensionTimeInBlocks, uint capacity, IxiNumber pricePerUnit = null)
         {
-            if (subnamePrice == null)
+            if (pricePerUnit == null)
             {
-                subnamePrice = ConsensusConfig.rnMinPricePerUnit;
+                pricePerUnit = ConsensusConfig.rnMinPricePerUnit;
             }
-            return (extensionTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * capacity * subnamePrice;
+            return (extensionTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * capacity * pricePerUnit;
         }
 
         private IEnumerable<RegisteredNameRecord> getAlteredRegNamesSinceRNJTX(ulong transactionId)
@@ -1416,7 +1416,7 @@ namespace DLT.RegNames
                 List<byte[]> hashes = new();
                 foreach (var name in alteredNames)
                 {
-                    hashes.Add(name.calculateChecksum());
+                    hashes.Add(name.calculateChecksum(RegNameRecordByteTypes.forMerkle));
                 }
                 var merkleRoot = IxiUtils.calculateMerkleRoot(hashes);
                 if (merkleRoot == null)
@@ -1456,19 +1456,19 @@ namespace DLT.RegNames
                     break;
                 case RegNameInstruction.extend:
                     RegNameExtend rnExt = new RegNameExtend(txOutData);
-                    isApplySuccess = extendName(rnExt, txOut.amount, out expirationBlockHeight);
+                    isApplySuccess = extendName(rnExt, txOut.amount, curBlockHeight, out expirationBlockHeight);
                     break;
                 case RegNameInstruction.recover:
                     RegNameRecover rnRec = new RegNameRecover(txOutData);
-                    isApplySuccess = recoverName(rnRec);
+                    isApplySuccess = recoverName(rnRec, curBlockHeight);
                     break;
                 case RegNameInstruction.changeCapacity:
                     RegNameChangeCapacity rnCap = new RegNameChangeCapacity(txOutData);
-                    isApplySuccess = updateCapacity(rnCap, txOut.amount);
+                    isApplySuccess = updateCapacity(rnCap, txOut.amount, curBlockHeight);
                     break;
                 case RegNameInstruction.toggleAllowSubnames:
                     RegNameToggleAllowSubnames rnSub = new RegNameToggleAllowSubnames(txOutData);
-                    isApplySuccess = toggleAllowSubname(rnSub);
+                    isApplySuccess = toggleAllowSubname(rnSub, curBlockHeight);
                     break;
                 case RegNameInstruction.updateRecord:
                     RegNameUpdateRecord rnUpd;
@@ -1481,7 +1481,7 @@ namespace DLT.RegNames
                         Logging.error("Exception occured while parsing RegName transaciton data: {0}", e);
                         return (false, rni);
                     }
-                    isApplySuccess = updateRecords(rnUpd);
+                    isApplySuccess = updateRecords(rnUpd, curBlockHeight);
                     break;
             }
             return (isApplySuccess, rni);

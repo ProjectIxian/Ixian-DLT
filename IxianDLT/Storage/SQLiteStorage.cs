@@ -67,6 +67,13 @@ namespace DLT
                 public long signerDifficulty { get; set; }
                 public string totalFee { get; set; }
                 public byte[] regNameStateChecksum { get; set; }
+                public string totalSignerDifficulty { get; set; }
+            }
+
+            public class _storage_Block_TotalSignerDifficulty
+            {
+                public byte[] blockChecksum { get; set; }
+                public string totalSignerDifficulty { get; set; }
             }
 
             public class _storage_Transaction
@@ -196,7 +203,7 @@ namespace DLT
                             // Create the blocks table
                             try
                             {
-                                string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, `lastSuperBlockChecksum` BLOB, `lastSuperBlockNum` INTEGER, `superBlockSegments` BLOB, `compactedSigs` INTEGER, `blockProposer` BLOB, `signerDifficulty` INTEGER, `totalFee` TEXT, `regNameStateChecksum` BLOB, PRIMARY KEY(`blockNum`));";
+                                string sql = "CREATE TABLE `blocks` (`blockNum`	INTEGER NOT NULL, `blockChecksum` BLOB, `lastBlockChecksum` BLOB, `walletStateChecksum`	BLOB, `sigFreezeChecksum` BLOB, `difficulty` INTEGER, `powField` BLOB, `transactions` TEXT, `signatures` TEXT, `timestamp` INTEGER, `version` INTEGER, `lastSuperBlockChecksum` BLOB, `lastSuperBlockNum` INTEGER, `superBlockSegments` BLOB, `compactedSigs` INTEGER, `blockProposer` BLOB, `signerDifficulty` INTEGER, `totalFee` TEXT, `regNameStateChecksum` BLOB, `totalSignerDifficulty` TEXT, PRIMARY KEY(`blockNum`));";
                                 executeSQL(connection, sql);
 
                                 sql = "CREATE TABLE `transactions` (`id` TEXT, `type` INTEGER, `amount` TEXT, `fee` TEXT, `toList` TEXT, `fromList` TEXT, `dataChecksum` BLOB, `data` BLOB, `blockHeight` INTEGER, `nonce` INTEGER, `timestamp` INTEGER, `checksum` BLOB, `signature` BLOB, `pubKey` BLOB, `applied` INTEGER, `version` INTEGER, PRIMARY KEY(`id`));";
@@ -275,6 +282,12 @@ namespace DLT
                         if (!tableInfo.Exists(x => x.Name == "regNameStateChecksum"))
                         {
                             string sql = "ALTER TABLE `blocks` ADD COLUMN `regNameStateChecksum` BLOB;";
+                            executeSQL(connection, sql);
+                        }
+
+                        if (!tableInfo.Exists(x => x.Name == "totalSignerDifficulty"))
+                        {
+                            string sql = "ALTER TABLE `blocks` ADD COLUMN `totalSignerDifficulty` TEXT;";
                             executeSQL(connection, sql);
                         }
 
@@ -435,6 +448,8 @@ namespace DLT
 
                 bool result = false;
 
+                string totalSignerDifficulty = block.getTotalSignerDifficulty().ToString();
+
                 // prepare superBlockSegments
                 List<byte> super_block_segments = new List<byte>();
                 if (block.lastSuperBlockChecksum != null)
@@ -450,8 +465,8 @@ namespace DLT
 
                     lock (superBlockStorageLock)
                     {
-                        string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`,`totalFee`,`regNameStateChecksum`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                        result = executeSQL(superBlocksSqlConnection, sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer,(long)block.signerBits, block.totalFee.ToString(), block.regNameStateChecksum);
+                        string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`,`totalFee`,`regNameStateChecksum`,`totalSignerDifficulty`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                        result = executeSQL(superBlocksSqlConnection, sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer,(long)block.signerBits, block.totalFee.ToString(), block.regNameStateChecksum, totalSignerDifficulty);
                     }
                 }
 
@@ -459,8 +474,8 @@ namespace DLT
                 {
                     seekDatabase(block.blockNum, true);
 
-                    string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`,`totalFee`,`regNameStateChecksum`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer, (long)block.signerBits, block.totalFee.ToString(), block.regNameStateChecksum);
+                    string sql = "INSERT OR REPLACE INTO `blocks`(`blockNum`,`blockChecksum`,`lastBlockChecksum`,`walletStateChecksum`,`sigFreezeChecksum`, `difficulty`, `powField`, `transactions`,`signatures`,`timestamp`,`version`,`lastSuperBlockChecksum`,`lastSuperBlockNum`,`superBlockSegments`,`compactedSigs`,`blockProposer`,`signerDifficulty`,`totalFee`,`regNameStateChecksum`,`totalSignerDifficulty`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                    result = executeSQL(sql, (long)block.blockNum, block.blockChecksum, block.lastBlockChecksum, block.walletStateChecksum, block.signatureFreezeChecksum, (long)block.difficulty, block.powField, transactions, signatures, block.timestamp, block.version, block.lastSuperBlockChecksum, (long)block.lastSuperBlockNum, super_block_segments.ToArray(), block.compactedSigs, block.blockProposer, (long)block.signerBits, block.totalFee.ToString(), block.regNameStateChecksum, totalSignerDifficulty);
                 }
 
                 if (result)
@@ -690,6 +705,11 @@ namespace DLT
                     block.totalFee = new IxiNumber(blk.totalFee);
                 }
 
+                if (blk.totalSignerDifficulty != null)
+                {
+                    block.totalSignerDifficulty = new IxiNumber(blk.totalSignerDifficulty);
+                }
+
                 try
                 {
                     
@@ -841,6 +861,49 @@ namespace DLT
                 Logging.trace("|- Local block #{0} read from storage took: {1}ms", blocknum, sw.Elapsed.TotalMilliseconds);
 
                 return getBlockFromStorageBlock(_storage_block[0]);
+            }
+
+            public override (byte[] blockChecksum, string totalSignerDifficulty) getBlockTotalSignerDifficulty(ulong blocknum)
+            {
+                if (blocknum < 1)
+                {
+                    return (null, null);
+                }
+
+                string sql = "select `blockChecksum`, `totalSignerDifficulty` from blocks where `blocknum` = ? LIMIT 1"; // AND `blocknum` < (SELECT MAX(`blocknum`) - 5 from blocks)
+
+                lock (storageLock)
+                {
+                    if (blocknum > getHighestBlockInStorage())
+                    {
+                        Logging.error("Tried to get block {0} but the highest block in storage is {1}", blocknum, getHighestBlockInStorage());
+                        return (null, null);
+                    }
+                    seekDatabase(blocknum, true);
+
+                    try
+                    {
+                        var result = sqlConnection.Query<_storage_Block_TotalSignerDifficulty>(sql, (long)blocknum);
+                        if (result == null)
+                        {
+                            return (null, null);
+                        }
+
+                        if (result.Count < 1)
+                        {
+                            return (null, null);
+                        }
+
+                        return (result[0].blockChecksum, result[0].totalSignerDifficulty);
+                    }
+                    catch (Exception e)
+                    {
+                        Logging.error("Exception has been thrown while executing SQL Query {0}. Exception message: {1}", sql, e);
+                        return (null, null);
+                    }
+                }
+
+                return (null, null);
             }
 
             public override Block getBlockByHash(byte[] hash)
