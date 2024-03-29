@@ -40,7 +40,7 @@ namespace DLTNode
 
         private class BlockNumRequest
         {
-            public string blockNum { get; set; }
+            public string num { get; set; }
 
 
         }
@@ -231,7 +231,7 @@ namespace DLTNode
                 {
                     BlockNumRequest blockNumRequest = JsonConvert.DeserializeObject<BlockNumRequest>(data.ToString());
 
-                    Dictionary<string, object> parameters = new Dictionary<string, object> { { "num", blockNumRequest.blockNum } };
+                    Dictionary<string, object> parameters = new Dictionary<string, object> { { "num", blockNumRequest.num } };
                     var responseData = onGetBlock(parameters);
 
                     WebSocketClientManager.ParsedMessage responseMessage = new WebSocketClientManager.ParsedMessage
@@ -274,7 +274,7 @@ namespace DLTNode
                 {
                     BlockNumRequest blockNumRequest = JsonConvert.DeserializeObject<BlockNumRequest>(data.ToString());
 
-                    Dictionary<string, object> parameters = new Dictionary<string, object> { { "num", blockNumRequest.blockNum } };
+                    Dictionary<string, object> parameters = new Dictionary<string, object> { { "num", blockNumRequest.num } };
                     var responseData = onGetFullBlock(parameters);
 
                     WebSocketClientManager.ParsedMessage responseMessage = new WebSocketClientManager.ParsedMessage

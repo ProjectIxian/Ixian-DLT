@@ -104,11 +104,13 @@ namespace DLT.Meta
 
                 string lastPong = Node.GetLastWebSocketPongTime() == DateTime.MinValue ? "N/A" : $"{(DateTime.UtcNow - Node.GetLastWebSocketPongTime()).TotalSeconds:F0}s ago";
                 int processedRequests = Node.GetWebSocketProcessedRequests();
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
 
                 writeLine("");
                 writeLine($" WebSocket Status:     {wsStatus}");
                 writeLine($" Last Pong:            {lastPong}");
                 writeLine($" Processed Requests:   {processedRequests}");
+                Console.ResetColor();
             }
         }
 
@@ -158,6 +160,12 @@ namespace DLT.Meta
             Console.ResetColor();
 
             writeLine(" {0}", (Config.version + " BETA ").PadLeft(59));
+
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+            writeLine(" {0}", ("IXIWSS Edition").PadLeft(58));
+            Console.ResetColor();
+
+
             writeLine(" {0}", ("http://localhost:" + Config.apiPort + "/"));
             writeLine("────────────────────────────────────────────────────────────");
 
@@ -209,10 +217,10 @@ namespace DLT.Meta
             }
 
             Console.Write(" Status:               ");
-                Console.ForegroundColor = ConsoleColor.Green;
+            Console.ForegroundColor = ConsoleColor.Green;
 
             string dltStatus = "active";
-                            // Console.ResetColor();
+            // Console.ResetColor();
 
             string dltStatusDetail = "";
 
