@@ -1357,7 +1357,14 @@ namespace DLT
             {
                 return SignerPowSolution.bitsToDifficulty(0x00000000000000FF);
             }
-            var difficulty = getRequiredSignerDifficulty(blockNum, true) / ((ulong)tb.getFrozenSignatureCount() * 7);
+            // TODO Default to 7 after block 4200000 and remove everything related to 15
+            uint minDiffRatio = 7;
+            if (blockNum < 4200000)
+            {
+                minDiffRatio = 15;
+            }
+            //
+            var difficulty = getRequiredSignerDifficulty(blockNum, true) / ((ulong)tb.getFrozenSignatureCount() * minDiffRatio);
             if (difficulty < ConsensusConfig.minBlockSignerPowDifficulty)
             {
                 difficulty = ConsensusConfig.minBlockSignerPowDifficulty;
