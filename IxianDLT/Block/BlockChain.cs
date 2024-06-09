@@ -648,7 +648,7 @@ namespace DLT
                 IxiNumber difficulty = SignerPowSolution.bitsToDifficulty(getRequiredSignerBits(blockNum));
                 if (adjustToRatio)
                 {
-                    difficulty = adjustSignerDifficultyToRatio(difficulty);
+                    difficulty = adjustSignerDifficultyToRatio(blockNum, difficulty);
                 }
                 return difficulty;
             }
@@ -670,13 +670,19 @@ namespace DLT
             }
             if (adjustToRatio)
             {
-                difficulty = adjustSignerDifficultyToRatio(difficulty);
+                difficulty = adjustSignerDifficultyToRatio(block.blockNum, difficulty);
             }
             return difficulty;
         }
         
-        private IxiNumber adjustSignerDifficultyToRatio(IxiNumber difficulty)
+        private IxiNumber adjustSignerDifficultyToRatio(ulong blockNum, IxiNumber difficulty)
         {
+            // TODO Remove whole if section after block 4200000
+            if (blockNum < 4200000)
+            {
+                return (difficulty * 51) / 100;
+            }
+            //
             return (difficulty * ConsensusConfig.networkSignerDifficultyConsensusRatio) / 100;
         }
 
@@ -733,7 +739,7 @@ namespace DLT
                 {
                     if (adjustToRatio)
                     {
-                        return adjustSignerDifficultyToRatio(cachedRequiredSignerDifficulty);
+                        return adjustSignerDifficultyToRatio(blockNum, cachedRequiredSignerDifficulty);
                     }
 
                     return cachedRequiredSignerDifficulty;
@@ -815,7 +821,7 @@ namespace DLT
 
                 if (adjustToRatio)
                 {
-                    newDifficulty = adjustSignerDifficultyToRatio(newDifficulty);
+                    newDifficulty = adjustSignerDifficultyToRatio(blockNum, newDifficulty);
                 }
 
                 return newDifficulty;
