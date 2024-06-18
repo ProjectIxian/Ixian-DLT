@@ -677,8 +677,8 @@ namespace DLT
         
         private IxiNumber adjustSignerDifficultyToRatio(ulong blockNum, IxiNumber difficulty)
         {
-            // TODO Remove whole if section after block 4200000
-            if (blockNum < 4200000)
+            // TODO Remove whole if section after block 4196000
+            if (blockNum < 4196000)
             {
                 return (difficulty * 51) / 100;
             }
@@ -1357,14 +1357,16 @@ namespace DLT
             {
                 return SignerPowSolution.bitsToDifficulty(0x00000000000000FF);
             }
-            // TODO Default to 7 after block 4200000 and remove everything related to 15
+            // TODO Default to 7 after block 4196000 and remove everything related to 15
             uint minDiffRatio = 7;
-            if (blockNum < 4200000)
+            ulong frozenSignatureCount = (ulong)ConsensusConfig.maximumBlockSigners;
+            if (blockNum < 4196000)
             {
                 minDiffRatio = 15;
+                frozenSignatureCount = (ulong)tb.getFrozenSignatureCount();
             }
             //
-            var difficulty = getRequiredSignerDifficulty(blockNum, true) / ((ulong)tb.getFrozenSignatureCount() * minDiffRatio);
+            var difficulty = getRequiredSignerDifficulty(blockNum, true) / (frozenSignatureCount * minDiffRatio);
             if (difficulty < ConsensusConfig.minBlockSignerPowDifficulty)
             {
                 difficulty = ConsensusConfig.minBlockSignerPowDifficulty;
