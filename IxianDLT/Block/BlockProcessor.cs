@@ -969,7 +969,7 @@ namespace DLT
                     // TODO perhaps move the bottom if section to onSuperBlockReceived
                     if((b.lastSuperBlockChecksum != null || b.blockNum == 1) && b.version >= BlockVer.v10)
                     {
-                        ulong expectedSignerBits = Node.blockChain.calculateRequiredSignerBits(false, b.version);
+                        ulong expectedSignerBits = Node.blockChain.calculateRequiredSignerBits(false, b.version, b.timestamp);
                         if (b.signerBits != expectedSignerBits)
                         {
                             Node.blockChain.clearCachedRequiredSignerDifficulty();
@@ -3107,7 +3107,7 @@ namespace DLT
                         }
 
                         // Calculate signer difficulty
-                        localNewBlock.signerBits = Node.blockChain.calculateRequiredSignerBits(false, localNewBlock.version);
+                        localNewBlock.signerBits = Node.blockChain.calculateRequiredSignerBits(false, localNewBlock.version, localNewBlock.timestamp);
                     }
                     else
                     {
@@ -3115,7 +3115,7 @@ namespace DLT
                         if (localNewBlock.blockNum == 1)
                         {
                             // Calculate signer difficulty
-                            localNewBlock.signerBits = Node.blockChain.calculateRequiredSignerBits(false, localNewBlock.version);
+                            localNewBlock.signerBits = Node.blockChain.calculateRequiredSignerBits(false, localNewBlock.version, localNewBlock.timestamp);
                         }
                     }
 

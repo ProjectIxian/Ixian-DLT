@@ -18,7 +18,6 @@ using IXICore.Network;
 using IXICore.RegNames;
 using IXICore.Utils;
 using System;
-using System.Collections.Generic;
 
 namespace DLTNode
 {
@@ -196,19 +195,9 @@ namespace DLTNode
             return BlockHeaderStorage.getBlockHeader(blockNum);
         }
 
-        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum)
+        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum, long curBlockTimestamp)
         {
             return 1;
-        }
-
-        public override byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] name, List<RegisteredNameDataRecord> dataRecords, ulong sequence, Address nextPkHash)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override byte[] calculateRegNameChecksumForRecovery(byte[] name, Address recoveryHash, ulong sequence, Address nextPkHash)
-        {
-            throw new NotImplementedException();
         }
 
         public override RegisteredNameRecord getRegName(byte[] name, bool useAbsoluteId)

@@ -15,23 +15,12 @@ using IXICore.Meta;
 using IXICore.Network;
 using IXICore.RegNames;
 using System;
-using System.Collections.Generic;
 
 namespace UnitTests
 {
     public class DummyIxianNode : IxianNode
     {
         public override bool addTransaction(Transaction tx, bool force_broadcast)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override byte[] calculateRegNameChecksumForRecovery(byte[] name, Address recoveryHash, ulong sequence, Address nextPkHash)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] name, List<RegisteredNameDataRecord> dataRecords, ulong sequence, Address nextPkHash)
         {
             throw new NotImplementedException();
         }
@@ -66,7 +55,7 @@ namespace UnitTests
             return Block.maxVersion;
         }
 
-        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum)
+        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum, long curBlockTimestamp)
         {
             throw new NotImplementedException();
         }

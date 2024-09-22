@@ -162,6 +162,17 @@ namespace DLTNode
                 response = onRegNameList();
             }
 
+            if (methodName.Equals("getRegName", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetRegName(parameters);
+            }
+
+            if (methodName.Equals("getRegNameDataRecords", StringComparison.OrdinalIgnoreCase))
+            {
+                response = onGetRegNameDataRecords(parameters);
+            }
+            
+
             if (response == null)
             {
                 return false;
@@ -352,6 +363,10 @@ namespace DLTNode
                 return new JsonResponse { result = null, error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Transaction not found." } };
             }
 
+            if (parameters.ContainsKey("hex"))
+            {
+                return new JsonResponse { result = Crypto.hashToString(t.getBytes(false, true)), error = null };
+            }
             return new JsonResponse { result = t.toDictionary(), error = null };
         }
 
@@ -522,99 +537,103 @@ namespace DLTNode
         {
             JsonError error = null;
 
-            // Show a list of reg names - capped to 50
             RegisteredNameRecord[] names = Node.regNameState.debugGetRegisteredNames();
-            List<Dictionary<string, object>> nameStates = new List<Dictionary<string, object>>();
-            foreach (RegisteredNameRecord rn in names)
+            return new JsonResponse { result = names, error = error };
+        }
+
+
+        public JsonResponse onGetRegName(Dictionary<string, object> parameters)
+        {
+            byte[] id = null;
+            if (parameters.ContainsKey("id"))
             {
-                Dictionary<string, object> nameData = new Dictionary<string, object>();
-                nameData.Add("name", Crypto.hashToString(rn.name));
-                nameData.Add("capacity", rn.capacity.ToString());
-                nameData.Add("expirationBlockHeight", rn.expirationBlockHeight.ToString());
-                nameData.Add("updatedBlockHeight", rn.updatedBlockHeight.ToString());
-                nameData.Add("allowSubnames", rn.allowSubnames.ToString());
-                nameData.Add("subnamePrice", rn.subnamePrice.ToString());
-
-                if (rn.subnameFeeRecipient != null)
-                {
-                    nameData.Add("subnameFeeRecipient", Crypto.hashToString(rn.subnameFeeRecipient.addressNoChecksum));
-                }
-                else
-                {
-                    nameData.Add("subnameFeeRecipient", "null");
-                }
-
-                if (rn.dataRecords != null)
-                {
-                    Dictionary<string, string> dataRecords = new Dictionary<string, string>();
-                    foreach (var dataRecord in rn.dataRecords)
-                    {
-                        var recordNameString = Crypto.hashToString(dataRecord.name);
-                        if (dataRecords.ContainsKey(recordNameString))
-                        {
-                            dataRecords[recordNameString] += "; " + dataRecord.ttl + ", " + Crypto.hashToString(dataRecord.data) + ", " + Crypto.hashToString(dataRecord.checksum);
-                        }
-                        else
-                        {
-                            dataRecords.Add(recordNameString, dataRecord.ttl + ", " + Crypto.hashToString(dataRecord.data) + ", " + Crypto.hashToString(dataRecord.checksum));
-                        }
-                    }
-                    nameData.Add("dataRecords", dataRecords);
-                }
-                else
-                {
-                    nameData.Add("dataRecords", "null");
-                }
-
-                if (rn.dataMerkleRoot != null)
-                {
-                    nameData.Add("dataMerkleRoot", Crypto.hashToString(rn.dataMerkleRoot));
-                }
-                else
-                {
-                    nameData.Add("dataMerkleRoot", "null");
-                }
-
-                if (rn.recoveryHash != null)
-                {
-                    nameData.Add("recoveryHash", Crypto.hashToString(rn.recoveryHash.addressNoChecksum));
-                }
-                else
-                {
-                    nameData.Add("recoveryHash", "null");
-                }
-
-                if (rn.nextPkHash != null)
-                {
-                    nameData.Add("nextPkHash", Crypto.hashToString(rn.nextPkHash.addressNoChecksum));
-                }
-                else
-                {
-                    nameData.Add("nextPkHash", "null");
-                }
-
-                if (rn.signaturePk != null)
-                {
-                    nameData.Add("signaturePk", Crypto.hashToString(rn.signaturePk));
-                }
-                else
-                {
-                    nameData.Add("signaturePk", "null");
-                }
-
-                if (rn.signature != null)
-                {
-                    nameData.Add("signature", Crypto.hashToString(rn.signature));
-                }
-                else
-                {
-                    nameData.Add("signature", "null");
-                }
-
-                nameStates.Add(nameData);
+                id = Crypto.stringToHash((string)parameters["id"]);
             }
 
-            return new JsonResponse { result = nameStates, error = error };
+            if (id == null && parameters.ContainsKey("name"))
+            {
+                string tmpName = (string)parameters["name"];
+                id = IxiNameUtils.encodeAndHashIxiName(tmpName);
+            }
+
+            if (id == null)
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'id' or 'name' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
+            bool useAbsoluteId = true;
+            if (parameters.ContainsKey("useAbsoluteId")
+                && ((string)parameters["useAbsoluteId"]).Equals("false", StringComparison.OrdinalIgnoreCase))
+            {
+                useAbsoluteId = false;
+            }
+
+            RegisteredNameRecord name = Node.regNameState.getName(id, useAbsoluteId);
+            if (name == null)
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY, message = "Name with 'id' " + Crypto.hashToString(id) + " does not exist." };
+                return new JsonResponse { result = null, error = error };
+            }
+
+            if (parameters.ContainsKey("asBytes")
+                && ((string)parameters["asBytes"]).Equals("true", StringComparison.OrdinalIgnoreCase))
+            {
+                return new JsonResponse { result = name.toBytes(RegNameRecordByteTypes.full), error = null };
+            }
+
+            return new JsonResponse { result = name, error = null };
+        }
+
+        public JsonResponse onGetRegNameDataRecords(Dictionary<string, object> parameters)
+        {
+            byte[] id = null;
+            if (parameters.ContainsKey("id"))
+            {
+                id = Crypto.stringToHash((string)parameters["id"]);
+            }
+
+            if (id == null && parameters.ContainsKey("name"))
+            {
+                string tmpName = (string)parameters["name"];
+                id = IxiNameUtils.encodeAndHashIxiName(tmpName);
+            }
+
+            if (id == null)
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_PARAMETER, message = "Parameter 'id' or 'name' is missing" };
+                return new JsonResponse { result = null, error = error };
+            }
+
+            bool useAbsoluteId = true;
+            if (parameters.ContainsKey("useAbsoluteId")
+                && ((string)parameters["useAbsoluteId"]).Equals("false", StringComparison.OrdinalIgnoreCase))
+            {
+                useAbsoluteId = false;
+            }
+
+            RegisteredNameRecord name = Node.regNameState.getName(id, useAbsoluteId);
+            if (name == null)
+            {
+                JsonError error = new JsonError { code = (int)RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY, message = "Name with 'id' " + Crypto.hashToString(id) + " does not exist." };
+                return new JsonResponse { result = null, error = error };
+            }
+
+            List<object> outputRecords = new();
+            foreach (var record in name.getDataRecords(null))
+            {
+                if (parameters.ContainsKey("asBytes")
+                    && ((string)parameters["asBytes"]).Equals("true", StringComparison.OrdinalIgnoreCase))
+                {
+                    outputRecords.Add(record.toBytes(true));
+                } else
+                {
+                    outputRecords.Add(record);
+                }
+            }
+
+
+            return new JsonResponse { result = outputRecords, error = null };
         }
 
         public JsonResponse onPl()

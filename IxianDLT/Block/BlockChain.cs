@@ -22,7 +22,7 @@ using System.Linq;
 
 namespace DLT
 {
-    class BlockChain
+    public class BlockChain
     {
         List<Block> blocks = new List<Block>((int)ConsensusConfig.getRedactedWindowSize());
 
@@ -210,7 +210,10 @@ namespace DLT
                     blocks.Add(b);
                     blocksDictionary.Add(b.blockNum, b);
                     blockCount = blocks.Count;
-                    Node.storage.insertBlock(b);
+                    if (add_to_storage)
+                    {
+                        Node.storage.insertBlock(b);
+                    }
                     return true;
                 }
 
@@ -637,11 +640,11 @@ namespace DLT
             }
         }
 
-        public IxiNumber getRequiredSignerDifficulty(ulong blockNum, bool adjustToRatio)
+        public IxiNumber getRequiredSignerDifficulty(ulong blockNum, bool adjustToRatio, long curBlockTimestamp)
         {
             if (blockNum > lastBlockNum && blockNum % ConsensusConfig.superblockInterval == 0)
             {
-                return calculateRequiredSignerDifficulty(adjustToRatio, lastBlockVersion);
+                return calculateRequiredSignerDifficulty(adjustToRatio, lastBlockVersion, curBlockTimestamp);
             }
             else
             {
@@ -677,12 +680,6 @@ namespace DLT
         
         private IxiNumber adjustSignerDifficultyToRatio(ulong blockNum, IxiNumber difficulty)
         {
-            // TODO Remove whole if section after block 4196000
-            if (blockNum < 4196000)
-            {
-                return (difficulty * 51) / 100;
-            }
-            //
             return (difficulty * ConsensusConfig.networkSignerDifficultyConsensusRatio) / 100;
         }
 
@@ -713,9 +710,9 @@ namespace DLT
             return lastSuperBlock.signerBits;
         }
 
-        public ulong calculateRequiredSignerBits(bool adjustToRatio, int blockVersion)
+        public ulong calculateRequiredSignerBits(bool adjustToRatio, int blockVersion, long curBlockTimestamp)
         {
-            return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio, blockVersion));
+            return SignerPowSolution.difficultyToBits(calculateRequiredSignerDifficulty(adjustToRatio, blockVersion, curBlockTimestamp));
         }
 
         public void clearCachedRequiredSignerDifficulty()
@@ -727,13 +724,14 @@ namespace DLT
             }
         }
 
-        public IxiNumber calculateRequiredSignerDifficulty(bool adjustToRatio, int blockVersion)
+        public IxiNumber calculateRequiredSignerDifficulty(bool adjustToRatio, int blockVersion, long curBlockTimestamp)
         {
-            ulong blockNum = getLastBlockNum() + 1;
-            ulong blockOffset = 7;
-            if (blockNum < blockOffset + 1) return ConsensusConfig.minBlockSignerPowDifficulty; // special case for first X blocks - since sigFreeze happens n-5 blocks
             lock (blocks)
             {
+                ulong blockNum = getLastBlockNum() + 1;
+                ulong blockOffset = 7;
+                if (blockNum < blockOffset + 1) return ConsensusConfig.minBlockSignerPowDifficulty; // special case for first X blocks - since sigFreeze happens n-5 blocks
+                
                 if (cachedRequiredSignerDifficultyBlockNum == blockNum
                     && cachedRequiredSignerDifficulty != 0)
                 {
@@ -745,53 +743,15 @@ namespace DLT
                     return cachedRequiredSignerDifficulty;
                 }
 
-                IxiNumber totalDifficulty = 0;
-                ulong blockCount = 0;
-                ulong blocksToUseForDifficultyCalculation = ConsensusConfig.superblockInterval;
-                if (blockVersion >= BlockVer.v11)
+                IxiNumber newDifficulty;
+                if (blockVersion < BlockVer.v12)
                 {
-                    // Increase number of blocks to use for difficulty from superblockInterval (1000) to blocksToUseForAverageDifficultyCalculation (40000)
-                    blocksToUseForDifficultyCalculation = ConsensusConfig.blocksToUseForAverageDifficultyCalculation;
+                    newDifficulty = calculateRequiredSignerDifficulty_v1(blockVersion);
                 }
-
-                for (ulong i = 0; i < blocksToUseForDifficultyCalculation; i++)
+                else
                 {
-                    ulong consensusBlockNum = blockNum - i - blockOffset;
-                    IxiNumber blockTotalSignerDifficulty = getBlockTotalSignerDifficulty(consensusBlockNum);
-                    if (blockTotalSignerDifficulty == null)
-                    {
-                        break;
-                    }
-
-                    // Fixes v10 regression bug which calculated an average from last 30 blocks.
-                    if (blockVersion >= BlockVer.v11
-                        || i + blockOffset <= 30)
-                    {
-                        totalDifficulty += blockTotalSignerDifficulty;
-                    }
-
-                    blockCount++;
+                    newDifficulty = calculateRequiredSignerDifficulty_v2(curBlockTimestamp);
                 }
-
-                if (blockVersion >= BlockVer.v11 && blockCount != blocksToUseForDifficultyCalculation)
-                {
-                    if (blockNum > blocksToUseForDifficultyCalculation
-                        || (blockNum - blockOffset != blockCount))
-                    {
-                        throw new Exception(String.Format("An error occured while calculating required signer difficulty for block #{0}. Actual block samples different than expected: {1} != {2}", blockNum, blockCount, blocksToUseForDifficultyCalculation));
-                    }
-                }
-
-                if (blockCount == 0)
-                {
-                    return ConsensusConfig.minBlockSignerPowDifficulty;
-                }
-
-                if (blockNum < blocksToUseForDifficultyCalculation)
-                {
-                    blockCount = blocksToUseForDifficultyCalculation;
-                }
-                IxiNumber newDifficulty = totalDifficulty / blockCount;
 
                 // Limit to max *2, /2
                 if (lastSuperBlock != null && lastSuperBlock.signerBits > 0)
@@ -823,9 +783,148 @@ namespace DLT
                 {
                     newDifficulty = adjustSignerDifficultyToRatio(blockNum, newDifficulty);
                 }
-
                 return newDifficulty;
-            }            
+            }
+        }
+
+        // Block-based DAA
+        private IxiNumber calculateRequiredSignerDifficulty_v1(int blockVersion)
+        {
+            ulong blockNum = getLastBlockNum() + 1;
+            ulong blockOffset = 7;
+            IxiNumber totalDifficulty = 0;
+            ulong blockCount = 0;
+            ulong blocksToUseForDifficultyCalculation = ConsensusConfig.superblockInterval;
+            if (blockVersion >= BlockVer.v11)
+            {
+                // Increase number of blocks to use for difficulty from superblockInterval (1000) to blocksToUseForAverageDifficultyCalculation (40000)
+                blocksToUseForDifficultyCalculation = ConsensusConfig.blocksToUseForAverageDifficultyCalculation;
+            }
+
+            for (ulong i = 0; i < blocksToUseForDifficultyCalculation; i++)
+            {
+                ulong consensusBlockNum = blockNum - i - blockOffset;
+                IxiNumber blockTotalSignerDifficulty = getBlockTotalSignerDifficulty(consensusBlockNum);
+                if (blockTotalSignerDifficulty == null)
+                {
+                    break;
+                }
+
+                // Fixes v10 regression bug which calculated an average from last 30 blocks.
+                if (blockVersion >= BlockVer.v11
+                    || i + blockOffset <= 30)
+                {
+                    totalDifficulty += blockTotalSignerDifficulty;
+                }
+
+                blockCount++;
+            }
+
+            if (blockVersion >= BlockVer.v11 && blockCount != blocksToUseForDifficultyCalculation)
+            {
+                if (blockNum > blocksToUseForDifficultyCalculation
+                    || (blockNum - blockOffset != blockCount))
+                {
+                    throw new Exception(String.Format("An error occured while calculating required signer difficulty for block #{0}. Actual block samples different than expected: {1} != {2}", blockNum, blockCount, blocksToUseForDifficultyCalculation));
+                }
+            }
+
+            if (blockCount == 0)
+            {
+                return ConsensusConfig.minBlockSignerPowDifficulty;
+            }
+
+            if (blockNum < blocksToUseForDifficultyCalculation)
+            {
+                blockCount = blocksToUseForDifficultyCalculation;
+            }
+            IxiNumber newDifficulty = totalDifficulty / blockCount;
+
+            return newDifficulty;
+        }
+
+        private Block findLastDifficultyChangedSuperBlock(ulong blockNum)
+        {
+            // Make sure that it's a superblock
+            if (blockNum % ConsensusConfig.superblockInterval != 0)
+            {
+                throw new Exception("Cannot find last difficulty changed super block, block number is not a superblock.");
+            }
+
+            // Edge case for initial blocks
+            if (blockNum == ConsensusConfig.superblockInterval)
+            {
+                return getSuperBlock(1);
+            }
+
+            Block sb = getSuperBlock(blockNum - ConsensusConfig.superblockInterval);
+            IxiNumber diff = getRequiredSignerDifficulty(sb, false);
+            while (sb.lastSuperBlockNum != 0)
+            {
+                if (diff != getRequiredSignerDifficulty(sb.lastSuperBlockNum, false, Clock.getNetworkTimestamp()))
+                {
+                    Logging.warn("DAA: Found diff block #{0}", sb.blockNum);
+                    return sb;
+                }
+                sb = getSuperBlock(sb.lastSuperBlockNum);
+            }
+            return sb;
+        }
+
+        // Time-based DAA
+        private IxiNumber calculateRequiredSignerDifficulty_v2(long curBlockTimestamp)
+        {
+            ulong blockNum = getLastBlockNum() + 1;
+            Logging.warn("DAA: Calculating diff for block #{0}", blockNum);
+            Block lastDiffChangeSuperblock = findLastDifficultyChangedSuperBlock(blockNum);
+            if (curBlockTimestamp - lastDiffChangeSuperblock.timestamp < ConsensusConfig.difficultyAdjustmentTimeInterval)
+            {
+                Logging.warn("DAA: Not enough time has passed to do the calculation, using same difficulty as on previous block.");
+                // Edge case for initial blocks
+                if (blockNum == ConsensusConfig.superblockInterval)
+                {
+                    return getRequiredSignerDifficulty(1, false, Clock.getNetworkTimestamp());
+                }
+
+                return getRequiredSignerDifficulty(blockNum - ConsensusConfig.superblockInterval, false, Clock.getNetworkTimestamp());
+            }
+
+            ulong blockOffset = 7;
+            IxiNumber totalDifficulty = 0;
+            ulong blockCount = 0;
+            ulong blocksToUseForDifficultyCalculation = blockNum - lastDiffChangeSuperblock.blockNum;
+
+            for (ulong i = 0; i < blocksToUseForDifficultyCalculation; i++)
+            {
+                ulong consensusBlockNum = blockNum - i - blockOffset;
+                Logging.warn("DAA: Using block #{0} for DAA calculation", consensusBlockNum);
+                IxiNumber blockTotalSignerDifficulty = getBlockTotalSignerDifficulty(consensusBlockNum);
+                if (blockTotalSignerDifficulty == null)
+                {
+                    break;
+                }
+
+                totalDifficulty += blockTotalSignerDifficulty;
+                blockCount++;
+            }
+
+            Logging.warn("DAA: Used {0} blocks for DAA calculation, expected {1}", blockCount, blocksToUseForDifficultyCalculation);
+            if (lastDiffChangeSuperblock.blockNum != 1 && blockCount != blocksToUseForDifficultyCalculation)
+            {
+                if ((blockNum - blockOffset) != blockCount)
+                {
+                    throw new Exception(String.Format("An error occured while calculating required signer difficulty for block #{0}. Actual block samples different than expected: {1} != {2}", blockNum, blockCount, blocksToUseForDifficultyCalculation));
+                }
+            }
+
+            if (blockCount == 0)
+            {
+                return ConsensusConfig.minBlockSignerPowDifficulty;
+            }
+
+            IxiNumber newDifficulty = totalDifficulty / blockCount;
+
+            return newDifficulty;
         }
 
         public byte[] getLastBlockChecksum()
@@ -1346,27 +1445,15 @@ namespace DLT
             }
         }
 
-        public IxiNumber getMinSignerPowDifficulty(ulong blockNum)
+        public IxiNumber getMinSignerPowDifficulty(ulong blockNum, long curBlockTimestamp)
         {
             if (Count < 8)
             {
                 return ConsensusConfig.minBlockSignerPowDifficulty;
             }
-            Block tb = getBlock(blockNum - 6, true, true);
-            if (tb == null)
-            {
-                return SignerPowSolution.bitsToDifficulty(0x00000000000000FF);
-            }
-            // TODO Default to 7 after block 4196000 and remove everything related to 15
             uint minDiffRatio = 7;
             ulong frozenSignatureCount = (ulong)ConsensusConfig.maximumBlockSigners;
-            if (blockNum < 4196000)
-            {
-                minDiffRatio = 15;
-                frozenSignatureCount = (ulong)tb.getFrozenSignatureCount();
-            }
-            //
-            var difficulty = getRequiredSignerDifficulty(blockNum, true) / (frozenSignatureCount * minDiffRatio);
+            var difficulty = getRequiredSignerDifficulty(blockNum, true, curBlockTimestamp) / (frozenSignatureCount * minDiffRatio);
             if (difficulty < ConsensusConfig.minBlockSignerPowDifficulty)
             {
                 difficulty = ConsensusConfig.minBlockSignerPowDifficulty;

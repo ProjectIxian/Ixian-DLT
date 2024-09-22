@@ -517,7 +517,7 @@ namespace DLT.Meta
             TimeSpan last_isolate_time_diff = DateTime.UtcNow - lastIsolateTime;
             if (blockChain.getTimeSinceLastBlock() > 900 && (last_isolate_time_diff.TotalSeconds < 0 || last_isolate_time_diff.TotalSeconds > 1800)) // if no block for over 900 seconds with cooldown of 1800 seconds
             {
-                CoreNetworkUtils.isolate();
+                CoreNetworkUtils.reconnect(false);
                 lastIsolateTime = DateTime.UtcNow;
             }
 
@@ -1168,19 +1168,9 @@ namespace DLT.Meta
             storage.insertBlock(b);
         }
 
-        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum)
+        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum, long curBlockTimestamp)
         {
-            return blockChain.getMinSignerPowDifficulty(blockNum);
-        }
-
-        public override byte[] calculateRegNameChecksumFromUpdatedDataRecords(byte[] name, List<RegisteredNameDataRecord> dataRecords, ulong sequence, Address nextPkHash)
-        {
-            return regNameState.calculateRegNameChecksumFromUpdatedDataRecords(name, dataRecords, sequence, nextPkHash);
-        }
-
-        public override byte[] calculateRegNameChecksumForRecovery(byte[] name, Address recoveryHash, ulong sequence, Address nextPkHash)
-        {
-            return regNameState.calculateRegNameChecksumForRecovery(name, recoveryHash, sequence, nextPkHash);
+            return blockChain.getMinSignerPowDifficulty(blockNum, curBlockTimestamp);
         }
 
         public override RegisteredNameRecord getRegName(byte[] name, bool useAbsoluteId = true)

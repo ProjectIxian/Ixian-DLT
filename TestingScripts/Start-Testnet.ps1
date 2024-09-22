@@ -286,7 +286,7 @@ Write-Host "Working directory: $($wd)"
 Write-Host "Loading required assemblies..."
 [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
 
-$srcDir = "..\IxianDLT\bin\$($ClientBinary)\net6.0"
+$srcDir = "..\IxianDLT\bin\$($ClientBinary)\net8.0"
 $dstPaths = New-Object System.Collections.ArrayList
 
 $ClientAddresses = @{}

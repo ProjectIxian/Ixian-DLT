@@ -12,6 +12,6 @@ make clean
 echo Building Argon2
 make
 echo Copying Argon2 library to release directory
-cp libargon2.so.1 ../IxianDLT/bin/Release/net6.0/libargon2.so
+cp libargon2.so.1 ../IxianDLT/bin/Release/net8.0/libargon2.so
 cd ..
 echo Done rebuilding Ixian DLT

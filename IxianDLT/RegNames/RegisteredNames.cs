@@ -396,7 +396,7 @@ namespace DLT.RegNames
                     return false;
                 }
 
-                List<RegisteredNameDataRecord> curRecords = mergeDataRecords(id, rnr.getDataRecords(null), updateRecords, rnr.allowSubnames);
+                List<RegisteredNameDataRecord> curRecords = RegisteredNamesTransactions.mergeDataRecords(id, rnr.getDataRecords(null), updateRecords, rnr.allowSubnames);
                 if (curRecords == null)
                 {
                     return false;
@@ -427,68 +427,6 @@ namespace DLT.RegNames
                 cachedChecksum = null;
                 return true;
             }
-        }
-
-        private List<RegisteredNameDataRecord> mergeDataRecords(byte[] id, List<RegisteredNameDataRecord> curRecords, List<RegisteredNameDataRecord> updateRecords, bool allowSubnames)
-        {
-            foreach (var record in updateRecords)
-            {
-                if (record.checksum != null) // update or delete
-                {
-                    var index = curRecords.FindIndex(x => x.checksum.SequenceEqual(record.checksum));
-                    if (index == -1)
-                    {
-                        Logging.error("Cannot update/delete record, existing record with checksum {0} doesn't exist for registered name {1}.", Crypto.hashToString(record.checksum), Crypto.hashToString(id));
-                        return null;
-                    }
-
-                    if (record.data == null) // delete
-                    {
-                        curRecords.RemoveAt(index);
-                    }
-                    else  // update
-                    {
-                        // checksum received was for a previous record, so recalculate
-                        var newRecord = new RegisteredNameDataRecord(record);
-                        newRecord.recalculateChecksum();
-
-                        if (curRecords.FindIndex(x => x.checksum.SequenceEqual(newRecord.checksum)) > -1)
-                        {
-                            Logging.error("Cannot update record, record with checksum {0} already exists for registered name {1}.", Crypto.hashToString(newRecord.checksum), Crypto.hashToString(id));
-                            return null;
-                        }
-
-                        curRecords[index] = newRecord;
-                    }
-                }
-                else // new
-                {
-                    // no checksum on the record yet, so recalculate
-                    var newRecord = new RegisteredNameDataRecord(record);
-                    if (newRecord.data == null)
-                    {
-                        Logging.error("Cannot add record {0} because data is null for registered name {1}.", Crypto.hashToString(record.name), Crypto.hashToString(id));
-                        return null;
-                    }
-
-                    if (allowSubnames && (newRecord.name.Length != 1 || newRecord.name[0] != '@'))
-                    {
-                        Logging.error("Cannot add record {0} because data is null for registered name {1}.", Crypto.hashToString(record.name), Crypto.hashToString(id));
-                        return null;
-                    }
-
-                    newRecord.recalculateChecksum();
-
-                    if (curRecords.FindIndex(x => x.checksum.SequenceEqual(newRecord.checksum)) > -1)
-                    {
-                        Logging.error("Cannot Add record, record with checksum {0} already exists for registered name {1}.", Crypto.hashToString(newRecord.checksum), Crypto.hashToString(id));
-                        return null;
-                    }
-
-                    curRecords.Add(newRecord);
-                }
-            }
-            return curRecords;
         }
 
         private bool setNameRecordsInternal(byte[] id, List<RegisteredNameDataRecord> records, Address nextPkHash, byte[] sigPubKey, byte[] sig, ulong updateBlockHeight, bool reverting)
@@ -934,14 +872,7 @@ namespace DLT.RegNames
                 return null;
             }
 
-            var mergedRecords = mergeDataRecords(id, rnr.getDataRecords(null), dataRecords, rnr.allowSubnames);
-            if (mergedRecords == null)
-            {
-                return null;
-            }
-
-            rnr.setRecords(mergedRecords, sequence, nextPkHash, null, null, 0);
-            return rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
+            return RegisteredNamesTransactions.calculateRegNameChecksumFromUpdatedDataRecords(rnr, id, dataRecords, sequence, nextPkHash);
         }
 
         public byte[] calculateRegNameChecksumForRecovery(byte[] id, Address recoveryHash, ulong sequence, Address nextPkHash)
@@ -952,8 +883,7 @@ namespace DLT.RegNames
                 return null;
             }
 
-            rnr.setRecoveryHash(recoveryHash, sequence, nextPkHash, null, null, 0);
-            return rnr.calculateChecksum(RegNameRecordByteTypes.forSignature);
+            return RegisteredNamesTransactions.calculateRegNameChecksumForRecovery(rnr, id, recoveryHash, sequence, nextPkHash);
         }
 
         public bool verifyTransaction(Transaction tx, IxiNumber minPricePerUnit = null)
@@ -1065,7 +995,7 @@ namespace DLT.RegNames
 
                 if (rnRecord.subnamePrice > 0)
                 {
-                    IxiNumber minSubnameFee = calculateExpectedRegistrationFee(rnReg.registrationTimeInBlocks, rnReg.capacity, rnRecord.subnamePrice);
+                    IxiNumber minSubnameFee = RegisteredNamesTransactions.calculateExpectedRegistrationFee(rnReg.registrationTimeInBlocks, rnReg.capacity, rnRecord.subnamePrice);
                     if (tx.toList.Count < 2
                         || tx.toList.Values.ElementAt(1).amount < minSubnameFee
                         || !tx.toList.Keys.ElementAt(1).addressNoChecksum.SequenceEqual(rnRecord.subnameFeeRecipient.addressNoChecksum))
@@ -1112,7 +1042,7 @@ namespace DLT.RegNames
                 return false;
             }
 
-            IxiNumber minExpectedFee = calculateExpectedRegistrationFee(rnReg.registrationTimeInBlocks, rnReg.capacity, minPricePerUnit);
+            IxiNumber minExpectedFee = RegisteredNamesTransactions.calculateExpectedRegistrationFee(rnReg.registrationTimeInBlocks, rnReg.capacity, minPricePerUnit);
             if (txOut.amount < minExpectedFee)
             {
                 Logging.error("RN Transaction {0} tried to register name {1} with too low fee {2} < {3}.", tx.getTxIdString(), Crypto.hashToString(rnReg.name), txOut.amount, minExpectedFee);
@@ -1159,7 +1089,7 @@ namespace DLT.RegNames
                 var topLevelName = topLevelNames.First();
                 if (topLevelName.subnamePrice > 0)
                 {
-                    IxiNumber minSubnameFee = calculateExpectedRegistrationFee(rnExt.extensionTimeInBlocks, rnr.capacity, topLevelName.subnamePrice);
+                    IxiNumber minSubnameFee = RegisteredNamesTransactions.calculateExpectedRegistrationFee(rnExt.extensionTimeInBlocks, rnr.capacity, topLevelName.subnamePrice);
                     if (tx.toList.Count < 2
                         || tx.toList.Values.ElementAt(1).amount < minSubnameFee
                         || !tx.toList.Keys.ElementAt(1).addressNoChecksum.SequenceEqual(topLevelName.subnameFeeRecipient.addressNoChecksum))
@@ -1170,7 +1100,7 @@ namespace DLT.RegNames
                 }
             }
 
-            IxiNumber minExpectedFee = calculateExpectedRegistrationFee(rnExt.extensionTimeInBlocks, rnr.capacity, minPricePerUnit);
+            IxiNumber minExpectedFee = RegisteredNamesTransactions.calculateExpectedRegistrationFee(rnExt.extensionTimeInBlocks, rnr.capacity, minPricePerUnit);
             if (txOut.amount < minExpectedFee)
             {
                 Logging.error("RN Transaction {0} tried to extend name {1} with too low fee {2} < {3}.", tx.getTxIdString(), Crypto.hashToString(rnExt.name), txOut.amount, minExpectedFee);
@@ -1218,7 +1148,7 @@ namespace DLT.RegNames
                     var topLevelName = topLevelNames.First();
                     if (topLevelName.subnamePrice > 0)
                     {
-                        IxiNumber minSubnameFee = calculateExpectedRegistrationFee((rnr.expirationBlockHeight - IxianHandler.getLastBlockHeight()), rnCap.newCapacity - rnr.capacity, topLevelName.subnamePrice);
+                        IxiNumber minSubnameFee = RegisteredNamesTransactions.calculateExpectedRegistrationFee((rnr.expirationBlockHeight - IxianHandler.getLastBlockHeight()), rnCap.newCapacity - rnr.capacity, topLevelName.subnamePrice);
                         if (tx.toList.Count < 2
                             || tx.toList.Values.ElementAt(1).amount < minSubnameFee
                             || !tx.toList.Keys.ElementAt(1).addressNoChecksum.SequenceEqual(topLevelName.subnameFeeRecipient.addressNoChecksum))
@@ -1229,7 +1159,7 @@ namespace DLT.RegNames
                     }
                 }
 
-                IxiNumber minExpectedFee = calculateExpectedRegistrationFee((rnr.expirationBlockHeight - IxianHandler.getLastBlockHeight()), rnCap.newCapacity - rnr.capacity, minPricePerUnit);
+                IxiNumber minExpectedFee = RegisteredNamesTransactions.calculateExpectedRegistrationFee((rnr.expirationBlockHeight - IxianHandler.getLastBlockHeight()), rnCap.newCapacity - rnr.capacity, minPricePerUnit);
                 if (txOut.amount < minExpectedFee)
                 {
                     Logging.error("RN Transaction {0} tried to change capacity for name {1} with too low fee {2} < {3}.", tx.getTxIdString(), Crypto.hashToString(rnCap.name), txOut.amount, minExpectedFee);
@@ -1374,14 +1304,6 @@ namespace DLT.RegNames
             return true;
         }
 
-        public IxiNumber calculateExpectedRegistrationFee(ulong extensionTimeInBlocks, uint capacity, IxiNumber pricePerUnit = null)
-        {
-            if (pricePerUnit == null)
-            {
-                pricePerUnit = ConsensusConfig.rnMinPricePerUnit;
-            }
-            return (extensionTimeInBlocks / ConsensusConfig.rnMonthInBlocks) * capacity * pricePerUnit;
-        }
 
         private IEnumerable<RegisteredNameRecord> getAlteredRegNamesSinceRNJTX(ulong transactionId)
         {

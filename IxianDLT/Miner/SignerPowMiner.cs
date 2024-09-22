@@ -212,7 +212,7 @@ namespace DLT
                 return;
             }
 
-            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1);
+            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1, Clock.getNetworkTimestamp());
 
             if (solvingDifficulty < 0)
             {
@@ -280,21 +280,8 @@ namespace DLT
             return curNonce;
         }
 
-        [ThreadStatic] private Random rnd = null;
-        private int rndInt = 10000 - new Random().Next(100);
         private void calculatePow()
         {
-            // TODO TODO Omega remove this, for testing purposes only
-            /*if (rnd == null)
-            {
-                rnd = new Random();
-            }
-            int rndNr = rnd.Next(10000);
-            if (rndNr > rndInt)
-            {
-                Thread.Sleep(10);
-            }*/
-
             // PoW = sha3_512sq(BlockNum + BlockChecksum + RecipientAddress + pubKeyHash + Nonce)
             byte[] nonce = randomNonce(64);
             if (activeBlockChallengeBlockNum != currentBlockNum)
