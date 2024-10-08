@@ -860,7 +860,9 @@ namespace DLT
                 return BlockVerifyStatus.PotentiallyForkedBlock;
             }
 
-            if (verify_sig)
+            ulong lastBlockNum = IxianHandler.getLastBlockHeight();
+
+            if (b.blockNum <= lastBlockNum + 1 && verify_sig)
             {
                 bool skip_sig_verification = false;
                 if(pendingSuperBlocks.Count() > 0 && pendingSuperBlocks.OrderBy(x=> x.Key).Last().Key > b.blockNum)
@@ -887,8 +889,6 @@ namespace DLT
                     return BlockVerifyStatus.Indeterminate;
                 }
             }
-
-            ulong lastBlockNum = IxianHandler.getLastBlockHeight();
 
             if (prevBlock == null && lastBlockNum > 1) // block not found but blockChain is not empty, request the missing blocks
             {
