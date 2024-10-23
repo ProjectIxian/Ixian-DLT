@@ -29,7 +29,7 @@ namespace DLT
         Block activeBlock = null;
         private ulong currentBlockNum = 0; // Mining block number
         public SignerPowSolution lastSignerPowSolution { get; private set; } = null;
-        private long startedSolvingTime = 0; // Started solving time
+        private ulong startedSolvingBlockHeight = 0; // Started solving time
         private IxiNumber solvingDifficulty = 0;
 
         public ulong lastHashRate { get; private set; } = 0; // Last reported hash rate
@@ -228,8 +228,10 @@ namespace DLT
                 return;
             }
 
+            ulong calculationInterval = ConsensusConfig.getPlPowCalculationInterval(IxianHandler.getLastBlockVersion());
+
             ulong highestNetworkBlockHeight = IxianHandler.getHighestKnownNetworkBlockHeight();
-            if (candidateBlock.blockNum + ConsensusConfig.plPowCalculationInterval < highestNetworkBlockHeight)
+            if (candidateBlock.blockNum + calculationInterval < highestNetworkBlockHeight)
             {
                 // Catching up to the network
                 return;
@@ -238,14 +240,14 @@ namespace DLT
             var submittedSolution = PresenceList.getPowSolution();
             if (lastSignerPowSolution != null
                 && Node.blockChain.getTimeSinceLastBlock() < 450
-                && lastSignerPowSolution.blockNum + ConsensusConfig.plPowCalculationInterval + ConsensusConfig.plPowMinCalculationBlockTime > highestNetworkBlockHeight
+                && lastSignerPowSolution.blockNum + calculationInterval > highestNetworkBlockHeight
                 && (submittedSolution != null && solvingDifficulty <= submittedSolution.difficulty))
             {
                 // If the chain isn't stuck and we've already processed PoW within the interval
                 return;
             }
 
-            startedSolvingTime = Clock.getTimestamp();
+            startedSolvingBlockHeight = IxianHandler.getLastBlockHeight();
 
             currentKeyPair = CryptoManager.lib.generateKeys(2048, 2); // TODO move to config with v11
             activeBlock = candidateBlock;
@@ -372,13 +374,13 @@ namespace DLT
                 ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
 
                 if (newSolution.difficulty <= solution.difficulty
-                    && solution.blockNum + ConsensusConfig.plPowBlocksValidity - ConsensusConfig.plPowMinCalculationBlockTime > lastBlockHeight
+                    && solution.blockNum + ConsensusConfig.getPlPowBlocksValidity(IxianHandler.getLastBlockVersion()) - ConsensusConfig.getPlPowMinCalculationBlockTime(IxianHandler.getLastBlockVersion()) > lastBlockHeight
                     && solution.difficulty > solvingDifficulty)
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
 
                     // Check if we're mining for at least X minutes and that the blockchain isn't stuck
-                    if (Clock.getTimestamp() - startedSolvingTime > ConsensusConfig.plPowMinCalculationTime
+                    if (IxianHandler.getHighestKnownNetworkBlockHeight() - startedSolvingBlockHeight > ConsensusConfig.getPlPowMinCalculationBlockTime(IxianHandler.getLastBlockVersion())
                         && Node.blockChain.getTimeSinceLastBlock() < 450) // TODO move 450 to CoreConfig
                     {
                         // Reset the blockReadyForMining, to stop mining on all threads

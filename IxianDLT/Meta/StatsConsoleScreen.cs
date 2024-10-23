@@ -116,7 +116,7 @@ namespace DLT.Meta
             int connectionsOut = NetworkClientManager.getConnectedClients(true).Count();
             int connectionsIn = NetworkServer.getConnectedClients().Count();
 
-
+            string url = Config.apiBinds.First();
 
             writeLine(" ██╗██╗  ██╗██╗ █████╗ ███╗   ██╗    ██████╗ ██╗  ████████╗ ");
             writeLine(" ██║╚██╗██╔╝██║██╔══██╗████╗  ██║    ██╔══██╗██║  ╚══██╔══╝ ");
@@ -125,7 +125,7 @@ namespace DLT.Meta
             writeLine(" ██║██╔╝ ██╗██║██║  ██║██║ ╚████║    ██████╔╝███████╗██║    ");
             writeLine(" ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝    ╚═════╝ ╚══════╝╚═╝    ");
             writeLine(" {0}", (Config.version + " BETA ").PadLeft(59));
-            writeLine(" {0}", ("http://localhost:" + Config.apiPort + "/"));
+            writeLine(" {0}", url);
             writeLine("────────────────────────────────────────────────────────────");
             if (update_avail)
             {

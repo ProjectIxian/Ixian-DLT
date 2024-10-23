@@ -300,11 +300,11 @@ namespace DLT
                     {
                         return bh.Value.totalSignerDifficulty;
                     }
-                    var hashAndTotalSignerDiff = Node.storage.getBlockTotalSignerDifficulty(blockNum);
-                    if (hashAndTotalSignerDiff.blockChecksum != null && hashAndTotalSignerDiff.totalSignerDifficulty != null)
+                    var hashAndSignerDiffs = Node.storage.getBlockTotalSignerDifficulty(blockNum);
+                    if (hashAndSignerDiffs.blockChecksum != null && hashAndSignerDiffs.totalSignerDifficulty != null)
                     {
-                        cacheBlockSignerDifficulty(blockNum, hashAndTotalSignerDiff.blockChecksum, new IxiNumber(hashAndTotalSignerDiff.totalSignerDifficulty));
-                        return hashAndTotalSignerDiff.totalSignerDifficulty;
+                        cacheBlockSignerDifficulty(blockNum, hashAndSignerDiffs.blockChecksum, new IxiNumber(hashAndSignerDiffs.totalSignerDifficulty));
+                        return hashAndSignerDiffs.totalSignerDifficulty;
                     }
                 }
             }
@@ -894,6 +894,12 @@ namespace DLT
             ulong blockCount = 0;
             ulong blocksToUseForDifficultyCalculation = blockNum - lastDiffChangeSuperblock.blockNum;
 
+            IxiNumber maxSingleBlockDifficulty = null;
+            if (lastDiffChangeSuperblock != null && lastDiffChangeSuperblock.signerBits > 0)
+            {
+                maxSingleBlockDifficulty = SignerPowSolution.bitsToDifficulty(lastDiffChangeSuperblock.signerBits) * 4;
+            }
+
             for (ulong i = 0; i < blocksToUseForDifficultyCalculation; i++)
             {
                 ulong consensusBlockNum = blockNum - i - blockOffset;
@@ -904,6 +910,12 @@ namespace DLT
                     break;
                 }
 
+                // Smooth-out difficulty spikes
+                if (maxSingleBlockDifficulty != null
+                    && blockTotalSignerDifficulty > maxSingleBlockDifficulty)
+                {
+                    blockTotalSignerDifficulty = maxSingleBlockDifficulty;
+                }
                 totalDifficulty += blockTotalSignerDifficulty;
                 blockCount++;
             }
@@ -922,7 +934,7 @@ namespace DLT
                 return ConsensusConfig.minBlockSignerPowDifficulty;
             }
 
-            IxiNumber newDifficulty = totalDifficulty / blockCount;
+            IxiNumber newDifficulty = totalDifficulty / ConsensusConfig.difficultyAdjustmentExpectedBlockCount;
 
             return newDifficulty;
         }

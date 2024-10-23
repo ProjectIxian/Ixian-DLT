@@ -209,16 +209,19 @@ namespace DLTNode
             blockData.Add("Compacted Sigs", block.compactedSigs.ToString());
             blockData.Add("Signature count", block.signatures.Count.ToString());
             blockData.Add("Required Signature count", Node.blockChain.getRequiredConsensusFromStorage(block.blockNum).ToString());
+
             var totalSignerDifficulty = Node.blockChain.getBlockTotalSignerDifficulty(block.blockNum);
             if (totalSignerDifficulty == null)
             {
                 totalSignerDifficulty = block.getTotalSignerDifficulty();
             }
             blockData.Add("Total Signer Difficulty", totalSignerDifficulty.ToString());
+
             if (block.version >= BlockVer.v10)
             {
                 blockData.Add("Required Signer Difficulty", Node.blockChain.getRequiredSignerDifficulty(block, true).ToString());
             }
+
             blockData.Add("Transaction count", block.transactions.Count.ToString());
             blockData.Add("Transaction amount", TransactionPool.getTotalTransactionsValueInBlock(block).ToString());
             blockData.Add("Total fees", block.totalFee.ToString());

@@ -101,14 +101,14 @@ namespace DLT
             public static ulong forceSyncToBlock = 0;
 
             // Read-only values
-            public static readonly string version = "xdc-0.9.2d"; // DLT Node version
+            public static readonly string version = "xdc-0.9.3-dev"; // DLT Node version
 
             public static readonly string checkVersionUrl = "https://www.ixian.io/update.txt";
             public static readonly int checkVersionSeconds = 6 * 60 * 60; // 6 hours
 
             public static readonly ulong maxBlocksPerDatabase = 1000; // number of blocks to store in a single database file
-
-            public static readonly ulong nodeDeprecationBlock = 4600000 + (ulong)(new Random()).Next(50); // block height on which this version of Ixian DLT stops working on
+            
+            public static readonly ulong nodeDeprecationBlock = 5000000 + (ulong)(new Random()).Next(50); // block height on which this version of Ixian DLT stops working on
 
             public static readonly ulong saveWalletStateEveryBlock = ConsensusConfig.superblockInterval; // Saves wallet state every 1000 blocks
 
@@ -131,7 +131,7 @@ namespace DLT
             // internal
             public static bool changePass = false;
 
-            public static int maxBlockVersionToGenerate = 11;
+            public static int maxBlockVersionToGenerate = BlockVer.v12;
 
             /// <summary>
             /// Command to execute when a new block is accepted.

@@ -188,7 +188,6 @@ namespace DLT
                                         if (timeSinceLastBlock.TotalSeconds > (blockGenerationInterval * 4) + randomInt / 100) // no block for 4 block times + random seconds, we don't want all nodes sending at once
                                         {
                                             generateNextBlock = true;
-                                            block_version = Node.blockChain.getLastBlockVersion();
                                         }
                                         else
                                         {
@@ -214,7 +213,6 @@ namespace DLT
                                     blacklistBlock(localNewBlock);
                                     localNewBlock = null;
                                     lastBlockStartTime = DateTime.UtcNow.AddSeconds(-blockGenerationInterval * 10);
-                                    block_version = Node.blockChain.getLastBlockVersion();
                                     sleep = true;
                                     if (forkedFlag)
                                     {
@@ -769,15 +767,15 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true, RemoteEndpoint endpoint = null)
         {
-            // TODO omega remove bottom if section after v11 upgrade
+            // TODO omega remove bottom if section after v12 upgrade
             if (!IxianHandler.isTestNet)
             {
-                // upgrade to v11 at exactly block 4100000
-                if (b.blockNum < 4100000 && b.version >= BlockVer.v11)
+                // upgrade to v12 at exactly block 4650000
+                if (b.blockNum < 4650000 && b.version >= BlockVer.v12)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
-                if (b.blockNum >= 4100000 && b.version < BlockVer.v11)
+                if (b.blockNum >= 4650000 && b.version < BlockVer.v12)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
@@ -1746,7 +1744,8 @@ namespace DLT
             if (block.blockNum > 6 && block.version >= BlockVer.v5)
             {
                 int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum);
-                if (frozen_sig_count < required_consensus_count)
+                if (frozen_sig_count < required_consensus_count
+                    && !isBlockchainRecoveryMode(block.blockNum, block.timestamp, frozen_sig_count))
                 {
                     //Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
                     return false;
@@ -1774,17 +1773,19 @@ namespace DLT
                 int required_consensus_count = Node.blockChain.getRequiredConsensus(block.blockNum);
 
                 // verify sig count
-                if (frozen_sig_count < required_consensus_count)
+                if (frozen_sig_count < required_consensus_count
+                    && !isBlockchainRecoveryMode(block.blockNum, block.timestamp, frozen_sig_count))
                 {
                     Logging.info("Block {0} has less than required signatures ({1} < {2}).", block.blockNum, frozen_sig_count, required_consensus_count);
                     return false;
                 }
 
                 IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
+                IxiNumber required_signer_difficulty = null;
 
                 if (block.version >= BlockVer.v10 && IxianHandler.getBlockHeader(block.blockNum - 1).version >= BlockVer.v10)
                 {
-                    IxiNumber required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block, true);
+                    required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block, true);
 
                     // verify sig difficulty
                     if (frozen_sig_difficulty < required_signer_difficulty)
@@ -1803,7 +1804,8 @@ namespace DLT
                 if (required_consensus_count > 2)
                 {
                     // verify if over 50% signatures are from the previous block
-                    if (required_sigs.Count() < (required_consensus_count / 2) + 1)
+                    if (required_sigs.Count < (required_consensus_count / 2) + 1
+                        && !handleBlockchainRecoveryMode(block, required_sigs.Count, frozen_sig_count, frozen_sig_difficulty, required_signer_difficulty))
                     {
                         Logging.warn("Block {0} has less than 50% + 1 required signers from previous block {1} < {2}.", block.blockNum, required_sigs.Count(), (required_consensus_count / 2) + 1);
                         return false;
@@ -1934,6 +1936,7 @@ namespace DLT
                 return false;
             }
 
+            int required_signature_count = frozen_block_sigs.Count;
             int sig_count = frozen_block_sigs.Count;
 
             lock (target_block.signatures)
@@ -1993,7 +1996,8 @@ namespace DLT
                     }
                 }
 
-                if (frozen_block_sigs.Count < required_consensus_count_adjusted)
+                if (frozen_block_sigs.Count < required_consensus_count_adjusted
+                    && !handleBlockchainRecoveryMode(target_block, required_signature_count, frozen_block_sigs.Count, frozen_block_sigs_difficulty, required_difficulty_adjusted))
                 {
                     Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty_adjusted, frozen_block_sigs.Count, required_consensus_count_adjusted);
                     return false;
@@ -2030,6 +2034,67 @@ namespace DLT
                 }
                 return true;
             }
+        }
+
+        private bool isBlockchainRecoveryMode(ulong blockNum, long blockTimestamp, int totalBlockSignatures)
+        {
+            Block prevBlock = IxianHandler.getBlockHeader(blockNum - 1);
+            if (prevBlock == null || prevBlock.timestamp + ConsensusConfig.blockChainRecoveryTimeout > blockTimestamp)
+            {
+                return false;
+            }
+
+            if (totalBlockSignatures < 3)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool handleBlockchainRecoveryMode(Block curBlock, int requiredSignatureCount, int totalBlockSignatures, IxiNumber totalSignerDifficulty, IxiNumber requiredSignerDifficultyAdjusted) 
+        {
+            if (!isBlockchainRecoveryMode(curBlock.blockNum, curBlock.timestamp, totalBlockSignatures))
+            {
+                return false;
+            }
+
+            int requiredConsensus = Node.blockChain.getRequiredConsensus(curBlock.blockNum, false);
+            int requiredConsensusAdj = Node.blockChain.getRequiredConsensus(curBlock.blockNum, true);
+
+            int missingRequiredSigs = ((requiredConsensus / 2 ) + 1) - requiredSignatureCount;
+            int missingSigs = requiredConsensusAdj - totalBlockSignatures;
+
+            // no missing sigs, no need for recovery mode
+            if (missingRequiredSigs <= 0 && missingSigs <= 0)
+            {
+                return false;
+            }
+
+            // missing sigs and no block for a period of time, run recovery checks
+
+            IxiNumber recoveryRequiredSignerDifficulty = 0;
+            if (missingRequiredSigs > 0)
+            {
+                recoveryRequiredSignerDifficulty = missingRequiredSigs * requiredSignerDifficultyAdjusted * ConsensusConfig.blockChainRecoveryMissingRequiredSignerRatio / 100; // TODO requiredSignerDifficultyAdjusted or requiredSignerDifficulty
+                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty)
+                {
+                    return false;
+                }
+            }
+
+            if (missingSigs > 0)
+            {
+                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty + (missingSigs * IxianHandler.getMinSignerPowDifficulty(curBlock.blockNum, curBlock.timestamp))) // TODO Add ratio?
+                {
+                    return false;
+                }
+            }
+
+            Logging.warn("Recovery mode activated for block #{0} {1}, missing required sigs:{2}, missing sigs: {3}, cur time: {4}, block time: {5}, total signer difficulty: {6}, requiredSignerDifficultyAdjusted: {7}.",
+                curBlock.blockNum, Crypto.hashToString(curBlock.calculateChecksum()), missingRequiredSigs, missingSigs, Clock.getNetworkTimestamp(), curBlock.timestamp, totalSignerDifficulty, requiredSignerDifficultyAdjusted);
+
+            return true;
         }
 
         public bool acceptLocalNewBlock()
@@ -3154,7 +3219,7 @@ namespace DLT
                         localNewBlock.setRegNameStateChecksum(Node.regNameState.calculateRegNameStateChecksum(localNewBlock.blockNum));
                     }
                     
-                    Logging.info("While generating new block: Node's blockversion: {0}", IxianHandler.getLastBlockVersion());
+                    Logging.info("While generating new block: Node's blockversion: {0}", localNewBlock.version);
                     Logging.info("While generating new block: WS Checksum: {0}", Crypto.hashToString(localNewBlock.walletStateChecksum));
                     if (localNewBlock.regNameStateChecksum != null)
                     {
@@ -3630,7 +3695,8 @@ namespace DLT
             if (block_ver >= BlockVer.v5 && freezing_block.blockNum > 11)
             {
                 bool froze_signatures = freezeSignatures(target_block);
-                if(!froze_signatures || target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum))
+                if(!froze_signatures 
+                    || (target_block.getFrozenSignatureCount() < Node.blockChain.getRequiredConsensus(target_block.blockNum) && !isBlockchainRecoveryMode(target_block.blockNum, target_block.timestamp, target_block.getFrozenSignatureCount())))
                 {
                     BlockProtocolMessages.broadcastGetBlock(target_block.blockNum);
                     if(froze_signatures)
