@@ -1495,17 +1495,17 @@ namespace DLT
                     }
                     else
                     {
-                        int blockSigCount = b.getFrozenSignatureCount();
+                        int remoteBlockSigCount = b.getFrozenSignatureCount();
                         int localBlockSigCount = localNewBlock.getFrozenSignatureCount();
                         if(b.blockNum == localNewBlock.blockNum)
                         {
                             bool hasNodeSig = hasElectedNodeSignature(b);
                             if (hasNodeSig)
                             {
-                                var remoteTotalSignerDifficult = b.getTotalSignerDifficulty();
-                                var localTotalSignerDifficult = localNewBlock.getTotalSignerDifficulty();
-                                if ((blockSigCount >= localBlockSigCount && (blockSigCount == remoteTotalSignerDifficult || remoteTotalSignerDifficult > localTotalSignerDifficult))
-                                    || (remoteTotalSignerDifficult == localTotalSignerDifficult && b.transactions.Count() > localNewBlock.transactions.Count())
+                                var remoteTotalSignerDifficulty = b.getTotalSignerDifficulty();
+                                var localTotalSignerDifficulty = localNewBlock.getTotalSignerDifficulty();
+                                if ((remoteBlockSigCount > localBlockSigCount)
+                                    || (remoteBlockSigCount == localBlockSigCount && remoteTotalSignerDifficulty > localTotalSignerDifficulty)
                                     || (hasRequiredSignatureCount(b) && highestNetworkBlockNum > b.blockNum + 5))
                                 {
                                     Logging.info("Incoming block #{0} has more signatures and is the same block height, accepting instead of our own. (total signatures: {1}, election offset: {2})", b.blockNum, b.signatures.Count, getElectedNodeOffset());
