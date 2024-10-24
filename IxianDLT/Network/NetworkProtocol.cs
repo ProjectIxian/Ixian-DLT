@@ -20,7 +20,6 @@ using IXICore.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace DLT
 {
@@ -57,20 +56,12 @@ namespace DLT
                             TransactionProtocolMessages.handleGetTransaction3(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.transactionData:
-                            TransactionProtocolMessages.handleTransactionData(data, endpoint);
-                            break;
-
                         case ProtocolMessageCode.transactionData2:
                             TransactionProtocolMessages.handleTransactionData2(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.bye:
                             CoreProtocolMessage.processBye(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.blockData:
-                            BlockProtocolMessages.handleBlockData(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.blockData2:
@@ -101,10 +92,6 @@ namespace DLT
                             PresenceProtocolMessages.handleKeepAlivePresence(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.getPresence:
-                            PresenceProtocolMessages.handleGetPresence(data, endpoint);
-                            break;
-
                         case ProtocolMessageCode.getPresence2:
                             PresenceProtocolMessages.handleGetPresence2(data, endpoint);
                             break;
@@ -124,10 +111,6 @@ namespace DLT
 
                         case ProtocolMessageCode.getUnappliedTransactions:
                             TransactionProtocolMessages.handleGetUnappliedTransactions(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.blockTransactionsChunk:
-                            BlockProtocolMessages.handleBlockTransactionsChunk(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.attachEvent:
@@ -150,23 +133,8 @@ namespace DLT
                             handleInventory2(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.getSignatures:
-                            if (IxianHandler.getLastBlockVersion() >= BlockVer.v10)
-                            {
-                                SignatureProtocolMessages.handleGetSignatures2(data, endpoint);
-                            }
-                            else
-                            {
-                                SignatureProtocolMessages.handleGetSignatures(data, endpoint);
-                            }
-                            break;
-
                         case ProtocolMessageCode.getSignatures2:
                             SignatureProtocolMessages.handleGetSignatures2(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.signaturesChunk:
-                            SignatureProtocolMessages.handleSignaturesChunk(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.signaturesChunk2:
@@ -177,20 +145,8 @@ namespace DLT
                             TransactionProtocolMessages.handleGetTransactions2(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.transactionsChunk:
-                            TransactionProtocolMessages.handleTransactionsChunk(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.transactionsChunk2:
-                            TransactionProtocolMessages.handleTransactionsChunk2(data, endpoint);
-                            break;
-
                         case ProtocolMessageCode.transactionsChunk3:
                             TransactionProtocolMessages.handleTransactionsChunk3(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.getBlockHeaders2:
-                            BlockProtocolMessages.handleGetBlockHeaders2(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.getBlockHeaders3:
@@ -199,10 +155,6 @@ namespace DLT
 
                         case ProtocolMessageCode.getPIT2:
                             BlockProtocolMessages.handleGetPIT2(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.getBlock2:
-                            BlockProtocolMessages.handleGetBlock2(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.getBlock3:
