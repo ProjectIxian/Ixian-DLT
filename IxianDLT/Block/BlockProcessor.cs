@@ -1782,15 +1782,17 @@ namespace DLT
 
                 IxiNumber frozen_sig_difficulty = block.getTotalSignerDifficulty();
                 IxiNumber required_signer_difficulty = null;
+                IxiNumber required_signer_difficulty_adjusted = null;
 
                 if (block.version >= BlockVer.v10 && IxianHandler.getBlockHeader(block.blockNum - 1).version >= BlockVer.v10)
                 {
-                    required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block, true);
+                    required_signer_difficulty = Node.blockChain.getRequiredSignerDifficulty(block, false);
+                    required_signer_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(block, true);
 
                     // verify sig difficulty
-                    if (frozen_sig_difficulty < required_signer_difficulty)
+                    if (frozen_sig_difficulty < required_signer_difficulty_adjusted)
                     {
-                        Logging.info("Block {0} has less than required signer difficulty ({1} < {2}).", block.blockNum, frozen_sig_difficulty, required_signer_difficulty);
+                        Logging.info("Block {0} has less than required signer difficulty ({1} < {2}).", block.blockNum, frozen_sig_difficulty, required_signer_difficulty_adjusted);
                         return false;
                     }
                 }
@@ -1917,6 +1919,7 @@ namespace DLT
         public bool freezeSignatures(Block target_block)
         {
             int required_consensus_count = Node.blockChain.getRequiredConsensus(target_block.blockNum, false);
+            IxiNumber required_difficulty = Node.blockChain.getRequiredSignerDifficulty(target_block, false);
             IxiNumber required_difficulty_adjusted = Node.blockChain.getRequiredSignerDifficulty(target_block, true);
 
             List<BlockSignature> frozen_block_sigs = null;
@@ -1997,9 +2000,9 @@ namespace DLT
                 }
 
                 if (frozen_block_sigs.Count < required_consensus_count_adjusted
-                    && !handleBlockchainRecoveryMode(target_block, required_signature_count, frozen_block_sigs.Count, frozen_block_sigs_difficulty, required_difficulty_adjusted))
+                    && !handleBlockchainRecoveryMode(target_block, required_signature_count, frozen_block_sigs.Count, frozen_block_sigs_difficulty, required_difficulty))
                 {
-                    Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty_adjusted, frozen_block_sigs.Count, required_consensus_count_adjusted);
+                    Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty, frozen_block_sigs.Count, required_consensus_count_adjusted);
                     return false;
                 }
 
@@ -2008,7 +2011,7 @@ namespace DLT
                 {
                     if (frozen_block_sigs_difficulty < required_difficulty_adjusted)
                     {
-                        Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty_adjusted, frozen_block_sigs.Count, required_consensus_count_adjusted);
+                        Logging.warn("Error freezing signatures of target block #{0} {1}, cannot freeze enough signatures to pass consensus, difficulty: {2} < {3} count: {4} < {5}.", target_block.blockNum, Crypto.hashToString(target_block.blockChecksum), frozen_block_sigs_difficulty, required_difficulty, frozen_block_sigs.Count, required_consensus_count_adjusted);
                         return false;
                     }
                 }
@@ -2052,7 +2055,7 @@ namespace DLT
             return true;
         }
 
-        private bool handleBlockchainRecoveryMode(Block curBlock, int requiredSignatureCount, int totalBlockSignatures, IxiNumber totalSignerDifficulty, IxiNumber requiredSignerDifficultyAdjusted) 
+        private bool handleBlockchainRecoveryMode(Block curBlock, int requiredSignatureCount, int totalBlockSignatures, IxiNumber totalSignerDifficulty, IxiNumber requiredSignerDifficulty) 
         {
             if (!isBlockchainRecoveryMode(curBlock.blockNum, curBlock.timestamp, totalBlockSignatures))
             {
@@ -2076,7 +2079,7 @@ namespace DLT
             IxiNumber recoveryRequiredSignerDifficulty = 0;
             if (missingRequiredSigs > 0)
             {
-                recoveryRequiredSignerDifficulty = missingRequiredSigs * requiredSignerDifficultyAdjusted * ConsensusConfig.blockChainRecoveryMissingRequiredSignerRatio / 100; // TODO requiredSignerDifficultyAdjusted or requiredSignerDifficulty
+                recoveryRequiredSignerDifficulty = missingRequiredSigs * requiredSignerDifficulty * ConsensusConfig.blockChainRecoveryMissingRequiredSignerRatio / 100;
                 if (totalSignerDifficulty < recoveryRequiredSignerDifficulty)
                 {
                     return false;
@@ -2085,14 +2088,14 @@ namespace DLT
 
             if (missingSigs > 0)
             {
-                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty + (missingSigs * IxianHandler.getMinSignerPowDifficulty(curBlock.blockNum, curBlock.timestamp))) // TODO Add ratio?
+                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty + (missingSigs * IxianHandler.getMinSignerPowDifficulty(curBlock.blockNum, curBlock.timestamp)) * ConsensusConfig.blockChainRecoveryMissingSignerMultiplier)
                 {
                     return false;
                 }
             }
 
             Logging.warn("Recovery mode activated for block #{0} {1}, missing required sigs:{2}, missing sigs: {3}, cur time: {4}, block time: {5}, total signer difficulty: {6}, requiredSignerDifficultyAdjusted: {7}.",
-                curBlock.blockNum, Crypto.hashToString(curBlock.calculateChecksum()), missingRequiredSigs, missingSigs, Clock.getNetworkTimestamp(), curBlock.timestamp, totalSignerDifficulty, requiredSignerDifficultyAdjusted);
+                curBlock.blockNum, Crypto.hashToString(curBlock.calculateChecksum()), missingRequiredSigs, missingSigs, Clock.getNetworkTimestamp(), curBlock.timestamp, totalSignerDifficulty, requiredSignerDifficulty);
 
             return true;
         }
