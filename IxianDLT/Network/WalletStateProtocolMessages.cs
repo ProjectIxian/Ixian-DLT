@@ -103,47 +103,6 @@ namespace DLT
                 }
             }
 
-            public static void handleGetBalance(byte[] data, RemoteEndpoint endpoint)
-            {
-                using (MemoryStream m = new MemoryStream(data))
-                {
-                    using (BinaryReader reader = new BinaryReader(m))
-                    {
-                        int addrLen = reader.ReadInt32();
-                        byte[] address = reader.ReadBytes(addrLen);
-
-                        // Retrieve the latest balance
-                        IxiNumber balance = Node.walletState.getWalletBalance(new Address(address));
-
-                        // Return the balance for the matching address
-                        using (MemoryStream mw = new MemoryStream())
-                        {
-                            using (BinaryWriter writerw = new BinaryWriter(mw))
-                            {
-                                // Send the address
-                                writerw.Write(address.Length);
-                                writerw.Write(address);
-                                // Send the balance
-                                writerw.Write(balance.ToString());
-
-                                Block tmp_block = IxianHandler.getLastBlock();
-
-                                // Send the block height for this balance
-                                writerw.Write(tmp_block.blockNum);
-                                // Send the block checksum for this balance
-                                writerw.Write(tmp_block.blockChecksum.Length);
-                                writerw.Write(tmp_block.blockChecksum);
-
-#if TRACE_MEMSTREAM_SIZES
-                                                Logging.info(String.Format("NetworkProtocol::parseProtocolMessage: {0}", mw.Length));
-#endif
-
-                                endpoint.sendData(ProtocolMessageCode.balance, mw.ToArray());
-                            }
-                        }
-                    }
-                }
-            }
             public static void handleGetBalance2(byte[] data, RemoteEndpoint endpoint)
             {
                 using (MemoryStream m = new MemoryStream(data))

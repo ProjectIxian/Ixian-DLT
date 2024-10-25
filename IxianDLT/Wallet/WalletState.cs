@@ -319,33 +319,37 @@ namespace DLT
                         using (BinaryWriter writerw = new BinaryWriter(mw))
                         {
                             // Send the address
-                            writerw.Write(id.Length);
+                            writerw.WriteIxiVarInt(id.Length);
                             writerw.Write(id);
+
                             // Send the balance
-                            writerw.Write(balance.ToString());
+                            byte[] balance_bytes = balance.getAmount().ToByteArray();
+                            writerw.WriteIxiVarInt(balance_bytes.Length);
+                            writerw.Write(balance_bytes);
 
                             Block tmp_block = IxianHandler.getLastBlock();
+
                             if (tmp_block != null)
                             {
                                 // Send the block height for this balance
-                                writerw.Write(tmp_block.blockNum);
+                                writerw.WriteIxiVarInt(tmp_block.blockNum);
                                 // Send the block checksum for this balance
-                                writerw.Write(tmp_block.blockChecksum.Length);
+                                writerw.WriteIxiVarInt(tmp_block.blockChecksum.Length);
                                 writerw.Write(tmp_block.blockChecksum);
                             }
                             else // genesis edge case
                             {
                                 // Send the block height for this balance
-                                writerw.Write((ulong)1);
+                                writerw.WriteIxiVarInt((ulong)1);
                                 // Send the block checksum for this balance
-                                writerw.Write(0); // TODO TODO fill out genesis checksum
+                                writerw.WriteIxiVarInt(0); // TODO TODO fill out genesis checksum
                             }
 #if TRACE_MEMSTREAM_SIZES
                             Logging.info(String.Format("WalletState::setWalletBalance: {0}", mw.Length));
 #endif
 
                             // Send balance message to all subscribed clients
-                            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.balance, id, ProtocolMessageCode.balance, mw.ToArray(), id, null);
+                            CoreProtocolMessage.broadcastEventDataMessage(NetworkEvents.Type.balance, id, ProtocolMessageCode.balance2, mw.ToArray(), id, null);
                         }
                     }
                 }

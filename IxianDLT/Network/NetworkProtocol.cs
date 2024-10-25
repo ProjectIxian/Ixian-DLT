@@ -48,10 +48,6 @@ namespace DLT
                             handleHelloData(data, endpoint);
                             break;
 
-                        case ProtocolMessageCode.getBalance:
-                            WalletStateProtocolMessages.handleGetBalance(data, endpoint);
-                            break;
-
                         case ProtocolMessageCode.getTransaction3:
                             TransactionProtocolMessages.handleGetTransaction3(data, endpoint);
                             break;
@@ -123,10 +119,6 @@ namespace DLT
 
                         case ProtocolMessageCode.getNextSuperBlock:
                             BlockProtocolMessages.handleGetNextSuperBlock(data, endpoint);
-                            break;
-
-                        case ProtocolMessageCode.getPIT:
-                            BlockProtocolMessages.handleGetPIT(data, endpoint);
                             break;
 
                         case ProtocolMessageCode.inventory2:
