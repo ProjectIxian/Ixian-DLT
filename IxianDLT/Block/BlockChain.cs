@@ -934,7 +934,12 @@ namespace DLT
                 return ConsensusConfig.minBlockSignerPowDifficulty;
             }
 
-            IxiNumber newDifficulty = totalDifficulty / ConsensusConfig.difficultyAdjustmentExpectedBlockCount;
+            if (blockCount < (ulong)ConsensusConfig.difficultyAdjustmentExpectedBlockCount)
+            {
+                blockCount = (ulong)ConsensusConfig.difficultyAdjustmentExpectedBlockCount;
+            }
+
+            IxiNumber newDifficulty = totalDifficulty / blockCount;
 
             return newDifficulty;
         }
