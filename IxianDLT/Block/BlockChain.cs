@@ -875,11 +875,11 @@ namespace DLT
         private IxiNumber calculateRequiredSignerDifficulty_v2(long curBlockTimestamp)
         {
             ulong blockNum = getLastBlockNum() + 1;
-            Logging.warn("DAA: Calculating diff for block #{0}", blockNum);
+            Logging.trace("DAA: Calculating diff for block #{0}", blockNum);
             Block lastDiffChangeSuperblock = findLastDifficultyChangedSuperBlock(blockNum);
             if (curBlockTimestamp - lastDiffChangeSuperblock.timestamp < ConsensusConfig.difficultyAdjustmentTimeInterval)
             {
-                Logging.warn("DAA: Not enough time has passed to do the calculation, using same difficulty as on previous block.");
+                Logging.trace("DAA: Not enough time has passed to do the calculation, using same difficulty as on previous block.");
                 // Edge case for initial blocks
                 if (blockNum == ConsensusConfig.superblockInterval)
                 {
@@ -903,7 +903,7 @@ namespace DLT
             for (ulong i = 0; i < blocksToUseForDifficultyCalculation; i++)
             {
                 ulong consensusBlockNum = blockNum - i - blockOffset;
-                Logging.warn("DAA: Using block #{0} for DAA calculation", consensusBlockNum);
+                Logging.trace("DAA: Using block #{0} for DAA calculation", consensusBlockNum);
                 IxiNumber blockTotalSignerDifficulty = getBlockTotalSignerDifficulty(consensusBlockNum);
                 if (blockTotalSignerDifficulty == null)
                 {
@@ -920,7 +920,7 @@ namespace DLT
                 blockCount++;
             }
 
-            Logging.warn("DAA: Used {0} blocks for DAA calculation, expected {1}", blockCount, blocksToUseForDifficultyCalculation);
+            Logging.trace("DAA: Used {0} blocks for DAA calculation, expected {1}", blockCount, blocksToUseForDifficultyCalculation);
             if (lastDiffChangeSuperblock.blockNum != 1 && blockCount != blocksToUseForDifficultyCalculation)
             {
                 if ((blockNum - blockOffset) != blockCount)
