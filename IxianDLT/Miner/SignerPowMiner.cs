@@ -197,13 +197,15 @@ namespace DLT
                 return;
             }
 
+            uint blockOffset = 7;
+
             if (candidateBlock.blockNum <= 14)
             {
                 candidateBlock = Node.blockChain.getBlock(1, false, false);
             }
             else
             {
-                candidateBlock = Node.blockChain.getBlock(candidateBlock.blockNum - 7, false, false);
+                candidateBlock = Node.blockChain.getBlock(candidateBlock.blockNum - blockOffset, false, false);
             }
 
             if (candidateBlock == null)
@@ -231,7 +233,7 @@ namespace DLT
             ulong calculationInterval = ConsensusConfig.getPlPowCalculationInterval(IxianHandler.getLastBlockVersion());
 
             ulong highestNetworkBlockHeight = IxianHandler.getHighestKnownNetworkBlockHeight();
-            if (candidateBlock.blockNum + calculationInterval < highestNetworkBlockHeight)
+            if (candidateBlock.blockNum + calculationInterval + blockOffset < highestNetworkBlockHeight)
             {
                 // Catching up to the network
                 return;
@@ -240,7 +242,7 @@ namespace DLT
             var submittedSolution = PresenceList.getPowSolution();
             if (lastSignerPowSolution != null
                 && Node.blockChain.getTimeSinceLastBlock() < 450
-                && lastSignerPowSolution.blockNum + calculationInterval > highestNetworkBlockHeight
+                && lastSignerPowSolution.blockNum + calculationInterval + blockOffset > highestNetworkBlockHeight
                 && (submittedSolution != null && solvingDifficulty <= submittedSolution.difficulty))
             {
                 // If the chain isn't stuck and we've already processed PoW within the interval
