@@ -394,7 +394,7 @@ namespace DLT
             }
 
             PresenceList.setPowSolution(newSolution);
-            Node.blockProcessor.updateBlockSignature();
+            Node.blockProcessor.acceptLocalNewBlock();
         }
     }
 }
