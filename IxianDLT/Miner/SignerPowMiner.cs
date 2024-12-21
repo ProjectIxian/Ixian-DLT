@@ -376,7 +376,7 @@ namespace DLT
                 ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
 
                 if (newSolution.difficulty <= solution.difficulty
-                    && solution.blockNum + ConsensusConfig.getPlPowBlocksValidity(IxianHandler.getLastBlockVersion()) - ConsensusConfig.getPlPowMinCalculationBlockTime(IxianHandler.getLastBlockVersion()) > lastBlockHeight
+                    && solution.blockNum + ConsensusConfig.getPlPowBlocksValidity(IxianHandler.getLastBlockVersion()) > lastBlockHeight
                     && solution.difficulty > solvingDifficulty)
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
@@ -394,6 +394,7 @@ namespace DLT
             }
 
             PresenceList.setPowSolution(newSolution);
+            Node.blockProcessor.updateBlockSignature();
         }
     }
 }

@@ -3267,7 +3267,7 @@ namespace DLT
                     }
                 }catch(Exception e)
                 {
-                    Logging.error("Exception occurred while generating block {0}: {1}", localNewBlock.blockNum, e);
+                    Logging.error("Exception occurred while generating block {0}: {1}", IxianHandler.getLastBlockHeight() + 1, e);
                     localNewBlock = null;
                 }
             }
@@ -4130,6 +4130,29 @@ namespace DLT
                 return maxBlockHeight;
             }
             return netBh;
+        }
+
+        public BlockSignature updateBlockSignature()
+        {
+            lock (localBlockLock)
+            {
+                if (localNewBlock == null)
+                {
+                    return null;
+                }
+
+                BlockSignature signatureData = localNewBlock.applySignature(PresenceList.getPowSolution());
+                if (signatureData == null)
+                {
+                    Logging.error("Could not update block signature {0}.", localNewBlock.blockNum);
+                    return null;
+                }
+
+                Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(signatureData.recipientPubKeyOrAddress.addressNoChecksum, localNewBlock.blockChecksum), true);
+                SignatureProtocolMessages.broadcastBlockSignature(signatureData, localNewBlock.blockNum, localNewBlock.blockChecksum, null, null);
+
+                return signatureData;
+            }
         }
     }
 }
