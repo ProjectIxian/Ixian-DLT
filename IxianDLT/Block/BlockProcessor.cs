@@ -740,7 +740,7 @@ namespace DLT
 
             // remove signatures without PL entry but not if we're catching up with the network or if the chain is stuck
             if (IxianHandler.getHighestKnownNetworkBlockHeight() < b.blockNum + 5
-                && b.timestamp + 3600 > Clock.getNetworkTimestamp())
+                && b.timestamp + CoreConfig.blockSignaturePlCheckTimeout > Clock.getNetworkTimestamp())
             {
                 if (removeSignaturesWithoutPlEntry(b))
                 {
@@ -1829,7 +1829,7 @@ namespace DLT
 
 
                     if (highestNetworkBlockNum > last_block_num + 5
-                        || block.timestamp + 3600 < Clock.getNetworkTimestamp())
+                        || block.timestamp + CoreConfig.blockSignaturePlCheckTimeout < Clock.getNetworkTimestamp())
                     {
                         // catching up
 
@@ -1924,7 +1924,7 @@ namespace DLT
 
             List<BlockSignature> frozen_block_sigs = null;
             if (highestNetworkBlockNum > target_block.blockNum + 10
-                || target_block.timestamp + 3600 < Clock.getNetworkTimestamp())
+                || target_block.timestamp + CoreConfig.blockSignaturePlCheckTimeout < Clock.getNetworkTimestamp())
             {
                 // catching up
                 frozen_block_sigs = extractRequiredSignatures(target_block, required_consensus_count);
@@ -4130,6 +4130,29 @@ namespace DLT
                 return maxBlockHeight;
             }
             return netBh;
+        }
+
+        public void applyUpdatedSolutionSignature()
+        {
+            lock (localBlockLock)
+            {
+                var lastBlockHeight = IxianHandler.getLastBlockHeight();
+                if (lastBlockHeight < 5)
+                {
+                    return;
+                }
+
+                for (uint i = 0; i < 5; i++)
+                {
+                    Block b = Node.blockChain.getBlock(lastBlockHeight - i);
+                    BlockSignature blockSig = b.applySignature(PresenceList.getPowSolution());
+                    if (blockSig != null)
+                    {
+                        Node.inventoryCache.setProcessedFlag(InventoryItemTypes.blockSignature, InventoryItemSignature.getHash(blockSig.recipientPubKeyOrAddress.addressNoChecksum, b.blockChecksum), true);
+                        SignatureProtocolMessages.broadcastBlockSignature(blockSig, b.blockNum, b.blockChecksum, null, null);
+                    }
+                }
+            }
         }
     }
 }

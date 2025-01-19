@@ -241,7 +241,7 @@ namespace DLT
 
             var submittedSolution = PresenceList.getPowSolution();
             if (lastSignerPowSolution != null
-                && Node.blockChain.getTimeSinceLastBlock() < 450
+                && Node.blockChain.getTimeSinceLastBlock() < CoreConfig.blockSignaturePlCheckTimeout
                 && lastSignerPowSolution.blockNum + calculationInterval + blockOffset > highestNetworkBlockHeight
                 && (submittedSolution != null && solvingDifficulty <= submittedSolution.difficulty))
             {
@@ -373,17 +373,15 @@ namespace DLT
             var solution = PresenceList.getPowSolution();
             if (solution != null)
             {
-                ulong lastBlockHeight = IxianHandler.getLastBlockHeight();
-
                 if (newSolution.difficulty <= solution.difficulty
-                    && solution.blockNum + ConsensusConfig.getPlPowBlocksValidity(IxianHandler.getLastBlockVersion()) > lastBlockHeight
-                    && solution.difficulty > solvingDifficulty)
+                    && solution.blockNum + ConsensusConfig.getPlPowBlocksValidity(IxianHandler.getLastBlockVersion()) - 1 > IxianHandler.getHighestKnownNetworkBlockHeight()
+                    && solution.difficulty > Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1, Clock.getNetworkTimestamp()))
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
 
                     // Check if we're mining for at least X minutes and that the blockchain isn't stuck
                     if (IxianHandler.getHighestKnownNetworkBlockHeight() - startedSolvingBlockHeight > ConsensusConfig.getPlPowMinCalculationBlockTime(IxianHandler.getLastBlockVersion())
-                        && Node.blockChain.getTimeSinceLastBlock() < 450) // TODO move 450 to CoreConfig
+                        && Node.blockChain.getTimeSinceLastBlock() < CoreConfig.blockSignaturePlCheckTimeout)
                     {
                         // Reset the blockReadyForMining, to stop mining on all threads
                         blockReadyForMining = false;
@@ -394,6 +392,12 @@ namespace DLT
             }
 
             PresenceList.setPowSolution(newSolution);
+
+            if (Node.blockChain.getTimeSinceLastBlock() > CoreConfig.blockSignaturePlCheckTimeout)
+            {
+                Node.blockProcessor.applyUpdatedSolutionSignature();
+            }
+
             Node.blockProcessor.acceptLocalNewBlock();
         }
     }
