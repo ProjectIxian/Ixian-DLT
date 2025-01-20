@@ -1968,7 +1968,8 @@ namespace DLT
                         var address = sig.recipientPubKeyOrAddress;
                         if (frozen_block_sigs.Find(x => x.recipientPubKeyOrAddress.addressNoChecksum.SequenceEqual(address.addressNoChecksum)) == null)
                         {
-                            if(PresenceList.getPresenceByAddress(address) == null)
+                            if(Node.blockChain.getTimeSinceLastBlock() < CoreConfig.blockSignaturePlCheckTimeout
+                               && PresenceList.getPresenceByAddress(address) == null)
                             {
                                 continue;
                             }
@@ -2913,10 +2914,9 @@ namespace DLT
                 // Special case for PoWSolution transactions
                 if (transaction.type == (int)Transaction.Type.PoWSolution)
                 {
-                    // TODO: pre-validate the transaction in such a way it doesn't affect performance
                     ulong powBlockNum = 0;
                     byte[] nonce = null;
-                    if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce, block_version))
+                    if (!TransactionPool.verifyPoWTransaction(transaction, out powBlockNum, out nonce, block_version, true, true))
                     {
                         TransactionPool.removeUnappliedTransaction(transaction.id);
                         continue;

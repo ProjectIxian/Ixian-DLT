@@ -551,7 +551,6 @@ namespace DLT
                 {
                     return false;
                 }
-                // TODO: pre-validate the transaction in such a way it doesn't affect performance
             }
             // Special case for Staking Reward transaction
             else if (transaction.type == (int)Transaction.Type.StakingReward)
@@ -1184,7 +1183,7 @@ namespace DLT
         }
 
         // Verify if a PoW transaction is valid
-        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, out byte[] nonce_bytes, int block_version = -1, bool verify_pow = true)
+        public static bool verifyPoWTransaction(Transaction tx, out ulong blocknum, out byte[] nonce_bytes, int block_version = -1, bool verify_pow = true, bool force_verify_pow = false)
         {
             blocknum = 0;
             nonce_bytes = null;
@@ -1228,7 +1227,8 @@ namespace DLT
                     return false;
                 }
 
-                if (verify_pow == false || tx.powVerified)
+                if (force_verify_pow == false
+                    && (verify_pow == false || tx.powVerified))
                 {
                     return true;
                 }
@@ -1238,7 +1238,7 @@ namespace DLT
                 if (block.version == BlockVer.v0)
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v0(UTF8Encoding.UTF8.GetString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
+                    if (Miner.verifyNonce_v0(UTF8Encoding.UTF8.GetString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1247,7 +1247,7 @@ namespace DLT
                 else if (block.version == BlockVer.v1)
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v1(UTF8Encoding.UTF8.GetString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
+                    if (Miner.verifyNonce_v1(UTF8Encoding.UTF8.GetString(nonce_bytes), blocknum, primary_address.addressWithChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1256,7 +1256,7 @@ namespace DLT
                 else if (block.version <= BlockVer.v4)
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v2(nonce_bytes, blocknum, primary_address.addressWithChecksum, block.difficulty))
+                    if (Miner.verifyNonce_v2(nonce_bytes, blocknum, primary_address.addressWithChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1265,7 +1265,7 @@ namespace DLT
                 else if(block.version <= BlockVer.v9)
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v3(nonce_bytes, blocknum, primary_address.addressWithChecksum, block.difficulty))
+                    if (Miner.verifyNonce_v3(nonce_bytes, blocknum, primary_address.addressWithChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1274,7 +1274,7 @@ namespace DLT
                 else // >= 10
                 {
                     // Verify the nonce
-                    if ((tx.fromLocalStorage && !Config.fullStorageDataVerification) || Miner.verifyNonce_v3(nonce_bytes, blocknum, primary_address.addressNoChecksum, block.difficulty))
+                    if (Miner.verifyNonce_v3(nonce_bytes, blocknum, primary_address.addressNoChecksum, block.difficulty))
                     {
                         tx.powVerified = true;
                         return true;
@@ -1285,6 +1285,13 @@ namespace DLT
             {
                 Logging.warn("Error verifying PoW Transaction: {0}. Message: {1}", tx.getTxIdString(), e.Message);
             }
+
+            string? anomaly = BlockAnomalyResolver.getTransactionAnomaly(IxianHandler.getLastBlockHeight() + 1, tx.getTxIdString());
+            if (anomaly != null)
+            {
+                Logging.warn("Block Anomaly fix for transaction {0}: {1}", tx.getTxIdString(), anomaly);
+                return true;
+            }    
 
             return false;
         }
@@ -1788,13 +1795,15 @@ namespace DLT
             }
 
             bool verify_pow = true;
-            if(tx.fromLocalStorage && !Config.fullStorageDataVerification)
+            if (Node.blockSync.synchronizing
+                && tx.fromLocalStorage
+                && !Config.fullStorageDataVerification)
             {
                 verify_pow = false;
             }
 
             // Verify if the solution is correct
-            if (verifyPoWTransaction(tx, out ulong powBlockNum, out byte[] nonce, block.version, verify_pow) == true)
+            if (verifyPoWTransaction(tx, out ulong powBlockNum, out byte[] nonce, block.version, verify_pow, verify_pow) == true)
             {
                 // Check if we already have a key matching the block number
                 if (blockSolutionsDictionary.ContainsKey(powBlockNum) == false)
