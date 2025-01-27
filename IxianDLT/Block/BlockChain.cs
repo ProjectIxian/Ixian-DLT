@@ -700,7 +700,7 @@ namespace DLT
             }
             if (blockNum < lastSuperBlock.blockNum)
             {
-                var sb = getBlock((blockNum / ConsensusConfig.superblockInterval) * ConsensusConfig.superblockInterval);
+                var sb = getBlock((blockNum / ConsensusConfig.superblockInterval) * ConsensusConfig.superblockInterval, true);
                 if(sb == null || sb.signerBits == 0)
                 {
                     return SignerPowSolution.difficultyToBits(ConsensusConfig.minBlockSignerPowDifficulty);
@@ -750,7 +750,7 @@ namespace DLT
                 }
                 else
                 {
-                    newDifficulty = calculateRequiredSignerDifficulty_v2(curBlockTimestamp);
+                    newDifficulty = calculateRequiredSignerDifficulty_v2(blockVersion, curBlockTimestamp);
                 }
 
                 // Limit to max *2, /2
@@ -843,7 +843,7 @@ namespace DLT
             return newDifficulty;
         }
 
-        private Block findLastDifficultyChangedSuperBlock(ulong blockNum)
+        private Block findLastDifficultyChangedSuperBlock(ulong blockNum, int blockVersion)
         {
             // Make sure that it's a superblock
             if (blockNum % ConsensusConfig.superblockInterval != 0)
@@ -863,8 +863,16 @@ namespace DLT
             {
                 if (diff != getRequiredSignerDifficulty(sb.lastSuperBlockNum, false, Clock.getNetworkTimestamp()))
                 {
-                    Logging.warn("DAA: Found diff block #{0}", sb.blockNum);
+                    Logging.trace("DAA: Found diff block #{0}", sb.blockNum);
                     return sb;
+                }
+                if (blockVersion <= BlockVer.v12)
+                {
+                    // regression fix, which searched only last 10000 blocks
+                    if (blockNum - sb.blockNum == 10000)
+                    {
+                        return sb;
+                    }
                 }
                 sb = getSuperBlock(sb.lastSuperBlockNum);
             }
@@ -872,11 +880,11 @@ namespace DLT
         }
 
         // Time-based DAA
-        private IxiNumber calculateRequiredSignerDifficulty_v2(long curBlockTimestamp)
+        private IxiNumber calculateRequiredSignerDifficulty_v2(int blockVersion, long curBlockTimestamp)
         {
             ulong blockNum = getLastBlockNum() + 1;
             Logging.trace("DAA: Calculating diff for block #{0}", blockNum);
-            Block lastDiffChangeSuperblock = findLastDifficultyChangedSuperBlock(blockNum);
+            Block lastDiffChangeSuperblock = findLastDifficultyChangedSuperBlock(blockNum, blockVersion);
             if (curBlockTimestamp - lastDiffChangeSuperblock.timestamp < ConsensusConfig.difficultyAdjustmentTimeInterval)
             {
                 Logging.trace("DAA: Not enough time has passed to do the calculation, using same difficulty as on previous block.");
@@ -909,6 +917,7 @@ namespace DLT
                 {
                     break;
                 }
+                Logging.trace("DAA: Using block #{0} with diff {1} for DAA calculation", consensusBlockNum, blockTotalSignerDifficulty);
 
                 // Smooth-out difficulty spikes
                 if (maxSingleBlockDifficulty != null
