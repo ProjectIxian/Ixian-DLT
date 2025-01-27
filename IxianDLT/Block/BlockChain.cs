@@ -868,8 +868,8 @@ namespace DLT
                 }
                 if (blockVersion <= BlockVer.v12)
                 {
-                    // regression fix, which searched only last 10000 blocks
-                    if (blockNum - sb.blockNum == 10000)
+                    // regression fix, which searched only last 11000 blocks
+                    if (blockNum - sb.blockNum == 11000)
                     {
                         return sb;
                     }
