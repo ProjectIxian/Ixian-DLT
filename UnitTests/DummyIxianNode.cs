@@ -55,7 +55,7 @@ namespace UnitTests
             return Block.maxVersion;
         }
 
-        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum, long curBlockTimestamp)
+        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum, int curBlockVersion, long curBlockTimestamp)
         {
             throw new NotImplementedException();
         }

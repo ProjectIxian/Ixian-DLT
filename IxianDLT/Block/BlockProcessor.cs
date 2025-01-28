@@ -168,7 +168,7 @@ namespace DLT
 
                             if (block_version < Config.maxBlockVersionToGenerate
                                 && (last_block_num + 1) % ConsensusConfig.superblockInterval == 0
-                                && last_block_num >= Config.upgradeBlockHeight)
+                                && (IxianHandler.isTestNet || last_block_num >= Config.upgradeBlockHeight))
                             {
                                 block_version = Config.maxBlockVersionToGenerate;
                             }
@@ -228,7 +228,9 @@ namespace DLT
                             //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
                             if (generateNextBlock)
                             {
-                                if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
+                                if (!Config.forceUpgradeAtBlockHeight
+                                    && lastUpgradeTry > 0
+                                    && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
                                 {
                                     block_version = Node.blockChain.getLastBlockVersion();
                                 }
@@ -768,12 +770,17 @@ namespace DLT
         {
             if (!IxianHandler.isTestNet)
             {
-                // upgrade to v13
-                if (b.blockNum < Config.upgradeBlockHeight && b.version >= BlockVer.v13)
+                // prevent upgrade under a certain block height
+                if (b.blockNum < Config.upgradeBlockHeight
+                    && b.version >= Config.maxBlockVersionToGenerate)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
-                if (b.blockNum >= Config.upgradeBlockHeight && b.version < BlockVer.v13)
+                
+                // force upgrade if configured
+                if (Config.forceUpgradeAtBlockHeight
+                    && b.blockNum >= Config.upgradeBlockHeight
+                    && b.version < Config.maxBlockVersionToGenerate)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
@@ -813,9 +820,9 @@ namespace DLT
                         }
                     } else // >= BlockVer.v13
                     {
-                        if (b.timestamp < prevBlock.timestamp + ConsensusConfig.blockGenerationInterval)
+                        if (b.timestamp < prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference)
                         {
-                            Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + ConsensusConfig.blockGenerationInterval);
+                            Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference);
                             return BlockVerifyStatus.Invalid;
                         }
                     }
@@ -2097,7 +2104,7 @@ namespace DLT
 
             if (missingSigs > 0)
             {
-                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty + (missingSigs * IxianHandler.getMinSignerPowDifficulty(curBlock.blockNum, curBlock.timestamp)) * ConsensusConfig.blockChainRecoveryMissingSignerMultiplier)
+                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty + (missingSigs * IxianHandler.getMinSignerPowDifficulty(curBlock.blockNum, curBlock.version, curBlock.timestamp)) * ConsensusConfig.blockChainRecoveryMissingSignerMultiplier)
                 {
                     return false;
                 }
