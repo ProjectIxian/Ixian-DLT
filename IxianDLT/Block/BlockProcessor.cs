@@ -56,8 +56,6 @@ namespace DLT
 
         int blockGenerationInterval = ConsensusConfig.blockGenerationInterval;
 
-        long averageBlockGenerationInterval = ConsensusConfig.blockGenerationInterval;
-
         public bool firstBlockAfterSync;
 
         private SortedList<ulong, long> fetchingTxForBlocks = new SortedList<ulong, long>();
@@ -169,7 +167,8 @@ namespace DLT
                             int block_version = Node.blockChain.getLastBlockVersion();
 
                             if (block_version < Config.maxBlockVersionToGenerate
-                                && (last_block_num + 1) % ConsensusConfig.superblockInterval == 0)
+                                && (last_block_num + 1) % ConsensusConfig.superblockInterval == 0
+                                && (IxianHandler.isTestNet || last_block_num >= Config.upgradeBlockHeight))
                             {
                                 block_version = Config.maxBlockVersionToGenerate;
                             }
@@ -229,7 +228,9 @@ namespace DLT
                             //Logging.info(String.Format("Waiting for {0} to generate the next block #{1}. offset {2}", Node.blockChain.getLastElectedNodePubKey(getElectedNodeOffset()), Node.blockChain.getLastBlockNum()+1, getElectedNodeOffset()));
                             if (generateNextBlock)
                             {
-                                if (lastUpgradeTry > 0 && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
+                                if (!Config.forceUpgradeAtBlockHeight
+                                    && lastUpgradeTry > 0
+                                    && Clock.getTimestamp() - lastUpgradeTry < blockGenerationInterval * 120)
                                 {
                                     block_version = Node.blockChain.getLastBlockVersion();
                                 }
@@ -767,15 +768,19 @@ namespace DLT
 
         public BlockVerifyStatus verifyBlockBasic(Block b, bool verify_sig = true, RemoteEndpoint endpoint = null)
         {
-            // TODO omega remove bottom if section after v12 upgrade
             if (!IxianHandler.isTestNet)
             {
-                // upgrade to v12 at exactly block 4650000
-                if (b.blockNum < 4650000 && b.version >= BlockVer.v12)
+                // prevent upgrade under a certain block height
+                if (b.blockNum < Config.upgradeBlockHeight
+                    && b.version >= Config.maxBlockVersionToGenerate)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
-                if (b.blockNum >= 4650000 && b.version < BlockVer.v12)
+                
+                // force upgrade if configured
+                if (Config.forceUpgradeAtBlockHeight
+                    && b.blockNum >= Config.upgradeBlockHeight
+                    && b.version < Config.maxBlockVersionToGenerate)
                 {
                     return BlockVerifyStatus.Invalid;
                 }
@@ -806,10 +811,20 @@ namespace DLT
                 if (b.version >= BlockVer.v7)
                 {
                     // if received block's timestamp is lower than previous block's timestamp + 20 seconds
-                    if (b.timestamp < prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference)
+                    if (b.version <= BlockVer.v12)
                     {
-                        Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference);
-                        return BlockVerifyStatus.Invalid;
+                        if (b.timestamp < prevBlock.timestamp + 20)
+                        {
+                            Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + 20);
+                            return BlockVerifyStatus.Invalid;
+                        }
+                    } else // >= BlockVer.v13
+                    {
+                        if (b.timestamp < prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference)
+                        {
+                            Logging.warn("Received block #{0} with invalid timestamp {1}, expecting at least {2}!", b.blockNum, b.timestamp, prevBlock.timestamp + ConsensusConfig.minBlockTimeDifference);
+                            return BlockVerifyStatus.Invalid;
+                        }
                     }
                     // if received block's timestamp is higher than network time + 60 seconds
                     if (b.timestamp > Clock.getNetworkTimestamp() + ConsensusConfig.maxBlockNetworkTimeDifference)
@@ -2089,7 +2104,7 @@ namespace DLT
 
             if (missingSigs > 0)
             {
-                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty + (missingSigs * IxianHandler.getMinSignerPowDifficulty(curBlock.blockNum, curBlock.timestamp)) * ConsensusConfig.blockChainRecoveryMissingSignerMultiplier)
+                if (totalSignerDifficulty < recoveryRequiredSignerDifficulty + (missingSigs * IxianHandler.getMinSignerPowDifficulty(curBlock.blockNum, curBlock.version, curBlock.timestamp)) * ConsensusConfig.blockChainRecoveryMissingSignerMultiplier)
                 {
                     return false;
                 }
@@ -2307,19 +2322,6 @@ namespace DLT
 
                                 // Adjust block generation time to get close to the block generation interval target
                                 Block tmp_prev_block = Node.blockChain.getBlock(current_block.blockNum - 1);
-                                if (tmp_prev_block != null)
-                                {
-                                    averageBlockGenerationInterval = (averageBlockGenerationInterval + (current_block.timestamp - tmp_prev_block.timestamp)) / 2;
-
-                                    if (averageBlockGenerationInterval > ConsensusConfig.blockGenerationInterval + 1)
-                                    {
-                                        blockGenerationInterval = ConsensusConfig.minBlockTimeDifference + 1;
-                                    }
-                                    else if (averageBlockGenerationInterval + 1 < ConsensusConfig.blockGenerationInterval)
-                                    {
-                                        blockGenerationInterval = ConsensusConfig.blockGenerationInterval;
-                                    }
-                                }
 
                                 if (Node.miner.searchMode == BlockSearchMode.latestBlock)
                                 {
@@ -4123,7 +4125,7 @@ namespace DLT
                 return netBh;
             }
 
-            ulong maxBlocksGenerated = (ulong)(Clock.getNetworkTimestamp() - lastBlock.timestamp) / (ulong)ConsensusConfig.minBlockTimeDifference;
+            ulong maxBlocksGenerated = (ulong)(Clock.getNetworkTimestamp() - lastBlock.timestamp) / (ulong)ConsensusConfig.blockGenerationInterval;
             ulong maxBlockHeight = lastBlock.blockNum + maxBlocksGenerated;
             if (maxBlockHeight < netBh)
             {

@@ -1168,9 +1168,9 @@ namespace DLT.Meta
             storage.insertBlock(b);
         }
 
-        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum, long curBlockTimestamp)
+        public override IxiNumber getMinSignerPowDifficulty(ulong blockNum, int curBlockVersion, long curBlockTimestamp)
         {
-            return blockChain.getMinSignerPowDifficulty(blockNum, curBlockTimestamp);
+            return blockChain.getMinSignerPowDifficulty(blockNum, curBlockVersion, curBlockTimestamp);
         }
 
         public override RegisteredNameRecord getRegName(byte[] name, bool useAbsoluteId = true)

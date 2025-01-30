@@ -214,7 +214,7 @@ namespace DLT
                 return;
             }
 
-            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1, Clock.getNetworkTimestamp());
+            solvingDifficulty = Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1, IxianHandler.getLastBlockVersion(), Clock.getNetworkTimestamp());
 
             if (solvingDifficulty < 0)
             {
@@ -375,7 +375,7 @@ namespace DLT
             {
                 if (newSolution.difficulty <= solution.difficulty
                     && solution.blockNum + ConsensusConfig.getPlPowBlocksValidity(IxianHandler.getLastBlockVersion()) - 1 > IxianHandler.getHighestKnownNetworkBlockHeight()
-                    && solution.difficulty > Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1, Clock.getNetworkTimestamp()))
+                    && solution.difficulty > Node.blockChain.getMinSignerPowDifficulty(IxianHandler.getLastBlockHeight() + 1, IxianHandler.getLastBlockVersion(),  Clock.getNetworkTimestamp()))
                 {
                     // If the new solution has a lower difficulty than the previously submitted solution and the previously submitted solution is still valid
 
